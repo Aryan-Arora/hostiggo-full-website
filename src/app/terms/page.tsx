@@ -18,53 +18,64 @@ const sections = [
     body: `Hosts are solely responsible for ensuring that all property listings are accurate, complete, and up to date, including pricing, amenities, number of rooms, guest capacity, availability, and location details. Hosts are responsible for maintaining appropriate standards of cleanliness, hygiene, and safety, and for ensuring that their properties comply with all applicable local laws, building regulations, fire safety standards, and health requirements. Hosts must obtain and maintain all necessary licenses, permits, registrations, and approvals required under state tourism laws, municipal regulations, and police verification rules. Hosts agree to honor all confirmed bookings unless canceled in accordance with the applicable cancellation policy selected on the platform. Any photographs, videos, or descriptive content uploaded by hosts must accurately represent the property, and by uploading such content, hosts grant Hostiggo the right to use it for platform operations, marketing, and promotional purposes.`,
   },
   {
+    id: "property-delisting-termination-by-hosts",
+    title: "4. Property Delisting & Termination by Hosts",
+    body: `4.1 Any request submitted by a Host to unlist, deactivate, withdraw, terminate, or otherwise remove a property from the Hostiggo platform shall be treated solely as a formal notice of intended delisting and shall not take immediate effect upon submission.
+
+4.2 A mandatory notice period of thirty (30) days shall apply from the date on which the Host submits such delisting request to Hostiggo. Throughout this notice period, the relevant property shall remain active, visible, searchable, and bookable on the Hostiggo platform, and Guests shall continue to be entitled to access the listing and make reservations in the ordinary course.
+
+4.3 The Host shall remain fully and continuously responsible for honoring and fulfilling all bookings confirmed prior to the submission of the delisting request, as well as all bookings confirmed during the thirty (30) day notice period. Any reservation confirmed before the effective date of delisting shall remain valid, binding, and enforceable, and must be fulfilled by the Host unless canceled strictly in accordance with Hostiggo's applicable cancellation policies and procedures.
+
+4.4 The property shall only be removed, unpublished, unlisted, or deactivated from the Hostiggo platform upon the expiry of the aforesaid thirty (30) day notice period, or on such later date as may be determined by Hostiggo in accordance with these Terms. Hostiggo further reserves the right, at its sole discretion, to delay, extend, suspend, or otherwise modify the delisting process where reasonably necessary for operational continuity, legal or regulatory compliance, consumer protection obligations, dispute resolution, active or anticipated bookings, or any other booking-related, administrative, or risk-management reason.`,
+  },
+  {
     id: "guest-requirements",
-    title: "4. Guest Requirements",
+    title: "5. Guest Requirements",
     body: `Guests are required to provide accurate identity and contact information during booking and verification processes. Guests must comply with all house rules established by hosts, as well as all applicable local, state, and national laws. Guests must not engage in illegal activities, cause property damage, harass or abuse hosts, service providers, or other guests, or engage in conduct that violates the rights or safety of others.`,
   },
   {
     id: "payments-refunds",
-    title: "5. Payments & Refunds",
+    title: "6. Payments & Refunds",
     body: `All payments for bookings and services must be processed exclusively through Hostiggo’s authorized payment gateway. Direct or offline payments outside the platform are strictly prohibited. Hostiggo charges a service or commission fee on confirmed bookings, which is non-refundable. Refunds, where applicable, are governed by the host’s selected cancellation policy and Hostiggo’s platform guidelines. Hostiggo does not mediate or assume responsibility for payment disputes between hosts and guests.`,
   },
   {
     id: "liability",
-    title: "6. Liability & Disclaimers",
+    title: "7. Liability & Disclaimers",
     body: `Hostiggo shall not be liable for any personal injury, theft, loss, damage, or harm occurring at any listed property or during the provision of services. Hostiggo disclaims all liability arising from disputes between users, service quality issues, third-party actions, platform interruptions, or force majeure events, including natural disasters and emergencies. To the fullest extent permitted by law, Hostiggo shall not be responsible for any direct, indirect, incidental, or consequential damages arising from the use of the platform.`,
   },
   {
     id: "prohibited-activities",
-    title: "7. Prohibited Activities",
+    title: "8. Prohibited Activities",
     body: `Users agree not to create fake accounts, misrepresent identity, engage in fraudulent transactions, manipulate payments, post false or misleading listings, harass or discriminate against other users, participate in illegal activities, bypass platform safeguards, scrape or copy platform content, or violate any intellectual property rights. Any such actions may result in immediate enforcement measures.`,
   },
   {
     id: "enforcement",
-    title: "8. Enforcement & Penalties",
+    title: "9. Enforcement & Penalties",
     body: `Hostiggo reserves the right, at its sole discretion, to investigate violations of these Terms and to take appropriate enforcement action, including account suspension, permanent termination, forfeiture of funds, and initiation of civil or criminal legal proceedings where applicable.`,
   },
   {
     id: "data-protection",
-    title: "9. Data Protection & Privacy",
+    title: "10. Data Protection & Privacy",
     body: `Hostiggo collects, processes, and protects personal data in accordance with the Digital Personal Data Protection Act, 2023, the Information Technology Act, 2000, and all other applicable Indian data protection laws. User data will not be shared with third parties without consent, except where disclosure is required by law or regulatory authorities.`,
   },
   {
     id: "intellectual-property",
-    title: "10. Intellectual Property Rights",
+    title: "11. Intellectual Property Rights",
     body: `All trademarks, logos, brand names, software, platform design, and proprietary content associated with Hostiggo are the exclusive intellectual property of Hostiggo and may not be copied, reproduced, modified, distributed, or used without prior written permission. By submitting any content to the platform, users grant Hostiggo a non-exclusive, worldwide, royalty-free license to use, display, distribute, modify, and reproduce such content for operational, promotional, and marketing purposes, and confirm that they have the legal rights to grant such license.`,
   },
   {
     id: "dispute-resolution",
-    title: "11. Dispute Resolution & Jurisdiction",
+    title: "12. Dispute Resolution & Jurisdiction",
     body: `These Terms and Conditions shall be governed by and construed in accordance with the laws of the Republic of India. All disputes arising from or relating to the use of Hostiggo shall be subject to the exclusive jurisdiction of the courts located in New Delhi, India. Users agree to first attempt resolution by contacting Hostiggo support before pursuing legal remedies.`,
   },
   {
     id: "amendments",
-    title: "12. Amendments",
+    title: "13. Amendments",
     body: `Hostiggo reserves the right to modify or update these Terms and Conditions at any time. Any changes shall become effective immediately upon publication on the platform. Continued use of Hostiggo following such updates constitutes acceptance of the revised terms.`,
   },
   {
     id: "support-contact",
-    title: "13. Support & Contact",
+    title: "14. Support & Contact",
     body: `For questions, support, or grievances related to the platform or these Terms and Conditions, users may contact Hostiggo at support@hostiggo.com. The support team is available twenty-four (24) hours a day to assist with inquiries and concerns.`,
   },
 ];
@@ -126,9 +137,16 @@ export default function TermsPage() {
                 <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3">
                   {s.title}
                 </h2>
-                <p className="text-[15px] leading-7 text-gray-700 whitespace-pre-line">
-                  {s.body}
-                </p>
+                <div className="space-y-4">
+                  {s.body.split("\n\n").map((paragraph) => (
+                    <p
+                      key={paragraph}
+                      className="text-[15px] leading-7 text-gray-700 whitespace-pre-line"
+                    >
+                      {paragraph}
+                    </p>
+                  ))}
+                </div>
               </section>
             ))}
 
