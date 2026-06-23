@@ -986,13 +986,12 @@ function ReviewsModal({
             <button
               onClick={() => setFilterOpen((o) => !o)}
               className={cn(
-                'flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[12px] font-semibold transition-all',
+                'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-all',
                 filterOpen
                   ? 'border-blue-400 bg-blue-50 text-blue-700'
-                  : 'border-gray-200 bg-gray-50 text-gray-600 hover:border-gray-300',
+                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
               )}
             >
-              <Filter className="w-3 h-3" />
               {currentLabel}
               <ChevronDown
                 className={cn(
@@ -1056,8 +1055,7 @@ function ReviewsModal({
         {/* Scrollable reviews body */}
         <div
           ref={bodyRef}
-          className="flex-1 overflow-y-auto px-5 py-4 space-y-5"
-          style={{ scrollbarWidth: 'thin' }}
+          className="reviews-scroll flex-1 overflow-y-auto px-5 py-4 space-y-5"
         >
           {filtered.length === 0 ? (
             <div className="py-10 text-center">
@@ -1078,7 +1076,7 @@ function ReviewsModal({
                 key={review.id}
                 className="pb-5 border-b border-gray-100 last:border-0 last:pb-0"
               >
-                <div className="flex items-center gap-3 mb-2">
+                <div className="flex items-start gap-3 mb-2">
                   <img
                     src={review.userAvatar}
                     alt={review.userName}
@@ -1086,25 +1084,27 @@ function ReviewsModal({
                     loading="lazy"
                   />
                   <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-bold text-gray-800 leading-none">
-                      {review.userName}
+                    <p className="text-[13px] leading-none">
+                      <span className="font-bold text-gray-800">
+                        {review.userName}
+                      </span>
+                      <span className="text-gray-400 font-medium">
+                        {' '}&middot; {review.reviewDate}
+                      </span>
                     </p>
-                    <p className="text-[11px] text-gray-400 mt-0.5">
-                      {review.reviewDate}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-0.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          'w-3 h-3',
-                          i < review.rating
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-gray-200 fill-gray-200',
-                        )}
-                      />
-                    ))}
+                    <div className="flex items-center gap-0.5 mt-1.5">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <Star
+                          key={i}
+                          className={cn(
+                            'w-3 h-3',
+                            i < review.rating
+                              ? 'text-amber-400 fill-amber-400'
+                              : 'text-gray-200 fill-gray-200',
+                          )}
+                        />
+                      ))}
+                    </div>
                   </div>
                 </div>
                 <p className="text-[13px] text-gray-600 leading-relaxed">

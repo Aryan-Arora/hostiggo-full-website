@@ -78,6 +78,22 @@
     display: none;
   }
 
+  /* Slim blue scrollbar for the reviews modal (matches Figma) */
+  .reviews-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #3b82f6 transparent;
+  }
+  .reviews-scroll::-webkit-scrollbar {
+    width: 6px;
+  }
+  .reviews-scroll::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .reviews-scroll::-webkit-scrollbar-thumb {
+    background: #3b82f6;
+    border-radius: 9999px;
+  }
+
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;
@@ -191,6 +207,11 @@ input:checked + .toggle-slider::before {
 @keyframes slideUp {
   from { opacity: 0; transform: translateY(8px); }
   to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes modalSlideUp {
+  from { opacity: 0; transform: translateY(16px) scale(0.98); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
 }
 
 .animate-fade-in-down {
