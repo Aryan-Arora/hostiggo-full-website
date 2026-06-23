@@ -7,20 +7,20 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
   {
     title: "Hosting",
     links: [
-      { label: "Become a host", href: "#" },
-      { label: "Hosting resources", href: "#" },
-      { label: "Add new services", href: "#" },
-      { label: "Community", href: "#" },
-      { label: "Earnings & payouts", href: "#" },
+      { label: "Become a host", href: "/host/list/property-type" },
+      { label: "Host dashboard", href: "/host/listings" },
+      { label: "Refer & earn", href: "/refer" },
+      { label: "Reviews", href: "/host/reviews" },
+      { label: "Earnings & payouts", href: "/host/earnings" },
     ],
   },
   {
     title: "Support",
     links: [
-      { label: "Help centre", href: "#" },
+      { label: "Help centre", href: "/support" },
       { label: "Contact support", href: "mailto:support@hostiggo.com" },
       { label: "Safety information", href: "#" },
-      { label: "Report an issue", href: "#" },
+      { label: "Report an issue", href: "/support" },
       { label: "FAQs", href: "#" },
     ],
   },

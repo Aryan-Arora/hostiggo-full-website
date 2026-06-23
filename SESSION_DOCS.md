@@ -137,6 +137,45 @@ typo in one column (`lisiting_status`).
 
 > _To be filled in once we lock scope. Each item gets: goal → files touched → how to verify._
 
+### In progress — Stitch import ("Cross-Platform Design Migration System", 25 screens)
+Raw HTML saved in `_stitch/raw/<screenId>.html` (gitignored). Stitch theme = Material
+Design 3 (navy `#003461` primary, Plus Jakarta Sans, Material Symbols). Reskin → our
+theme (Inter, lucide-react, blue-600 on `#f0f2f5`, white `rounded-2xl` + `shadow-card`).
+Styling-first; no functionality yet.
+
+Shared: `src/app/host/list/_components/WizardShell.tsx` (header + progress + Back/Next).
+
+**Host listing wizard → `/host/list/*`**
+- [x] property-type · [x] location · [x] capacity · [x] amenities · [x] photos
+- [x] details · [x] pricing · [x] house-rules · [x] verification — all built, compile clean, spot-verified
+
+Shared: `src/app/host/_components/HostDashboardShell.tsx` (sidebar + topbar + DashboardHeading).
+
+**Host dashboard → `/host/*`** — all built, compile clean
+- [x] listings · [x] listings/manage · [x] calendar · [x] bookings · [x] bookings/details
+- [x] bookings/cancel · [x] earnings · [x] reviews · [x] settings · [x] account
+
+**Guest / shared** (main Navbar + Footer) — all built, compile clean
+- [x] /account/profile · [x] /account/settings · [x] /refer · [x] /refer/dashboard · [x] /support
+
+> All 25 screens imported + reskinned. Spot-verified: property-type, location, amenities,
+> listings, earnings, refer. STILL STYLING-ONLY — no functionality wired (forms/toggles are
+> local state, images are Unsplash placeholders, maps/charts are static). Second calendar
+> design (`6c3e...`) parked; richer one is `/host/calendar`.
+> Next phase per workflow: polish pass, then wire functionality (data → API → context).
+
+### Functionality — step 1: navigation wired (done)
+Connected the new pages into the existing site (entry points; internal nav already worked):
+- `Navbar`: "List your property" (desktop ×2 + mobile) now → `/host/list/property-type`
+  (was a broken `/list-property`). Profile dropdown: Profile→`/account/profile`,
+  Account Settings→`/account/settings`, My reviews→`/host/reviews`, **Refer & earn**→`/refer`
+  (new item), Customer support→`/support`, Host & Earn→`/host/listings`. Mobile menu gained
+  Profile + Host & Earn links.
+- `Footer` Hosting: Become a host→wizard, Host dashboard→`/host/listings`, Refer & earn→`/refer`,
+  Reviews→`/host/reviews`, Earnings→`/host/earnings`. Support: Help centre / Report an issue→`/support`.
+- `CTABanner` "Get started" now navigates to the wizard (was a toast).
+- Verified live: dropdown + footer hrefs resolve; clicking CTA routes to the wizard. tsc clean.
+
 ### Done this session — Polish property reviews UI to match Figma
 The "Ratings & reviews" section + `ReviewsModal` already existed and were fully wired.
 The reason reviews don't appear in the live app is **data**: the Supabase `review`

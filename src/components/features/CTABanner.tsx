@@ -1,5 +1,5 @@
+import Link from "next/link";
 import { ArrowRight, TrendingUp } from "lucide-react";
-import { toast } from "sonner";
 
 const CHART_BARS = [35, 60, 45, 88, 62, 75, 50, 92];
 
@@ -26,13 +26,13 @@ export default function CTABanner() {
             List your homestay or property and start earning by hosting travellers from across India. Join thousands of hosts already earning on HostiGo.
           </p>
 
-          <button
-            onClick={() => toast.success("Redirecting to host registration…")}
+          <Link
+            href="/host/list/property-type"
             className="mt-6 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-900/30 group"
           >
             Get started
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
-          </button>
+          </Link>
         </div>
 
         {/* ── Right: earnings card ── */}

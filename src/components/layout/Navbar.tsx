@@ -18,6 +18,7 @@ import {
   LogOut,
   Search,
   Check,
+  Gift,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -164,26 +165,31 @@ const MENU_GROUPS: MenuItem[][] = [
       label: 'Memories',
       to: '/my-memories',
     },
-    { icon: <User className="w-4 h-4" />, label: 'Profile', to: '#' },
+    { icon: <User className="w-4 h-4" />, label: 'Profile', to: '/account/profile' },
   ],
   [
     {
       icon: <Settings className="w-4 h-4" />,
       label: 'Account Settings',
-      to: '#',
+      to: '/account/settings',
     },
-    { icon: <Star className="w-4 h-4" />, label: 'My reviews', to: '#' },
+    { icon: <Star className="w-4 h-4" />, label: 'My reviews', to: '/host/reviews' },
+    {
+      icon: <Gift className="w-4 h-4" />,
+      label: 'Refer & earn',
+      to: '/refer',
+    },
     {
       icon: <HelpCircle className="w-4 h-4" />,
       label: 'Customer support',
-      to: '#',
+      to: '/support',
     },
   ],
   [
     {
       icon: <Home className="w-4 h-4 text-amber-500" />,
       label: 'Host & Earn',
-      to: '#',
+      to: '/host/listings',
     },
   ],
 ];
@@ -245,7 +251,7 @@ export default function Navbar() {
               <>
                 <button
                   className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
-                  onClick={() => router.push('/list-property')}
+                  onClick={() => router.push('/host/list/property-type')}
                 >
                   List your property
                 </button>
@@ -329,7 +335,7 @@ export default function Navbar() {
                   New user
                 </button>
                 <button
-                  onClick={() => router.push('/list-property')}
+                  onClick={() => router.push('/host/list/property-type')}
                   className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
                 >
                   List your property
@@ -370,11 +376,18 @@ export default function Navbar() {
                   <Heart className="w-4 h-4 text-gray-500" /> Wishlists
                 </Link>
                 <Link
-                  href="#"
+                  href="/account/profile"
                   onClick={() => setMobileOpen(false)}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
                 >
                   <User className="w-4 h-4 text-gray-500" /> Profile
+                </Link>
+                <Link
+                  href="/host/listings"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <Home className="w-4 h-4 text-amber-500" /> Host &amp; Earn
                 </Link>
                 <div className="px-4 pt-2">
                   <button
@@ -409,7 +422,13 @@ export default function Navbar() {
                   >
                     New user
                   </button>
-                  <button className="flex-1 border border-blue-600 text-blue-600 py-2 rounded-xl text-sm font-semibold">
+                  <button
+                    onClick={() => {
+                      setMobileOpen(false);
+                      router.push('/host/list/property-type');
+                    }}
+                    className="flex-1 border border-blue-600 text-blue-600 py-2 rounded-xl text-sm font-semibold"
+                  >
                     List property
                   </button>
                 </div>

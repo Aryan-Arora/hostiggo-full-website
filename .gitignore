@@ -25,3 +25,6 @@ dist-ssr
 
 # Nested clone of the full-website push target (do not commit)
 hostiggo-full-website/
+
+# Stitch import working files
+_stitch/

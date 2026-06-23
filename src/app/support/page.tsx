@@ -1,0 +1,147 @@
+'use client';
+
+import { useState } from 'react';
+import { AlertTriangle, Lightbulb, Smile, UserPlus, X, Lock, ChevronDown, type LucideIcon } from 'lucide-react';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import { cn } from '@/lib/utils';
+
+const ACTIONS: { id: string; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
+  { id: 'issue', title: 'Report an issue', desc: 'Experiencing technical difficulties? Let us know so we can fix it immediately.', icon: AlertTriangle, tint: 'bg-red-50 text-red-500' },
+  { id: 'suggest', title: 'Suggest improvement', desc: 'Have an idea to make Hostiggo better? We love hearing your creative thoughts.', icon: Lightbulb, tint: 'bg-sky-50 text-sky-600' },
+  { id: 'experience', title: 'Share experience', desc: 'Tell us about your hosting journey. Your stories help us grow together.', icon: Smile, tint: 'bg-gray-100 text-blue-600' },
+  { id: 'referral', title: 'Referral', desc: 'Know another great host? Refer them and earn rewards on our platform.', icon: UserPlus, tint: 'bg-blue-50 text-blue-600' },
+];
+
+const FAQ = [
+  { q: 'How quickly do you respond to reports?', a: 'Our support team prioritizes critical technical issues with a response time of under 4 hours. General suggestions are reviewed weekly by our product team.' },
+  { q: 'Can I track the status of my suggestion?', a: "Yes! If you select 'Suggest improvement', you'll receive email updates if your idea enters our development roadmap." },
+];
+
+export default function SupportPage() {
+  const [active, setActive] = useState<string | null>(null);
+  const [text, setText] = useState('');
+  const [open, setOpen] = useState<number | null>(0);
+
+  return (
+    <div className="min-h-screen bg-[#f0f2f5]">
+      <Navbar />
+      <main className="container-main py-12">
+        <section className="mb-10">
+          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+            Feedback &amp; Support
+          </h1>
+          <p className="text-lg text-gray-500">
+            We&apos;re here to ensure your experience is seamless. How can we help you today?
+          </p>
+        </section>
+
+        <section className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-6 mb-12">
+          {ACTIONS.map((a) => {
+            const Icon = a.icon;
+            return (
+              <button
+                key={a.id}
+                onClick={() => setActive(a.id)}
+                className={cn(
+                  'text-left p-6 rounded-2xl bg-white border shadow-card hover:shadow-card-hover transition-all flex flex-col items-start gap-4 h-full',
+                  active === a.id ? 'border-blue-600 ring-1 ring-blue-600' : 'border-gray-200',
+                )}
+              >
+                <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', a.tint)}>
+                  <Icon className="w-6 h-6" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-gray-800 mb-2">{a.title}</h3>
+                  <p className="text-sm text-gray-500">{a.desc}</p>
+                </div>
+              </button>
+            );
+          })}
+        </section>
+
+        {active && (
+          <div className="max-w-3xl mx-auto mb-16">
+            <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-200">
+              <div className="flex justify-between items-center mb-6">
+                <h2 className="text-xl font-bold text-blue-600">
+                  {ACTIONS.find((a) => a.id === active)?.title}
+                </h2>
+                <button
+                  onClick={() => setActive(null)}
+                  className="p-2 rounded-full hover:bg-gray-100 transition-colors text-gray-500"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+              <div className="space-y-6">
+                <div className="space-y-2">
+                  <label className="block text-sm font-bold text-gray-800">
+                    Describe your suggestion / issue
+                  </label>
+                  <div className="relative">
+                    <textarea
+                      rows={6}
+                      maxLength={1000}
+                      value={text}
+                      onChange={(e) => setText(e.target.value)}
+                      placeholder="Tell us more details here..."
+                      className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                    />
+                    <div className="absolute bottom-3 right-4 text-xs text-gray-400 font-medium">
+                      {text.length}/1000
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col sm:flex-row gap-4 items-center justify-between">
+                  <div className="flex items-center gap-2 text-xs text-gray-500">
+                    <Lock className="w-4 h-4" />
+                    Your feedback is encrypted and secure
+                  </div>
+                  <button className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-md hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                    Submit Feedback
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
+          <div className="lg:col-span-5 relative h-80 rounded-3xl overflow-hidden shadow-card">
+            <img
+              src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&h=500&fit=crop&q=80"
+              alt="Support"
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
+              <p className="text-white text-xl font-bold">Always by your side.</p>
+            </div>
+          </div>
+          <div className="lg:col-span-7 space-y-6 lg:pl-8">
+            <h2 className="text-2xl font-bold text-gray-900">Common Questions</h2>
+            <div className="space-y-2">
+              {FAQ.map((f, i) => (
+                <div key={i} className="border-b border-gray-200 pb-4">
+                  <button
+                    onClick={() => setOpen(open === i ? null : i)}
+                    className="flex justify-between items-center w-full text-left text-base font-bold text-gray-800"
+                  >
+                    {f.q}
+                    <ChevronDown
+                      className={cn('w-5 h-5 transition-transform', open === i && 'rotate-180 text-blue-600')}
+                    />
+                  </button>
+                  {open === i && (
+                    <p className="mt-3 text-gray-500 text-sm leading-relaxed">{f.a}</p>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+      </main>
+      <Footer />
+    </div>
+  );
+}
