@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
 import {
   CalendarCheck,
   Building2,
@@ -21,7 +20,7 @@ import {
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-import { AUTH_USER_ID_KEY, AUTH_PHONE_KEY } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
 
 type NavKey =
   | 'bookings'
@@ -114,16 +113,10 @@ export default function HostDashboardShell({
   active: NavKey;
   children: React.ReactNode;
 }) {
-  const router = useRouter();
   const [drawerOpen, setDrawerOpen] = useState(false);
-
-  const handleLogout = () => {
-    if (typeof window !== 'undefined') {
-      window.localStorage.removeItem(AUTH_USER_ID_KEY);
-      window.localStorage.removeItem(AUTH_PHONE_KEY);
-    }
-    router.push('/signin');
-  };
+  const { user, signOut } = useAuth();
+  const handleLogout = () => signOut();
+  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/100?img=12';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-gray-800 lg:pl-64">
@@ -197,8 +190,8 @@ export default function HostDashboardShell({
             className="w-8 h-8 rounded-full overflow-hidden ml-1 border border-gray-200"
           >
             <img
-              src="https://i.pravatar.cc/100?img=12"
-              alt="Host profile"
+              src={avatar}
+              alt={user?.name || 'Host profile'}
               className="w-full h-full object-cover"
             />
           </Link>

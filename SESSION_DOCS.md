@@ -186,6 +186,26 @@ controls; A6 dates/guests/amenities not yet sent to `/api/search` (only sort wir
 A5 wishlist/my-memories signed-out prompts; A10 remaining placeholder labeling (refer code,
 "4/10 photos"). These fold into the functionality phase.
 
+### B-phase — B5: auth foundation (branch `functionality-phase`)
+Real sign-in is Supabase **phone OTP (SMS)** and anonymous sign-in is disabled, so there's no
+way to complete sign-in in local dev. Built the auth foundation so everything else (B1–B4) can
+attach to a real user:
+- `src/context/AuthContext.tsx` — `AuthProvider` + `useAuth()`; resolves the current user from
+  the stored id via `/api/users?userId=` (anon read works). Exposes `user, userId, loading,
+  isAuthenticated, signIn(id), signOut(), refresh()`. Mounted in `app/layout.tsx`.
+- `src/lib/api.ts` — added `api.getUser(id)`, `setStoredUserId`, `clearStoredAuth`, `CurrentUser`.
+- `Navbar` now consumes `useAuth()` (real name/avatar; signed-out CTAs otherwise) — replaces the
+  A1 local effect. `OTPPageContent` calls `signIn()` on verify so production sign-in flows in.
+- `src/app/host/layout.tsx` — gates ALL `/host/*` (dashboard + wizard): loader while resolving,
+  friendly "Sign in to manage your hosting" screen when signed out, children when authed.
+  Includes a **dev-only** "Continue as demo host" button (NODE_ENV check) using a real DB user
+  (`a1e587bc-…`, Rijusmit) so the host area stays reviewable without SMS.
+- `HostDashboardShell` uses the real user (avatar/name) + context `signOut`.
+- Verified: signed-out gate + nav; demo login → dashboard renders + nav flips signed-in; tsc clean.
+
+> Next B steps depend on this: B2 (wizard → create listing under the user), B3 (dashboards real
+> data for the user), B1 (booking attached to user), B4 (forms persist).
+
 ### Functionality — step 1: navigation wired (done)
 Connected the new pages into the existing site (entry points; internal nav already worked):
 - `Navbar`: "List your property" (desktop ×2 + mobile) now → `/host/list/property-type`

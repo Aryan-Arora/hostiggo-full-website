@@ -1,5 +1,6 @@
 import type { Metadata } from 'next';
 import './globals.css';
+import { AuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
 
@@ -16,10 +17,12 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body>
-        <ListingFilterProvider>
-          <Toaster position="top-center" richColors closeButton />
-          {children}
-        </ListingFilterProvider>
+        <AuthProvider>
+          <ListingFilterProvider>
+            <Toaster position="top-center" richColors closeButton />
+            {children}
+          </ListingFilterProvider>
+        </AuthProvider>
       </body>
     </html>
   );

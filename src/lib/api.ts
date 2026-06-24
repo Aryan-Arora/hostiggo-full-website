@@ -197,6 +197,25 @@ export function mapBooking(item: any) {
 export const getStoredUserId = () =>
   typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_USER_ID_KEY);
 
+export const setStoredUserId = (userId: string) => {
+  if (typeof window !== "undefined") window.localStorage.setItem(AUTH_USER_ID_KEY, userId);
+};
+
+export const clearStoredAuth = () => {
+  if (typeof window === "undefined") return;
+  window.localStorage.removeItem(AUTH_USER_ID_KEY);
+  window.localStorage.removeItem(AUTH_PHONE_KEY);
+};
+
+export type CurrentUser = {
+  user_id: string;
+  name: string | null;
+  email: string | null;
+  phone: string | null;
+  profile_pic_url: string | null;
+  is_verified: boolean | null;
+};
+
 export const normalizePhone = (phone: string) => {
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 10) return `+91${digits}`;
@@ -208,6 +227,8 @@ const isUuid = (value?: string) =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 
 export const api = {
+  getUser: (userId: string) =>
+    request<CurrentUser | null>(`/api/users?userId=${encodeURIComponent(userId)}`),
   hotels: () => request<any[]>("/api/hotels"),
   hotelsByLocation: (locationId: string | number, limit = 4) =>
     request<any[]>(`/api/hotels?locationId=${locationId}&limit=${limit}`),

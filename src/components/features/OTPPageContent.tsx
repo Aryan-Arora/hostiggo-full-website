@@ -12,6 +12,7 @@ import {
   normalizePhone,
 } from '@/lib/api';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 
 const OTP_LENGTH = 6;
 const RESEND_DELAY = 20;
@@ -19,6 +20,7 @@ const RESEND_DELAY = 20;
 export default function OTPPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
+  const { signIn } = useAuth();
 
   const mode = (searchParams?.get('mode') as 'phone' | 'email') ?? 'phone';
   const value = searchParams?.get('value') ?? '83183 XXXXX';
@@ -111,7 +113,9 @@ export default function OTPPageContent() {
         code,
       );
       const userId = data?.user?.id || data?.session?.user?.id;
-      if (userId) window.localStorage.setItem(AUTH_USER_ID_KEY, userId);
+      if (userId) {
+        await signIn(userId);
+      }
       router.push('/');
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Invalid OTP');
