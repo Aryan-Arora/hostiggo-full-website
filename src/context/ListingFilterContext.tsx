@@ -92,6 +92,53 @@ const DEFAULT_GUESTS: GuestCount = {
   pets: false,
 };
 
+// yyyy-mm-dd in local time (avoids the UTC shift of toISOString).
+const toISODate = (d: Date | null): string | null => {
+  if (!d) return null;
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
+};
+
+// The Facilities checkboxes hold display labels (e.g. "Parking", "Pool") while
+// the search RPC wants amenity ids. Each label is scored against the DB
+// catalogue and the best match wins. Scoring prefers an exact name, then a
+// head-noun match (the catalogue name's last word equals the label, so "Pool"
+// → "Swimming Pool" rather than "Pool Table"), then a loose substring match.
+// Unmatched labels (e.g. "Mountain view", which has no row) are dropped.
+const scoreAmenity = (needle: string, name: string): number => {
+  if (name === needle) return 100;
+  const lastWord = name.split(/\s+/).pop() ?? '';
+  if (lastWord === needle) return 50;
+  if (name.includes(needle)) return 10;
+  if (needle.includes(name)) return 5;
+  return 0;
+};
+
+const resolveAmenityIds = (
+  labels: string[],
+  catalogue: { amenity_id: number; name: string }[],
+): number[] => {
+  if (!labels.length || !catalogue.length) return [];
+  const ids: number[] = [];
+  for (const label of labels) {
+    const needle = label.trim().toLowerCase();
+    let best: { id: number; score: number; len: number } | null = null;
+    for (const a of catalogue) {
+      const name = a.name.toLowerCase();
+      const score = scoreAmenity(needle, name);
+      if (score === 0) continue;
+      // Higher score wins; on a tie prefer the shorter (closer) name.
+      if (!best || score > best.score || (score === best.score && name.length < best.len)) {
+        best = { id: a.amenity_id, score, len: name.length };
+      }
+    }
+    if (best && !ids.includes(best.id)) ids.push(best.id);
+  }
+  return ids;
+};
+
 export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
@@ -107,8 +154,25 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [page, setPage] = useState(0);
   const [hasMore, setHasMore] = useState(true);
   const [totalCount, setTotalCount] = useState(0);
+  const [amenityCatalogue, setAmenityCatalogue] = useState<
+    { amenity_id: number; name: string }[]
+  >([]);
 
   const mountedRef = useRef(true);
+
+  // Load the amenity catalogue once so Facilities labels can be mapped to ids.
+  useEffect(() => {
+    let active = true;
+    api
+      .amenities()
+      .then((rows) => {
+        if (active) setAmenityCatalogue(rows ?? []);
+      })
+      .catch((err) => console.error('[Context] amenities load failed:', err));
+    return () => {
+      active = false;
+    };
+  }, []);
 
   const fetchResults = useCallback(
     async (pageNum: number = 0, isRefresh: boolean = false) => {
@@ -132,6 +196,12 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
           location.query,
           pageNum,
           DEFAULT_PAGE_SIZE,
+          {
+            startDate: toISODate(dates.checkIn),
+            endDate: toISODate(dates.checkOut),
+            totalGuests: guests.adults + guests.children,
+            amenities: resolveAmenityIds(filters.amenities, amenityCatalogue),
+          },
         );
         console.log('[Context] api.search returned rows:', rows?.length);
 
@@ -162,7 +232,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
         if (mountedRef.current) setLoading(false);
       }
     },
-    [filters, location.query],
+    [filters, location.query, dates, guests, amenityCatalogue],
   );
 
   const refresh = useCallback(async () => {
@@ -247,14 +317,22 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const initializedRef = useRef(false);
   const prevLocationRef = useRef(location.query);
   const prevFiltersRef = useRef(JSON.stringify(filters));
+  const prevDatesRef = useRef(JSON.stringify(dates));
+  const prevGuestsRef = useRef(JSON.stringify(guests));
 
-  // Trigger initial fetch and fetch on filter/location change
+  // Trigger initial fetch and fetch on filter/location/date/guest change
   useEffect(() => {
+    const datesKey = JSON.stringify(dates);
+    const guestsKey = JSON.stringify(guests);
     const locationChanged = prevLocationRef.current !== location.query;
     const filtersChanged = prevFiltersRef.current !== JSON.stringify(filters);
+    const datesChanged = prevDatesRef.current !== datesKey;
+    const guestsChanged = prevGuestsRef.current !== guestsKey;
 
     prevLocationRef.current = location.query;
     prevFiltersRef.current = JSON.stringify(filters);
+    prevDatesRef.current = datesKey;
+    prevGuestsRef.current = guestsKey;
 
     // Skip initial empty render
     if (!initializedRef.current && !location.query) {
@@ -272,11 +350,11 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
       setHasMore(true);
     }
 
-    // Fetch results (always from page 0 for new location/filters)
-    if (locationChanged || filtersChanged) {
+    // Fetch results (always from page 0 for new location/filters/dates/guests)
+    if (locationChanged || filtersChanged || datesChanged || guestsChanged) {
       fetchResults(0, true);
     }
-  }, [location.query, filters]); // Remove fetchResults from dependencies
+  }, [location.query, filters, dates, guests]); // fetchResults intentionally omitted
 
   useEffect(() => {
     mountedRef.current = true;

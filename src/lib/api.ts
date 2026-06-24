@@ -238,19 +238,31 @@ export const api = {
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
-  search: async (filters: SearchFilters, destination: string, page = 0, pageSize = 20) => {
+  amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),
+  search: async (
+    filters: SearchFilters,
+    destination: string,
+    page = 0,
+    pageSize = 20,
+    extra?: {
+      startDate?: string | null;
+      endDate?: string | null;
+      totalGuests?: number;
+      amenities?: number[];
+    },
+  ) => {
     const payload = {
       page,
       pageSize,
       filters: {
-        startDate: null,
-        endDate: null,
+        startDate: extra?.startDate ?? null,
+        endDate: extra?.endDate ?? null,
         district: destination?.trim() || undefined,
         minPrice: filters.priceMin > 0 ? filters.priceMin : undefined,
         maxPrice: filters.priceMax < 100000 ? filters.priceMax : undefined,
-        totalGuests: undefined,
+        totalGuests: extra?.totalGuests,
         ratings: filters.guestRating != null ? [filters.guestRating] : [],
-        amenities: [] as number[],
+        amenities: extra?.amenities ?? ([] as number[]),
         roomTypes: filters.propertyTypes,
       },
     };
