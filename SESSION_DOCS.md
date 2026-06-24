@@ -206,6 +206,21 @@ attach to a real user:
 > Next B steps depend on this: B2 (wizard → create listing under the user), B3 (dashboards real
 > data for the user), B1 (booking attached to user), B4 (forms persist).
 
+### B-phase — B3: dashboards on real data (in progress)
+NOTE: anon key can READ but **cannot write** (`42501 permission denied for sequence
+listings_listing_id_seq`) → B2 (create listing) needs a server-side service-role key, deferred.
+Demo host = `7701820c` (Sanjay): owns 148 listings + 55 bookings, so dashboards have real data.
+- **My Listings** (`/host/listings`): live via `getListingsByHost(userId)` (resolves host_uuid
+  through the `host` table) → `/api/host/listings`. Loading skeletons, empty + error/retry;
+  broken cover images fall back. Shows real title / ₹ price / location / Live-Paused status.
+- **Bookings** (`/host/bookings`): live via existing `bookingsAPI.fetchBookings` →
+  `/api/bookings?role=host` → `api.hostBookings()`. Bucketed Today/Upcoming/Past by date with
+  real counts; shows property, date range, guests, ₹ amount. Loading/empty/error states.
+- Still mock (this branch): Earnings, Reviews, Calendar, Booking details/cancel (need
+  aggregation / guest-user joins). B1/B2/B4 still pending.
+- Verified live with the demo host: 60 listings render, 55 bookings (Today 4 / Upcoming 1 /
+  Past 50). tsc clean, no console errors.
+
 ### Functionality — step 1: navigation wired (done)
 Connected the new pages into the existing site (entry points; internal nav already worked):
 - `Navbar`: "List your property" (desktop ×2 + mobile) now → `/host/list/property-type`

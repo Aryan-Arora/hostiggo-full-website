@@ -234,6 +234,8 @@ export const api = {
     request<any[]>(`/api/hotels?locationId=${locationId}&limit=${limit}`),
   hostListings: (userId: string) =>
     request<any[]>(`/api/host/listings?userId=${encodeURIComponent(userId)}`),
+  hostBookings: (userId: string) =>
+    request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   search: async (filters: SearchFilters, destination: string, page = 0, pageSize = 20) => {
