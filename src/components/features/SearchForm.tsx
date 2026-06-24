@@ -76,15 +76,25 @@ export function CompactSearchBar() {
             {location.query || 'New Delhi'}
           </span>
           {location.query && (
-            <button
+            <span
+              role="button"
+              tabIndex={0}
+              aria-label="Clear destination"
               className="ml-auto p-1 hover:bg-gray-100 rounded-full"
               onClick={(e) => {
                 e.stopPropagation();
                 setLocation({ query: '' });
               }}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  setLocation({ query: '' });
+                }
+              }}
             >
               <X className="w-3.5 h-3.5 text-gray-400" />
-            </button>
+            </span>
           )}
         </button>
         {activePanel === 'destination' && (
