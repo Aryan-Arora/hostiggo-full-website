@@ -7,7 +7,6 @@ import {
   IndianRupee,
   Menu,
   X,
-  MessageCircle,
   Heart,
   Clock,
   User,
@@ -154,7 +153,6 @@ interface MenuItem {
 
 const MENU_GROUPS: MenuItem[][] = [
   [
-    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '#' },
     {
       icon: <Heart className="w-4 h-4" />,
       label: 'Wishlists',

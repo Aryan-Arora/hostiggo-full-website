@@ -89,9 +89,9 @@ export default function VerificationPage() {
                 </button>
                 <p className="text-xs text-gray-500">
                   Don&apos;t have the app?{' '}
-                  <a className="text-blue-600 font-bold underline" href="#">
-                    Download now
-                  </a>
+                  <span className="text-gray-400 font-bold" title="Coming soon">
+                    Download now (coming soon)
+                  </span>
                 </p>
               </div>
             </div>

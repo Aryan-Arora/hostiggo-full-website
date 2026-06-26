@@ -119,10 +119,15 @@ export default function SignInPage() {
         {/* Send OTP button */}
         <button
           onClick={handleSendOTP}
-          disabled={sending}
-          className="w-full py-3.5 bg-[#1B3FA0] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5"
+          disabled={sending || mode === 'email'}
+          title={mode === 'email' ? 'Email sign-in is coming soon' : undefined}
+          className="w-full py-3.5 bg-[#1B3FA0] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#1B3FA0] disabled:active:scale-100"
         >
-          {sending ? 'Sending...' : 'Send OTP'}
+          {sending
+            ? 'Sending...'
+            : mode === 'email'
+              ? 'Email sign-in coming soon'
+              : 'Send OTP'}
         </button>
 
         {/* Divider */}
@@ -137,11 +142,19 @@ export default function SignInPage() {
           {mode === 'phone' ? (
             <>
               {/* Google */}
-              <button className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm">
+              <button
+                disabled
+                title="Coming soon"
+                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center shadow-sm opacity-50 cursor-not-allowed"
+              >
                 <GoogleIcon />
               </button>
               {/* Apple */}
-              <button className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm">
+              <button
+                disabled
+                title="Coming soon"
+                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center shadow-sm opacity-50 cursor-not-allowed"
+              >
                 <AppleIcon />
               </button>
             </>
@@ -155,7 +168,11 @@ export default function SignInPage() {
                 <Phone className="w-5 h-5 text-blue-600" />
               </button>
               {/* Apple */}
-              <button className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm">
+              <button
+                disabled
+                title="Coming soon"
+                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center shadow-sm opacity-50 cursor-not-allowed"
+              >
                 <AppleIcon />
               </button>
             </>

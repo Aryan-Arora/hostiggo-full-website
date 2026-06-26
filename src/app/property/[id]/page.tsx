@@ -152,6 +152,7 @@ function GalleryModal({
             <button
               key={i}
               onClick={() => setIdx(i)}
+              aria-label={`View photo ${i + 1}`}
               className={cn(
                 'w-14 h-10 rounded-md overflow-hidden flex-shrink-0 border-2 transition-all',
                 i === idx
@@ -161,7 +162,7 @@ function GalleryModal({
             >
               <img
                 src={img}
-                alt=""
+                alt={`Photo ${i + 1}`}
                 className="w-full h-full object-cover"
                 loading="lazy"
               />
