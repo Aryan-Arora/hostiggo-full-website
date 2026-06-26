@@ -713,7 +713,8 @@ function BookingWidget({
   const [guests, setGuests] = useState(1);
   const [dateError, setDateError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const [booking, setBooking] = useState(false);
+  const { isAuthenticated, userId } = useAuth();
   const router = useRouter();
 
   const today = new Date().toISOString().split('T')[0];
@@ -742,11 +743,11 @@ function BookingWidget({
   const taxes = Math.round(subtotal * 0.12);
   const total = subtotal + serviceFee + taxes;
 
-  const validateAndBook = () => {
+  const validateAndBook = async () => {
     setDateError('');
     // Booking requires an account — guests can browse freely, but must sign in
     // to reserve. Send them to sign-in and bring them back to this property.
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !userId) {
       toast('Please sign in to book this stay.');
       router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
       return;
@@ -763,8 +764,27 @@ function BookingWidget({
       setDateError('Minimum 1 night stay required.');
       return;
     }
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+
+    setBooking(true);
+    try {
+      await api.createBooking({
+        listingId: property.id,
+        userId,
+        startDate: checkIn,
+        endDate: checkOut,
+        numAdults: guests,
+        numChildren: 0,
+        amount: total,
+      });
+      setShowSuccess(true);
+      toast.success('Reservation requested! The host will confirm shortly.');
+      setTimeout(() => setShowSuccess(false), 4000);
+    } catch (err) {
+      console.error('[property] booking failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');
+    } finally {
+      setBooking(false);
+    }
   };
 
   return (
@@ -899,17 +919,20 @@ function BookingWidget({
 
       {showSuccess ? (
         <div className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2">
-          <CheckCircle className="w-5 h-5" /> Booking confirmed!
+          <CheckCircle className="w-5 h-5" /> Reservation requested!
         </div>
       ) : (
         <button
           onClick={validateAndBook}
-          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2"
+          disabled={booking}
+          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
-          {nights > 0
-            ? `Book for ${nights} Night${nights > 1 ? 's' : ''}`
-            : 'Check Availability'}
+          {booking
+            ? 'Reserving…'
+            : nights > 0
+              ? `Book for ${nights} Night${nights > 1 ? 's' : ''}`
+              : 'Check Availability'}
         </button>
       )}
 
