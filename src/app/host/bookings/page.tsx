@@ -202,7 +202,7 @@ export default function BookingsPage() {
                 </div>
               </div>
               <Link
-                href="/host/bookings/details"
+                href={`/host/bookings/details?id=${b.id}`}
                 className="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm text-center transition-all hover:bg-blue-700 active:scale-[0.98]"
               >
                 View Details

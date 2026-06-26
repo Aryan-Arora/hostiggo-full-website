@@ -81,6 +81,49 @@ export const bookingsAPI = {
     return data;
   },
 
+  // Single booking for the host detail view. There is no FK from bookings to
+  // users in the schema cache, so the guest profile is fetched separately.
+  async getBookingDetail(bookingId: string | number) {
+    const { data: booking, error } = await supabase
+      .from("bookings")
+      .select(
+        `
+        *,
+        property:listings (
+          listing_id,
+          title,
+          price_weekday,
+          currency,
+          num_bedrooms,
+          num_beds,
+          num_bathrooms,
+          num_guests,
+          check_in_time,
+          check_out_time,
+          locations (state, district),
+          listing_media (media_url, is_cover)
+        )
+      `,
+      )
+      .eq("booking_id", Number(bookingId))
+      .maybeSingle();
+
+    if (error) throw error;
+    if (!booking) return null;
+
+    let guest = null;
+    if (booking.user_id) {
+      const { data: guestRow } = await supabase
+        .from("users")
+        .select("name, phone, profile_pic_url, is_verified, created_at")
+        .eq("user_id", booking.user_id)
+        .maybeSingle();
+      guest = guestRow ?? null;
+    }
+
+    return { ...booking, guest };
+  },
+
   async updateBookingStatus(
     bookingId: string | number,
     status: string,
