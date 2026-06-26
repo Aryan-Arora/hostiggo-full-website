@@ -236,6 +236,10 @@ export const api = {
     request<any[]>(`/api/host/listings?userId=${encodeURIComponent(userId)}`),
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
+  hostCalendar: (listingId: string | number, start: string, end: string) =>
+    request<{ entries: any[]; bookings: any[] }>(
+      `/api/host/calendar?listingId=${encodeURIComponent(String(listingId))}&start=${start}&end=${end}`,
+    ),
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   search: async (filters: SearchFilters, destination: string, page = 0, pageSize = 20) => {

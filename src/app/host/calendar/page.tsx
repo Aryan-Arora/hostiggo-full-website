@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import {
   Download,
   LayoutGrid,
@@ -8,22 +8,159 @@ import {
   ChevronLeft,
   ChevronRight,
   CalendarDays,
-  Lightbulb,
+  Info,
+  RotateCcw,
   CheckCircle2,
   Ban,
-  Info,
+  BedDouble,
 } from 'lucide-react';
 import HostDashboardShell from '../_components/HostDashboardShell';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const DOW = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-// October 2024 starts on a Tuesday → 2 leading blanks.
-const LEADING = 2;
-const priceFor = (d: number) => ([4, 5, 11, 12, 18, 19, 25, 26].includes(d) ? 165 : 140);
+const MONTHS = [
+  'January', 'February', 'March', 'April', 'May', 'June',
+  'July', 'August', 'September', 'October', 'November', 'December',
+];
+
+type DayStatus = 'available' | 'blocked' | 'booked' | 'none';
+
+type DayInfo = {
+  day: number;
+  dateStr: string;
+  price: number | null;
+  currency: string;
+  status: DayStatus;
+  guest?: string;
+};
+
+const pad = (n: number) => String(n).padStart(2, '0');
+const toDateStr = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
+const inr = (n: number, currency: string) =>
+  currency === 'INR' || !currency ? `₹${Math.round(n).toLocaleString('en-IN')}` : `${currency} ${n}`;
+
+const STATUS_META: Record<DayStatus, { label: string; dot: string; cell: string; text: string }> = {
+  available: { label: 'Available', dot: 'bg-green-500', cell: 'hover:bg-gray-50', text: 'text-green-600' },
+  blocked: { label: 'Blocked', dot: 'bg-gray-400', cell: 'bg-gray-50', text: 'text-gray-400' },
+  booked: { label: 'Booked', dot: 'bg-blue-500', cell: 'bg-blue-50', text: 'text-blue-600' },
+  none: { label: 'No rate set', dot: 'bg-gray-200', cell: 'hover:bg-gray-50', text: 'text-gray-300' },
+};
 
 export default function CalendarPage() {
-  const [open, setOpen] = useState(true);
-  const selected = [7, 8];
+  const { userId } = useAuth();
+  const [listings, setListings] = useState<{ id: string; title: string }[]>([]);
+  const [listingId, setListingId] = useState<string>('');
+  const [monthDate, setMonthDate] = useState(() => {
+    const n = new Date();
+    return new Date(n.getFullYear(), n.getMonth(), 1);
+  });
+  const [entries, setEntries] = useState<any[]>([]);
+  const [bookings, setBookings] = useState<any[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+
+  // Load the host's listings for the picker.
+  useEffect(() => {
+    if (!userId) return;
+    let active = true;
+    setLoadingListings(true);
+    api
+      .hostListings(userId)
+      .then((rows) => {
+        if (!active) return;
+        const mapped = rows.map((r: any) => ({
+          id: String(r.listing_id),
+          title: r.title?.trim() || `Listing ${r.listing_id}`,
+        }));
+        setListings(mapped);
+        if (mapped.length) setListingId((cur) => cur || mapped[0].id);
+      })
+      .catch((err) => console.error('[host/calendar] listings load failed:', err))
+      .finally(() => active && setLoadingListings(false));
+    return () => {
+      active = false;
+    };
+  }, [userId]);
+
+  const loadCalendar = useCallback(async () => {
+    if (!listingId) return;
+    const start = toDateStr(year, month, 1);
+    const end = toDateStr(year, month, new Date(year, month + 1, 0).getDate());
+    setLoading(true);
+    setError(false);
+    setSelectedDay(null);
+    try {
+      const data = await api.hostCalendar(listingId, start, end);
+      setEntries(data.entries ?? []);
+      setBookings(data.bookings ?? []);
+    } catch (err) {
+      console.error('[host/calendar] calendar load failed:', err);
+      setError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, [listingId, year, month]);
+
+  useEffect(() => {
+    loadCalendar();
+  }, [loadCalendar]);
+
+  // Build a date -> DayInfo map for the visible month.
+  const days = useMemo<DayInfo[]>(() => {
+    const entryMap = new Map<string, any>();
+    for (const e of entries) entryMap.set(e.date, e);
+
+    const isBooked = (dateStr: string): { booked: boolean; guest?: string } => {
+      for (const b of bookings) {
+        // Booked for [start_date, end_date) — checkout day is free.
+        if (b.start_date && b.end_date && dateStr >= b.start_date && dateStr < b.end_date) {
+          return { booked: true, guest: b.guest?.name };
+        }
+      }
+      return { booked: false };
+    };
+
+    const count = new Date(year, month + 1, 0).getDate();
+    const out: DayInfo[] = [];
+    for (let d = 1; d <= count; d++) {
+      const dateStr = toDateStr(year, month, d);
+      const entry = entryMap.get(dateStr);
+      const booking = isBooked(dateStr);
+      let status: DayStatus = 'none';
+      if (booking.booked) status = 'booked';
+      else if (entry) status = entry.is_available ? 'available' : 'blocked';
+      out.push({
+        day: d,
+        dateStr,
+        price: entry ? Number(entry.price) : null,
+        currency: entry?.currency ?? 'INR',
+        status,
+        guest: booking.guest,
+      });
+    }
+    return out;
+  }, [entries, bookings, year, month]);
+
+  const leading = new Date(year, month, 1).getDay();
+  const selected = selectedDay ? days.find((d) => d.dateStr === selectedDay) : null;
+
+  const changeMonth = (delta: number) => {
+    setMonthDate((cur) => new Date(cur.getFullYear(), cur.getMonth() + delta, 1));
+  };
+
+  const fmtLong = (dateStr: string) => {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return `${MONTHS[m - 1].slice(0, 3)} ${d}, ${y}`;
+  };
+
+  const disabledBtn = 'opacity-50 cursor-not-allowed';
 
   return (
     <HostDashboardShell active="calendar">
@@ -32,34 +169,71 @@ export default function CalendarPage() {
         <div className="flex-1 space-y-6">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
             <div>
-              <h2 className="text-2xl font-bold text-gray-900">October 2024</h2>
-              <p className="text-sm text-gray-500">
-                Update your availability and nightly rates.
-              </p>
+              <h2 className="text-2xl font-bold text-gray-900">
+                {MONTHS[month]} {year}
+              </h2>
+              <p className="text-sm text-gray-500">Availability and nightly rates.</p>
             </div>
             <div className="flex items-center gap-3">
-              <button className="flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium rounded-lg transition-all">
+              {/* Listing picker */}
+              <select
+                value={listingId}
+                onChange={(e) => setListingId(e.target.value)}
+                disabled={loadingListings || !listings.length}
+                className="max-w-[220px] px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                aria-label="Select listing"
+              >
+                {loadingListings ? (
+                  <option>Loading…</option>
+                ) : listings.length === 0 ? (
+                  <option>No listings</option>
+                ) : (
+                  listings.map((l) => (
+                    <option key={l.id} value={l.id}>
+                      {l.title}
+                    </option>
+                  ))
+                )}
+              </select>
+              <button
+                disabled
+                title="Coming soon"
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg',
+                  disabledBtn,
+                )}
+              >
                 <Download className="w-4 h-4" />
                 Import iCal
               </button>
               <div className="flex bg-gray-100 rounded-lg p-1">
-                <button className="p-2 bg-white shadow-sm rounded-md text-blue-600">
+                <button className="p-2 bg-white shadow-sm rounded-md text-blue-600" aria-label="Grid view">
                   <LayoutGrid className="w-5 h-5" />
                 </button>
-                <button className="p-2 text-gray-500">
+                <button disabled title="Coming soon" className={cn('p-2 text-gray-400', disabledBtn)} aria-label="List view">
                   <List className="w-5 h-5" />
                 </button>
               </div>
               <div className="flex items-center border border-gray-200 rounded-lg">
-                <button className="p-2 hover:bg-gray-50 transition-all">
+                <button onClick={() => changeMonth(-1)} className="p-2 hover:bg-gray-50 transition-all" aria-label="Previous month">
                   <ChevronLeft className="w-5 h-5" />
                 </button>
                 <div className="w-px h-8 bg-gray-200" />
-                <button className="p-2 hover:bg-gray-50 transition-all">
+                <button onClick={() => changeMonth(1)} className="p-2 hover:bg-gray-50 transition-all" aria-label="Next month">
                   <ChevronRight className="w-5 h-5" />
                 </button>
               </div>
             </div>
+          </div>
+
+          {/* Legend */}
+          <div className="flex flex-wrap items-center gap-4 text-xs text-gray-500">
+            {(['available', 'blocked', 'booked', 'none'] as DayStatus[]).map((s) => (
+              <span key={s} className="flex items-center gap-1.5">
+                <span className={cn('w-2.5 h-2.5 rounded-full', STATUS_META[s].dot)} />
+                {STATUS_META[s].label}
+              </span>
+            ))}
           </div>
 
           <div className="bg-white rounded-2xl shadow-card border border-gray-200 overflow-hidden">
@@ -70,39 +244,63 @@ export default function CalendarPage() {
                 </div>
               ))}
             </div>
-            <div className="grid grid-cols-7">
-              {Array.from({ length: LEADING }).map((_, i) => (
-                <div key={`b${i}`} className="aspect-square bg-gray-50/50 border-r border-b border-gray-100" />
-              ))}
-              {Array.from({ length: 31 }).map((_, i) => {
-                const day = i + 1;
-                const sel = selected.includes(day);
-                return (
-                  <div
-                    key={day}
-                    className={cn(
-                      'aspect-square p-3 border-r border-b border-gray-100 cursor-pointer flex flex-col transition-colors relative',
-                      sel ? 'bg-blue-50 border-blue-300' : 'hover:bg-gray-50',
-                    )}
-                  >
-                    <span
+
+            {error ? (
+              <div className="py-16 text-center">
+                <p className="text-3xl mb-2">😕</p>
+                <p className="text-sm text-gray-500 mb-4">Couldn&apos;t load the calendar.</p>
+                <button
+                  onClick={loadCalendar}
+                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
+                >
+                  <RotateCcw className="w-4 h-4" /> Try again
+                </button>
+              </div>
+            ) : loading ? (
+              <div className="grid grid-cols-7">
+                {Array.from({ length: 35 }).map((_, i) => (
+                  <div key={i} className="aspect-square border-r border-b border-gray-100 p-3">
+                    <div className="h-3 w-4 bg-gray-100 rounded animate-pulse" />
+                    <div className="h-3 w-8 bg-gray-100 rounded animate-pulse mt-auto" />
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="grid grid-cols-7">
+                {Array.from({ length: leading }).map((_, i) => (
+                  <div key={`b${i}`} className="aspect-square bg-gray-50/50 border-r border-b border-gray-100" />
+                ))}
+                {days.map((d) => {
+                  const meta = STATUS_META[d.status];
+                  const isSel = selectedDay === d.dateStr;
+                  return (
+                    <button
+                      key={d.dateStr}
+                      onClick={() => setSelectedDay(d.dateStr)}
                       className={cn(
-                        'text-sm',
-                        sel ? 'text-blue-700 font-bold' : 'text-gray-500',
+                        'aspect-square p-3 border-r border-b border-gray-100 flex flex-col text-left transition-colors relative',
+                        meta.cell,
+                        isSel && 'ring-2 ring-blue-500 ring-inset z-10',
                       )}
                     >
-                      {day}
-                    </span>
-                    <div className="mt-auto text-blue-600 font-bold text-xs">
-                      ${priceFor(day)}
-                    </div>
-                    {sel && (
-                      <div className="absolute inset-0 border-2 border-blue-500 rounded-sm pointer-events-none" />
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+                      <span className="flex items-center justify-between">
+                        <span className="text-sm text-gray-600">{d.day}</span>
+                        <span className={cn('w-2 h-2 rounded-full', meta.dot)} />
+                      </span>
+                      <span className={cn('mt-auto font-bold text-xs', meta.text)}>
+                        {d.status === 'booked'
+                          ? 'Booked'
+                          : d.price != null && d.status !== 'blocked'
+                            ? inr(d.price, d.currency)
+                            : d.status === 'blocked'
+                              ? 'Blocked'
+                              : '—'}
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
           </div>
         </div>
 
@@ -110,77 +308,57 @@ export default function CalendarPage() {
         <aside className="w-full xl:w-96 shrink-0">
           <div className="sticky top-24 space-y-6">
             <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-              <h3 className="text-lg font-bold text-gray-800 mb-6">Selection Details</h3>
+              <h3 className="text-lg font-bold text-gray-800 mb-6">Day Details</h3>
 
-              <div className="mb-8 p-4 bg-gray-50 rounded-xl border border-gray-200">
-                <div className="flex items-center gap-3 mb-1">
-                  <CalendarDays className="w-5 h-5 text-blue-600" />
-                  <span className="text-sm font-bold text-gray-800">Oct 7 – Oct 8, 2024</span>
-                </div>
-                <p className="text-xs text-gray-500 ml-8">2 nights selected</p>
-              </div>
-
-              <div className="space-y-4 mb-8">
-                <label className="block text-sm text-gray-500">Nightly Price</label>
-                <div className="relative">
-                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-lg text-gray-500">$</span>
-                  <input
-                    type="text"
-                    defaultValue="140"
-                    className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-lg outline-none"
-                  />
-                </div>
-                <div className="bg-blue-50/60 p-4 rounded-xl border border-blue-100 flex gap-3">
-                  <Lightbulb className="w-5 h-5 text-blue-600 shrink-0" />
-                  <div className="space-y-1">
-                    <p className="text-sm font-bold text-blue-700">Smart Pricing Tip</p>
-                    <p className="text-xs text-gray-600 leading-snug">
-                      Demand is 12% higher for these dates. Increase price to{' '}
-                      <strong className="text-blue-700">$155</strong> to earn more.
+              {selected ? (
+                <>
+                  <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div className="flex items-center gap-3 mb-1">
+                      <CalendarDays className="w-5 h-5 text-blue-600" />
+                      <span className="text-sm font-bold text-gray-800">{fmtLong(selected.dateStr)}</span>
+                    </div>
+                    <p className="text-xs text-gray-500 ml-8 flex items-center gap-1.5">
+                      <span className={cn('w-2 h-2 rounded-full', STATUS_META[selected.status].dot)} />
+                      {STATUS_META[selected.status].label}
+                      {selected.guest ? ` · ${selected.guest}` : ''}
                     </p>
-                    <button className="mt-1 text-xs font-bold text-blue-700 underline">
-                      Apply suggestion
-                    </button>
                   </div>
-                </div>
-              </div>
 
-              <div className="space-y-4 mb-8">
-                <label className="block text-sm text-gray-500">Availability</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => setOpen(true)}
-                    className={cn(
-                      'flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold transition-all',
-                      open
-                        ? 'border-blue-600 bg-blue-600 text-white shadow-md'
-                        : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50',
-                    )}
-                  >
-                    <CheckCircle2 className="w-4 h-4" />
-                    Open
-                  </button>
-                  <button
-                    onClick={() => setOpen(false)}
-                    className={cn(
-                      'flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold transition-all',
-                      !open
-                        ? 'border-blue-600 bg-blue-600 text-white shadow-md'
-                        : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50',
-                    )}
-                  >
-                    <Ban className="w-4 h-4" />
-                    Block
-                  </button>
-                </div>
-              </div>
+                  <div className="space-y-4 mb-6">
+                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                      <span className="text-sm text-gray-500">Nightly rate</span>
+                      <span className="text-sm font-bold text-gray-800">
+                        {selected.price != null ? inr(selected.price, selected.currency) : 'Not set'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center py-2">
+                      <span className="text-sm text-gray-500">Status</span>
+                      <span className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
+                        {selected.status === 'blocked' ? (
+                          <Ban className="w-4 h-4 text-gray-400" />
+                        ) : selected.status === 'booked' ? (
+                          <BedDouble className="w-4 h-4 text-blue-500" />
+                        ) : (
+                          <CheckCircle2 className="w-4 h-4 text-green-500" />
+                        )}
+                        {STATUS_META[selected.status].label}
+                      </span>
+                    </div>
+                  </div>
 
-              <button className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 shadow-md active:scale-95 transition-all">
-                Save Changes
-              </button>
-              <button className="w-full mt-3 py-2 text-gray-500 text-sm hover:underline">
-                Clear Selection
-              </button>
+                  <button
+                    disabled
+                    title="Editing availability is coming soon"
+                    className={cn('w-full py-4 bg-blue-600 text-white rounded-xl font-bold', disabledBtn)}
+                  >
+                    Edit (coming soon)
+                  </button>
+                </>
+              ) : (
+                <div className="py-10 text-center text-sm text-gray-400">
+                  Select a date to see its rate and availability.
+                </div>
+              )}
             </div>
 
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-card">
