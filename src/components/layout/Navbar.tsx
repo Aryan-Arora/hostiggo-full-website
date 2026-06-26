@@ -7,6 +7,7 @@ import {
   IndianRupee,
   Menu,
   X,
+  MessageCircle,
   Heart,
   Clock,
   User,
@@ -149,10 +150,14 @@ interface MenuItem {
   to?: string;
   danger?: boolean;
   action?: () => void;
+  // Placeholder for a feature that isn't built yet — rendered disabled with a
+  // "Soon" pill so the slot stays in the menu without being a dead link.
+  soon?: boolean;
 }
 
 const MENU_GROUPS: MenuItem[][] = [
   [
+    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', soon: true },
     {
       icon: <Heart className="w-4 h-4" />,
       label: 'Wishlists',
@@ -287,22 +292,35 @@ export default function Navbar() {
                         <div key={gi}>
                           {gi > 0 && <div className="h-px bg-gray-100 mx-3" />}
                           <div className="py-1.5">
-                            {group.map((item) => (
-                              <Link
-                                key={item.label}
-                                href={item.to ?? '#'}
-                                onClick={() => {
-                                  item.action?.();
-                                  setProfileOpen(false);
-                                }}
-                                className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                              >
-                                <span className="text-gray-400">
-                                  {item.icon}
-                                </span>
-                                <span>{item.label}</span>
-                              </Link>
-                            ))}
+                            {group.map((item) =>
+                              item.soon ? (
+                                <div
+                                  key={item.label}
+                                  aria-disabled="true"
+                                  title="Coming soon"
+                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-400 cursor-default select-none"
+                                >
+                                  <span className="text-gray-300">{item.icon}</span>
+                                  <span>{item.label}</span>
+                                  <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
+                                    Soon
+                                  </span>
+                                </div>
+                              ) : (
+                                <Link
+                                  key={item.label}
+                                  href={item.to ?? '#'}
+                                  onClick={() => {
+                                    item.action?.();
+                                    setProfileOpen(false);
+                                  }}
+                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                >
+                                  <span className="text-gray-400">{item.icon}</span>
+                                  <span>{item.label}</span>
+                                </Link>
+                              ),
+                            )}
                           </div>
                         </div>
                       ))}

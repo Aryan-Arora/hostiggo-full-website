@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import {
+  Search,
   Home,
   Building2,
   BedDouble,
@@ -39,6 +40,20 @@ export default function PropertyTypePage() {
       subtitle="Choose the category that best describes your space to help guests find exactly what they're looking for."
       nextDisabled={!selected}
     >
+      {/* Search (filtering coming soon) */}
+      <div className="max-w-md mx-auto mb-8">
+        <div className="relative">
+          <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-gray-300" />
+          <input
+            type="text"
+            disabled
+            title="Search is coming soon"
+            placeholder="Search for property types… (coming soon)"
+            className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border border-gray-200 rounded-full text-sm outline-none shadow-card text-gray-400 placeholder:text-gray-400 cursor-not-allowed"
+          />
+        </div>
+      </div>
+
       {/* Popular */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-1">
