@@ -24,6 +24,9 @@ export default function OTPPageContent() {
 
   const mode = (searchParams?.get('mode') as 'phone' | 'email') ?? 'phone';
   const value = searchParams?.get('value') ?? '83183 XXXXX';
+  // Where to land after a successful verify (e.g. back to the property the user
+  // was about to book). Falls back to home.
+  const redirect = searchParams?.get('redirect') || '/';
 
   const maskedValue =
     mode === 'phone'
@@ -116,7 +119,7 @@ export default function OTPPageContent() {
       if (userId) {
         await signIn(userId);
       }
-      router.push('/');
+      router.push(redirect);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Invalid OTP');
     } finally {

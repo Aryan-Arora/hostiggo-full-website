@@ -1,9 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, Suspense } from 'react';
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { Mail, Phone, ChevronDown, ArrowLeft } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Mail, Phone, ChevronDown, ArrowLeft, Compass } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
 import { cn } from '@/lib/utils';
 import { api, AUTH_PHONE_KEY, normalizePhone } from '@/lib/api';
@@ -11,12 +11,18 @@ import { toast } from 'sonner';
 
 type Mode = 'phone' | 'email';
 
-export default function SignInPage() {
+function SignInContent() {
   const [mode, setMode] = useState<Mode>('phone');
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
   const router = useRouter();
+  const searchParams = useSearchParams();
+  // Optional return path: set when a gated action (e.g. booking) sent the user
+  // here, so we can bring them back after signing in — or when they skip.
+  const redirect = searchParams?.get('redirect') || '';
+
+  const handleSkip = () => router.push(redirect || '/');
 
   const handleSendOTP = async () => {
     if (mode === 'phone' && phone.trim().length < 10) return;
@@ -33,7 +39,9 @@ export default function SignInPage() {
       await api.sendOtp(normalizedPhone);
       window.localStorage.setItem(AUTH_PHONE_KEY, normalizedPhone);
       router.push(
-        `/otp?mode=${mode}&value=${encodeURIComponent(normalizedPhone)}`,
+        `/otp?mode=${mode}&value=${encodeURIComponent(normalizedPhone)}${
+          redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+        }`,
       );
     } catch (error) {
       toast.error(
@@ -174,6 +182,15 @@ export default function SignInPage() {
           </p>
         )}
 
+        {/* Skip / browse as guest */}
+        <button
+          onClick={handleSkip}
+          className="w-full flex items-center justify-center gap-2 py-3 mb-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-[14px] hover:bg-gray-50 transition-all"
+        >
+          <Compass className="w-4 h-4" />
+          Skip for now — browse properties
+        </button>
+
         {/* Terms */}
         <p className="text-center text-[11px] text-gray-400 leading-relaxed">
           By continuing, you agree to Hostiggo's{' '}
@@ -187,6 +204,14 @@ export default function SignInPage() {
         </p>
       </div>
     </div>
+  );
+}
+
+export default function SignInPage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-gray-100" />}>
+      <SignInContent />
+    </Suspense>
   );
 }
 

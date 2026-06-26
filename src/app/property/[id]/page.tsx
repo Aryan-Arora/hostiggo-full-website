@@ -37,6 +37,8 @@ import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
 import type { Property, AmenityItem, Review, Host } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import { toast } from 'sonner';
 
 const FALLBACK =
   'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
@@ -710,6 +712,8 @@ function BookingWidget({
   const [guests, setGuests] = useState(1);
   const [dateError, setDateError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
+  const { isAuthenticated } = useAuth();
+  const router = useRouter();
 
   const today = new Date().toISOString().split('T')[0];
 
@@ -739,6 +743,13 @@ function BookingWidget({
 
   const validateAndBook = () => {
     setDateError('');
+    // Booking requires an account — guests can browse freely, but must sign in
+    // to reserve. Send them to sign-in and bring them back to this property.
+    if (!isAuthenticated) {
+      toast('Please sign in to book this stay.');
+      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      return;
+    }
     if (!checkIn || !checkOut) {
       setDateError('Please select check-in and check-out dates.');
       return;
