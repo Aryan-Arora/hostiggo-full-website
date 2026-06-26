@@ -278,6 +278,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ action: "update-profile", userId, patch }),
     }),
+  createListing: (draft: Record<string, any>) =>
+    request<{ listing_id: number; title: string }>(`/api/host/listings`, {
+      method: "POST",
+      body: JSON.stringify(draft),
+    }),
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),

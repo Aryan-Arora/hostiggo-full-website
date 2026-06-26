@@ -124,6 +124,92 @@ export async function createFeedback(input: {
   return data;
 }
 
+// ── Listings (create from wizard draft) ──────────────────────────────────────
+export type ListingDraft = {
+  userId: string;
+  title?: string;
+  description?: string;
+  priceWeekday?: number;
+  priceWeekend?: number;
+  numGuests?: number;
+  numBedrooms?: number;
+  numBeds?: number;
+  numBathrooms?: number;
+  amenityIds?: number[];
+  photoUrls?: string[];
+  checkInTime?: string;
+  checkOutTime?: string;
+  addressLine1?: string;
+  addressLine2?: string;
+  landmark?: string;
+  locationId?: number;
+  currency?: string;
+};
+
+export async function createListing(draft: ListingDraft) {
+  // Resolve the owning host from the user.
+  const { data: host, error: herr } = await supabaseAdmin
+    .from("host")
+    .select("host_uuid")
+    .eq("user_id", draft.userId)
+    .maybeSingle();
+  if (herr) throw herr;
+  if (!host?.host_uuid) throw new Error("No host profile for this user");
+
+  const now = new Date().toISOString();
+  const row: Record<string, any> = {
+    title: draft.title?.trim() || "Untitled listing",
+    description: draft.description?.trim() || null,
+    price_weekday: draft.priceWeekday ?? 0,
+    price_weekend: draft.priceWeekend ?? draft.priceWeekday ?? 0,
+    num_guests: draft.numGuests ?? 1,
+    num_bedrooms: draft.numBedrooms ?? 1,
+    num_beds: draft.numBeds ?? 1,
+    num_bathrooms: draft.numBathrooms ?? 1,
+    host_uuid: host.host_uuid,
+    is_active: false, // new listings start inactive (pending review)
+    currency: draft.currency ?? "INR",
+    check_in_time: draft.checkInTime ?? "14:00:00",
+    check_out_time: draft.checkOutTime ?? "11:00:00",
+    address_line1: draft.addressLine1 ?? null,
+    address_line2: draft.addressLine2 ?? null,
+    landmark: draft.landmark ?? null,
+    created_at: now,
+    updated_at: now,
+  };
+  if (draft.locationId) row.location_id = draft.locationId;
+
+  const { data: listing, error } = await supabaseAdmin
+    .from("listings")
+    .insert(row)
+    .select("listing_id, title")
+    .single();
+  if (error) throw error;
+
+  const listingId = listing.listing_id;
+
+  // Amenities (join rows).
+  if (draft.amenityIds?.length) {
+    const amenRows = draft.amenityIds.map((amenity_id) => ({ listing_id: listingId, amenity_id }));
+    const { error: aerr } = await supabaseAdmin.from("listing_amenities").insert(amenRows);
+    if (aerr) console.error("[createListing] amenities insert failed:", aerr.message);
+  }
+
+  // Photos (media rows). First photo is the cover.
+  if (draft.photoUrls?.length) {
+    const mediaRows = draft.photoUrls.map((media_url, i) => ({
+      listing_id: listingId,
+      media_url,
+      media_type: "image",
+      is_cover: i === 0,
+    }));
+    const { error: merr } = await supabaseAdmin.from("listing_media").insert(mediaRows);
+    if (merr) console.error("[createListing] media insert failed:", merr.message);
+  }
+
+  return { listing_id: listingId, title: listing.title };
+}
+
 // ── User profile ─────────────────────────────────────────────────────────────
 export async function updateUserProfile(
   userId: string,
