@@ -19,6 +19,7 @@ export type ListingDraft = {
   numBeds?: number;
   numBathrooms?: number;
   amenityIds?: number[];
+  photoUrls?: string[];
   addressLine1?: string;
   landmark?: string;
 };

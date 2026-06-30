@@ -3,6 +3,24 @@ import { supabaseAdmin } from "../supabase-admin";
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
 
+// ── Storage ──────────────────────────────────────────────────────────────────
+const LISTING_BUCKET = "homestay photos";
+
+export async function uploadListingPhoto(file: {
+  data: ArrayBuffer;
+  name: string;
+  type: string;
+}): Promise<string> {
+  const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
+  const path = `listings/uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const { error } = await supabaseAdmin.storage
+    .from(LISTING_BUCKET)
+    .upload(path, file.data, { contentType: file.type || "image/jpeg", upsert: false });
+  if (error) throw error;
+  const { data } = supabaseAdmin.storage.from(LISTING_BUCKET).getPublicUrl(path);
+  return data.publicUrl;
+}
+
 // ── Calendar ─────────────────────────────────────────────────────────────────
 export async function upsertCalendarDay(input: {
   listingId: number;
@@ -195,7 +213,8 @@ export async function createListing(draft: ListingDraft) {
   const now = new Date().toISOString();
   const row: Record<string, any> = {
     title: draft.title?.trim() || "Untitled listing",
-    description: draft.description?.trim() || null,
+    description: draft.description?.trim() || "", // column is NOT NULL
+
     price_weekday: draft.priceWeekday ?? 0,
     price_weekend: draft.priceWeekend ?? draft.priceWeekday ?? 0,
     num_guests: draft.numGuests ?? 1,

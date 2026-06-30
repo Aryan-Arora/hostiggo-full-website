@@ -1,89 +1,162 @@
 'use client';
 
-import { ImagePlus, Lightbulb, Pencil, Trash2, MoreHorizontal, Plus } from 'lucide-react';
+import { useRef, useState } from 'react';
+import { ImagePlus, Lightbulb, Trash2, Loader2, Star } from 'lucide-react';
+import { toast } from 'sonner';
 import WizardShell from '../_components/WizardShell';
+import { useListingDraft } from '@/context/ListingDraftContext';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
-const PHOTOS = [
-  'https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=800&h=500&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1505693416388-ac5ce068fe85?w=400&h=400&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1507652313519-d4e9174996dd?w=400&h=400&fit=crop&q=80',
-  'https://images.unsplash.com/photo-1556911220-bff31c812dba?w=400&h=400&fit=crop&q=80',
-];
+const MAX_PHOTOS = 10;
 
 export default function PhotosPage() {
+  const { draft, update } = useListingDraft();
+  const [photos, setPhotos] = useState<string[]>(draft.photoUrls ?? []);
+  const [uploading, setUploading] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const persist = (next: string[]) => {
+    setPhotos(next);
+    update({ photoUrls: next });
+  };
+
+  const handleFiles = async (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const room = MAX_PHOTOS - photos.length;
+    const picked = Array.from(files).filter((f) => f.type.startsWith('image/')).slice(0, room);
+    if (picked.length === 0) {
+      toast.error(room <= 0 ? 'You can upload up to 10 photos.' : 'Please choose image files.');
+      return;
+    }
+    setUploading(true);
+    const uploaded: string[] = [];
+    try {
+      for (const file of picked) {
+        try {
+          uploaded.push(await api.uploadPhoto(file));
+        } catch (err) {
+          console.error('[photos] upload failed:', err);
+          toast.error(`Couldn't upload ${file.name}`);
+        }
+      }
+      if (uploaded.length) {
+        persist([...photos, ...uploaded]);
+        toast.success(`${uploaded.length} photo${uploaded.length > 1 ? 's' : ''} uploaded`);
+      }
+    } finally {
+      setUploading(false);
+      if (inputRef.current) inputRef.current.value = '';
+    }
+  };
+
+  const remove = (url: string) => persist(photos.filter((p) => p !== url));
+  const makePrimary = (url: string) => persist([url, ...photos.filter((p) => p !== url)]);
+
   return (
     <WizardShell
       step={5}
       title="Add some photos of your place"
-      subtitle="Clear photos help guests understand your space and book with confidence. Drag to rearrange."
+      subtitle="Clear photos help guests book with confidence. The first photo is your cover."
     >
       <div className="max-w-4xl mx-auto">
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+
         {/* Upload area */}
-        <div className="border-2 border-dashed border-gray-300 rounded-2xl p-12 flex flex-col items-center justify-center bg-white transition-all hover:border-blue-400 hover:bg-blue-50/30 cursor-pointer min-h-[320px] mb-8 group">
+        <div
+          onClick={() => !uploading && inputRef.current?.click()}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            handleFiles(e.dataTransfer.files);
+          }}
+          className={cn(
+            'border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center bg-white transition-all cursor-pointer min-h-[280px] mb-8 group',
+            dragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30',
+            uploading && 'pointer-events-none opacity-70',
+          )}
+        >
           <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-            <ImagePlus className="w-8 h-8 text-blue-600" />
+            {uploading ? (
+              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+            ) : (
+              <ImagePlus className="w-8 h-8 text-blue-600" />
+            )}
           </div>
           <p className="text-xl font-bold text-gray-800 mb-1">
-            Drag and drop up to 10 photos
+            {uploading ? 'Uploading…' : 'Drag and drop up to 10 photos'}
           </p>
           <p className="text-sm text-gray-500 mb-6">or click to browse your files</p>
-          <span className="bg-blue-600 text-white px-8 py-3 rounded-full text-sm font-semibold hover:bg-blue-700 transition-colors">
+          <span className="bg-blue-600 text-white px-8 py-3 rounded-full text-sm font-semibold">
             Upload from gallery
           </span>
         </div>
 
         {/* Quick links */}
         <div className="flex items-center justify-between mb-6">
-          <button className="flex items-center gap-2 text-blue-600 text-sm font-medium hover:underline">
+          <span className="flex items-center gap-2 text-blue-600 text-sm font-medium">
             <Lightbulb className="w-5 h-5" />
-            Photo tips
-          </button>
-          <p className="text-sm text-gray-500">4 / 10 photos uploaded</p>
+            Bright, landscape photos work best
+          </span>
+          <p className="text-sm text-gray-500">{photos.length} / {MAX_PHOTOS} photos uploaded</p>
         </div>
 
         {/* Grid */}
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {/* Primary */}
-          <div className="md:col-span-2 lg:col-span-2 aspect-[16/10] relative rounded-2xl overflow-hidden shadow-card group">
-            <img src={PHOTOS[0]} alt="Primary" className="w-full h-full object-cover" />
-            <div className="absolute top-4 left-4 bg-white/80 backdrop-blur-md px-4 py-1.5 rounded-full border border-white/40">
-              <span className="text-xs font-semibold text-blue-700 uppercase tracking-wider">
-                Primary Photo
-              </span>
-            </div>
-            <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-4">
-              <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-blue-600 shadow-lg hover:scale-110 transition-transform">
-                <Pencil className="w-5 h-5" />
-              </button>
-              <button className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-red-500 shadow-lg hover:scale-110 transition-transform">
-                <Trash2 className="w-5 h-5" />
-              </button>
-            </div>
+        {photos.length === 0 ? (
+          <div className="text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
+            No photos yet — add a few to make your listing stand out.
           </div>
-
-          {/* Secondary */}
-          {PHOTOS.slice(1).map((src, i) => (
-            <div
-              key={i}
-              className="aspect-square relative rounded-2xl overflow-hidden shadow-card group"
-            >
-              <img src={src} alt={`Photo ${i + 2}`} className="w-full h-full object-cover" />
-              <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
-                <button className="w-8 h-8 rounded-full bg-white flex items-center justify-center text-blue-600 shadow-sm">
-                  <MoreHorizontal className="w-4 h-4" />
-                </button>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {photos.map((url, i) => (
+              <div
+                key={url}
+                className={cn(
+                  'relative aspect-[4/3] rounded-2xl overflow-hidden shadow-card group',
+                  i === 0 && 'col-span-2 md:col-span-2 aspect-[16/10]',
+                )}
+              >
+                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                {i === 0 && (
+                  <div className="absolute top-3 left-3 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full">
+                    <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Cover</span>
+                  </div>
+                )}
+                <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
+                  {i !== 0 && (
+                    <button
+                      onClick={() => makePrimary(url)}
+                      title="Make cover"
+                      className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-amber-500 shadow-lg hover:scale-110 transition-transform"
+                    >
+                      <Star className="w-5 h-5" />
+                    </button>
+                  )}
+                  <button
+                    onClick={() => remove(url)}
+                    title="Remove"
+                    className="w-10 h-10 rounded-full bg-white flex items-center justify-center text-red-500 shadow-lg hover:scale-110 transition-transform"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                </div>
               </div>
-            </div>
-          ))}
-
-          {/* Add more */}
-          <div className="aspect-square border-2 border-dashed border-gray-300 rounded-2xl flex flex-col items-center justify-center bg-white hover:border-blue-400 hover:bg-blue-50/30 transition-colors cursor-pointer group">
-            <Plus className="w-8 h-8 text-gray-400 group-hover:text-blue-600 transition-colors mb-2" />
-            <span className="text-sm font-medium text-gray-500 group-hover:text-blue-600 transition-colors">
-              Add more
-            </span>
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </WizardShell>
   );

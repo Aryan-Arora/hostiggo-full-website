@@ -295,6 +295,16 @@ export const api = {
     comment?: string;
   }) =>
     request<any>(`/api/reviews`, { method: "POST", body: JSON.stringify(payload) }),
+  uploadPhoto: async (file: File): Promise<string> => {
+    const fd = new FormData();
+    fd.append("file", file);
+    const res = await fetch("/api/host/upload", { method: "POST", body: fd });
+    const payload = (await res.json().catch(() => ({}))) as ApiResult<{ url: string }>;
+    if (!res.ok || payload.error) {
+      throw new Error(payload.error || `Upload failed: ${res.status}`);
+    }
+    return payload.data!.url;
+  },
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),
