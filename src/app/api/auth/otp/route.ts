@@ -12,6 +12,8 @@ const ensureProfile = async (user: { id: string; phone?: string; email?: string;
     name: user.user_metadata?.full_name || user.user_metadata?.name || "",
     email: user.email || user.user_metadata?.email || "",
     phone: user.phone || null,
+    age: user.user_metadata?.age || null,
+    emergency_contact: user.user_metadata?.emergency_contact || null,
     is_verified: true,
     is_active: true,
   });

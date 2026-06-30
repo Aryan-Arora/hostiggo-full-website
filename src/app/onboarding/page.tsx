@@ -14,6 +14,8 @@ function OnboardingContent() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [age, setAge] = useState<string>('');
+  const [emergencyContact, setEmergencyContact] = useState<string>('');
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -25,6 +27,8 @@ function OnboardingContent() {
     if (user?.name) setName(user.name);
     if (user?.email) setEmail(user.email);
     if (user?.phone) setPhone(user.phone);
+    if (user?.age) setAge(user.age?.toString() || '');
+    if (user?.emergency_contact) setEmergencyContact(user.emergency_contact);
   }, [user, userId, isAuthenticated, authLoading, router]);
 
   if (authLoading) {
@@ -41,8 +45,9 @@ function OnboardingContent() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
-    if (!trimmed) return;
+      if (!trimmed) return;
     if (needsEmail && !email.includes('@')) return;
+    if (!age.trim()) return;
 
     setSaving(true);
     try {
@@ -54,6 +59,8 @@ function OnboardingContent() {
           name: trimmed,
           email: email || user?.email || '',
           phone: phone || user?.phone || null,
+          age: age ? parseInt(age) : null,
+          emergency_contact: emergencyContact || null,
           is_verified: true,
           is_active: true,
         }),
@@ -134,6 +141,66 @@ function OnboardingContent() {
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
                 className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+              />
+            </div>
+          )}
+
+          {age === '' && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                Age <span className="text-red-500">*</span>
+              </label>
+              <input
+                type="number"
+                placeholder="Enter your age"
+                value={age}
+                onChange={(e) => setAge(e.target.value)}
+                className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+              />
+            </div>
+          )}
+
+          {emergencyContact === '' && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-700 mb-1.5 block">
+                Emergency Contact <span className="text-gray-400 font-normal">(optional)</span>
+              </label>
+              <input
+                type="text"
+                placeholder="Enter emergency contact"
+                value={emergencyContact}
+                onChange={(e) => setEmergencyContact(e.target.value)}
+                className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+              />
+            </div>
+          )}
+
+          {age !== '' && age !== null && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-400 mb-1.5 block">
+                Age
+              </label>
+              <input
+                type="text"
+                placeholder="Your age"
+                value={age}
+                disabled
+                className="w-full px-4 py-3 text-[14px] text-gray-500 rounded-xl border border-gray-200 bg-gray-50 cursor-not-allowed placeholder:text-gray-400"
+              />
+            </div>
+          )}
+
+          {emergencyContact !== '' && (
+            <div className="mb-4">
+              <label className="text-sm font-medium text-gray-400 mb-1.5 block">
+                Emergency Contact
+              </label>
+              <input
+                type="text"
+                placeholder="Emergency contact"
+                value={emergencyContact}
+                disabled
+                className="w-full px-4 py-3 text-[14px] text-gray-500 rounded-xl border border-gray-200 bg-gray-50 cursor-not-allowed placeholder:text-gray-400"
               />
             </div>
           )}
