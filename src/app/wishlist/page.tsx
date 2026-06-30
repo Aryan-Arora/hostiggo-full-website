@@ -19,6 +19,7 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useSupabaseAuth } from '@/components/providers/AuthProvider';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 const vacationIllustration = '/vacation-illustration.png';
@@ -503,10 +504,12 @@ export default function WishlistPage() {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollRight, setCanScrollRight] = useState(true);
+  const { user, isLoading } = useSupabaseAuth();
 
   useEffect(() => {
-    setUserId(getStoredUserId());
-  }, []);
+    if (isLoading) return;
+    setUserId(user?.id ?? getStoredUserId());
+  }, [user?.id, isLoading]);
 
   useEffect(() => {
     if (!userId) {

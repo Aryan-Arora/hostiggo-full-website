@@ -5,6 +5,7 @@ const FALLBACK_IMAGE =
 
 export const AUTH_USER_ID_KEY = "hostiggo:user-id";
 export const AUTH_PHONE_KEY = "hostiggo:phone";
+export const AUTH_EMAIL_KEY = "hostiggo:email";
 
 type ApiResult<T> = { data?: T; error?: string };
 
@@ -205,6 +206,7 @@ export const clearStoredAuth = () => {
   if (typeof window === "undefined") return;
   window.localStorage.removeItem(AUTH_USER_ID_KEY);
   window.localStorage.removeItem(AUTH_PHONE_KEY);
+  window.localStorage.removeItem(AUTH_EMAIL_KEY);
 };
 
 export type CurrentUser = {
@@ -214,6 +216,11 @@ export type CurrentUser = {
   phone: string | null;
   profile_pic_url: string | null;
   is_verified: boolean | null;
+  is_active: boolean | null;
+  age: number | null;
+  emergency_contact: string | null;
+  created_at: string | null;
+  updated_at: string | null;
 };
 
 export const normalizePhone = (phone: string) => {
@@ -222,6 +229,8 @@ export const normalizePhone = (phone: string) => {
   if (phone.startsWith("+")) return phone;
   return `+${digits}`;
 };
+
+export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
 const isUuid = (value?: string) =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
@@ -348,10 +357,21 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action: "send", phone: normalizePhone(phone) }),
     }),
-  verifyOtp: (phone: string, token: string) =>
+  sendEmailOtp: (email: string) =>
     request<any>("/api/auth/otp", {
       method: "POST",
-      body: JSON.stringify({ action: "verify", phone: normalizePhone(phone), token }),
+      body: JSON.stringify({ action: "send", email: normalizeEmail(email) }),
+    }),
+  verifyOtp: (params: { phone?: string; email?: string; token: string }) =>
+    request<any>("/api/auth/otp", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "verify",
+        ...(params.phone ? { phone: normalizePhone(params.phone) } : {}),
+        ...(params.email ? { email: normalizeEmail(params.email) } : {}),
+        token: params.token,
+        type: params.email ? "email" : "sms",
+      }),
     }),
   wishlistCategories: (userId: string) =>
     request<any[]>(`/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`),

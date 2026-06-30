@@ -1,5 +1,4 @@
 import { supabase } from "../supabase";
-import { VerifyOtpParams } from "@supabase/supabase-js";
 
 export const authApi = {
   getSession: async () => {
@@ -10,11 +9,29 @@ export const authApi = {
     return await supabase.auth.signInWithOtp({ phone });
   },
 
-  verifyOtp: async (phone: string, token: string) => {
-    return await supabase.auth.verifyOtp({ phone, token, type: "sms" });
+  signInWithEmailOtp: async (email: string) => {
+    return await supabase.auth.signInWithOtp({
+      email,
+      options: { shouldCreateUser: true },
+    });
   },
 
-  updateUser: async (attributes: { phone: string }) => {
+  verifyOtp: async (params: { phone?: string; email?: string; token: string; type: "sms" | "email" }) => {
+    if (params.type === "email" && params.email) {
+      return await supabase.auth.verifyOtp({
+        email: params.email,
+        token: params.token,
+        type: "email",
+      });
+    }
+    return await supabase.auth.verifyOtp({
+      phone: params.phone!,
+      token: params.token,
+      type: "sms",
+    });
+  },
+
+  updateUser: async (attributes: { phone?: string; email?: string }) => {
     return await supabase.auth.updateUser(attributes);
   },
 

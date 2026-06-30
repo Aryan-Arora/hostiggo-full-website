@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
+import { useSupabaseAuth } from '@/components/providers/AuthProvider';
 import {
   MapPin,
   Calendar,
@@ -1240,12 +1241,15 @@ export default function MyMemoriesPage() {
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [managingId, setManagingId] = useState<string | null>(null);
+  const { user, isLoading } = useSupabaseAuth();
 
   useEffect(() => {
+    if (isLoading) return;
+
     let mounted = true;
 
     const loadBookings = async () => {
-      const userId = getStoredUserId();
+      const userId = user?.id ?? getStoredUserId();
       if (!userId) {
         setBookings([]);
         setLoading(false);
@@ -1274,7 +1278,7 @@ export default function MyMemoriesPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [user?.id, isLoading]);
 
   const counts: Record<TabKey, number> = {
     upcoming: bookings.filter((b) => b.status === 'upcoming').length,

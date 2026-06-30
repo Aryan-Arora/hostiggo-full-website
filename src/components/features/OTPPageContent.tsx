@@ -9,8 +9,11 @@ import {
   api,
   AUTH_PHONE_KEY,
   AUTH_USER_ID_KEY,
+  AUTH_EMAIL_KEY,
   normalizePhone,
+  normalizeEmail,
 } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 
@@ -21,16 +24,18 @@ export default function OTPPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { signIn } = useAuth();
+  const verifyingRef = useRef(false);
 
   const mode = (searchParams?.get('mode') as 'phone' | 'email') ?? 'phone';
   const value = searchParams?.get('value') ?? '83183 XXXXX';
-  // Where to land after a successful verify (e.g. back to the property the user
-  // was about to book). Falls back to home.
   const redirect = searchParams?.get('redirect') || '/';
 
+  const clean = value.replace(/^\+91/, '');
   const maskedValue =
     mode === 'phone'
-      ? `+91 ${value.slice(0, 2)}${value.slice(2).replace(/\d/g, 'X')}`
+      ? clean.length >= 10
+        ? `+91 ${clean.slice(0, 2)}XXXX${clean.slice(-2)}`
+        : `+91 ${clean.slice(0, 1)}XXX${clean.slice(-1)}`
       : value.replace(/(.{2}).*(@.*)/, '$1****$2');
 
   const [otp, setOtp] = useState<string[]>(Array(OTP_LENGTH).fill(''));
@@ -90,7 +95,11 @@ export default function OTPPageContent() {
   const handleResend = async () => {
     if (!canResend) return;
     try {
-      await api.sendOtp(normalizePhone(value));
+      if (mode === 'email') {
+        await api.sendEmailOtp(normalizeEmail(value));
+      } else {
+        await api.sendOtp(normalizePhone(value));
+      }
       setOtp(Array(OTP_LENGTH).fill(''));
       setTimer(RESEND_DELAY);
       setCanResend(false);
@@ -104,25 +113,38 @@ export default function OTPPageContent() {
   };
 
   const handleVerify = async () => {
+    if (verifyingRef.current) return;
     const code = otp.join('');
     if (code.length < OTP_LENGTH) {
       inputRefs.current[otp.findIndex((v) => !v)]?.focus();
       return;
     }
+    verifyingRef.current = true;
     setVerifying(true);
     try {
-      const data = await api.verifyOtp(
-        window.localStorage.getItem(AUTH_PHONE_KEY) || normalizePhone(value),
-        code,
-      );
+      let data: any;
+      if (mode === 'email') {
+        data = await api.verifyOtp({
+          email: window.localStorage.getItem(AUTH_EMAIL_KEY) || value,
+          token: code,
+        });
+      } else {
+        data = await api.verifyOtp({
+          phone: window.localStorage.getItem(AUTH_PHONE_KEY) || normalizePhone(value),
+          token: code,
+        });
+      }
       const userId = data?.user?.id || data?.session?.user?.id;
       if (userId) {
         await signIn(userId);
+        router.push(`/onboarding?mode=${mode}`);
+      } else {
+        router.push(redirect);
       }
-      router.push(redirect);
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Invalid OTP');
     } finally {
+      verifyingRef.current = false;
       setVerifying(false);
     }
   };
@@ -176,7 +198,7 @@ export default function OTPPageContent() {
 
         {/* OTP inputs */}
         <div
-          className="flex items-center justify-between gap-2 mb-3"
+          className="flex items-center justify-center gap-1.5 sm:gap-2 mb-3"
           onPaste={handlePaste}
         >
           {otp.map((digit, i) => (
@@ -192,7 +214,7 @@ export default function OTPPageContent() {
               onChange={(e) => handleChange(i, e.target.value)}
               onKeyDown={(e) => handleKeyDown(i, e)}
               className={cn(
-                'w-12 h-12 text-center text-[18px] font-bold rounded-full border-2 transition-all outline-none caret-transparent',
+                'w-10 h-10 sm:w-11 sm:h-11 text-center text-base sm:text-[18px] font-bold rounded-full border-2 transition-all outline-none caret-transparent',
                 digit
                   ? 'border-[#1B3FA0] bg-[#1B3FA0]/5 text-[#1B3FA0]'
                   : 'border-gray-200 bg-gray-50 text-gray-900 focus:border-[#1B3FA0] focus:bg-white',

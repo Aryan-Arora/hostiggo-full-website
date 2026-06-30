@@ -1,12 +1,13 @@
 'use client';
 
-import { useState, Suspense } from 'react';
+import { useState, useRef, Suspense, useEffect } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Phone, ChevronDown, ArrowLeft, Compass } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
 import { cn } from '@/lib/utils';
-import { api, AUTH_PHONE_KEY, normalizePhone } from '@/lib/api';
+import { api, AUTH_PHONE_KEY, AUTH_EMAIL_KEY, normalizePhone, normalizeEmail } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 
 type Mode = 'phone' | 'email';
@@ -16,40 +17,65 @@ function SignInContent() {
   const [phone, setPhone] = useState('');
   const [email, setEmail] = useState('');
   const [sending, setSending] = useState(false);
+  const sendingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Optional return path: set when a gated action (e.g. booking) sent the user
-  // here, so we can bring them back after signing in — or when they skip.
   const redirect = searchParams?.get('redirect') || '';
+
+  const errorParam = searchParams?.get('error');
+
+  useEffect(() => {
+    if (!errorParam) return;
+    toast.error(errorParam === 'access_denied' ? 'Google sign-in was cancelled.' : `Sign-in error. Please try again.`);
+  }, [errorParam]);
 
   const handleSkip = () => router.push(redirect || '/');
 
   const handleSendOTP = async () => {
+    if (sendingRef.current) return;
     if (mode === 'phone' && phone.trim().length < 10) return;
     if (mode === 'email' && !email.includes('@')) return;
 
-    if (mode === 'email') {
-      toast.error('Email OTP is not enabled yet. Please use mobile sign in.');
-      return;
-    }
-
+    sendingRef.current = true;
     setSending(true);
     try {
-      const normalizedPhone = normalizePhone(phone);
-      await api.sendOtp(normalizedPhone);
-      window.localStorage.setItem(AUTH_PHONE_KEY, normalizedPhone);
-      router.push(
-        `/otp?mode=${mode}&value=${encodeURIComponent(normalizedPhone)}${
-          redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
-        }`,
-      );
+      if (mode === 'email') {
+        const normalizedEmail = normalizeEmail(email);
+        await api.sendEmailOtp(normalizedEmail);
+        window.localStorage.setItem(AUTH_EMAIL_KEY, normalizedEmail);
+        router.push(
+          `/otp?mode=email&value=${encodeURIComponent(normalizedEmail)}${
+            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+          }`,
+        );
+      } else {
+        const normalizedPhone = normalizePhone(phone);
+        await api.sendOtp(normalizedPhone);
+        window.localStorage.setItem(AUTH_PHONE_KEY, normalizedPhone);
+        router.push(
+          `/otp?mode=phone&value=${encodeURIComponent(normalizedPhone)}${
+            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+          }`,
+        );
+      }
     } catch (error) {
-      toast.error(
-        error instanceof Error ? error.message : 'Failed to send OTP',
-      );
+      const msg = error instanceof Error ? error.message : 'Failed to send OTP';
+      if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('over') || msg.toLowerCase().includes('too many')) {
+        toast.error('Please wait 60 seconds before requesting a new code');
+      } else {
+        toast.error(msg);
+      }
     } finally {
+      sendingRef.current = false;
       setSending(false);
     }
+  };
+
+  const handleGoogleSignIn = async () => {
+    await supabase.auth.signInWithOAuth({
+      provider: 'google',
+      options: { redirectTo: `${window.location.origin}/auth/callback` },
+    });
   };
 
   return (
@@ -127,15 +153,10 @@ function SignInContent() {
         {/* Send OTP button */}
         <button
           onClick={handleSendOTP}
-          disabled={sending || mode === 'email'}
-          title={mode === 'email' ? 'Email sign-in is coming soon' : undefined}
+          disabled={sending}
           className="w-full py-3.5 bg-[#1B3FA0] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#1B3FA0] disabled:active:scale-100"
         >
-          {sending
-            ? 'Sending...'
-            : mode === 'email'
-              ? 'Email sign-in coming soon'
-              : 'Send OTP'}
+          {sending ? 'Sending...' : 'Send OTP'}
         </button>
 
         {/* Divider */}
@@ -151,9 +172,8 @@ function SignInContent() {
             <>
               {/* Google */}
               <button
-                disabled
-                title="Coming soon"
-                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center shadow-sm opacity-50 cursor-not-allowed"
+                onClick={handleGoogleSignIn}
+                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm hover:shadow-md"
               >
                 <GoogleIcon />
               </button>
