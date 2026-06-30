@@ -485,6 +485,103 @@ function ReviewCard({ review }: { review: Review }) {
   );
 }
 
+// ── Write a review (signed-in guests) ────────────────────────────────
+function WriteReview({ listingId }: { listingId: string }) {
+  const { userId, isAuthenticated } = useAuth();
+  const router = useRouter();
+  const [rating, setRating] = useState(0);
+  const [hover, setHover] = useState(0);
+  const [comment, setComment] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+
+  if (!isAuthenticated) {
+    return (
+      <div className="mt-5 pt-5 border-t border-gray-100 text-center">
+        <p className="text-[13px] text-gray-500">
+          <button
+            onClick={() => router.push(`/signin?redirect=/property/${listingId}`)}
+            className="text-blue-600 font-bold hover:underline"
+          >
+            Sign in
+          </button>{' '}
+          to leave a review.
+        </p>
+      </div>
+    );
+  }
+
+  const submit = async () => {
+    if (!rating) {
+      toast.error('Please pick a star rating.');
+      return;
+    }
+    setSubmitting(true);
+    try {
+      await api.createReview({
+        listingId,
+        userId: userId!,
+        rating,
+        comment: comment.trim() || undefined,
+      });
+      toast.success('Thanks for your review!');
+      setRating(0);
+      setComment('');
+      setTimeout(() => router.refresh(), 700);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not submit your review.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  return (
+    <div className="mt-5 pt-5 border-t border-gray-100">
+      <p className="text-[13px] font-bold text-gray-800 mb-2">Write a review</p>
+      <div className="flex items-center gap-1 mb-3">
+        {Array.from({ length: 5 }).map((_, i) => {
+          const v = i + 1;
+          return (
+            <button
+              key={v}
+              type="button"
+              onMouseEnter={() => setHover(v)}
+              onMouseLeave={() => setHover(0)}
+              onClick={() => setRating(v)}
+              aria-label={`${v} star${v > 1 ? 's' : ''}`}
+            >
+              <Star
+                className={cn(
+                  'w-6 h-6 transition-colors',
+                  (hover || rating) >= v
+                    ? 'text-amber-400 fill-amber-400'
+                    : 'text-gray-200 fill-gray-200',
+                )}
+              />
+            </button>
+          );
+        })}
+      </div>
+      <textarea
+        rows={3}
+        maxLength={500}
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Share a few words about your stay (optional)…"
+        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-[13px] resize-none"
+      />
+      <div className="flex justify-end mt-2">
+        <button
+          onClick={submit}
+          disabled={submitting}
+          className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-[13px] hover:bg-blue-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          {submitting ? 'Submitting…' : 'Submit review'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 // ── 6. Host Card ─────────────────────────────────────────────────────
 function HostCard({ host }: { host: Host }) {
   const { toast } = { toast: (m: { title: string }) => console.log(m.title) };
@@ -713,7 +810,8 @@ function BookingWidget({
   const [guests, setGuests] = useState(1);
   const [dateError, setDateError] = useState('');
   const [showSuccess, setShowSuccess] = useState(false);
-  const { isAuthenticated } = useAuth();
+  const [booking, setBooking] = useState(false);
+  const { isAuthenticated, userId } = useAuth();
   const router = useRouter();
 
   const today = new Date().toISOString().split('T')[0];
@@ -742,11 +840,11 @@ function BookingWidget({
   const taxes = Math.round(subtotal * 0.12);
   const total = subtotal + serviceFee + taxes;
 
-  const validateAndBook = () => {
+  const validateAndBook = async () => {
     setDateError('');
     // Booking requires an account — guests can browse freely, but must sign in
     // to reserve. Send them to sign-in and bring them back to this property.
-    if (!isAuthenticated) {
+    if (!isAuthenticated || !userId) {
       toast('Please sign in to book this stay.');
       router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
       return;
@@ -763,8 +861,27 @@ function BookingWidget({
       setDateError('Minimum 1 night stay required.');
       return;
     }
-    setShowSuccess(true);
-    setTimeout(() => setShowSuccess(false), 3000);
+
+    setBooking(true);
+    try {
+      await api.createBooking({
+        listingId: property.id,
+        userId,
+        startDate: checkIn,
+        endDate: checkOut,
+        numAdults: guests,
+        numChildren: 0,
+        amount: total,
+      });
+      setShowSuccess(true);
+      toast.success('Booking confirmed! See it in your bookings.');
+      setTimeout(() => setShowSuccess(false), 4000);
+    } catch (err) {
+      console.error('[property] booking failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');
+    } finally {
+      setBooking(false);
+    }
   };
 
   return (
@@ -904,12 +1021,15 @@ function BookingWidget({
       ) : (
         <button
           onClick={validateAndBook}
-          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2"
+          disabled={booking}
+          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
-          {nights > 0
-            ? `Book for ${nights} Night${nights > 1 ? 's' : ''}`
-            : 'Check Availability'}
+          {booking
+            ? 'Reserving…'
+            : nights > 0
+              ? `Book for ${nights} Night${nights > 1 ? 's' : ''}`
+              : 'Check Availability'}
         </button>
       )}
 
@@ -1701,6 +1821,9 @@ export default function PropertyDetailsPage() {
                   </div>
                 </>
               )}
+
+              {/* Leave a review */}
+              <WriteReview listingId={property.id} />
             </div>
 
             {/* ── 7. SUGGESTED STAYS ── */}

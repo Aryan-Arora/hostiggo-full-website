@@ -13,7 +13,9 @@ import {
   CheckCircle2,
   Ban,
   BedDouble,
+  Loader2,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import HostDashboardShell from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -62,6 +64,9 @@ export default function CalendarPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+  const [priceInput, setPriceInput] = useState('');
+  const [availInput, setAvailInput] = useState(true);
+  const [saving, setSaving] = useState(false);
 
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -150,6 +155,37 @@ export default function CalendarPage() {
 
   const leading = new Date(year, month, 1).getDay();
   const selected = selectedDay ? days.find((d) => d.dateStr === selectedDay) : null;
+
+  // Seed the edit form whenever a different day is selected.
+  useEffect(() => {
+    if (selected) {
+      setPriceInput(selected.price != null ? String(selected.price) : '');
+      setAvailInput(selected.status !== 'blocked');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedDay]);
+
+  const handleSaveDay = async () => {
+    if (!selected || !listingId) return;
+    const day = selected.dateStr;
+    setSaving(true);
+    try {
+      await api.updateCalendarDay({
+        listingId,
+        date: day,
+        price: priceInput.trim() ? Number(priceInput) : undefined,
+        isAvailable: availInput,
+      });
+      toast.success('Calendar updated');
+      await loadCalendar();
+      setSelectedDay(day);
+    } catch (err) {
+      console.error('[host/calendar] save failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const changeMonth = (delta: number) => {
     setMonthDate((cur) => new Date(cur.getFullYear(), cur.getMonth() + delta, 1));
@@ -324,35 +360,86 @@ export default function CalendarPage() {
                     </p>
                   </div>
 
-                  <div className="space-y-4 mb-6">
-                    <div className="flex justify-between items-center py-2 border-b border-gray-100">
-                      <span className="text-sm text-gray-500">Nightly rate</span>
-                      <span className="text-sm font-bold text-gray-800">
-                        {selected.price != null ? inr(selected.price, selected.currency) : 'Not set'}
-                      </span>
-                    </div>
-                    <div className="flex justify-between items-center py-2">
-                      <span className="text-sm text-gray-500">Status</span>
-                      <span className="text-sm font-bold text-gray-800 flex items-center gap-1.5">
-                        {selected.status === 'blocked' ? (
-                          <Ban className="w-4 h-4 text-gray-400" />
-                        ) : selected.status === 'booked' ? (
-                          <BedDouble className="w-4 h-4 text-blue-500" />
-                        ) : (
-                          <CheckCircle2 className="w-4 h-4 text-green-500" />
-                        )}
-                        {STATUS_META[selected.status].label}
-                      </span>
-                    </div>
-                  </div>
+                  {selected.status === 'booked' ? (
+                    // Booked days are read-only — can't re-price or block a reserved night.
+                    <>
+                      <div className="space-y-4 mb-6">
+                        <div className="flex justify-between items-center py-2 border-b border-gray-100">
+                          <span className="text-sm text-gray-500">Nightly rate</span>
+                          <span className="text-sm font-bold text-gray-800">
+                            {selected.price != null ? inr(selected.price, selected.currency) : 'Not set'}
+                          </span>
+                        </div>
+                        <div className="flex justify-between items-center py-2">
+                          <span className="text-sm text-gray-500">Status</span>
+                          <span className="text-sm font-bold text-blue-600 flex items-center gap-1.5">
+                            <BedDouble className="w-4 h-4" /> Booked
+                          </span>
+                        </div>
+                      </div>
+                      <p className="text-xs text-gray-400 text-center">
+                        Booked nights can&apos;t be edited.
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      {/* Nightly rate (editable) */}
+                      <div className="space-y-2 mb-5">
+                        <label className="block text-sm text-gray-500">Nightly rate</label>
+                        <div className="relative">
+                          <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500">₹</span>
+                          <input
+                            type="number"
+                            min={0}
+                            value={priceInput}
+                            onChange={(e) => setPriceInput(e.target.value)}
+                            placeholder="0"
+                            className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                          />
+                        </div>
+                      </div>
 
-                  <button
-                    disabled
-                    title="Editing availability is coming soon"
-                    className={cn('w-full py-4 bg-blue-600 text-white rounded-xl font-bold', disabledBtn)}
-                  >
-                    Edit (coming soon)
-                  </button>
+                      {/* Availability toggle */}
+                      <div className="space-y-2 mb-6">
+                        <label className="block text-sm text-gray-500">Availability</label>
+                        <div className="grid grid-cols-2 gap-3">
+                          <button
+                            type="button"
+                            onClick={() => setAvailInput(true)}
+                            className={cn(
+                              'flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold transition-all',
+                              availInput
+                                ? 'border-green-600 bg-green-600 text-white shadow-md'
+                                : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50',
+                            )}
+                          >
+                            <CheckCircle2 className="w-4 h-4" /> Open
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setAvailInput(false)}
+                            className={cn(
+                              'flex items-center justify-center gap-2 py-3 rounded-xl border-2 font-bold transition-all',
+                              !availInput
+                                ? 'border-gray-700 bg-gray-700 text-white shadow-md'
+                                : 'border-gray-200 bg-white text-gray-500 hover:bg-gray-50',
+                            )}
+                          >
+                            <Ban className="w-4 h-4" /> Block
+                          </button>
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleSaveDay}
+                        disabled={saving}
+                        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                      >
+                        {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
+                        {saving ? 'Saving…' : 'Save changes'}
+                      </button>
+                    </>
+                  )}
                 </>
               ) : (
                 <div className="py-10 text-center text-sm text-gray-400">

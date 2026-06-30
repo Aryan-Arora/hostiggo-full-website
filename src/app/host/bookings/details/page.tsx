@@ -417,7 +417,7 @@ function DetailsInner() {
             </div>
             {!view.cancelled && (
               <Link
-                href="/host/bookings/cancel"
+                href={`/host/bookings/cancel?id=${view.id}`}
                 className="block w-full text-center py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-all"
               >
                 Cancel Booking

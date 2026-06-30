@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
+import { updateUserProfile } from "@/lib/services/admin-writes";
 
 export const dynamic = "force-dynamic";
 
@@ -29,7 +30,14 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { action, phone, token } = await req.json();
+    const body = await req.json();
+    const { action, phone, token } = body;
+
+    if (action === "update-profile") {
+      if (!body.userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      const data = await updateUserProfile(body.userId, body.patch ?? {});
+      return NextResponse.json({ data });
+    }
 
     if (action === "request-phone-change") {
       await usersAPI.requestPhoneChangeOtp(phone);

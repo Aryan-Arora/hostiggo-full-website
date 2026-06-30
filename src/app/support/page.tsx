@@ -6,6 +6,16 @@ import { AlertTriangle, Lightbulb, Smile, UserPlus, X, Lock, ChevronDown, type L
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+
+// Maps the on-screen action to the feedback.type stored in the DB.
+const TYPE_MAP: Record<string, string> = {
+  issue: 'report_issue',
+  suggest: 'suggest_improvement',
+  experience: 'share_experience',
+  referral: 'referral',
+};
 
 const ACTIONS: { id: string; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
   { id: 'issue', title: 'Report an issue', desc: 'Experiencing technical difficulties? Let us know so we can fix it immediately.', icon: AlertTriangle, tint: 'bg-red-50 text-red-500' },
@@ -23,6 +33,32 @@ export default function SupportPage() {
   const [active, setActive] = useState<string | null>(null);
   const [text, setText] = useState('');
   const [open, setOpen] = useState<number | null>(0);
+  const [submitting, setSubmitting] = useState(false);
+  const { userId } = useAuth();
+
+  const handleSubmit = async () => {
+    if (!text.trim()) {
+      toast.error('Please add a few details first.');
+      return;
+    }
+    if (!active) return;
+    setSubmitting(true);
+    try {
+      await api.submitFeedback({
+        userId: userId ?? null,
+        type: TYPE_MAP[active] ?? active,
+        description: text.trim(),
+      });
+      toast.success('Thanks! Your feedback has been received.');
+      setText('');
+      setActive(null);
+    } catch (err) {
+      console.error('[support] feedback failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not send feedback.');
+    } finally {
+      setSubmitting(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
@@ -101,18 +137,11 @@ export default function SupportPage() {
                     Your feedback is encrypted and secure
                   </div>
                   <button
-                    onClick={() => {
-                      if (!text.trim()) {
-                        toast.error('Please add a few details first.');
-                        return;
-                      }
-                      toast.success('Thanks! Your feedback has been received.');
-                      setText('');
-                      setActive(null);
-                    }}
-                    className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-md hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all"
+                    onClick={handleSubmit}
+                    disabled={submitting}
+                    className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-md hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
-                    Submit Feedback
+                    {submitting ? 'Submitting…' : 'Submit Feedback'}
                   </button>
                 </div>
               </div>

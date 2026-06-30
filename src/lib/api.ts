@@ -242,6 +242,59 @@ export const api = {
     request<{ entries: any[]; bookings: any[] }>(
       `/api/host/calendar?listingId=${encodeURIComponent(String(listingId))}&start=${start}&end=${end}`,
     ),
+  updateCalendarDay: (payload: {
+    listingId: string | number;
+    date: string;
+    price?: number;
+    isAvailable?: boolean;
+  }) =>
+    request<any>(`/api/host/calendar`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  createBooking: (payload: {
+    listingId: string | number;
+    userId: string;
+    startDate: string;
+    endDate: string;
+    numAdults?: number;
+    numChildren?: number;
+    amount?: number;
+  }) =>
+    request<any>(`/api/bookings/reserve`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  submitFeedback: (payload: {
+    userId?: string | null;
+    type: string;
+    description: string;
+    category?: string | null;
+    rating?: number | null;
+  }) =>
+    request<any>(`/api/feedback`, { method: "POST", body: JSON.stringify(payload) }),
+  updateProfile: (userId: string, patch: Record<string, any>) =>
+    request<any>(`/api/users`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "update-profile", userId, patch }),
+    }),
+  createListing: (draft: Record<string, any>) =>
+    request<{ listing_id: number; title: string }>(`/api/host/listings`, {
+      method: "POST",
+      body: JSON.stringify(draft),
+    }),
+  cancelBooking: (bookingId: string | number, reason?: string) =>
+    request<any>(`/api/bookings/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ bookingId, reason }),
+    }),
+  createReview: (payload: {
+    listingId: string | number;
+    userId: string;
+    rating: number;
+    comment?: string;
+  }) =>
+    request<any>(`/api/reviews`, { method: "POST", body: JSON.stringify(payload) }),
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),

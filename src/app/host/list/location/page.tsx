@@ -2,8 +2,10 @@
 
 import { MapPin, Pin, Pencil, ShieldCheck, Plus, Minus, LocateFixed } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
 export default function LocationPage() {
+  const { draft, update } = useListingDraft();
   return (
     <WizardShell
       step={2}
@@ -25,6 +27,8 @@ export default function LocationPage() {
               <input
                 id="address-search"
                 type="text"
+                defaultValue={draft.addressLine1 ?? ''}
+                onChange={(e) => update({ addressLine1: e.target.value })}
                 placeholder="Enter your property address"
                 className="w-full pl-10 pr-4 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
               />

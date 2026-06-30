@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Minus, Plus, Sparkles } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
 const ROWS = [
   { key: 'guests', label: 'Guests', desc: 'Max number of people', initial: 4, min: 1 },
@@ -12,9 +13,23 @@ const ROWS = [
 ] as const;
 
 export default function CapacityPage() {
-  const [counts, setCounts] = useState<Record<string, number>>(
-    Object.fromEntries(ROWS.map((r) => [r.key, r.initial])),
-  );
+  const { draft, update } = useListingDraft();
+  const [counts, setCounts] = useState<Record<string, number>>(() => ({
+    guests: draft.numGuests ?? 4,
+    bedrooms: draft.numBedrooms ?? 2,
+    beds: draft.numBeds ?? 3,
+    bathrooms: draft.numBathrooms ?? 1,
+  }));
+
+  useEffect(() => {
+    update({
+      numGuests: counts.guests,
+      numBedrooms: counts.bedrooms,
+      numBeds: counts.beds,
+      numBathrooms: counts.bathrooms,
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [counts]);
 
   const set = (key: string, delta: number, min: number) =>
     setCounts((c) => ({ ...c, [key]: Math.max(min, c[key] + delta) }));

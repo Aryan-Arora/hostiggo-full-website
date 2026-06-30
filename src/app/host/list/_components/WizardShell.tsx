@@ -2,8 +2,9 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { HelpCircle } from 'lucide-react';
+import { HelpCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
 // Ordered list of the listing-creation wizard steps.
 export const WIZARD_STEPS = [
@@ -36,6 +37,7 @@ export default function WizardShell({
   nextDisabled?: boolean;
 }) {
   const router = useRouter();
+  const { submit, submitting } = useListingDraft();
   const idx = step - 1;
   const prev = WIZARD_STEPS[idx - 1];
   const next = WIZARD_STEPS[idx + 1];
@@ -117,19 +119,21 @@ export default function WizardShell({
           </button>
           <button
             type="button"
-            disabled={nextDisabled}
-            aria-disabled={nextDisabled}
-            onClick={() =>
-              router.push(next ? `/host/list/${next.slug}` : '/host/listings?created=1')
-            }
+            disabled={nextDisabled || submitting}
+            aria-disabled={nextDisabled || submitting}
+            onClick={() => {
+              if (next) router.push(`/host/list/${next.slug}`);
+              else submit();
+            }}
             className={cn(
-              'rounded-xl px-10 py-3 text-sm font-bold text-white transition-all active:scale-95 shadow-md',
-              nextDisabled
+              'rounded-xl px-10 py-3 text-sm font-bold text-white transition-all active:scale-95 shadow-md flex items-center gap-2',
+              nextDisabled || submitting
                 ? 'bg-gray-300 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700',
             )}
           >
-            {next ? nextLabel : 'Finish'}
+            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+            {next ? nextLabel : submitting ? 'Creating…' : 'Finish'}
           </button>
         </div>
       </footer>

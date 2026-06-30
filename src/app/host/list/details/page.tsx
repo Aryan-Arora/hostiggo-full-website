@@ -1,8 +1,9 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lightbulb, PlusCircle, Sparkles } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
 const SUGGESTIONS = [
   {
@@ -14,14 +15,22 @@ const SUGGESTIONS = [
 ];
 
 export default function DetailsPage() {
-  const [title, setTitle] = useState('');
-  const [desc, setDesc] = useState('');
+  const { draft, update } = useListingDraft();
+  const [title, setTitle] = useState(draft.title ?? '');
+  const [desc, setDesc] = useState(draft.description ?? '');
+
+  // Persist to the wizard draft as the host types.
+  useEffect(() => {
+    update({ title, description: desc });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [title, desc]);
 
   return (
     <WizardShell
       step={6}
       title="Now, let's give your place a title and description"
       subtitle="Short, catchy titles work best. Describe what makes your place special to attract more guests."
+      nextDisabled={!title.trim()}
     >
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Left: inputs */}

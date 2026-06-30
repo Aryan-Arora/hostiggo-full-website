@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calendarServiceAPI } from "@/lib/services/calendar";
+import { upsertCalendarDay } from "@/lib/services/admin-writes";
 
 export const dynamic = "force-dynamic";
 
@@ -23,6 +24,32 @@ export async function GET(req: NextRequest) {
     ]);
 
     return NextResponse.json({ data: { entries, bookings } });
+  } catch (err) {
+    return NextResponse.json(
+      { error: err instanceof Error ? err.message : "Request failed" },
+      { status: 500 },
+    );
+  }
+}
+
+// Update a single day's rate / availability for a listing.
+export async function PATCH(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { listingId, date, price, isAvailable } = body ?? {};
+    if (!listingId || !date) {
+      return NextResponse.json(
+        { error: "listingId and date are required" },
+        { status: 400 },
+      );
+    }
+    const data = await upsertCalendarDay({
+      listingId: Number(listingId),
+      date: String(date),
+      price: price === undefined || price === null ? undefined : Number(price),
+      isAvailable: typeof isAvailable === "boolean" ? isAvailable : undefined,
+    });
+    return NextResponse.json({ data });
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Request failed" },

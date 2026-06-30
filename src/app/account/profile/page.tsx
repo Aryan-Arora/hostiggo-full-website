@@ -1,11 +1,47 @@
 'use client';
 
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ChevronRight, Camera, Award, ShieldCheck, Mail, Phone } from 'lucide-react';
+import { toast } from 'sonner';
+import { ChevronRight, Camera, ShieldCheck, Mail, Phone, Loader2 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
 
 export default function GuestProfilePage() {
+  const { user, userId, loading, isAuthenticated, refresh } = useAuth();
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Seed the form from the real user once it loads.
+  useEffect(() => {
+    if (user) {
+      setName(user.name ?? '');
+      setEmail(user.email ?? '');
+      setPhone(user.phone ?? '');
+    }
+  }, [user]);
+
+  const handleSave = async () => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      await api.updateProfile(userId, { name, email, phone });
+      await refresh();
+      toast.success('Profile updated.');
+    } catch (err) {
+      console.error('[account/profile] save failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not save your profile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/200?img=45';
+
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
       <Navbar />
@@ -16,109 +52,136 @@ export default function GuestProfilePage() {
           <span className="text-blue-600 font-bold">Profile</span>
         </nav>
 
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Summary */}
-          <aside className="lg:col-span-4 space-y-6">
-            <div className="bg-white rounded-3xl p-8 shadow-card border border-gray-200">
-              <div className="flex flex-col items-center text-center">
-                <div className="relative w-32 h-32 mb-6">
-                  <img
-                    src="https://i.pravatar.cc/200?img=45"
-                    alt="Julianne Davenport"
-                    className="w-full h-full rounded-full object-cover border-4 border-blue-100 shadow-lg"
-                  />
-                  <button className="absolute bottom-1 right-1 bg-blue-600 text-white p-2 rounded-full shadow-lg hover:scale-110 transition-transform">
-                    <Camera className="w-5 h-5" />
-                  </button>
-                </div>
-                <h1 className="text-xl font-bold text-gray-900 mb-1">Julianne Davenport</h1>
-                <p className="text-sm text-gray-500 mb-4">Guest since 2023</p>
-                <div className="inline-flex items-center gap-2 bg-amber-50 text-amber-700 px-4 py-1.5 rounded-full mb-6">
-                  <Award className="w-4 h-4" />
-                  <span className="text-sm font-bold">Gold Member</span>
-                </div>
-                <div className="w-full pt-6 border-t border-gray-100 space-y-4">
-                  <div className="flex justify-between items-center px-2">
-                    <span className="text-sm text-gray-500">Total Trips</span>
-                    <span className="text-sm text-blue-600 font-bold">14</span>
+        {loading ? (
+          <div className="py-24 flex justify-center text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+        ) : !isAuthenticated ? (
+          <div className="bg-white rounded-3xl border border-gray-200 shadow-card py-16 text-center max-w-md mx-auto">
+            <p className="text-4xl mb-3">🔒</p>
+            <h2 className="text-lg font-bold text-gray-800 mb-1">Sign in to view your profile</h2>
+            <p className="text-sm text-gray-500 mb-6">Manage your personal details once you&apos;re signed in.</p>
+            <Link
+              href="/signin?redirect=/account/profile"
+              className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            >
+              Sign in
+            </Link>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+            {/* Summary */}
+            <aside className="lg:col-span-4 space-y-6">
+              <div className="bg-white rounded-3xl p-8 shadow-card border border-gray-200">
+                <div className="flex flex-col items-center text-center">
+                  <div className="relative w-32 h-32 mb-6">
+                    <img
+                      src={avatar}
+                      alt={name || 'Profile'}
+                      className="w-full h-full rounded-full object-cover border-4 border-blue-100 shadow-lg"
+                    />
+                    <button
+                      disabled
+                      title="Photo upload coming soon"
+                      className="absolute bottom-1 right-1 bg-blue-600/70 text-white p-2 rounded-full shadow-lg cursor-not-allowed"
+                    >
+                      <Camera className="w-5 h-5" />
+                    </button>
                   </div>
-                  <div className="flex justify-between items-center px-2">
-                    <span className="text-sm text-gray-500">Wishlists</span>
-                    <span className="text-sm text-blue-600 font-bold">8</span>
-                  </div>
+                  <h1 className="text-xl font-bold text-gray-900 mb-1">{name || 'Your name'}</h1>
+                  <p className="text-sm text-gray-500 mb-4">{email || phone || 'Hostiggo member'}</p>
                 </div>
               </div>
-            </div>
 
-            <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 flex items-center gap-4">
-              <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                <ShieldCheck className="w-6 h-6" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-800">Identity verified</p>
-                <p className="text-xs text-gray-500">Email, phone & ID confirmed</p>
-              </div>
-            </div>
-          </aside>
+              {user?.is_verified && (
+                <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 flex items-center gap-4">
+                  <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                    <ShieldCheck className="w-6 h-6" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-gray-800">Identity verified</p>
+                    <p className="text-xs text-gray-500">Your account is verified</p>
+                  </div>
+                </div>
+              )}
+            </aside>
 
-          {/* Details */}
-          <div className="lg:col-span-8 space-y-6">
-            <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
-              <h2 className="text-lg font-bold text-gray-800 mb-6">Personal Information</h2>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                {[
-                  { label: 'Full Name', value: 'Julianne Davenport', type: 'text' },
-                  { label: 'Email', value: 'julianne.d@hostiggo.com', type: 'email' },
-                  { label: 'Phone', value: '+1 (555) 012-3456', type: 'tel' },
-                  { label: 'Location', value: 'New Delhi, India', type: 'text' },
-                ].map((f) => (
-                  <div key={f.label} className="space-y-2">
-                    <label className="text-sm font-bold text-gray-500 ml-1">{f.label}</label>
+            {/* Details */}
+            <div className="lg:col-span-8 space-y-6">
+              <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-800 mb-6">Personal Information</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Full Name</label>
                     <input
-                      type={f.type}
-                      defaultValue={f.value}
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
                     />
                   </div>
-                ))}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Email</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Phone</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+                </div>
+                <div className="mt-6 flex justify-end">
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {saving ? 'Saving…' : 'Save Changes'}
+                  </button>
+                </div>
               </div>
-              <div className="mt-6 flex justify-end">
-                <button className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all">
-                  Save Changes
-                </button>
-              </div>
-            </div>
 
-            <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
-              <h2 className="text-lg font-bold text-gray-800 mb-6">Contact Preferences</h2>
-              <div className="space-y-4">
-                {[
-                  { icon: Mail, label: 'Email notifications', desc: 'Booking updates and offers' },
-                  { icon: Phone, label: 'SMS alerts', desc: 'Time-sensitive trip reminders' },
-                ].map((p) => {
-                  const Icon = p.icon;
-                  return (
-                    <div
-                      key={p.label}
-                      className="flex items-center justify-between p-4 rounded-xl border border-gray-200"
-                    >
-                      <div className="flex items-center gap-4">
-                        <Icon className="w-5 h-5 text-blue-600" />
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">{p.label}</p>
-                          <p className="text-xs text-gray-500">{p.desc}</p>
+              <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-800 mb-6">Contact Preferences</h2>
+                <div className="space-y-4">
+                  {[
+                    { icon: Mail, label: 'Email notifications', desc: 'Booking updates and offers' },
+                    { icon: Phone, label: 'SMS alerts', desc: 'Time-sensitive trip reminders' },
+                  ].map((p) => {
+                    const Icon = p.icon;
+                    return (
+                      <div
+                        key={p.label}
+                        className="flex items-center justify-between p-4 rounded-xl border border-gray-200"
+                      >
+                        <div className="flex items-center gap-4">
+                          <Icon className="w-5 h-5 text-blue-600" />
+                          <div>
+                            <p className="text-sm font-bold text-gray-800">{p.label}</p>
+                            <p className="text-xs text-gray-500">{p.desc}</p>
+                          </div>
                         </div>
+                        <Link href="/account/settings" className="text-sm text-blue-600 font-bold hover:underline">
+                          Manage
+                        </Link>
                       </div>
-                      <Link href="/account/settings" className="text-sm text-blue-600 font-bold hover:underline">
-                        Manage
-                      </Link>
-                    </div>
-                  );
-                })}
+                    );
+                  })}
+                </div>
               </div>
             </div>
           </div>
-        </div>
+        )}
       </main>
       <Footer />
     </div>

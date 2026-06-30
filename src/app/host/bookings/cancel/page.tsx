@@ -1,9 +1,13 @@
 'use client';
 
-import { useState } from 'react';
+import { Suspense, useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, AlertTriangle, Info } from 'lucide-react';
+import { useRouter, useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { ArrowLeft, AlertTriangle, Info, Loader2 } from 'lucide-react';
 import HostDashboardShell from '../../_components/HostDashboardShell';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const REASONS = [
@@ -13,183 +17,210 @@ const REASONS = [
   { id: 'other', title: 'Other', desc: 'Something else not listed above.' },
 ];
 
-export default function CancelBookingPage() {
+const fmtDate = (s?: string | null) =>
+  s ? new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+
+function CancelInner() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const id = params.get('id');
+  useAuth(); // ensures host area is gated
+
   const [step, setStep] = useState<1 | 2>(1);
   const [reason, setReason] = useState<string | null>(null);
+  const [booking, setBooking] = useState<any>(null);
+  const [cancelling, setCancelling] = useState(false);
   const reasonLabel = REASONS.find((r) => r.id === reason)?.title ?? '—';
+  const detailsHref = id ? `/host/bookings/details?id=${id}` : '/host/bookings';
+
+  const load = useCallback(async () => {
+    if (!id) return;
+    try {
+      setBooking(await api.bookingDetail(id));
+    } catch (err) {
+      console.error('[cancel] load failed:', err);
+    }
+  }, [id]);
+
+  useEffect(() => {
+    load();
+  }, [load]);
+
+  const handleConfirm = async () => {
+    if (!id) return;
+    setCancelling(true);
+    try {
+      await api.cancelBooking(id, reasonLabel);
+      toast.success('Reservation cancelled.');
+      router.push('/host/bookings');
+    } catch (err) {
+      console.error('[cancel] failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not cancel.');
+    } finally {
+      setCancelling(false);
+    }
+  };
+
+  const prop = booking?.property ?? {};
+  const guestName = booking?.guest?.name ?? 'Guest';
 
   return (
-    <HostDashboardShell active="bookings">
-      <div className="max-w-4xl mx-auto">
-        {/* Header */}
-        <div className="mb-8">
-          <div className="flex items-center gap-2 mb-4">
-            <Link
-              href="/host/bookings/details"
-              className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-all text-blue-600"
-            >
-              <ArrowLeft className="w-5 h-5" />
-            </Link>
-            <span className="text-sm text-gray-400">Booking #HG-882193</span>
-          </div>
-          <h2 className="text-2xl md:text-3xl font-bold text-gray-900">
-            Cancel this reservation
-          </h2>
-          <p className="text-sm text-gray-500 mt-2">
-            We understand plans change. Let us know why you need to cancel so we
-            can help you manage the impact on your hosting status.
-          </p>
+    <div className="max-w-4xl mx-auto">
+      <div className="mb-8">
+        <div className="flex items-center gap-2 mb-4">
+          <Link href={detailsHref} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-all text-blue-600">
+            <ArrowLeft className="w-5 h-5" />
+          </Link>
+          <span className="text-sm text-gray-400">{id ? `Booking #${id}` : 'No booking selected'}</span>
         </div>
+        <h2 className="text-2xl md:text-3xl font-bold text-gray-900">Cancel this reservation</h2>
+        <p className="text-sm text-gray-500 mt-2">
+          We understand plans change. Let us know why you need to cancel.
+        </p>
+      </div>
 
-        {step === 1 ? (
-          <section>
-            <p className="text-sm font-medium text-gray-800 uppercase tracking-wider mb-4">
-              Why do you want to cancel?
-            </p>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {REASONS.map((r) => (
-                <button
-                  key={r.id}
-                  onClick={() => setReason(r.id)}
-                  className={cn(
-                    'text-left flex items-start p-5 border rounded-xl transition-all',
-                    reason === r.id
-                      ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/40'
-                      : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50',
-                  )}
-                >
-                  <span
-                    className={cn(
-                      'mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
-                      reason === r.id ? 'border-blue-600' : 'border-gray-300',
-                    )}
-                  >
-                    {reason === r.id && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
-                  </span>
-                  <div className="ml-4">
-                    <span className="block text-sm font-bold text-gray-800">{r.title}</span>
-                    <span className="block text-sm text-gray-500 mt-1">{r.desc}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="mt-8 flex flex-col md:flex-row gap-4 items-center justify-between border-t border-gray-200 pt-8">
-              <Link href="/host/bookings/details" className="text-blue-600 font-bold hover:underline">
-                Keep Booking
-              </Link>
+      {!id ? (
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-card py-16 text-center">
+          <p className="text-sm text-gray-500 mb-4">Open a reservation to cancel it.</p>
+          <Link href="/host/bookings" className="text-blue-600 font-bold hover:underline">Back to bookings</Link>
+        </div>
+      ) : step === 1 ? (
+        <section>
+          <p className="text-sm font-medium text-gray-800 uppercase tracking-wider mb-4">
+            Why do you want to cancel?
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {REASONS.map((r) => (
               <button
-                disabled={!reason}
-                onClick={() => setStep(2)}
+                key={r.id}
+                onClick={() => setReason(r.id)}
                 className={cn(
-                  'w-full md:w-auto px-10 py-4 rounded-xl font-bold text-white shadow-md transition-all',
-                  reason ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed',
+                  'text-left flex items-start p-5 border rounded-xl transition-all',
+                  reason === r.id
+                    ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/40'
+                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50',
                 )}
               >
-                Review Details
+                <span
+                  className={cn(
+                    'mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
+                    reason === r.id ? 'border-blue-600' : 'border-gray-300',
+                  )}
+                >
+                  {reason === r.id && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                </span>
+                <div className="ml-4">
+                  <span className="block text-sm font-bold text-gray-800">{r.title}</span>
+                  <span className="block text-sm text-gray-500 mt-1">{r.desc}</span>
+                </div>
               </button>
-            </div>
-          </section>
-        ) : (
-          <section>
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-              <div className="lg:col-span-2 space-y-6">
-                {/* Impact */}
-                <div className="bg-red-50 p-6 rounded-2xl flex gap-4 border border-red-100">
-                  <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
-                  <div>
-                    <h4 className="text-sm font-bold text-red-700">Hosting Impact Notice</h4>
-                    <p className="text-sm text-red-600/90 mt-1">
-                      Canceling this reservation may affect your &quot;Superhost&quot; status and
-                      result in a $50 administrative fee. Consider messaging the guest to find
-                      an alternative.
-                    </p>
-                  </div>
-                </div>
-
-                {/* Summary */}
-                <div className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
-                  <h4 className="text-xs text-gray-500 uppercase mb-4">Reservation Summary</h4>
-                  <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-                    <img
-                      src="https://images.unsplash.com/photo-1502672260266-1c1ef2d93688?w=200&h=200&fit=crop&q=80"
-                      alt="Loft"
-                      className="w-16 h-16 rounded-lg object-cover shrink-0"
-                    />
-                    <div>
-                      <h5 className="text-sm font-bold text-gray-800">Skyline Serenity Loft</h5>
-                      <p className="text-sm text-gray-500">Nov 14 - Nov 19 · 5 Nights</p>
-                    </div>
-                  </div>
-                  <div className="pt-4 space-y-3">
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Guest</span>
-                      <span className="font-bold text-gray-800">Elena Rodriguez (+2)</span>
-                    </div>
-                    <div className="flex justify-between text-sm">
-                      <span className="text-gray-500">Reason for cancellation</span>
-                      <span className="font-bold text-gray-800">{reasonLabel}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Earnings */}
-                <div className="bg-gray-50 p-6 rounded-2xl">
-                  <h4 className="text-xs text-gray-500 uppercase mb-4">Earnings Adjustment</h4>
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-center text-sm">
-                      <span>Projected Payout</span>
-                      <span className="line-through text-gray-400">$840.00</span>
-                    </div>
-                    <div className="flex justify-between items-center text-sm text-red-500 font-bold">
-                      <span>Cancellation Fee</span>
-                      <span>-$50.00</span>
-                    </div>
-                    <div className="border-t border-gray-200 mt-2 pt-2 flex justify-between items-center text-lg font-bold text-gray-800">
-                      <span>New Total</span>
-                      <span>-$50.00</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              {/* Sidebar */}
-              <div className="space-y-4">
-                <div className="bg-white p-6 rounded-2xl space-y-4 border border-gray-200 shadow-card">
-                  <div className="flex items-center gap-3 text-blue-600">
-                    <Info className="w-5 h-5" />
-                    <span className="text-sm font-bold">What happens next?</span>
-                  </div>
-                  <ul className="space-y-3 text-sm text-gray-500 leading-relaxed">
-                    <li className="flex gap-2"><span className="text-blue-600">•</span> Guest will be notified immediately.</li>
-                    <li className="flex gap-2"><span className="text-blue-600">•</span> Full refund will be processed to the guest.</li>
-                    <li className="flex gap-2"><span className="text-blue-600">•</span> Your calendar will be blocked for these dates.</li>
-                  </ul>
-                </div>
-                <div className="bg-gray-100 p-6 rounded-2xl">
-                  <p className="text-xs text-gray-500">
-                    Need help?{' '}
-                    <Link href="/support" className="text-blue-600 underline">
-                      Contact Host Support
-                    </Link>
+            ))}
+          </div>
+          <div className="mt-8 flex flex-col md:flex-row gap-4 items-center justify-between border-t border-gray-200 pt-8">
+            <Link href={detailsHref} className="text-blue-600 font-bold hover:underline">Keep Booking</Link>
+            <button
+              disabled={!reason}
+              onClick={() => setStep(2)}
+              className={cn(
+                'w-full md:w-auto px-10 py-4 rounded-xl font-bold text-white shadow-md transition-all',
+                reason ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed',
+              )}
+            >
+              Review Details
+            </button>
+          </div>
+        </section>
+      ) : (
+        <section>
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            <div className="lg:col-span-2 space-y-6">
+              <div className="bg-red-50 p-6 rounded-2xl flex gap-4 border border-red-100">
+                <AlertTriangle className="w-5 h-5 text-red-500 shrink-0" />
+                <div>
+                  <h4 className="text-sm font-bold text-red-700">Hosting Impact Notice</h4>
+                  <p className="text-sm text-red-600/90 mt-1">
+                    Cancelling a confirmed reservation notifies the guest and frees these dates.
                   </p>
                 </div>
               </div>
+
+              <div className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
+                <h4 className="text-xs text-gray-500 uppercase mb-4">Reservation Summary</h4>
+                <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
+                  <div className="w-16 h-16 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-600 font-bold">
+                    #{id}
+                  </div>
+                  <div>
+                    <h5 className="text-sm font-bold text-gray-800">{prop.title ?? 'Property'}</h5>
+                    <p className="text-sm text-gray-500">
+                      {fmtDate(booking?.start_date)} – {fmtDate(booking?.end_date)}
+                    </p>
+                  </div>
+                </div>
+                <div className="pt-4 space-y-3">
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Guest</span>
+                    <span className="font-bold text-gray-800">{guestName}</span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Amount</span>
+                    <span className="font-bold text-gray-800">
+                      ₹{Number(booking?.amount ?? 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                  <div className="flex justify-between text-sm">
+                    <span className="text-gray-500">Reason for cancellation</span>
+                    <span className="font-bold text-gray-800">{reasonLabel}</span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div className="mt-8 flex flex-col md:flex-row-reverse gap-4 items-center border-t border-gray-200 pt-8">
-              <button className="w-full md:w-auto bg-red-500 text-white px-10 py-4 rounded-xl font-bold shadow-md hover:bg-red-600 transition-all">
-                Confirm Cancellation
-              </button>
-              <button
-                onClick={() => setStep(1)}
-                className="text-gray-600 font-bold hover:underline"
-              >
-                Go Back
-              </button>
+            <div className="space-y-4">
+              <div className="bg-white p-6 rounded-2xl space-y-4 border border-gray-200 shadow-card">
+                <div className="flex items-center gap-3 text-blue-600">
+                  <Info className="w-5 h-5" />
+                  <span className="text-sm font-bold">What happens next?</span>
+                </div>
+                <ul className="space-y-3 text-sm text-gray-500 leading-relaxed">
+                  <li className="flex gap-2"><span className="text-blue-600">•</span> The booking is marked cancelled.</li>
+                  <li className="flex gap-2"><span className="text-blue-600">•</span> These dates free up on your calendar.</li>
+                </ul>
+              </div>
+              <div className="bg-gray-100 p-6 rounded-2xl">
+                <p className="text-xs text-gray-500">
+                  Need help?{' '}
+                  <Link href="/support" className="text-blue-600 underline">Contact Host Support</Link>
+                </p>
+              </div>
             </div>
-          </section>
-        )}
-      </div>
+          </div>
+
+          <div className="mt-8 flex flex-col md:flex-row-reverse gap-4 items-center border-t border-gray-200 pt-8">
+            <button
+              onClick={handleConfirm}
+              disabled={cancelling}
+              className="w-full md:w-auto bg-red-500 text-white px-10 py-4 rounded-xl font-bold shadow-md hover:bg-red-600 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+            >
+              {cancelling && <Loader2 className="w-5 h-5 animate-spin" />}
+              {cancelling ? 'Cancelling…' : 'Confirm Cancellation'}
+            </button>
+            <button onClick={() => setStep(1)} className="text-gray-600 font-bold hover:underline">
+              Go Back
+            </button>
+          </div>
+        </section>
+      )}
+    </div>
+  );
+}
+
+export default function CancelBookingPage() {
+  return (
+    <HostDashboardShell active="bookings">
+      <Suspense fallback={<div className="h-64 bg-white rounded-2xl border border-gray-100 shadow-card animate-pulse" />}>
+        <CancelInner />
+      </Suspense>
     </HostDashboardShell>
   );
 }

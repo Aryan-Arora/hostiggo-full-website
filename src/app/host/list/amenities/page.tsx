@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Wifi,
   UtensilsCrossed,
@@ -31,6 +31,7 @@ import {
 } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
 type Amenity = { id: string; label: string; icon: LucideIcon };
 
@@ -79,8 +80,30 @@ const LABELS = Object.fromEntries(
   CATEGORIES.flatMap((c) => c.items).map((i) => [i.id, i.label]),
 );
 
+// Maps the wizard's amenity ids to the DB amenities table's amenity_id.
+const AMENITY_DB_ID: Record<string, number> = {
+  wifi: 1, ac: 2, heating: 3, kitchen: 4, washer: 5, parking: 7, tv: 8,
+  pool: 11, gym: 12, hottub: 13, balcony: 14, smoke: 16, extinguisher: 17,
+  firstaid: 18, pets: 19, bbq: 21, garden: 22,
+};
+
 export default function AmenitiesPage() {
-  const [selected, setSelected] = useState<Set<string>>(new Set(['wifi', 'kitchen']));
+  const { draft, update } = useListingDraft();
+  const [selected, setSelected] = useState<Set<string>>(() => {
+    if (draft.amenityIds?.length) {
+      const fromDraft = Object.entries(AMENITY_DB_ID)
+        .filter(([, id]) => draft.amenityIds!.includes(id))
+        .map(([key]) => key);
+      return new Set(fromDraft);
+    }
+    return new Set(['wifi', 'kitchen']);
+  });
+
+  useEffect(() => {
+    const ids = [...selected].map((k) => AMENITY_DB_ID[k]).filter(Boolean);
+    update({ amenityIds: ids });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected]);
 
   const toggle = (id: string) =>
     setSelected((prev) => {
