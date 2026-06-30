@@ -283,6 +283,18 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
+  cancelBooking: (bookingId: string | number, reason?: string) =>
+    request<any>(`/api/bookings/cancel`, {
+      method: "POST",
+      body: JSON.stringify({ bookingId, reason }),
+    }),
+  createReview: (payload: {
+    listingId: string | number;
+    userId: string;
+    rating: number;
+    comment?: string;
+  }) =>
+    request<any>(`/api/reviews`, { method: "POST", body: JSON.stringify(payload) }),
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),

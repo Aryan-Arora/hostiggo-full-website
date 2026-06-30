@@ -99,6 +99,42 @@ export async function createBooking(input: {
   return data;
 }
 
+// ── Booking cancellation ─────────────────────────────────────────────────────
+export async function cancelBooking(bookingId: number, reason?: string | null) {
+  const patch: Record<string, any> = { status_id: 3 }; // 3 = CANCELLED
+  if (reason) patch.cancellation_reason = reason;
+  const { data, error } = await supabaseAdmin
+    .from("bookings")
+    .update(patch)
+    .eq("booking_id", bookingId)
+    .select("booking_id, status_id, cancellation_reason")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
+// ── Reviews ──────────────────────────────────────────────────────────────────
+export async function createReview(input: {
+  listingId: number;
+  userId: string;
+  rating: number;
+  comment?: string | null;
+}) {
+  const { data, error } = await supabaseAdmin
+    .from("review")
+    .insert({
+      listing_id: input.listingId,
+      user_id: input.userId,
+      rating: input.rating,
+      comment: input.comment ?? null,
+      reviewd_at: new Date().toISOString(), // note: column is misspelled in schema
+    })
+    .select("review_id, listing_id, rating, comment")
+    .single();
+  if (error) throw error;
+  return data;
+}
+
 // ── Feedback ─────────────────────────────────────────────────────────────────
 export async function createFeedback(input: {
   userId?: string | null;
