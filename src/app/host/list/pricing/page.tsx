@@ -1,9 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Lightbulb, Percent } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
 function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
@@ -27,8 +28,14 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 }
 
 export default function PricingPage() {
-  const [price, setPrice] = useState(2999);
+  const { draft, update } = useListingDraft();
+  const [price, setPrice] = useState(draft.priceWeekday ?? 2999);
   const [discounts, setDiscounts] = useState({ newListing: true, weekly: true, monthly: false });
+
+  useEffect(() => {
+    update({ priceWeekday: price, priceWeekend: price });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [price]);
   const toggle = (k: keyof typeof discounts) =>
     setDiscounts((d) => ({ ...d, [k]: !d[k] }));
 
