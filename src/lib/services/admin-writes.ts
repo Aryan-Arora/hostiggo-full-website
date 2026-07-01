@@ -209,6 +209,21 @@ export async function createReview(input: {
   rating: number;
   comment?: string | null;
 }) {
+  // Only allow reviews after a confirmed stay has ended.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: eligible, error: eligErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id")
+    .eq("listing_id", input.listingId)
+    .eq("user_id", input.userId)
+    .eq("status_id", 2) // CONFIRMED
+    .lt("end_date", today) // stay has ended
+    .limit(1)
+    .maybeSingle();
+  if (eligErr) throw eligErr;
+  if (!eligible)
+    throw new Error("You can only review a listing after completing your stay.");
+
   const { data, error } = await supabaseAdmin
     .from("review")
     .insert({
