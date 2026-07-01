@@ -160,7 +160,7 @@ interface MenuItem {
 
 const MENU_GROUPS: MenuItem[][] = [
   [
-    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', soon: true },
+    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '/chat' },
     {
       icon: <Heart className="w-4 h-4" />,
       label: 'Wishlists',
@@ -391,6 +391,13 @@ export default function Navbar() {
             </button>
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/chat"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <MessageCircle className="w-4 h-4 text-gray-500" /> Chats
+                </Link>
                 <Link
                   href="/wishlist"
                   onClick={() => setMobileOpen(false)}
