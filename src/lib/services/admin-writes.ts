@@ -3,6 +3,65 @@ import { supabaseAdmin } from "../supabase-admin";
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
 
+// ── Host Profile ─────────────────────────────────────────────────────────────
+/**
+ * Ensures a host profile exists for the given user.
+ * If no host profile exists, creates one automatically.
+ * If multiple host profiles exist (data issue), returns the first one.
+ * This allows any authenticated user to become a host.
+ * 
+ * @param userId The user's ID
+ * @returns The host_uuid for the user
+ */
+export async function ensureHostProfile(userId: string): Promise<string> {
+  // Get all host profiles for this user (there should be only 1, but handle multiples)
+  const { data: hosts, error: checkError } = await supabaseAdmin
+    .from("host")
+    .select("host_uuid")
+    .eq("user_id", userId)
+    .limit(10); // Limit to avoid retrieving too many rows
+  
+  if (checkError) {
+    console.error("[ensureHostProfile] Check error:", checkError);
+    throw checkError;
+  }
+  
+  // If host profiles exist, return the first one
+  if (hosts && hosts.length > 0) {
+    if (hosts.length > 1) {
+      console.warn(
+        `[ensureHostProfile] Found ${hosts.length} host profiles for user ${userId}. Using first one.`,
+        hosts.map((h) => h.host_uuid)
+      );
+    }
+    return hosts[0].host_uuid;
+  }
+  
+  // Create a new host profile for this user
+  console.log(`[ensureHostProfile] Creating new host profile for user ${userId}`);
+  
+  const { data: newHost, error: createError } = await supabaseAdmin
+    .from("host")
+    .insert({
+      user_id: userId,
+      is_verified: false,
+    })
+    .select("host_uuid")
+    .single();
+  
+  if (createError) {
+    console.error("[ensureHostProfile] Failed to create host profile:", createError);
+    throw new Error(`Could not create host profile: ${createError.message}`);
+  }
+  
+  if (!newHost?.host_uuid) {
+    throw new Error("Failed to create host profile for user");
+  }
+  
+  console.log(`[ensureHostProfile] Successfully created host profile with UUID: ${newHost.host_uuid}`);
+  return newHost.host_uuid;
+}
+
 // ── Storage ──────────────────────────────────────────────────────────────────
 const LISTING_BUCKET = "homestay photos";
 
@@ -201,14 +260,8 @@ export type ListingDraft = {
 };
 
 export async function createListing(draft: ListingDraft) {
-  // Resolve the owning host from the user.
-  const { data: host, error: herr } = await supabaseAdmin
-    .from("host")
-    .select("host_uuid")
-    .eq("user_id", draft.userId)
-    .maybeSingle();
-  if (herr) throw herr;
-  if (!host?.host_uuid) throw new Error("No host profile for this user");
+  // Ensure the user has a host profile (auto-create if needed)
+  const hostUuid = await ensureHostProfile(draft.userId);
 
   const now = new Date().toISOString();
   const row: Record<string, any> = {
@@ -221,7 +274,7 @@ export async function createListing(draft: ListingDraft) {
     num_bedrooms: draft.numBedrooms ?? 1,
     num_beds: draft.numBeds ?? 1,
     num_bathrooms: draft.numBathrooms ?? 1,
-    host_uuid: host.host_uuid,
+    host_uuid: hostUuid,
     is_active: false, // new listings start inactive (pending review)
     currency: draft.currency ?? "INR",
     check_in_time: draft.checkInTime ?? "14:00:00",

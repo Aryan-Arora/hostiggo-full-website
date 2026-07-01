@@ -14,6 +14,8 @@ export default function GuestProfilePage() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [phone, setPhone] = useState('');
+  const [age, setAge] = useState('');
+  const [emergencyContact, setEmergencyContact] = useState('');
   const [saving, setSaving] = useState(false);
 
   // Seed the form from the real user once it loads.
@@ -22,6 +24,8 @@ export default function GuestProfilePage() {
       setName(user.name ?? '');
       setEmail(user.email ?? '');
       setPhone(user.phone ?? '');
+      setAge(user.age ? String(user.age) : '');
+      setEmergencyContact(user.emergency_contact ?? '');
     }
   }, [user]);
 
@@ -29,7 +33,13 @@ export default function GuestProfilePage() {
     if (!userId) return;
     setSaving(true);
     try {
-      await api.updateProfile(userId, { name, email, phone });
+      await api.updateProfile(userId, { 
+        name, 
+        email, 
+        phone,
+        age: age ? parseInt(age, 10) : null,
+        emergency_contact: emergencyContact || null,
+      });
       await refresh();
       toast.success('Profile updated.');
     } catch (err) {
@@ -135,6 +145,28 @@ export default function GuestProfilePage() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Age</label>
+                    <input
+                      type="number"
+                      min="1"
+                      max="150"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      placeholder="Optional"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+                  <div className="md:col-span-2 space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Emergency Contact</label>
+                    <input
+                      type="text"
+                      value={emergencyContact}
+                      onChange={(e) => setEmergencyContact(e.target.value)}
+                      placeholder="Name and phone number (optional)"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
                     />
                   </div>

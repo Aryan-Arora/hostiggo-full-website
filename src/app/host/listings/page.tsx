@@ -65,6 +65,19 @@ export default function MyListingsPage() {
     setLoading(true);
     setError(false);
     try {
+      // First, ensure the user has a host profile
+      // This is called when user first accesses /host/listings via "Host & Earn" button
+      try {
+        await fetch('/api/host/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+      } catch (profileErr) {
+        console.error('[host/listings] Failed to create/ensure host profile:', profileErr);
+        // Don't fail if host profile creation fails, continue loading listings
+      }
+
       const rows = await api.hostListings(userId);
       setListings(rows.map(mapListing));
     } catch (err) {
