@@ -138,7 +138,54 @@ export async function createBooking(input: {
     .select()
     .single();
   if (error) throw error;
+
+  // Block all nights in the booked range so they can't be double-booked.
+  const nights = eachDateInRange(input.startDate, input.endDate);
+  if (nights.length) {
+    const now = new Date().toISOString();
+    // Update existing calendar rows first, then insert missing ones.
+    const { data: existing } = await supabaseAdmin
+      .from("listing_calendar")
+      .select("calendar_id, date")
+      .eq("listing_id", input.listingId)
+      .in("date", nights);
+
+    const existingDates = new Set((existing ?? []).map((r: any) => r.date));
+
+    if (existing?.length) {
+      await supabaseAdmin
+        .from("listing_calendar")
+        .update({ is_available: false, updated_at: now })
+        .eq("listing_id", input.listingId)
+        .in("date", nights);
+    }
+
+    const missing = nights.filter((d) => !existingDates.has(d));
+    if (missing.length) {
+      await supabaseAdmin.from("listing_calendar").insert(
+        missing.map((date) => ({
+          listing_id: input.listingId,
+          date,
+          is_available: false,
+          price: 0,
+          currency: "INR",
+        })),
+      );
+    }
+  }
+
   return data;
+}
+
+function eachDateInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(startDate);
+  const end = new Date(endDate);
+  while (cur < end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 // ── Booking cancellation ─────────────────────────────────────────────────────
