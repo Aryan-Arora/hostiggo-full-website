@@ -91,6 +91,30 @@ export async function createBooking(input: {
   if (lerr) throw lerr;
   if (!listing?.host_uuid) throw new Error("Listing not found");
 
+  // Check A: blocked calendar days in the requested range.
+  const { data: blocked, error: blockedErr } = await supabaseAdmin
+    .from("listing_calendar")
+    .select("date")
+    .eq("listing_id", input.listingId)
+    .gte("date", input.startDate)
+    .lt("date", input.endDate) // end date is check-out night, not a stay night
+    .eq("is_available", false);
+  if (blockedErr) throw blockedErr;
+  if (blocked && blocked.length > 0)
+    throw new Error("Some of the selected dates are not available.");
+
+  // Check B: overlapping confirmed bookings for the same listing.
+  const { data: conflicts, error: conflictsErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id")
+    .eq("listing_id", input.listingId)
+    .eq("status_id", 2) // CONFIRMED only
+    .lt("start_date", input.endDate) // existing booking starts before new end
+    .gt("end_date", input.startDate); // existing booking ends after new start
+  if (conflictsErr) throw conflictsErr;
+  if (conflicts && conflicts.length > 0)
+    throw new Error("These dates are already booked.");
+
   const numAdults = input.numAdults ?? 1;
   const numChildren = input.numChildren ?? 0;
 
