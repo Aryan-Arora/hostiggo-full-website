@@ -3,6 +3,70 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * POST /api/host/profile
+ * Create or ensure a host profile exists for the user
+ */
+export async function POST(req: NextRequest) {
+  try {
+    const body = await req.json();
+    const { userId } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
+
+    // Check if host profile already exists
+    const { data: existingHost, error: checkError } = await supabaseAdmin
+      .from("host")
+      .select("host_uuid, user_id")
+      .eq("user_id", userId)
+      .limit(1);
+
+    if (checkError) {
+      console.error("[POST /api/host/profile] Check error:", checkError);
+      return NextResponse.json({ error: checkError.message }, { status: 500 });
+    }
+
+    // If host profile exists, just return it
+    if (existingHost && existingHost.length > 0) {
+      return NextResponse.json({
+        data: {
+          hostUuid: existingHost[0].host_uuid,
+          userId: existingHost[0].user_id,
+          created: false,
+        },
+      });
+    }
+
+    // Create new host profile
+    const { data: newHost, error: insertError } = await supabaseAdmin
+      .from("host")
+      .insert({ user_id: userId, is_verified: false })
+      .select("host_uuid, user_id");
+
+    if (insertError) {
+      console.error("[POST /api/host/profile] Insert error:", insertError);
+      return NextResponse.json({ error: insertError.message }, { status: 500 });
+    }
+
+    if (!newHost || newHost.length === 0) {
+      return NextResponse.json({ error: "Failed to create host profile" }, { status: 500 });
+    }
+
+    return NextResponse.json({
+      data: {
+        hostUuid: newHost[0].host_uuid,
+        userId: newHost[0].user_id,
+        created: true,
+      },
+    });
+  } catch (err: any) {
+    console.error("[POST /api/host/profile] Exception:", err);
+    return NextResponse.json({ error: err.message }, { status: 500 });
+  }
+}
+
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { MapPin, Pencil, Plus, RotateCcw } from 'lucide-react';
+import { MapPin, Pencil, Plus, RotateCcw, Pause, Play } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -59,6 +59,7 @@ export default function MyListingsPage() {
   const [listings, setListings] = useState<Listing[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -97,6 +98,38 @@ export default function MyListingsPage() {
       toast.success('Listing submitted! It will appear here once reviewed.');
     }
   }, []);
+
+  const handleToggleListing = async (listingId: string, currentActive: boolean) => {
+    setTogglingId(listingId);
+    try {
+      const response = await fetch('/api/host/listings/toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: parseInt(listingId),
+          isActive: !currentActive,
+        }),
+      });
+
+      if (!response.ok) throw new Error('Failed to toggle listing');
+
+      const { data } = await response.json();
+      
+      // Update local state
+      setListings((prev) =>
+        prev.map((l) =>
+          l.id === listingId ? { ...l, active: data.isActive } : l,
+        ),
+      );
+
+      toast.success(data.isActive ? 'Listing is now live!' : 'Listing paused');
+    } catch (err) {
+      console.error('[toggle] Error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to toggle listing');
+    } finally {
+      setTogglingId(null);
+    }
+  };
 
   return (
     <HostDashboardShell active="listings">
@@ -180,14 +213,34 @@ export default function MyListingsPage() {
                       {l.active ? 'Live' : 'Paused'}
                     </span>
                   </div>
-                  <div className="absolute inset-0 bg-blue-900/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="absolute inset-0 bg-blue-900/20 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <Link
-                      href="/host/listings/manage"
+                      href={`/host/listings/manage?id=${l.id}`}
                       className="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg translate-y-4 group-hover:translate-y-0 transition-transform duration-300 flex items-center gap-2"
                     >
                       <Pencil className="w-5 h-5" />
-                      {l.active ? 'Edit' : 'Reactivate'}
+                      Edit
                     </Link>
+                    <button
+                      onClick={() => handleToggleListing(l.id, l.active)}
+                      disabled={togglingId === l.id}
+                      className={cn(
+                        'px-4 py-2 rounded-lg font-semibold text-sm flex items-center gap-2 transition-all',
+                        l.active
+                          ? 'bg-yellow-500 text-white hover:bg-yellow-600'
+                          : 'bg-green-500 text-white hover:bg-green-600',
+                        togglingId === l.id && 'opacity-60 cursor-not-allowed',
+                      )}
+                    >
+                      {togglingId === l.id ? (
+                        <span className="inline-block animate-spin">⟳</span>
+                      ) : l.active ? (
+                        <Pause className="w-4 h-4" />
+                      ) : (
+                        <Play className="w-4 h-4" />
+                      )}
+                      {l.active ? 'Pause' : 'Reactivate'}
+                    </button>
                   </div>
                 </div>
                 <div className="p-6">

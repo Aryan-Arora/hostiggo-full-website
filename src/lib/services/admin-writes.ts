@@ -275,8 +275,8 @@ export async function createListing(draft: ListingDraft) {
     num_beds: draft.numBeds ?? 1,
     num_bathrooms: draft.numBathrooms ?? 1,
     host_uuid: hostUuid,
-    is_active: false, // new listings start inactive (pending review)
-    currency: draft.currency ?? "INR",
+    is_active: true, // new listings start active (visible)
+    published_at: new Date().toISOString(),
     check_in_time: draft.checkInTime ?? "14:00:00",
     check_out_time: draft.checkOutTime ?? "11:00:00",
     address_line1: draft.addressLine1 ?? null,

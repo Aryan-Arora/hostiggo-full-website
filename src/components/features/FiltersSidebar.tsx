@@ -155,8 +155,8 @@ function PriceSlider({
       <p className="text-[15px] font-semibold text-gray-700 mb-6">
         Min - Max :{' '}
         <span className="font-bold text-[#1A1A1A]">
-          ₹ {min.toLocaleString()} - ₹{' '}
-          {max === MAX ? MAX.toLocaleString() + '+' : max.toLocaleString()}
+          ₹ {Math.round(min).toLocaleString('en-IN')} - ₹{' '}
+          {max === MAX ? Math.round(MAX).toLocaleString('en-IN') + '+' : Math.round(max).toLocaleString('en-IN')}
         </span>
       </p>
 
