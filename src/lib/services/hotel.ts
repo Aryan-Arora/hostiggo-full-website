@@ -121,7 +121,10 @@ export const HotelServiceApi = {
       console.error('Fetch error (getListingsByHost/host):', hostError);
       throw hostError;
     }
-    if (!host?.host_uuid) return [];
+    if (!host?.host_uuid) {
+      console.warn('[getListingsByHost] No host profile found for user:', userId);
+      return [];
+    }
 
     const { data, error } = await supabase
       .from('listings')

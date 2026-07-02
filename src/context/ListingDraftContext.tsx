@@ -22,6 +22,8 @@ export type ListingDraft = {
   photoUrls?: string[];
   addressLine1?: string;
   landmark?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 const STORAGE_KEY = 'hostiggo:listing-draft';
