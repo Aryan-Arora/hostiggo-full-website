@@ -1,4 +1,5 @@
 import type { AmenityItem, Host, Property, Review, SearchFilters } from "@/types";
+import { supabase } from "@/lib/supabase";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
@@ -305,14 +306,14 @@ export const api = {
   }) =>
     request<any>(`/api/reviews`, { method: "POST", body: JSON.stringify(payload) }),
   uploadPhoto: async (file: File): Promise<string> => {
-    const fd = new FormData();
-    fd.append("file", file);
-    const res = await fetch("/api/host/upload", { method: "POST", body: fd });
-    const payload = (await res.json().catch(() => ({}))) as ApiResult<{ url: string }>;
-    if (!res.ok || payload.error) {
-      throw new Error(payload.error || `Upload failed: ${res.status}`);
-    }
-    return payload.data!.url;
+    const ext = file.name.split(".").pop() || "jpg";
+    const path = `listings/uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+    const { error } = await supabase.storage
+      .from("homestay photos")
+      .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
+    if (error) throw error;
+    const { data } = supabase.storage.from("homestay photos").getPublicUrl(path);
+    return data.publicUrl;
   },
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),

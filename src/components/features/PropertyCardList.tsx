@@ -3,6 +3,7 @@ import { Heart, Star, Wifi, Car, Coffee, Zap, Droplets, UtensilsCrossed, CheckCi
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn } from "@/lib/utils";
+import { useListingState } from "@/context/ListingFilterContext";
 
 interface PropertyCardListProps {
   property: Property;
@@ -23,6 +24,19 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
+  const { dates } = useListingState();
+
+  const toISO = (d: Date | null) => d ? d.toISOString().split('T')[0] : null;
+
+  const handleNavigate = () => {
+    const checkIn = toISO(dates.checkIn);
+    const checkOut = toISO(dates.checkOut);
+    const params = new URLSearchParams();
+    if (checkIn) params.set('checkIn', checkIn);
+    if (checkOut) params.set('checkOut', checkOut);
+    const qs = params.toString();
+    router.push(`/property/${property.id}${qs ? `?${qs}` : ''}`);
+  };
 
   const discount = property.originalPrice
     ? Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)
@@ -31,7 +45,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   return (
     <div
       className="bg-white rounded-[2rem] p-3 flex flex-col sm:flex-row gap-4 sm:gap-6 cursor-pointer group transition-all duration-200 border border-gray-100 hover:shadow-md"
-      onClick={() => router.push(`/property/${property.id}`)}
+      onClick={handleNavigate}
     >
       {/* Image Container */}
       <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] sm:h-auto rounded-[1.5rem] overflow-hidden">

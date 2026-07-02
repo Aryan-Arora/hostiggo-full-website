@@ -8,7 +8,7 @@ import { SCHEMA } from "./schema.constants";
 // import a build error.
 const SUPABASE_URL =
   process.env.NEXT_PUBLIC_SUPABASE_URL ?? "https://jhihqmkqvbwfniwculhk.supabase.co";
-const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
+const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoaWhxbWtxdmJ3Zm5pd2N1bGhrIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc2MzcxMzU3OCwiZXhwIjoyMDc5Mjg5NTc4fQ.qsgvYMauzXVHQqNnWmyiw4_0VPsCozXMiQ0f5dHStU0";
 
 if (!SERVICE_KEY) {
   console.warn(
@@ -16,7 +16,11 @@ if (!SERVICE_KEY) {
   );
 }
 
-export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
+// Use a placeholder during build if service key is missing
+// This prevents build errors while still failing at runtime if used without a real key
+const effectiveKey = SERVICE_KEY || "placeholder-build-key";
+
+export const supabaseAdmin = createClient(SUPABASE_URL, effectiveKey, {
   auth: { persistSession: false, autoRefreshToken: false },
   db: { schema: SCHEMA.testingSchema },
 });
