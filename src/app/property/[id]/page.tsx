@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import DateRangePicker from '@/components/features/DateRangePicker';
 import {
   Star,
   Heart,
@@ -805,84 +806,97 @@ function BookingWidget({
   onNightsChange?: (n: number) => void;
   onGuestsChange?: (g: number) => void;
 }) {
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(1);
-  const [dateError, setDateError] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [booking, setBooking] = useState(false);
+  const searchParams = useSearchParams();
   const { isAuthenticated, userId } = useAuth();
   const router = useRouter();
 
-  const today = new Date().toISOString().split('T')[0];
+  // Seed dates from URL params (passed by search results)
+  const paramCheckIn = searchParams.get('checkIn');
+  const paramCheckOut = searchParams.get('checkOut');
+  const toDate = (s: string | null) => s ? new Date(s + 'T00:00:00') : null;
 
-  const nights =
-    checkIn && checkOut
-      ? Math.max(
-          0,
-          Math.ceil(
-            (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
-              86400000,
-          ),
-        )
-      : 0;
+  const [checkIn, setCheckIn] = useState<Date | null>(toDate(paramCheckIn));
+  const [checkOut, setCheckOut] = useState<Date | null>(toDate(paramCheckOut));
+  const [guests, setGuests] = useState(1);
+  const [showPicker, setShowPicker] = useState(false);
 
-  // Sync to sticky bar
-  useEffect(() => {
-    onNightsChange?.(nights);
-  }, [nights]);
-  useEffect(() => {
-    onGuestsChange?.(guests);
-  }, [guests]);
+  // 'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'
+  const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'>(
+    paramCheckIn && paramCheckOut ? 'available' : 'idle'
+  );
+  const [unavailableReason, setUnavailableReason] = useState('');
+
+  const toISO = (d: Date | null) => d ? d.toISOString().split('T')[0] : null;
+
+  const nights = checkIn && checkOut
+    ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
+    : 0;
+
+  useEffect(() => { onNightsChange?.(nights); }, [nights]);
+  useEffect(() => { onGuestsChange?.(guests); }, [guests]);
 
   const subtotal = property.price * (nights || 1);
   const serviceFee = Math.round(subtotal * 0.08);
   const taxes = Math.round(subtotal * 0.12);
   const total = subtotal + serviceFee + taxes;
 
-  const validateAndBook = async () => {
-    setDateError('');
-    // Booking requires an account — guests can browse freely, but must sign in
-    // to reserve. Send them to sign-in and bring them back to this property.
+  const handleDatesChange = (ci: Date | null, co: Date | null) => {
+    setCheckIn(ci);
+    setCheckOut(co);
+    setStatus('idle');
+    setUnavailableReason('');
+    if (ci && co) setShowPicker(false);
+  };
+
+  const checkAvailability = async () => {
+    if (!checkIn || !checkOut) return;
+    setStatus('checking');
+    setUnavailableReason('');
+    try {
+      const res = await fetch(
+        `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISO(checkIn)}&endDate=${toISO(checkOut)}`
+      );
+      const data = await res.json();
+      if (data.available) {
+        setStatus('available');
+      } else {
+        setStatus('unavailable');
+        setUnavailableReason(data.reason ?? 'Property is not available on these dates.');
+      }
+    } catch {
+      setStatus('idle');
+      toast.error('Could not check availability. Please try again.');
+    }
+  };
+
+  const book = async () => {
     if (!isAuthenticated || !userId) {
       toast('Please sign in to book this stay.');
       router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
       return;
     }
-    if (!checkIn || !checkOut) {
-      setDateError('Please select check-in and check-out dates.');
-      return;
-    }
-    if (checkOut <= checkIn) {
-      setDateError('Check-out must be after check-in.');
-      return;
-    }
-    if (nights === 0) {
-      setDateError('Minimum 1 night stay required.');
-      return;
-    }
-
-    setBooking(true);
+    setStatus('booking');
     try {
       await api.createBooking({
         listingId: property.id,
         userId,
-        startDate: checkIn,
-        endDate: checkOut,
+        startDate: toISO(checkIn)!,
+        endDate: toISO(checkOut)!,
         numAdults: guests,
         numChildren: 0,
         amount: total,
       });
-      setShowSuccess(true);
+      setStatus('confirmed');
       toast.success('Booking confirmed! See it in your bookings.');
-      setTimeout(() => setShowSuccess(false), 4000);
     } catch (err) {
       console.error('[property] booking failed:', err);
       toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');
-    } finally {
-      setBooking(false);
+      setStatus('available');
     }
   };
+
+  const formatDate = (d: Date | null) =>
+    d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Add date';
 
   return (
     <div
@@ -902,56 +916,34 @@ function BookingWidget({
         <span className="text-[12px] text-gray-400">/night</span>
         {property.originalPrice && (
           <span className="ml-auto text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-            {Math.round(
-              ((property.originalPrice - property.price) /
-                property.originalPrice) *
-                100,
-            )}
-            % off
+            {Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)}% off
           </span>
         )}
       </div>
 
-      {/* Date inputs */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden mb-2">
+      {/* Date selector — displays selected dates, opens picker on click */}
+      <div
+        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-blue-400 transition-colors"
+        onClick={() => setShowPicker((v) => !v)}
+      >
         <div className="grid grid-cols-2 divide-x divide-gray-200">
           <div className="p-2.5">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-              Check in
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Check in</p>
+            <p className={`text-[13px] font-semibold ${checkIn ? 'text-gray-800' : 'text-gray-400'}`}>
+              {formatDate(checkIn)}
             </p>
-            <input
-              type="date"
-              value={checkIn}
-              min={today}
-              onChange={(e) => {
-                setCheckIn(e.target.value);
-                setDateError('');
-                onNightsChange?.(0);
-              }}
-              className="w-full text-[12px] font-semibold text-gray-800 outline-none bg-transparent cursor-pointer"
-            />
           </div>
           <div className="p-2.5">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-              Check out
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Check out</p>
+            <p className={`text-[13px] font-semibold ${checkOut ? 'text-gray-800' : 'text-gray-400'}`}>
+              {formatDate(checkOut)}
             </p>
-            <input
-              type="date"
-              value={checkOut}
-              min={checkIn || today}
-              onChange={(e) => {
-                setCheckOut(e.target.value);
-                setDateError('');
-              }}
-              className="w-full text-[12px] font-semibold text-gray-800 outline-none bg-transparent cursor-pointer"
-            />
           </div>
         </div>
-        {/* Guests */}
-        <div className="border-t border-gray-200 p-2.5">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-            Guests
-          </p>
+
+        {/* Guests row */}
+        <div className="border-t border-gray-200 p-2.5" onClick={(e) => e.stopPropagation()}>
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Guests</p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setGuests((g) => Math.max(1, g - 1))}
@@ -974,62 +966,69 @@ function BookingWidget({
         </div>
       </div>
 
-      {/* Date error */}
-      {dateError && (
+      {/* DateRangePicker dropdown */}
+      {showPicker && (
+        <div className="mb-3">
+          <DateRangePicker
+            checkIn={checkIn}
+            checkOut={checkOut}
+            onChange={handleDatesChange}
+            onClose={() => setShowPicker(false)}
+          />
+        </div>
+      )}
+
+      {/* Unavailable message */}
+      {status === 'unavailable' && (
         <p className="text-[11px] text-red-500 font-medium mb-2 flex items-center gap-1">
-          <X className="w-3 h-3" /> {dateError}
+          <X className="w-3 h-3" /> {unavailableReason}
         </p>
       )}
 
-      {/* Price breakdown */}
-      {nights > 0 && (
+      {/* Price breakdown — only show when available/confirmed */}
+      {nights > 0 && (status === 'available' || status === 'confirmed' || status === 'booking') && (
         <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
           <div className="flex justify-between text-gray-600">
-            <span>
-              ₹{property.price.toLocaleString('en-IN')} × {nights} night
-              {nights > 1 ? 's' : ''}
-            </span>
-            <span className="font-semibold">
-              ₹{subtotal.toLocaleString('en-IN')}
-            </span>
+            <span>₹{property.price.toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}</span>
+            <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Service fee (8%)</span>
-            <span className="font-semibold">
-              ₹{serviceFee.toLocaleString('en-IN')}
-            </span>
+            <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Taxes (12%)</span>
-            <span className="font-semibold">
-              ₹{taxes.toLocaleString('en-IN')}
-            </span>
+            <span className="font-semibold">₹{taxes.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
             <span>Total</span>
-            <span className="text-blue-700">
-              ₹{total.toLocaleString('en-IN')}
-            </span>
+            <span className="text-blue-700">₹{total.toLocaleString('en-IN')}</span>
           </div>
         </div>
       )}
 
-      {showSuccess ? (
+      {/* CTA button */}
+      {status === 'confirmed' ? (
         <div className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2">
           <CheckCircle className="w-5 h-5" /> Booking confirmed!
         </div>
-      ) : (
+      ) : status === 'available' || status === 'booking' ? (
         <button
-          onClick={validateAndBook}
-          disabled={booking}
+          onClick={book}
+          disabled={status === 'booking'}
           className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
-          {booking
-            ? 'Reserving…'
-            : nights > 0
-              ? `Book for ${nights} Night${nights > 1 ? 's' : ''}`
-              : 'Check Availability'}
+          {status === 'booking' ? 'Booking…' : `Book for ${nights} Night${nights > 1 ? 's' : ''}`}
+        </button>
+      ) : (
+        <button
+          onClick={checkIn && checkOut ? checkAvailability : () => setShowPicker(true)}
+          disabled={status === 'checking'}
+          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <CalendarDays className="w-4 h-4" />
+          {status === 'checking' ? 'Checking…' : checkIn && checkOut ? 'Check Availability' : 'Select Dates'}
         </button>
       )}
 
