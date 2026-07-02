@@ -271,7 +271,7 @@ function ChatTopBar() {
             H
           </span>
           <span className="text-[18px] font-black uppercase tracking-wide text-[#4b5563]">
-            Hosti<span className="text-[#3f5cff]">ggo</span>
+            Hosti<span className="text-blue-600">ggo</span>
           </span>
         </Link>
 
@@ -352,7 +352,7 @@ function FilterDropdown({
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => onOpenChange(!open)}
-        className="inline-flex h-8 items-center gap-1 rounded-full border border-[#0094ff] bg-[#dff2ff] px-4 text-sm font-medium text-[#008be8]"
+        className="inline-flex h-8 items-center gap-1 rounded-full border border-blue-600 bg-blue-50 px-4 text-sm font-medium text-blue-700"
       >
         {filter === 'primary' ? primaryLabel : FILTER_LABELS[filter]}
         <ChevronDown className="h-3.5 w-3.5" />
@@ -407,7 +407,8 @@ function ConversationRow({
           <img
             src={conversation.propertyImage}
             alt=""
-            className="h-11 w-[58px] rounded-lg object-cover"
+            onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
+            className="h-11 w-[58px] rounded-xl object-cover"
           />
         ) : (
           <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-500">
@@ -417,6 +418,7 @@ function ConversationRow({
         <img
           src={conversation.avatar}
           alt=""
+          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
           className={cn(
             'absolute h-9 w-9 rounded-full border-2 border-white object-cover',
             conversation.propertyImage && !isSupport ? 'right-0' : 'left-5',
@@ -432,7 +434,7 @@ function ConversationRow({
           <span
             className={cn(
               'flex-shrink-0 text-[9px] leading-tight',
-              conversation.date === 'Today' ? 'text-[#0094ff]' : 'text-gray-500',
+              conversation.date === 'Today' ? 'text-blue-600' : 'text-gray-500',
             )}
           >
             {conversation.date}
@@ -443,7 +445,7 @@ function ConversationRow({
             {conversation.preview}
           </p>
           {conversation.unread && (
-            <span className="ml-auto flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-[#0094ff] text-[9px] font-bold text-white">
+            <span className="ml-auto flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
               {conversation.unread}
             </span>
           )}
@@ -544,16 +546,17 @@ function MessageBubble({
         <img
           src={avatar}
           alt=""
+          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
           className="mb-1 h-8 w-8 flex-shrink-0 rounded-full border border-white object-cover"
         />
       )}
       <div className={cn('max-w-[74%]', mine ? 'items-end' : 'items-start')}>
         <div
           className={cn(
-            'rounded-lg px-4 py-3 text-[13px] leading-5',
+            'px-4 py-3 text-[13px] leading-5',
             mine
-              ? 'bg-white text-gray-900 shadow-[0_2px_9px_rgba(15,23,42,0.18)]'
-              : 'bg-[#27a8ee] text-white',
+              ? 'rounded-2xl rounded-br-md bg-blue-600 text-white shadow-[0_2px_9px_rgba(15,23,42,0.12)]'
+              : 'rounded-2xl rounded-bl-md bg-gray-100 text-gray-900',
           )}
         >
           {message.body}
@@ -573,27 +576,37 @@ function MessageBubble({
 
 function ConversationPanel({
   conversation,
+  onBack,
 }: {
   conversation?: Conversation;
+  onBack?: () => void;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState('');
 
   if (!conversation) {
     return (
-      <section className="h-[406px] min-w-0 rounded-[30px] border border-gray-300 bg-white">
+      <section className="h-[70vh] min-w-0 rounded-[2rem] border border-gray-300 bg-white md:h-[calc(100vh-220px)] md:min-h-[520px]">
         <EmptyThread />
       </section>
     );
   }
 
   return (
-    <section className="relative flex h-[406px] min-w-0 flex-col rounded-[30px] border border-gray-300 bg-white px-5 py-4">
+    <section className="relative flex h-[70vh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100vh-220px)] md:min-h-[520px]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
+          <button
+            onClick={onBack}
+            aria-label="Back to chats"
+            className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full text-gray-700 hover:bg-gray-100 md:hidden"
+          >
+            <ArrowLeft className="h-5 w-5" />
+          </button>
           <img
             src={conversation.avatar}
             alt=""
+            onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
             className="h-11 w-11 rounded-full object-cover"
           />
           <div className="min-w-0">
@@ -657,7 +670,11 @@ function ConversationPanel({
         <button
           type="submit"
           aria-label="Send message"
-          className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full bg-gray-300 text-white transition-colors hover:bg-[#27a8ee]"
+          disabled={!draft.trim()}
+          className={cn(
+            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors',
+            draft.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300',
+          )}
         >
           <Send className="h-5 w-5 fill-current" />
         </button>
@@ -715,20 +732,21 @@ export default function ChatWorkspace({
     <div className="min-h-screen bg-[#fffdf8] text-gray-900">
       <ChatTopBar />
 
-      <main className="mx-auto flex max-w-[1080px] gap-6 px-4 pb-4 pt-12 sm:px-8 lg:gap-8">
+      <main className="mx-auto flex max-w-[1520px] gap-6 px-4 pb-8 pt-8 sm:px-8 lg:gap-8">
         <button
-          onClick={() => router.back()}
-          aria-label="Go back"
+          onClick={() => router.push('/')}
+          aria-label="Go to home"
           className="mt-5 hidden h-11 w-11 flex-shrink-0 items-center justify-center rounded-full bg-white text-[#004772] shadow-[0_8px_20px_rgba(15,23,42,0.18)] transition-transform hover:-translate-x-0.5 md:flex"
         >
           <ArrowLeft className="h-5 w-5" />
         </button>
 
-        <div className="grid min-w-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[288px_minmax(0,1fr)] xl:grid-cols-[360px_minmax(0,1fr)]">
+        <div className="grid min-w-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
           <aside
             className={cn(
-              'flex h-[456px] min-w-0 flex-col rounded-[30px] border bg-white px-6 py-6 transition-colors',
-              selectedId || filtered.length === 0 ? 'border-[#0094ff]' : 'border-gray-300',
+              'h-[70vh] min-w-0 flex-col rounded-[2rem] border bg-white px-6 py-6 transition-colors md:flex md:h-[calc(100vh-220px)] md:min-h-[520px]',
+              selectedId ? 'hidden' : 'flex',
+              selectedId || filtered.length === 0 ? 'border-blue-600' : 'border-gray-300',
             )}
           >
             <h1 className="text-[30px] font-semibold tracking-tight text-gray-950">Chats</h1>
@@ -746,7 +764,7 @@ export default function ChatWorkspace({
                 className={cn(
                   'h-8 rounded-full border px-4 text-sm font-medium transition-colors',
                   unreadOnly
-                    ? 'border-[#0094ff] bg-[#dff2ff] text-[#008be8]'
+                    ? 'border-blue-600 bg-blue-50 text-blue-700'
                     : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
                 )}
               >
@@ -754,7 +772,25 @@ export default function ChatWorkspace({
               </button>
             </div>
 
-            <div className="reviews-scroll mt-7 flex min-h-0 flex-1 flex-col overflow-y-auto pr-2">
+            <div className="mt-4 flex items-center gap-3">
+              <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-300 bg-white px-4">
+                <Search className="h-5 w-5 flex-shrink-0 text-black" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-gray-700 outline-none placeholder:text-gray-400"
+                />
+              </label>
+              <button
+                aria-label="Chat settings"
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
+
+            <div className="reviews-scroll mt-5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-2">
               {filtered.length === 0 ? (
                 <EmptyList />
               ) : (
@@ -812,26 +848,11 @@ export default function ChatWorkspace({
             )}
           </aside>
 
-          <div className="min-w-0">
-            <div className="mb-5 flex items-center gap-4">
-              <label className="flex h-10 w-[190px] items-center gap-2 rounded-full border border-gray-300 bg-white px-4">
-                <Search className="h-5 w-5 flex-shrink-0 text-black" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search"
-                  className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-gray-700 outline-none placeholder:text-gray-400"
-                />
-              </label>
-              <button
-                aria-label="Chat settings"
-                className="flex h-10 w-10 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
-            </div>
-
-            <ConversationPanel conversation={selectedConversation} />
+          <div className={cn('min-w-0', selectedId ? 'block' : 'hidden md:block')}>
+            <ConversationPanel
+              conversation={selectedConversation}
+              onBack={() => setSelectedId(null)}
+            />
           </div>
         </div>
       </main>
