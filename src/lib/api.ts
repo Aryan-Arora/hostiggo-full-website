@@ -257,6 +257,8 @@ export const api = {
     }
     return { data: payload.data ?? [], total: payload.total ?? 0 };
   },
+  hostReviews: (userId: string) =>
+    request<any[]>(`/api/host/reviews?userId=${encodeURIComponent(userId)}`),
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
   bookingDetail: (id: string) =>
