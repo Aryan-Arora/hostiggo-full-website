@@ -23,14 +23,17 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
+import { MessageCircle } from 'lucide-react';
+
 type NavKey =
   | 'bookings'
   | 'listings'
   | 'calendar'
   | 'earnings'
   | 'reviews'
-  | 'settings'
-  | 'inbox';
+  | 'inbox'
+  | 'chat'
+  | 'settings';
 
 const NAV: { key: NavKey; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'listings', label: 'Properties', href: '/host/listings', icon: Building2 },
@@ -39,6 +42,7 @@ const NAV: { key: NavKey; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'inbox', label: 'Inbox', href: '/host/inbox', icon: Inbox },
   { key: 'earnings', label: 'Earnings', href: '/host/earnings', icon: Wallet },
   { key: 'reviews', label: 'Reviews', href: '/host/reviews', icon: Star },
+  { key: 'chat', label: 'Messages', href: '/host/chat', icon: MessageCircle },
   { key: 'settings', label: 'Settings', href: '/host/settings', icon: Settings },
 ];
 

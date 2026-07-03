@@ -122,22 +122,23 @@ export default function OTPPageContent() {
     verifyingRef.current = true;
     setVerifying(true);
     try {
-      let data: any;
-      if (mode === 'email') {
-        data = await api.verifyOtp({
-          email: window.localStorage.getItem(AUTH_EMAIL_KEY) || value,
-          token: code,
-        });
-      } else {
-        data = await api.verifyOtp({
-          phone: window.localStorage.getItem(AUTH_PHONE_KEY) || normalizePhone(value),
-          token: code,
-        });
-      }
+      const storedValue = mode === 'email' 
+        ? window.localStorage.getItem(AUTH_EMAIL_KEY) || value
+        : window.localStorage.getItem(AUTH_PHONE_KEY) || normalizePhone(value);
+      
+      const verifyParams = mode === 'email'
+        ? { email: storedValue, token: code }
+        : { phone: storedValue, token: code };
+
+      const data = await api.verifyOtp(verifyParams);
+      
+      // Check for successful verification - user and/or session should exist
       const userId = data?.user?.id || data?.session?.user?.id;
-      if (userId) {
+      const session = data?.session;
+      
+      if (userId && session) {
         await signIn(userId);
-        router.push(`/onboarding?mode=${mode}`);
+        router.push(redirect || `/onboarding?mode=${mode}`);
       } else {
         router.push(redirect);
       }

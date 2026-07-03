@@ -6,7 +6,7 @@ import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboa
 
 export default function HostInboxPage() {
   return (
-    <HostDashboardShell activeKey="inbox">
+    <HostDashboardShell active="inbox">
       <DashboardHeading title="Inbox" subtitle="Messages from your guests" />
 
       <div className="flex flex-col items-center justify-center py-24 text-center px-6">
