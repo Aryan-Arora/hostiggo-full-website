@@ -160,7 +160,7 @@ interface MenuItem {
 
 const MENU_GROUPS: MenuItem[][] = [
   [
-    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '/messages' },
+    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '/chat' },
     {
       icon: <Heart className="w-4 h-4" />,
       label: 'Wishlists',

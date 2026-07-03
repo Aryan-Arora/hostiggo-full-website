@@ -17,7 +17,6 @@ import {
   CalendarDays,
   Menu,
   X,
-  Inbox,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
@@ -31,7 +30,6 @@ type NavKey =
   | 'calendar'
   | 'earnings'
   | 'reviews'
-  | 'inbox'
   | 'chat'
   | 'settings';
 
@@ -39,10 +37,9 @@ const NAV: { key: NavKey; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'listings', label: 'Properties', href: '/host/listings', icon: Building2 },
   { key: 'bookings', label: 'Reservations', href: '/host/bookings', icon: CalendarCheck },
   { key: 'calendar', label: 'Calendar', href: '/host/calendar', icon: CalendarDays },
-  { key: 'inbox', label: 'Inbox', href: '/host/inbox', icon: Inbox },
+  { key: 'chat', label: 'Messages', href: '/host/chat', icon: MessageCircle },
   { key: 'earnings', label: 'Earnings', href: '/host/earnings', icon: Wallet },
   { key: 'reviews', label: 'Reviews', href: '/host/reviews', icon: Star },
-  { key: 'chat', label: 'Messages', href: '/host/chat', icon: MessageCircle },
   { key: 'settings', label: 'Settings', href: '/host/settings', icon: Settings },
 ];
 

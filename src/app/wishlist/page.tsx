@@ -738,7 +738,23 @@ export default function WishlistPage() {
         </div>
 
         {/* Cards section */}
-        {visibleProperties.length > 0 ? (
+        {!isLoading && !userId ? (
+          <div className="text-center py-16 mb-14">
+            <div className="text-5xl mb-4">🔒</div>
+            <p className="text-gray-400 text-lg font-medium mb-1">
+              Sign in to see your wishlist
+            </p>
+            <p className="text-gray-400 text-sm mb-6">
+              Your saved stays will show up here once you're signed in.
+            </p>
+            <button
+              onClick={() => router.push('/signin?redirect=/wishlist')}
+              className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
+            >
+              Sign in
+            </button>
+          </div>
+        ) : visibleProperties.length > 0 ? (
           <div className="mb-14">
             {editMode ? (
               /* Edit mode: responsive grid */

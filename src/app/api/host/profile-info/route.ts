@@ -36,8 +36,32 @@ export async function GET(req: NextRequest) {
     }
 
     const host = hostData[0];
-    console.log("[GET /api/host/profile-info] Raw host data:", host);
-    console.log("[GET /api/host/profile-info] about field:", host.about);
+
+    // Real listing count for this host.
+    const { data: hostListings, error: listingsError } = await supabaseAdmin
+      .from("listings")
+      .select("listing_id")
+      .eq("host_uuid", host.host_uuid);
+    if (listingsError) throw listingsError;
+
+    const listingIds = (hostListings ?? []).map((l: any) => l.listing_id);
+
+    // Real review count + average rating across all of this host's listings.
+    let reviewCount = 0;
+    let avgRating: string = "No ratings";
+    if (listingIds.length > 0) {
+      const { data: reviews, error: reviewsError } = await supabaseAdmin
+        .from("review")
+        .select("rating")
+        .in("listing_id", listingIds);
+      if (reviewsError) throw reviewsError;
+
+      reviewCount = reviews?.length ?? 0;
+      if (reviewCount > 0) {
+        const sum = reviews!.reduce((acc: number, r: any) => acc + Number(r.rating ?? 0), 0);
+        avgRating = (sum / reviewCount).toFixed(1);
+      }
+    }
 
     // Build response with the about field from host table
     const responseData = {
@@ -48,9 +72,9 @@ export async function GET(req: NextRequest) {
       about: host.about || "",  // From host table
       isVerified: host.is_verified || false,
       stats: {
-        rating: "No ratings",
-        reviews: 0,
-        listings: 0,
+        rating: avgRating,
+        reviews: reviewCount,
+        listings: listingIds.length,
       },
     };
 

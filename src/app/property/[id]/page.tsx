@@ -35,7 +35,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { cn } from '@/lib/utils';
+import { cn, toISODate } from '@/lib/utils';
 import type { Property, AmenityItem, Review, Host } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -826,8 +826,6 @@ function BookingWidget({
   );
   const [unavailableReason, setUnavailableReason] = useState('');
 
-  const toISO = (d: Date | null) => d ? d.toISOString().split('T')[0] : null;
-
   const nights = checkIn && checkOut
     ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
     : 0;
@@ -854,7 +852,7 @@ function BookingWidget({
     setUnavailableReason('');
     try {
       const res = await fetch(
-        `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISO(checkIn)}&endDate=${toISO(checkOut)}`
+        `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISODate(checkIn)}&endDate=${toISODate(checkOut)}`
       );
       const data = await res.json();
       if (data.available) {
@@ -872,7 +870,12 @@ function BookingWidget({
   const book = async () => {
     if (!isAuthenticated || !userId) {
       toast('Please sign in to book this stay.');
-      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      const params = new URLSearchParams();
+      if (checkIn) params.set('checkIn', toISODate(checkIn)!);
+      if (checkOut) params.set('checkOut', toISODate(checkOut)!);
+      const qs = params.toString();
+      const returnTo = `/property/${property.id}${qs ? `?${qs}` : ''}`;
+      router.push(`/signin?redirect=${encodeURIComponent(returnTo)}`);
       return;
     }
     setStatus('booking');
@@ -880,8 +883,8 @@ function BookingWidget({
       await api.createBooking({
         listingId: property.id,
         userId,
-        startDate: toISO(checkIn)!,
-        endDate: toISO(checkOut)!,
+        startDate: toISODate(checkIn)!,
+        endDate: toISODate(checkOut)!,
         numAdults: guests,
         numChildren: 0,
         amount: total,

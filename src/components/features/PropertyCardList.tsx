@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Heart, Star, Wifi, Car, Coffee, Zap, Droplets, UtensilsCrossed, CheckCircle, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, toISODate } from "@/lib/utils";
 import { useListingState } from "@/context/ListingFilterContext";
 
 interface PropertyCardListProps {
@@ -26,11 +26,9 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   const router = useRouter();
   const { dates } = useListingState();
 
-  const toISO = (d: Date | null) => d ? d.toISOString().split('T')[0] : null;
-
   const handleNavigate = () => {
-    const checkIn = toISO(dates.checkIn);
-    const checkOut = toISO(dates.checkOut);
+    const checkIn = toISODate(dates.checkIn);
+    const checkOut = toISODate(dates.checkOut);
     const params = new URLSearchParams();
     if (checkIn) params.set('checkIn', checkIn);
     if (checkOut) params.set('checkOut', checkOut);

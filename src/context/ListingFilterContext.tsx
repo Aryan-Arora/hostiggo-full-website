@@ -12,6 +12,7 @@ import React, {
 } from 'react';
 import type { Property, SearchFilters, SortOption, GuestCount } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
+import { toISODate } from '@/lib/utils';
 
 interface ListingState {
   properties: Property[];
@@ -90,15 +91,6 @@ const DEFAULT_GUESTS: GuestCount = {
   children: 0,
   rooms: 1,
   pets: false,
-};
-
-// yyyy-mm-dd in local time (avoids the UTC shift of toISOString).
-const toISODate = (d: Date | null): string | null => {
-  if (!d) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 };
 
 // The Facilities checkboxes hold display labels (e.g. "Parking", "Pool") while

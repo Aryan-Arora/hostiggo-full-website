@@ -1,5 +1,6 @@
 import type { AmenityItem, Host, Property, Review, SearchFilters } from "@/types";
 import { supabase } from "@/lib/supabase";
+import { toISODate } from "@/lib/utils";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
@@ -412,8 +413,8 @@ export const api = {
       body: JSON.stringify({
         action: "dates",
         bookingId,
-        checkIn: checkIn.toISOString(),
-        checkOut: checkOut.toISOString(),
+        checkIn: toISODate(checkIn),
+        checkOut: toISODate(checkOut),
       }),
     }),
   updateBookingGuests: (bookingId: string, guests: { adults: number; children: number; pets?: number }) =>

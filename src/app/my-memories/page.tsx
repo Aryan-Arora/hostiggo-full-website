@@ -1120,6 +1120,33 @@ const EMPTY_CONFIG: Record<
   },
 };
 
+function SignedOutState() {
+  const router = useRouter();
+  return (
+    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-14 py-16 animate-fade-in">
+      <img
+        src={memoriesIllustration}
+        alt="Sign in to see your trips"
+        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm"
+      />
+      <div className="text-center sm:text-left max-w-xs">
+        <h3 className="text-[22px] sm:text-[26px] font-extrabold italic text-gray-900 leading-tight mb-2">
+          Sign in to see your trips
+        </h3>
+        <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
+          Your bookings and stay history will show up here once you're signed in.
+        </p>
+        <button
+          onClick={() => router.push('/signin?redirect=/my-memories')}
+          className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+        >
+          Sign in
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function EmptyState({ tab }: { tab: TabKey }) {
   const router = useRouter();
   const { heading, sub, cta } = EMPTY_CONFIG[tab];
@@ -1241,6 +1268,7 @@ export default function MyMemoriesPage() {
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [managingId, setManagingId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const { user, isLoading } = useSupabaseAuth();
 
   useEffect(() => {
@@ -1249,8 +1277,9 @@ export default function MyMemoriesPage() {
     let mounted = true;
 
     const loadBookings = async () => {
-      const userId = user?.id ?? getStoredUserId();
-      if (!userId) {
+      const resolvedUserId = user?.id ?? getStoredUserId();
+      if (mounted) setUserId(resolvedUserId);
+      if (!resolvedUserId) {
         setBookings([]);
         setLoading(false);
         return;
@@ -1260,7 +1289,7 @@ export default function MyMemoriesPage() {
       try {
         const labels: TabKey[] = ['upcoming', 'completed', 'cancelled'];
         const results = await Promise.all(
-          labels.map((label) => api.guestBookings(userId, label)),
+          labels.map((label) => api.guestBookings(resolvedUserId, label)),
         );
         if (mounted) {
           setBookings(results.flat().map(mapBooking) as Booking[]);
@@ -1319,6 +1348,8 @@ export default function MyMemoriesPage() {
               <SkeletonCard />
               <SkeletonCard />
             </div>
+          ) : !userId ? (
+            <SignedOutState />
           ) : filtered.length === 0 ? (
             <EmptyState tab={activeTab} />
           ) : (
