@@ -57,8 +57,12 @@ function ListingSkeleton() {
 export default function MyListingsPage() {
   const { userId } = useAuth();
   const [listings, setListings] = useState<Listing[]>([]);
+  const [total, setTotal] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [error, setError] = useState(false);
+
+  const PAGE_SIZE = 24;
 
   const load = useCallback(async () => {
     if (!userId) return;
@@ -78,8 +82,9 @@ export default function MyListingsPage() {
         // Don't fail if host profile creation fails, continue loading listings
       }
 
-      const rows = await api.hostListings(userId);
+      const { data: rows, total: rowTotal } = await api.hostListings(userId, 0, PAGE_SIZE);
       setListings(rows.map(mapListing));
+      setTotal(rowTotal);
     } catch (err) {
       console.error('[host/listings] load failed:', err);
       setError(true);
@@ -87,6 +92,21 @@ export default function MyListingsPage() {
       setLoading(false);
     }
   }, [userId]);
+
+  const loadMore = useCallback(async () => {
+    if (!userId || loadingMore) return;
+    setLoadingMore(true);
+    try {
+      const { data: rows, total: rowTotal } = await api.hostListings(userId, listings.length, PAGE_SIZE);
+      setListings((prev) => [...prev, ...rows.map(mapListing)]);
+      setTotal(rowTotal);
+    } catch (err) {
+      console.error('[host/listings] load more failed:', err);
+      toast.error('Could not load more listings.');
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [userId, listings.length, loadingMore]);
 
   useEffect(() => {
     load();
@@ -148,7 +168,9 @@ export default function MyListingsPage() {
         </div>
       ) : (
         <>
-          <p className="text-sm text-gray-400 mb-4">{listings.length} listings</p>
+          <p className="text-sm text-gray-400 mb-4">
+            Showing {listings.length} of {total} listings
+          </p>
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
             {listings.map((l) => (
               <article
@@ -206,6 +228,17 @@ export default function MyListingsPage() {
               </article>
             ))}
           </div>
+          {listings.length < total && (
+            <div className="flex justify-center mt-8">
+              <button
+                onClick={loadMore}
+                disabled={loadingMore}
+                className="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-gray-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed shadow-card"
+              >
+                {loadingMore ? 'Loading…' : `Load more (${total - listings.length} remaining)`}
+              </button>
+            </div>
+          )}
         </>
       )}
     </HostDashboardShell>

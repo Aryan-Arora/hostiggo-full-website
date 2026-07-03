@@ -243,8 +243,20 @@ export const api = {
   hotels: () => request<any[]>("/api/hotels"),
   hotelsByLocation: (locationId: string | number, limit = 4) =>
     request<any[]>(`/api/hotels?locationId=${locationId}&limit=${limit}`),
-  hostListings: (userId: string) =>
-    request<any[]>(`/api/host/listings?userId=${encodeURIComponent(userId)}`),
+  hostListings: async (
+    userId: string,
+    offset: number = 0,
+    limit: number = 24,
+  ): Promise<{ data: any[]; total: number }> => {
+    const res = await fetch(
+      `/api/host/listings?userId=${encodeURIComponent(userId)}&offset=${offset}&limit=${limit}`,
+    );
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.error) {
+      throw new Error(payload.error || `Request failed: ${res.status}`);
+    }
+    return { data: payload.data ?? [], total: payload.total ?? 0 };
+  },
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
   bookingDetail: (id: string) =>

@@ -77,8 +77,9 @@ export default function CalendarPage() {
     let active = true;
     setLoadingListings(true);
     api
-      .hostListings(userId)
-      .then((rows) => {
+      // Listing picker needs every listing, not just a page of them.
+      .hostListings(userId, 0, 500)
+      .then(({ data: rows }) => {
         if (!active) return;
         const mapped = rows.map((r: any) => ({
           id: String(r.listing_id),
