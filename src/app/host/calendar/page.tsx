@@ -14,6 +14,8 @@ import {
   Ban,
   BedDouble,
   Loader2,
+  Trash2,
+  Clock,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import HostDashboardShell from '../_components/HostDashboardShell';
@@ -67,6 +69,12 @@ export default function CalendarPage() {
   const [priceInput, setPriceInput] = useState('');
   const [availInput, setAvailInput] = useState(true);
   const [saving, setSaving] = useState(false);
+  // iCal sync state
+  const [showICalModal, setShowICalModal] = useState(false);
+  const [icalUrl, setIcalUrl] = useState('');
+  const [icalStatus, setIcalStatus] = useState<{ icalUrl: string | null; isActive: boolean; lastUpdated: string } | null>(null);
+  const [icalLoading, setIcalLoading] = useState(false);
+  const [registering, setRegistering] = useState(false);
 
   const year = monthDate.getFullYear();
   const month = monthDate.getMonth();
@@ -113,9 +121,84 @@ export default function CalendarPage() {
     }
   }, [listingId, year, month]);
 
+  // Load iCal sync status for the current listing
+  const loadICalStatus = useCallback(async () => {
+    if (!listingId) return;
+    setIcalLoading(true);
+    try {
+      const data = await api.getICalStatus(listingId);
+      setIcalStatus(data);
+      if (data.icalUrl) setIcalUrl(data.icalUrl);
+    } catch (err) {
+      console.error('[host/calendar] iCal status load failed:', err);
+      setIcalStatus(null);
+    } finally {
+      setIcalLoading(false);
+    }
+  }, [listingId]);
+
+  // Register a new iCal feed
+  const handleRegisterICAL = async () => {
+    if (!listingId || !icalUrl.trim()) {
+      toast.error('Please enter a valid iCal URL');
+      return;
+    }
+
+    setRegistering(true);
+    try {
+      const action = icalStatus?.isActive ? 'update' : 'add';
+      await api.registerICalFeed({
+        listingId,
+        icalUrl: icalUrl.trim(),
+        action,
+      });
+      toast.success(
+        action === 'add'
+          ? 'iCal feed imported! Syncing will start in the next 15-minute slot.'
+          : 'iCal feed updated! Syncing will resume in the next 15-minute slot.'
+      );
+      setShowICalModal(false);
+      await loadICalStatus();
+    } catch (err) {
+      console.error('[host/calendar] iCal registration failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to import iCal feed');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
+  // Deactivate iCal feed
+  const handleDeactivateICAL = async () => {
+    if (!listingId) return;
+    if (!window.confirm('Are you sure you want to remove the iCal feed?')) return;
+
+    setRegistering(true);
+    try {
+      await api.registerICalFeed({
+        listingId,
+        icalUrl: '',
+        action: 'deactivate',
+      });
+      toast.success('iCal feed removed.');
+      setIcalUrl('');
+      setShowICalModal(false);
+      await loadICalStatus();
+    } catch (err) {
+      console.error('[host/calendar] iCal deactivation failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove iCal feed');
+    } finally {
+      setRegistering(false);
+    }
+  };
+
   useEffect(() => {
     loadCalendar();
   }, [loadCalendar]);
+
+  // Load iCal status when listing changes
+  useEffect(() => {
+    loadICalStatus();
+  }, [loadICalStatus]);
 
   // Build a date -> DayInfo map for the visible month.
   const days = useMemo<DayInfo[]>(() => {
@@ -232,15 +315,20 @@ export default function CalendarPage() {
                 )}
               </select>
               <button
-                disabled
-                title="Coming soon"
+                onClick={() => setShowICalModal(true)}
+                disabled={icalLoading}
+                title={icalStatus?.isActive ? 'Manage iCal feed' : 'Import iCal feed'}
                 className={cn(
-                  'flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-400 text-sm font-medium rounded-lg',
-                  disabledBtn,
+                  'flex items-center gap-2 px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-all',
+                  icalLoading && 'opacity-50 cursor-not-allowed',
                 )}
               >
-                <Download className="w-4 h-4" />
-                Import iCal
+                {icalLoading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Download className="w-4 h-4" />
+                )}
+                {icalLoading ? 'Loading...' : 'Import iCal'}
               </button>
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button className="p-2 bg-white shadow-sm rounded-md text-blue-600" aria-label="Grid view">
@@ -462,6 +550,89 @@ export default function CalendarPage() {
           </div>
         </aside>
       </div>
+
+      {/* iCal Sync Modal */}
+      {showICalModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-lg">
+            <h3 className="text-xl font-bold text-gray-900 mb-4">
+              {icalStatus?.isActive ? 'Update iCal Feed' : 'Import iCal Feed'}
+            </h3>
+
+            {icalStatus?.isActive && (
+              <div className="mb-4 p-4 bg-green-50 rounded-lg border border-green-200">
+                <div className="flex items-start gap-3">
+                  <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-sm font-semibold text-green-900">iCal Feed Active</p>
+                    <p className="text-xs text-green-700 mt-1">Feed URL: {icalStatus.icalUrl}</p>
+                    {icalStatus.lastUpdated && (
+                      <p className="text-xs text-green-600 mt-1 flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        Last updated: {new Date(icalStatus.lastUpdated).toLocaleDateString()}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  iCal Feed URL
+                  <span className="text-xs text-gray-500 ml-1">(from Airbnb, Google Calendar, Booking.com, etc.)</span>
+                </label>
+                <input
+                  type="url"
+                  placeholder="https://calendar.example.com/ical/abc123.ics"
+                  value={icalUrl}
+                  onChange={(e) => setIcalUrl(e.target.value)}
+                  disabled={registering}
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50"
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Paste your iCal (ICS) URL. We'll sync availability automatically every 15 minutes.
+                </p>
+              </div>
+
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRegisterICAL}
+                  disabled={registering || !icalUrl.trim()}
+                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {registering ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Download className="w-4 h-4" />
+                  )}
+                  {registering ? 'Importing…' : 'Import Feed'}
+                </button>
+
+                {icalStatus?.isActive && (
+                  <button
+                    onClick={handleDeactivateICAL}
+                    disabled={registering}
+                    className="flex items-center justify-center gap-2 px-4 py-3 bg-red-50 text-red-600 font-semibold rounded-lg hover:bg-red-100 active:scale-[0.98] transition-all disabled:opacity-50"
+                  >
+                    <Trash2 className="w-4 h-4" />
+                    Remove
+                  </button>
+                )}
+              </div>
+
+              <button
+                onClick={() => setShowICalModal(false)}
+                disabled={registering}
+                className="w-full py-2 text-gray-600 font-medium hover:text-gray-800 transition-colors disabled:opacity-50"
+              >
+                Close
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </HostDashboardShell>
   );
 }

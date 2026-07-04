@@ -440,4 +440,12 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ action: "status", bookingId, status, reason }),
     }),
+  // iCal integration
+  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>
+    request<any>("/api/host/calendar/register", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  getICalStatus: (listingId: string | number) =>
+    request<any>(`/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}`),
 };
