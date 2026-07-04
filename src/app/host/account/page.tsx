@@ -1,10 +1,9 @@
 'use client';
 
 import Link from 'next/link';
-import { Pencil, Star, Home, CalendarCheck, ShieldCheck, ChevronRight, type LucideIcon, Loader2, X } from 'lucide-react';
+import { Pencil, Star, Home, CalendarCheck, ShieldCheck, ChevronRight, type LucideIcon, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import { toast } from 'sonner';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 
 const QUICK: { icon: LucideIcon; label: string; href: string }[] = [
@@ -32,9 +31,6 @@ export default function HostAccountPage() {
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [editingAbout, setEditingAbout] = useState(false);
-  const [aboutText, setAboutText] = useState('');
-  const [savingAbout, setSavingAbout] = useState(false);
 
   const loadProfile = async () => {
     if (!userId) return;
@@ -47,7 +43,6 @@ export default function HostAccountPage() {
       
       const json = await res.json();
       setProfile(json.data);
-      setAboutText(json.data.about || '');
     } catch (err) {
       console.error('[host/account] Failed to load profile:', err);
       setError(err instanceof Error ? err.message : 'Failed to load profile');
@@ -59,32 +54,6 @@ export default function HostAccountPage() {
   useEffect(() => {
     loadProfile();
   }, [userId]);
-
-  const handleSaveAbout = async () => {
-    if (!userId) return;
-    
-    setSavingAbout(true);
-    try {
-      const res = await fetch('/api/host/profile', {
-        method: 'PATCH',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId,
-          about: aboutText.trim(),
-        }),
-      });
-
-      if (!res.ok) throw new Error('Failed to save about section');
-      
-      toast.success('About section updated!');
-      setEditingAbout(false);
-      await loadProfile();
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Failed to save');
-    } finally {
-      setSavingAbout(false);
-    }
-  };
 
   if (loading) {
     return (
@@ -152,55 +121,12 @@ export default function HostAccountPage() {
 
         {/* Quick links + about */}
         <div className="lg:col-span-7 space-y-6">
-          {/* About section */}
+          {/* About section - Read only */}
           <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-bold text-gray-800">About</h3>
-              {!editingAbout && (
-                <button
-                  onClick={() => setEditingAbout(true)}
-                  className="p-1.5 hover:bg-gray-100 rounded-lg transition-colors"
-                  title="Edit about section"
-                >
-                  <Pencil className="w-4 h-4 text-gray-600" />
-                </button>
-              )}
-            </div>
-
-            {editingAbout ? (
-              <div className="space-y-3">
-                <textarea
-                  value={aboutText}
-                  onChange={(e) => setAboutText(e.target.value)}
-                  placeholder="Tell guests about yourself, your hosting style, and what makes your place special..."
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-none"
-                  rows={5}
-                />
-                <div className="flex gap-3 justify-end">
-                  <button
-                    onClick={() => {
-                      setEditingAbout(false);
-                      setAboutText(profile.about);
-                    }}
-                    className="px-4 py-2 text-gray-600 hover:bg-gray-100 rounded-lg font-medium text-sm transition-colors"
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    onClick={handleSaveAbout}
-                    disabled={savingAbout}
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium text-sm hover:bg-blue-700 transition-colors disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
-                  >
-                    {savingAbout && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {savingAbout ? 'Saving...' : 'Save'}
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm text-gray-600 leading-relaxed min-h-[80px]">
-                {aboutText || <span className="text-gray-400 italic">No about section yet. Click the pen icon to add one!</span>}
-              </p>
-            )}
+            <h3 className="text-lg font-bold text-gray-800 mb-4">About</h3>
+            <p className="text-sm text-gray-600 leading-relaxed min-h-[80px]">
+              {profile.about || <span className="text-gray-400 italic">No about section added yet.</span>}
+            </p>
           </div>
 
           {/* Contact info */}

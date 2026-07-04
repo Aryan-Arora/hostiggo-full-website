@@ -2,12 +2,16 @@
 
 import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { Search, MapPin, Loader } from 'lucide-react';
-import {
-  fetchGooglePlacesSuggestions,
-  type LocationSuggestion,
-} from '@/lib/googlePlaces';
+import { autocompleteAddress, geocodeAddress, reverseGeocode } from '@/lib/services/geocoding';
 import { useListingActions } from '@/context/ListingFilterContext';
 import { cn } from '@/lib/utils';
+
+interface LocationSuggestion {
+  placeId: string;
+  displayName: string;
+  latitude: number;
+  longitude: number;
+}
 
 interface LocationDropdownProps {
   value: string;
@@ -29,19 +33,24 @@ export function LocationDropdown({
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const { setLocation } = useListingActions();
 
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
-
   const fetchSuggestions = useCallback(
     async (query: string) => {
-      if (!query.trim() || !apiKey) {
+      if (!query.trim()) {
         setSuggestions([]);
         return;
       }
 
       setLoading(true);
       try {
-        const results = await fetchGooglePlacesSuggestions(query, apiKey);
-        setSuggestions(results);
+        const results = await autocompleteAddress(query);
+        setSuggestions(
+          results.map((r) => ({
+            placeId: r.placeId.toString(),
+            displayName: r.displayName,
+            latitude: r.latitude,
+            longitude: r.longitude,
+          })),
+        );
       } catch (error) {
         console.error('[LocationDropdown] Error fetching suggestions:', error);
         setSuggestions([]);
@@ -49,7 +58,7 @@ export function LocationDropdown({
         setLoading(false);
       }
     },
-    [apiKey],
+    [],
   );
 
   const handleInputChange = useCallback(
@@ -58,99 +67,83 @@ export function LocationDropdown({
       setInput(newValue);
       setIsOpen(true);
 
-      // Debounce the API call
       if (debounceTimer.current) clearTimeout(debounceTimer.current);
       debounceTimer.current = setTimeout(() => {
         fetchSuggestions(newValue);
-      }, 300);
+      }, 400);
     },
     [fetchSuggestions],
   );
 
   const handleSelectLocation = useCallback(
-    (location: LocationSuggestion) => {
-      setInput((location.description || location.primaryText) ?? "");
+    async (suggestion: LocationSuggestion) => {
+      setInput(suggestion.displayName);
+
+      // Geocode the selected location to get coordinates
+      const coords = await geocodeAddress(suggestion.displayName);
+      if (coords) {
+        const address = await reverseGeocode(coords.latitude, coords.longitude);
+        setLocation({
+          query: address?.displayName || suggestion.displayName,
+          latitude: coords.latitude,
+          longitude: coords.longitude,
+        });
+      }
+
+      onChange?.(suggestion);
       setIsOpen(false);
-      setSuggestions([]);
-      setLocation({ query: location.district || location.state || location.primaryText || '' });
-      onChange?.(location);
+      onClose?.();
     },
-    [onChange, setLocation],
+    [onChange, onClose, setLocation],
   );
 
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
-      if (!e.target) return;
       const target = e.target as HTMLElement;
-      if (!target.closest('.location-dropdown-container')) {
+      if (!target.closest('[data-location-dropdown]')) {
         setIsOpen(false);
-        onClose?.();
       }
     };
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [onClose]);
+  }, []);
 
   return (
-    <div className="location-dropdown-container relative w-full">
+    <div data-location-dropdown className="relative w-full">
       <div className="relative">
-        <input
-          type="text"
-          value={input}
-          onChange={handleInputChange}
-          onFocus={() => setIsOpen(true)}
-          placeholder={placeholder}
-          className={cn(
-            'w-full h-[52px] px-5 rounded-full border-2 text-[14px]',
-            'bg-white focus:outline-none transition-all',
-            isOpen ? 'border-blue-400' : 'border-transparent',
-          )}
-        />
-        <Search className="absolute right-5 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400 pointer-events-none" />
-      </div>
-
-      {isOpen && (
-        <div className="absolute top-[calc(100%+8px)] left-0 w-full min-w-[320px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden max-h-80 overflow-y-auto">
-          {loading ? (
-            <div className="flex items-center justify-center py-8">
-              <Loader className="w-5 h-5 text-gray-400 animate-spin" />
-            </div>
-          ) : suggestions.length > 0 ? (
-            <div className="divide-y divide-gray-100">
-              {suggestions.map((location) => (
-                <button
-                  key={location.id}
-                  onClick={() => handleSelectLocation(location)}
-                  className="w-full text-left px-5 py-4 hover:bg-gray-50 transition-colors flex items-start gap-3 group"
-                >
-                  <MapPin className="w-5 h-5 text-gray-400 flex-shrink-0 mt-0.5 group-hover:text-blue-500" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-[13px] font-semibold text-gray-900 truncate group-hover:text-blue-600">
-                      {location.primaryText}
-                    </p>
-                    {location.secondaryText && (
-                      <p className="text-[12px] text-gray-500 truncate">
-                        {location.secondaryText}
-                      </p>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
-          ) : input.trim() ? (
-            <div className="text-center py-6 px-4">
-              <p className="text-[13px] text-gray-500">No locations found</p>
-            </div>
-          ) : (
-            <div className="text-center py-6 px-4">
-              <p className="text-[13px] text-gray-500">
-                Type to search locations
-              </p>
-            </div>
-          )}
+        <div className="flex items-center gap-2 bg-white border border-gray-200 px-4 py-2.5 rounded-xl">
+          <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+          <input
+            type="text"
+            value={input}
+            onChange={handleInputChange}
+            onFocus={() => setIsOpen(true)}
+            placeholder={placeholder}
+            className="flex-1 bg-transparent text-sm font-medium outline-none"
+          />
+          {loading && <Loader className="w-4 h-4 text-blue-500 animate-spin" />}
         </div>
-      )}
+
+        {isOpen && suggestions.length > 0 && (
+          <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 max-h-64 overflow-y-auto">
+            {suggestions.map((suggestion) => (
+              <button
+                key={suggestion.placeId}
+                onClick={() => handleSelectLocation(suggestion)}
+                className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
+              >
+                <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-medium text-gray-900 truncate">
+                    {suggestion.displayName}
+                  </p>
+                </div>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
     </div>
   );
 }

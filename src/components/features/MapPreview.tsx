@@ -1,6 +1,25 @@
+'use client';
+
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
-import { CITY_COORDINATES, INDIA_CENTER } from '@/lib/googleMapsUtils';
+
+// Lazy load Leaflet
+const LeafletModule = typeof window !== 'undefined' ? require('leaflet') : null;
+
+const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
+  'New Delhi': { lat: 28.6139, lng: 77.209 },
+  Manali: { lat: 32.2396, lng: 77.1887 },
+  Shimla: { lat: 31.1048, lng: 77.1734 },
+  Jaipur: { lat: 26.9124, lng: 75.7873 },
+  Bangalore: { lat: 12.9716, lng: 77.5946 },
+  Rishikesh: { lat: 30.0869, lng: 78.2676 },
+  Goa: { lat: 15.2993, lng: 74.124 },
+  Dharamshala: { lat: 32.219, lng: 76.3234 },
+  Kasol: { lat: 32.0109, lng: 77.313 },
+  Kolkata: { lat: 22.5726, lng: 88.3639 },
+};
+
+const INDIA_CENTER = { lat: 22.5937, lng: 78.9629 };
 
 interface MapPreviewProps {
   city?: string;
@@ -14,9 +33,9 @@ export default function MapPreview({
   coordinates,
 }: MapPreviewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   const getCenter = () => {
     if (coordinates) return { lat: coordinates.lat, lng: coordinates.lng };
@@ -28,65 +47,53 @@ export default function MapPreview({
   };
 
   useEffect(() => {
-    if (!mapRef.current || googleMapRef.current || !apiKey) return;
+    if (!mapRef.current || mapInstanceRef.current) return;
 
-    const loadGoogleMaps = () => {
-      if ((window as any).google?.maps) {
-        initMap();
-        return;
-      }
+    const L = LeafletModule;
+    if (!L) return;
 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initMap;
-      document.head.appendChild(script);
-    };
-
-    loadGoogleMaps();
-  }, [apiKey]);
-
-  const initMap = () => {
-    if (!mapRef.current) return;
+    // Load CSS on client
+    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
 
     const center = getCenter();
 
-    googleMapRef.current = new (window as any).google.maps.Map(mapRef.current, {
-      center: center,
-      zoom: 11,
-      styles: [
-        {
-          featureType: 'poi',
-          stylers: [{ visibility: 'off' }],
-        },
-      ],
-      zoomControl: false,
-      mapTypeControl: false,
-      scaleControl: false,
-      streetViewControl: false,
-      rotateControl: false,
-      fullscreenControl: false,
-      draggable: false,
-      scrollwheel: false,
-    });
+    mapInstanceRef.current = L.map(mapRef.current).setView(
+      [center.lat, center.lng],
+      11,
+    );
 
-    // Add center marker
-    new (window as any).google.maps.Marker({
-      position: center,
-      map: googleMapRef.current,
-      title: city,
-    });
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(mapInstanceRef.current);
+
+    // Add marker
+    markerRef.current = L.marker([center.lat, center.lng]).addTo(mapInstanceRef.current);
+
+    // Disable interactions
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.dragging.disable();
+      mapInstanceRef.current.scrollWheelZoom.disable();
+    }
 
     setMapLoaded(true);
-  };
+  }, []);
 
   // Update map center when city or coordinates change
   useEffect(() => {
-    if (!googleMapRef.current || !mapLoaded) return;
+    if (!mapInstanceRef.current || !mapLoaded) return;
     const center = getCenter();
-    googleMapRef.current.setCenter(center);
-    googleMapRef.current.setZoom(11);
+    mapInstanceRef.current.setView([center.lat, center.lng], 11);
+    if (markerRef.current) {
+      markerRef.current.setLatLng([center.lat, center.lng]);
+    }
   }, [city, coordinates, mapLoaded]);
 
   return (

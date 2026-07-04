@@ -1,14 +1,24 @@
-import { useEffect, useRef, useState } from 'react';
+'use client';
+
+import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { StarIcon, X, CheckCircle } from 'lucide-react';
+import dynamic from 'next/dynamic';
+import { StarIcon, X, CheckCircle, Navigation } from 'lucide-react';
 import type { Property } from '@/types';
-import { INDIA_CENTER } from '@/lib/googleMapsUtils';
+
+// Lazy load Leaflet on client side only
+const LeafletModule = typeof window !== 'undefined' ? require('leaflet') : null;
+
+const INDIA_CENTER = { lat: 22.5937, lng: 78.9629 };
 
 interface InteractiveMapProps {
   properties: Property[];
   activeId?: string | null;
   onMarkerClick?: (id: string) => void;
   className?: string;
+  pointer?: { lat: number; lng: number } | null;
+  onPointerMoved?: (lat: number, lng: number) => void;
+  reverseGeocodeEnabled?: boolean;
 }
 
 export default function InteractiveMap({
@@ -16,69 +26,90 @@ export default function InteractiveMap({
   activeId,
   onMarkerClick,
   className = '',
+  pointer,
+  onPointerMoved,
+  reverseGeocodeEnabled = false,
 }: InteractiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
-  const markersRef = useRef<
-    Map<
-      string,
-      { marker: google.maps.Marker; infoWindow: google.maps.InfoWindow }
-    >
-  >(new Map());
-  const [selectedProperty, setSelectedProperty] = useState<Property | null>(
-    null,
-  );
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markersRef = useRef<Map<string, L.Marker>>(new Map());
+  const pointerMarkerRef = useRef<L.Marker | null>(null);
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const router = useRouter();
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
-  // Initialize Google Map
-  useEffect(() => {
-    if (!mapRef.current || googleMapRef.current || !apiKey) return;
+  const syncMapToPointer = useCallback(
+    (lat: number, lng: number) => {
+      const map = mapInstanceRef.current;
+      if (!map) return;
 
-    const loadGoogleMaps = () => {
-      if ((window as any).google?.maps) {
-        initMap();
-        return;
+      const L = LeafletModule;
+      if (!L) return;
+
+      map.panTo([lat, lng]);
+      map.setZoom(13);
+
+      // Remove old pointer marker
+      if (pointerMarkerRef.current) {
+        pointerMarkerRef.current.remove();
       }
 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initMap;
-      document.head.appendChild(script);
-    };
+      // Create new pointer marker (blue circle with white dot)
+      const pointerIcon = L.divIcon({
+        html: `<div style="
+          width: 32px;
+          height: 32px;
+          background-color: #2563eb;
+          border: 3px solid white;
+          border-radius: 50%;
+          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
+        "></div>`,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+        className: 'pointer-marker',
+      });
 
-    loadGoogleMaps();
-  }, [apiKey]);
+      const marker = L.marker([lat, lng], { icon: pointerIcon, draggable: true }).addTo(map);
 
-  const initMap = () => {
-    if (!mapRef.current) return;
+      marker.on('dragend', () => {
+        const pos = marker.getLatLng();
+        onPointerMoved?.(pos.lat, pos.lng);
+      });
 
-    const center = getCenter();
-    const zoom = getZoom();
+      pointerMarkerRef.current = marker;
+    },
+    [onPointerMoved],
+  );
 
-    googleMapRef.current = new (window as any).google.maps.Map(mapRef.current, {
-      center: { lat: center.lat, lng: center.lng },
-      zoom: zoom,
-      styles: [
-        {
-          featureType: 'poi',
-          stylers: [{ visibility: 'off' }],
-        },
-      ],
-      zoomControl: true,
-      mapTypeControl: false,
-      scaleControl: false,
-      streetViewControl: false,
-      rotateControl: false,
-      fullscreenControl: false,
-    });
+  // Initialize Leaflet map
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+
+    const L = LeafletModule;
+    if (!L) return;
+
+    // Load CSS on client
+    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
+
+    mapInstanceRef.current = L.map(mapRef.current).setView(
+      [INDIA_CENTER.lat, INDIA_CENTER.lng],
+      5,
+    );
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(mapInstanceRef.current);
 
     setMapLoaded(true);
-    addMarkers();
-  };
+  }, []);
 
   const getCenter = () => {
     const withCoords = properties.filter((p) => p.coordinates);
@@ -102,134 +133,127 @@ export default function InteractiveMap({
   };
 
   const createMarkerIcon = (property: Property, isActive: boolean) => {
+    const L = LeafletModule;
+    if (!L) return null;
+
     const price = `₹${Math.round(property.price / 1000)}k`;
     const bgColor = isActive ? '#1d4ed8' : '#2563eb';
     const borderColor = isActive ? 'white' : 'rgba(255,255,255,0.6)';
     const borderWidth = isActive ? 2.5 : 2;
 
-    const svg = `
-      <svg width="80" height="48" viewBox="0 0 80 48" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <filter id="shadow${property.id}" x="-50%" y="-50%" width="200%" height="200%">
-            <feDropShadow dx="0" dy="2" stdDeviation="3" flood-opacity="${isActive ? '0.4' : '0.25'}" />
-          </filter>
-        </defs>
-        <rect x="4" y="4" width="72" height="32" rx="16" fill="${bgColor}" filter="url(#shadow${property.id})" stroke="${borderColor}" stroke-width="${borderWidth}"/>
-        <text x="40" y="24" text-anchor="middle" dominant-baseline="middle" font-size="12" font-weight="700" fill="white" font-family="system-ui, -apple-system">${price}</text>
-        <polygon points="40,36 36,44 44,44" fill="${bgColor}"/>
-      </svg>
-    `;
-
-    const icon: google.maps.Icon = {
-      url: `data:image/svg+xml;charset=UTF-8,${encodeURIComponent(svg)}`,
-      size: new (window as any).google.maps.Size(80, 48),
-      origin: new (window as any).google.maps.Point(0, 0),
-      anchor: new (window as any).google.maps.Point(40, 48),
-      scaledSize: new (window as any).google.maps.Size(80, 48),
-    };
-
-    return icon;
+    return L.divIcon({
+      html: `<div style="
+        background-color: ${bgColor};
+        border: ${borderWidth}px solid ${borderColor};
+        border-radius: 50%;
+        width: 48px;
+        height: 48px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        font-weight: 700;
+        font-size: 12px;
+        color: white;
+        cursor: pointer;
+        font-family: system-ui, -apple-system;
+      ">${price}</div>`,
+      iconSize: [48, 48],
+      iconAnchor: [24, 24],
+      popupAnchor: [0, -24],
+      className: 'property-marker',
+    });
   };
 
   const addMarkers = () => {
-    if (!googleMapRef.current) return;
+    if (!mapInstanceRef.current) return;
+
+    const L = LeafletModule;
+    if (!L) return;
 
     // Clear existing markers
-    markersRef.current.forEach(({ marker, infoWindow }) => {
-      marker.setMap(null);
-      infoWindow.close();
+    markersRef.current.forEach((marker) => {
+      marker.remove();
     });
     markersRef.current.clear();
 
-    const google = (window as any).google;
-    const bounds = new google.maps.LatLngBounds();
+    const bounds = L.latLngBounds([]);
+    let hasCoords = false;
 
     properties.forEach((property) => {
       if (!property.coordinates) return;
+      hasCoords = true;
 
       const { lat, lng } = property.coordinates;
-      bounds.extend({ lat, lng });
+      bounds.extend([lat, lng]);
 
       const isActive = property.id === activeId;
       const icon = createMarkerIcon(property, isActive);
+      if (!icon) return;
 
-      const marker = new google.maps.Marker({
-        position: { lat, lng },
-        map: googleMapRef.current,
-        icon: icon,
-        title: property.propertyName,
-        zIndex: isActive ? 1000 : 1,
-      });
+      const marker = L.marker([lat, lng], { icon, title: property.propertyName }).addTo(
+        mapInstanceRef.current!,
+      );
 
-      const infoWindow = new google.maps.InfoWindow();
-
-      marker.addListener('click', () => {
+      marker.on('click', () => {
         setSelectedProperty(property);
-        if (onMarkerClick) onMarkerClick(property.id);
+        onMarkerClick?.(property.id);
       });
 
-      markersRef.current.set(property.id, { marker, infoWindow });
+      markersRef.current.set(property.id, marker);
     });
 
     // Fit bounds if multiple properties
-    if (properties.filter((p) => p.coordinates).length > 1) {
-      const padding = { top: 50, right: 50, bottom: 50, left: 50 };
-      googleMapRef.current.fitBounds(bounds, padding);
+    if (hasCoords && properties.filter((p) => p.coordinates).length > 1) {
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+    } else if (hasCoords) {
+      const center = getCenter();
+      mapInstanceRef.current.setView([center.lat, center.lng], getZoom());
     }
   };
 
   // Re-add markers when properties change
   useEffect(() => {
-    if (!mapLoaded || !googleMapRef.current) return;
+    if (!mapLoaded) return;
     addMarkers();
   }, [properties, mapLoaded]);
 
-  // Highlight active marker
+  // Update marker icons when active changes
   useEffect(() => {
-    if (!mapLoaded || !googleMapRef.current) return;
-
-    markersRef.current.forEach(({ marker }, id) => {
+    markersRef.current.forEach((marker, id) => {
       const property = properties.find((p) => p.id === id);
       if (property) {
         const isActive = id === activeId;
         const icon = createMarkerIcon(property, isActive);
         marker.setIcon(icon);
-        marker.setZIndex(isActive ? 1000 : 1);
       }
     });
-  }, [activeId, mapLoaded, properties]);
+  }, [activeId, properties]);
+
+  // Sync external pointer marker
+  useEffect(() => {
+    if (!mapLoaded) return;
+    if (pointer) {
+      syncMapToPointer(pointer.lat, pointer.lng);
+    } else if (pointerMarkerRef.current) {
+      pointerMarkerRef.current.remove();
+      pointerMarkerRef.current = null;
+    }
+  }, [pointer, mapLoaded, syncMapToPointer]);
 
   return (
     <div className={`relative ${className}`}>
       {/* Map container */}
-      <div
-        ref={mapRef}
-        className="w-full h-full rounded-2xl overflow-hidden"
-        style={{ minHeight: 400 }}
-      />
+      <div ref={mapRef} className="w-full h-full rounded-2xl overflow-hidden" style={{ minHeight: 400 }} />
 
-      {/* Loading / unavailable overlay */}
-      {!apiKey ? (
+      {/* Loading overlay */}
+      {!mapLoaded && (
         <div className="absolute inset-0 bg-blue-50 rounded-2xl flex items-center justify-center">
-          <div className="text-center px-6">
-            <p className="text-sm font-semibold text-gray-700">Map unavailable</p>
-            <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
-              The map can&apos;t load right now. Browse the list of stays instead.
-            </p>
+          <div className="text-center">
+            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm font-semibold text-blue-600">Loading map…</p>
           </div>
         </div>
-      ) : (
-        !mapLoaded && (
-          <div className="absolute inset-0 bg-blue-50 rounded-2xl flex items-center justify-center">
-            <div className="text-center">
-              <div
-                className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3"
-                style={{ borderWidth: 3 }}
-              />
-              <p className="text-sm font-semibold text-blue-600">Loading map…</p>
-            </div>
-          </div>
-        )
       )}
 
       {/* Property popup card */}
@@ -342,6 +366,33 @@ export default function InteractiveMap({
         >
           {properties.filter((p) => p.coordinates).length} properties on map
         </div>
+      )}
+
+      {/* Current location button */}
+      {mapLoaded && (
+        <button
+          onClick={() => {
+            if (!navigator.geolocation) return;
+            navigator.geolocation.getCurrentPosition(
+              (pos) => {
+                const lat = pos.coords.latitude;
+                const lng = pos.coords.longitude;
+                syncMapToPointer(lat, lng);
+                onPointerMoved?.(lat, lng);
+              },
+              (err) => {
+                console.warn('[InteractiveMap] Geolocation error:', err.message);
+              },
+              { enableHighAccuracy: true, timeout: 10000 },
+            );
+          }}
+          className="absolute top-3 right-3 z-[999] bg-white/95 backdrop-blur-sm rounded-full px-3 py-2 text-[12px] font-semibold text-gray-700 hover:bg-white hover:shadow-md transition-all flex items-center gap-1.5"
+          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
+          title="Use current location"
+        >
+          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+          Current location
+        </button>
       )}
     </div>
   );

@@ -144,7 +144,11 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
-  const [location, setLocationState] = useState({ query: '' });
+  const [location, setLocationState] = useState<{
+    query: string;
+    latitude?: number;
+    longitude?: number;
+  }>({ query: '' });
   const [dates, setDatesState] = useState<{
     checkIn: Date | null;
     checkOut: Date | null;
@@ -201,6 +205,8 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
             endDate: toISODate(dates.checkOut),
             totalGuests: guests.adults + guests.children,
             amenities: resolveAmenityIds(filters.amenities, amenityCatalogue),
+            latitude: location.latitude,
+            longitude: location.longitude,
           },
         );
         console.log('[Context] api.search returned rows:', rows?.length);

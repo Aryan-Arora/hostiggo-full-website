@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2 } from 'lucide-react';
+import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import HostDashboardShell from '../../_components/HostDashboardShell';
@@ -272,6 +272,44 @@ export default function ManageListingPage() {
                   <p><span className="font-medium">Area:</span> {selectedLocation.lower_division_name}</p>
                   <p><span className="font-medium">Pincode:</span> {selectedLocation.pincode}</p>
                 </div>
+              </div>
+            )}
+
+            {/* Google Maps Preview */}
+            {selectedLocation && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold text-gray-700">Map Preview</p>
+                <div className="relative w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100 h-80">
+                  <iframe
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    loading="lazy"
+                    allowFullScreen
+                    referrerPolicy="no-referrer-when-downgrade"
+                    src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDy0EQmM0GDq5QNHB72RP4sRh8eTLmFY68&q=${encodeURIComponent(
+                      `${selectedLocation.lower_division_name}, ${selectedLocation.district}, ${selectedLocation.state}`
+                    )}&zoom=15`}
+                  />
+                </div>
+                <a
+                  href={`https://www.google.com/maps/search/${encodeURIComponent(
+                    `${selectedLocation.lower_division_name}, ${selectedLocation.district}, ${selectedLocation.state}`
+                  )}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2 text-blue-600 text-sm font-medium hover:underline"
+                >
+                  <MapPin className="w-4 h-4" />
+                  View on Google Maps
+                </a>
+              </div>
+            )}
+
+            {!selectedLocation && (
+              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-center py-12">
+                <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">Select a location to preview map</p>
               </div>
             )}
 

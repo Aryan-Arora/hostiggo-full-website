@@ -9,7 +9,7 @@ import SortDropdown from '@/components/features/SortDropdown';
 import ActiveFilterTags from '@/components/features/ActiveFilterTags';
 import PropertyCardList from '@/components/features/PropertyCardList';
 import PropertyCardSkeleton from '@/components/features/PropertyCardSkeleton';
-import InteractiveMap from '@/components/features/InteractiveMap';
+import GuestMapSearch from '@/components/features/GuestMapSearch';
 import { CompactSearchBar } from '@/components/features/SearchForm';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import {
@@ -102,7 +102,7 @@ export default function SearchPageContent() {
             />
           </div>
           <div className="flex-1 relative overflow-hidden">
-            <InteractiveMap
+            <GuestMapSearch
               properties={properties}
               activeId={activeMapId}
               onMarkerClick={setActiveMapId}

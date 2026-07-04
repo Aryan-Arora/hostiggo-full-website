@@ -306,14 +306,18 @@ export const api = {
   }) =>
     request<any>(`/api/reviews`, { method: "POST", body: JSON.stringify(payload) }),
   uploadPhoto: async (file: File): Promise<string> => {
-    const ext = file.name.split(".").pop() || "jpg";
-    const path = `listings/uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
-    const { error } = await supabase.storage
-      .from("homestay photos")
-      .upload(path, file, { contentType: file.type || "image/jpeg", upsert: false });
-    if (error) throw error;
-    const { data } = supabase.storage.from("homestay photos").getPublicUrl(path);
-    return data.publicUrl;
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/host/upload", {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Upload failed");
+    }
+    const { data } = await response.json();
+    return data.url;
   },
   locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
@@ -328,6 +332,8 @@ export const api = {
       endDate?: string | null;
       totalGuests?: number;
       amenities?: number[];
+      latitude?: number;
+      longitude?: number;
     },
   ) => {
     const payload = {
@@ -343,6 +349,8 @@ export const api = {
         ratings: filters.guestRating != null ? [filters.guestRating] : [],
         amenities: extra?.amenities ?? ([] as number[]),
         roomTypes: filters.propertyTypes,
+        latitude: extra?.latitude ?? null,
+        longitude: extra?.longitude ?? null,
       },
     };
     console.log("[api.search] Request payload:", payload);

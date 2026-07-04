@@ -28,8 +28,8 @@ import {
   Clock,
   ChevronDown,
   Share2,
-  GridIcon,
   ExternalLink,
+  Grid3x3,
   Filter,
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
@@ -239,7 +239,7 @@ function ImageGallery({
                 {/* "Show all" on last tile */}
                 {i === 3 && images.length > 5 && (
                   <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center text-white">
-                    <GridIcon className="w-5 h-5 mb-1" />
+                    <Grid3x3 className="w-5 h-5 mb-1" />
                     <span className="text-sm font-bold">
                       +{images.length - 5} more
                     </span>
@@ -255,7 +255,7 @@ function ImageGallery({
           onClick={() => open(0)}
           className="absolute bottom-3 right-3 bg-white hover:bg-gray-50 text-gray-800 px-3 py-1.5 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-lg border border-gray-200 transition-colors"
         >
-          <GridIcon className="w-3.5 h-3.5" />
+          <Grid3x3 className="w-3.5 h-3.5" />
           Show all photos
         </button>
       </div>
@@ -274,9 +274,9 @@ function ImageGallery({
 // ── 3. Property Map ──────────────────────────────────────────────────
 function PropertyMap({ property }: { property: Property }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const googleMapRef = useRef<google.maps.Map | null>(null);
+  const mapInstanceRef = useRef<L.Map | null>(null);
+  const markerRef = useRef<L.Marker | null>(null);
   const [loaded, setLoaded] = useState(false);
-  const apiKey = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY || '';
 
   const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
     'New Delhi': { lat: 28.6139, lng: 77.209 },
@@ -302,67 +302,41 @@ function PropertyMap({ property }: { property: Property }) {
   };
 
   useEffect(() => {
-    if (!mapRef.current || googleMapRef.current || !apiKey) return;
+    if (!mapRef.current || mapInstanceRef.current) return;
 
-    const loadGoogleMaps = () => {
-      if ((window as any).google?.maps) {
-        initMap();
-        return;
-      }
+    const L = require('leaflet');
 
-      const script = document.createElement('script');
-      script.src = `https://maps.googleapis.com/maps/api/js?key=${apiKey}`;
-      script.async = true;
-      script.defer = true;
-      script.onload = initMap;
-      document.head.appendChild(script);
-    };
+    // Load CSS on client
+    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
+      const link = document.createElement('link');
+      link.id = 'leaflet-css';
+      link.rel = 'stylesheet';
+      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
+      document.head.appendChild(link);
+    }
 
-    const initMap = () => {
-      if (!mapRef.current) return;
+    const center = getCenter();
 
-      const center = getCenter();
+    mapInstanceRef.current = L.map(mapRef.current).setView(
+      [center.lat, center.lng],
+      14,
+    );
 
-      googleMapRef.current = new (window as any).google.maps.Map(
-        mapRef.current,
-        {
-          center: center,
-          zoom: 14,
-          zoomControl: true,
-          mapTypeControl: false,
-          scaleControl: false,
-          streetViewControl: false,
-          rotateControl: false,
-          fullscreenControl: false,
-          scrollwheel: false,
-          styles: [
-            {
-              featureType: 'poi',
-              stylers: [{ visibility: 'off' }],
-            },
-          ],
-        },
-      );
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution:
+        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+      maxZoom: 19,
+    }).addTo(mapInstanceRef.current);
 
-      // Add marker
-      new (window as any).google.maps.Marker({
-        position: center,
-        map: googleMapRef.current,
-        title: property.propertyName,
-      });
+    // Add marker
+    markerRef.current = L.marker([center.lat, center.lng])
+      .addTo(mapInstanceRef.current)
+      .bindPopup(property.propertyName);
 
-      setLoaded(true);
-    };
-
-    loadGoogleMaps();
-
-    return () => {
-      // Cleanup if needed
-    };
-  }, [apiKey]);
+    setLoaded(true);
+  }, []);
 
   const center = getCenter();
-  const googleMapsUrl = `https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}`;
 
   return (
     <div className="space-y-3">
@@ -371,42 +345,25 @@ function PropertyMap({ property }: { property: Property }) {
         style={{ height: 280 }}
       >
         <div ref={mapRef} className="w-full h-full" />
-        {!apiKey ? (
-          <a
-            href={googleMapsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="absolute inset-0 bg-blue-50 flex items-center justify-center hover:bg-blue-100 transition-colors"
-          >
-            <div className="text-center px-4">
-              <MapPin className="w-7 h-7 text-blue-500 mx-auto mb-2" />
-              <p className="text-[13px] text-gray-700 font-semibold">
-                Map preview unavailable
+        {!loaded && (
+          <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
+            <div className="text-center">
+              <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-[12px] text-blue-500 font-medium">
+                Loading map…
               </p>
-              <p className="text-[12px] text-blue-600 mt-1">Open in Google Maps →</p>
             </div>
-          </a>
-        ) : (
-          !loaded && (
-            <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
-              <div className="text-center">
-                <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-[12px] text-blue-500 font-medium">
-                  Loading map…
-                </p>
-              </div>
-            </div>
-          )
+          </div>
         )}
       </div>
       <a
-        href={googleMapsUrl}
+        href={`https://www.openstreetmap.org/?mlat=${center.lat}&mlon=${center.lng}&zoom=14`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-[12px] text-blue-600 hover:text-blue-700 font-semibold transition-colors"
       >
         <ExternalLink className="w-3.5 h-3.5" />
-        View on Google Maps
+        View on OpenStreetMap
       </a>
     </div>
   );
