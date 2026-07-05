@@ -88,6 +88,22 @@
     border-radius: 9999px;
   }
 
+  /* Dual-thumb range slider (e.g. price filter): two overlapping <input
+     type="range"> elements each span the full track. Without this, the
+     top one intercepts every click across its whole width and the other
+     thumb becomes unreachable. Make the track invisible to the pointer
+     and only the thumb itself clickable, so each slider only responds
+     to drags that start on its own handle. */
+  .range-thumb-only {
+    pointer-events: none;
+  }
+  .range-thumb-only::-webkit-slider-thumb {
+    pointer-events: auto;
+  }
+  .range-thumb-only::-moz-range-thumb {
+    pointer-events: auto;
+  }
+
   .line-clamp-1 {
     overflow: hidden;
     display: -webkit-box;

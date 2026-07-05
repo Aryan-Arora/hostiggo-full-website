@@ -202,7 +202,10 @@ function PriceSlider({
           className="absolute w-5 h-5 bg-white rounded-full shadow-md border-2 border-[#004772] pointer-events-none z-30"
           style={{ left: `calc(${pct2}% * (100% - 24px) / 100% + 2px)` }}
         />
-        {/* Min range input */}
+        {/* Min range input — range-thumb-only lets clicks pass through the
+            invisible track so only its own thumb is grabbable, otherwise
+            the max slider (drawn on top) intercepts everything including
+            drags near the ₹0 end. */}
         <input
           type="range"
           min={MIN}
@@ -213,7 +216,7 @@ function PriceSlider({
             const v = +e.target.value;
             if (v < max) onPriceChange(v, max);
           }}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer z-40 pointer-events-auto"
+          className="range-thumb-only absolute inset-0 w-full opacity-0 cursor-pointer z-40"
           style={{ height: '100%' }}
         />
         {/* Max range input */}
@@ -227,7 +230,7 @@ function PriceSlider({
             const v = +e.target.value;
             if (v > min) onPriceChange(min, v);
           }}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer z-50 pointer-events-auto"
+          className="range-thumb-only absolute inset-0 w-full opacity-0 cursor-pointer z-50"
           style={{ height: '100%' }}
         />
       </div>
