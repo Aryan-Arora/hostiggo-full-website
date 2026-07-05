@@ -61,6 +61,13 @@ export default function MapPreview({
       document.head.appendChild(link);
     }
 
+    // Fix marker icon issue in Next.js by using mergeOptions
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    });
+
     const center = getCenter();
 
     mapInstanceRef.current = L.map(mapRef.current).setView(
@@ -74,7 +81,7 @@ export default function MapPreview({
       maxZoom: 19,
     }).addTo(mapInstanceRef.current);
 
-    // Add marker
+    // Add marker with default icon (now properly configured)
     markerRef.current = L.marker([center.lat, center.lng]).addTo(mapInstanceRef.current);
 
     // Disable interactions

@@ -329,13 +329,22 @@ function PropertyMap({ property }: { property: Property }) {
       maxZoom: 19,
     }).addTo(mapInstanceRef.current);
 
+    // Fix marker icons path
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    });
+
     // Add marker
-    markerRef.current = L.marker([center.lat, center.lng])
+    markerRef.current = L.marker([center.lat, center.lng], {
+      title: property.propertyName,
+    })
       .addTo(mapInstanceRef.current)
       .bindPopup(property.propertyName);
 
     setLoaded(true);
-  }, []);
+  }, [property.propertyName, property.coordinates]);
 
   const center = getCenter();
 
@@ -522,7 +531,20 @@ function WriteReview({ listingId }: { listingId: string }) {
 
 // ── 6. Host Card ─────────────────────────────────────────────────────
 function HostCard({ host }: { host: Host }) {
-  const { toast } = { toast: (m: { title: string }) => console.log(m.title) };
+  const { isAuthenticated, userId } = useAuth();
+  const router = useRouter();
+
+  const handleMessageHost = () => {
+    if (!isAuthenticated || !userId) {
+      toast.error('Please sign in to message the host');
+      router.push(`/signin?redirect=${encodeURIComponent(window.location.href)}`);
+      return;
+    }
+
+    // Navigate to chat page with host ID as query parameter
+    router.push(`/chat?hostId=${encodeURIComponent(host.id)}`);
+  };
+
   return (
     <div
       className="bg-white rounded-2xl p-5"
@@ -605,7 +627,7 @@ function HostCard({ host }: { host: Host }) {
 
       <div className="flex gap-2 mt-4">
         <button
-          onClick={() => alert('Message host feature coming soon!')}
+          onClick={handleMessageHost}
           className="flex-1 flex items-center justify-center gap-1.5 border border-gray-800 text-gray-800 hover:bg-gray-50 py-2.5 rounded-xl text-[13px] font-bold transition-colors"
         >
           <MessageSquare className="w-4 h-4" />

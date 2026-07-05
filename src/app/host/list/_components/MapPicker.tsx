@@ -96,6 +96,8 @@ export default function MapPicker({
         latitude={location.lat}
         longitude={location.lng}
         onMarkerMove={handleMarkerMove}
+        onMapClick={handleMarkerMove}
+        allowClickToPlace={true}
       />
 
       {/* Zoom controls */}

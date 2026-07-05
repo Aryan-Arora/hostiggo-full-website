@@ -343,6 +343,8 @@ export type ListingDraft = {
   landmark?: string;
   locationId?: number;
   currency?: string;
+  latitude?: number;
+  longitude?: number;
 };
 
 export async function createListing(draft: ListingDraft) {
@@ -368,6 +370,8 @@ export async function createListing(draft: ListingDraft) {
     address_line1: draft.addressLine1 ?? null,
     address_line2: draft.addressLine2 ?? null,
     landmark: draft.landmark ?? null,
+    latitude: draft.latitude ?? null,
+    longitude: draft.longitude ?? null,
     created_at: now,
     updated_at: now,
   };

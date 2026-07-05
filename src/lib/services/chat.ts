@@ -38,11 +38,31 @@ export const fetchChatHistory = async (userId: string): Promise<ChatDto[]> => {
       conversations.get(otherId)!.push(msg);
     }
 
-    return Array.from(conversations.entries()).map(([participantId, msgs]) => {
+    const result: ChatDto[] = [];
+    
+    for (const [participantId, msgs] of conversations.entries()) {
       const lastMsg = msgs[msgs.length - 1];
-      return {
+      
+      // Fetch participant name from users table
+      let participantName = "Host";
+      try {
+        const { data: userData } = await supabase
+          .from("users")
+          .select("name")
+          .eq("user_id", participantId)
+          .maybeSingle();
+        
+        if (userData?.name) {
+          participantName = userData.name;
+        }
+      } catch (nameErr) {
+        console.warn(`Failed to fetch name for participant ${participantId}:`, nameErr);
+      }
+      
+      result.push({
         id: participantId,
         participant_id: participantId,
+        participant_name: participantName,
         type: "host" as const,
         messages: msgs.map((m: any) => ({
           id: m.id ?? String(m.created_at),
@@ -54,8 +74,10 @@ export const fetchChatHistory = async (userId: string): Promise<ChatDto[]> => {
         })),
         last_message: lastMsg.content,
         last_message_time: lastMsg.created_at,
-      };
-    });
+      });
+    }
+    
+    return result;
   } catch (err) {
     console.error("fetchChatHistory error", err);
     throw err;

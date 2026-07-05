@@ -17,6 +17,7 @@ export async function GET(req: NextRequest) {
     const hostUuid = req.nextUrl.searchParams.get("hostUuid");
 
     if (hostUuid) {
+      // Resolve host_uuid to user_id
       const data = await resolveHostInfo(hostUuid);
       return NextResponse.json({ data });
     }

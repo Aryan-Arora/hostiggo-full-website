@@ -1,19 +1,16 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
+import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import {
   Archive,
   ArrowDown,
   ArrowLeft,
-  BadgeIndianRupee,
   Bell,
   Check,
   ChevronDown,
   CircleSlash,
   Flag,
-  Globe2,
   Headphones,
   Image as ImageIcon,
   MessageSquareText,
@@ -24,6 +21,8 @@ import {
   Settings,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/context/AuthContext';
+import { supabase } from '@/lib/supabase';
 
 type ChatRole = 'guest' | 'host' | 'support';
 type FilterKey = 'all' | 'primary' | 'support' | 'archived';
@@ -49,204 +48,9 @@ type Conversation = {
   messages: Message[];
 };
 
-const GUEST_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'daksh-basin',
-    name: 'Daksh Basin',
-    role: 'host',
-    avatar: 'https://i.pravatar.cc/120?img=12',
-    propertyImage: '/hero-bg.jpg',
-    preview: 'hi can i have a night with...',
-    date: 'Today',
-    unread: 1,
-    subtitle: 'Show listing',
-    messages: [
-      {
-        id: 'm1',
-        from: 'them',
-        body: 'Hi Sanjay, the room is available tonight. I can also arrange a late check-in.',
-        time: '19:42 pm',
-      },
-      {
-        id: 'm2',
-        from: 'me',
-        body: 'Great, can I have a night with breakfast included?',
-        time: '19:48 pm',
-      },
-    ],
-  },
-  {
-    id: 'aarsi-bhasin',
-    name: 'Aarsi Bhasin',
-    role: 'host',
-    avatar: 'https://i.pravatar.cc/120?img=32',
-    propertyImage: '/auth-bg.jpg',
-    preview: 'Sent: hi, baby can we have a...',
-    date: '20/12/25',
-    subtitle: 'Show listing',
-    messages: [
-      {
-        id: 'm1',
-        from: 'me',
-        body: 'Hi, I wanted to confirm whether early check-in is possible for my booking.',
-        time: '18:10 pm',
-      },
-      {
-        id: 'm2',
-        from: 'them',
-        body: 'Yes, early check-in is possible after 11 am. I will keep the listing ready for you.',
-        time: '18:24 pm',
-      },
-    ],
-  },
-  {
-    id: 'aarsi-kitchen',
-    name: 'Aarsi Bhasin',
-    role: 'host',
-    avatar: 'https://i.pravatar.cc/120?img=32',
-    propertyImage: '/auth-bg.jpg',
-    preview: 'Sent: hi, baby can we have a...',
-    date: '20/12/25',
-    subtitle: 'Show listing',
-    messages: [
-      {
-        id: 'm1',
-        from: 'them',
-        body: 'The kitchen is shared, but you will have your own shelf and utensils during the stay.',
-        time: '15:31 pm',
-      },
-    ],
-  },
-  {
-    id: 'aarsi-window',
-    name: 'Aarsi Bhasin',
-    role: 'host',
-    avatar: 'https://i.pravatar.cc/120?img=32',
-    propertyImage: '/auth-bg.jpg',
-    preview: 'Sent: hi, baby can we have a...',
-    date: '20/12/25',
-    subtitle: 'Show listing',
-    messages: [
-      {
-        id: 'm1',
-        from: 'me',
-        body: 'Can you share a photo of the balcony view?',
-        time: '12:08 pm',
-      },
-    ],
-  },
-  {
-    id: 'support-guest',
-    name: 'Hostiggo',
-    role: 'support',
-    avatar: 'https://i.pravatar.cc/120?img=47',
-    preview: 'Sent: trust me i only love you and...',
-    date: '20/12/25',
-    subtitle: 'Support Team',
-    messages: [
-      {
-        id: 'm1',
-        from: 'me',
-        body: 'Hi, I faced an issue with the host during my stay and would like to report it. Please guide me on the next steps',
-        time: '21:00 pm',
-      },
-      {
-        id: 'm2',
-        from: 'them',
-        body: "Hi Sanjay. Thanks for reaching out to us. We're sorry to hear that you're facing this issue. We're currently checking the details of your booking and will get back to you shortly with an update. If you have any additional information or screenshots, feel free to share them here. It will help us resolve this faster.",
-        time: '21:02 pm',
-      },
-    ],
-  },
-];
+const GUEST_CONVERSATIONS: Conversation[] = [];
 
-const HOST_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'sanjay-booking',
-    name: 'Sanjay Mehra',
-    role: 'guest',
-    avatar: 'https://i.pravatar.cc/120?img=15',
-    propertyImage: '/hero-bg.jpg',
-    preview: 'Can I check in around 9 pm today?',
-    date: 'Today',
-    unread: 2,
-    subtitle: 'Garden studio booking',
-    messages: [
-      {
-        id: 'm1',
-        from: 'them',
-        body: 'Hi, can I check in around 9 pm today? My train reaches a little late.',
-        time: '17:30 pm',
-      },
-      {
-        id: 'm2',
-        from: 'me',
-        body: 'That works. I will keep the keys at reception and message you the entry instructions before 8 pm.',
-        time: '17:35 pm',
-      },
-      {
-        id: 'm3',
-        from: 'them',
-        body: 'Perfect, thank you. Please also confirm if parking is available.',
-        time: '17:38 pm',
-      },
-    ],
-  },
-  {
-    id: 'riya-inquiry',
-    name: 'Riya Sharma',
-    role: 'guest',
-    avatar: 'https://i.pravatar.cc/120?img=44',
-    propertyImage: '/auth-bg.jpg',
-    preview: 'Is the balcony private?',
-    date: 'Today',
-    subtitle: 'Listing inquiry',
-    messages: [
-      {
-        id: 'm1',
-        from: 'them',
-        body: 'Is the balcony private or shared with other guests?',
-        time: '11:14 am',
-      },
-    ],
-  },
-  {
-    id: 'support-host',
-    name: 'Hostiggo',
-    role: 'support',
-    avatar: 'https://i.pravatar.cc/120?img=47',
-    preview: 'Your payout ticket is being reviewed...',
-    date: '20/12/25',
-    subtitle: 'Support Team',
-    messages: [
-      {
-        id: 'm1',
-        from: 'them',
-        body: 'Your payout ticket is being reviewed. We will notify you as soon as the bank response arrives.',
-        time: '10:05 am',
-      },
-    ],
-  },
-  {
-    id: 'archived-guest',
-    name: 'Ankit Roy',
-    role: 'guest',
-    avatar: 'https://i.pravatar.cc/120?img=59',
-    propertyImage: '/hero-bg.jpg',
-    preview: 'Thanks for hosting us.',
-    date: '18/12/25',
-    archived: true,
-    subtitle: 'Completed stay',
-    messages: [
-      {
-        id: 'm1',
-        from: 'them',
-        body: 'Thanks for hosting us. The place was exactly as shown.',
-        time: '09:20 am',
-      },
-    ],
-  },
-];
+const HOST_CONVERSATIONS: Conversation[] = [];
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: 'All',
@@ -261,54 +65,6 @@ const MENU_ITEMS = [
   { label: 'Archive', icon: Archive },
   { label: 'Report', icon: Flag, separated: true },
 ];
-
-function ChatTopBar() {
-  return (
-    <header className="h-[72px] flex-shrink-0 bg-white shadow-[0_8px_28px_rgba(0,71,114,0.10)]">
-      <div className="mx-auto flex h-full max-w-[1160px] items-center justify-between px-5 sm:px-8">
-        <Link href="/" className="flex items-center gap-2.5">
-          <span className="flex h-9 w-9 items-center justify-center rounded-full bg-[#004772] text-[18px] font-bold leading-none text-white">
-            H
-          </span>
-          <span className="text-[18px] font-black uppercase tracking-wide text-[#4b5563]">
-            Hosti<span className="text-blue-600">ggo</span>
-          </span>
-        </Link>
-
-        <nav className="flex items-center gap-2 text-[13px] font-bold text-[#004772]">
-          <button className="hidden items-center gap-1.5 border-r border-gray-200 px-3 py-2 sm:flex">
-            <BadgeIndianRupee className="h-4 w-4" />
-            INR.
-          </button>
-          <button className="hidden items-center gap-1.5 border-r border-gray-200 px-3 py-2 sm:flex">
-            <Globe2 className="h-4 w-4" />
-            English
-          </button>
-          <Link href="/signin" className="hidden px-3 py-2 sm:block">
-            Sign In
-          </Link>
-          <Link
-            href="/host/list/property-type"
-            className="hidden rounded-lg border-2 border-[#004772] px-6 py-2.5 font-bold text-[#004772] transition-colors hover:bg-blue-50 md:block"
-          >
-            List your property
-          </Link>
-          <Link
-            href="/account/profile"
-            className="ml-1 h-10 w-10 overflow-hidden rounded-full border border-gray-200"
-            aria-label="Open profile"
-          >
-            <img
-              src="https://i.pravatar.cc/120?img=11"
-              alt="Profile"
-              className="h-full w-full object-cover"
-            />
-          </Link>
-        </nav>
-      </div>
-    </header>
-  );
-}
 
 function FilterDropdown({
   audience,
@@ -577,12 +333,28 @@ function MessageBubble({
 function ConversationPanel({
   conversation,
   onBack,
+  onMessageSent,
 }: {
   conversation?: Conversation;
   onBack?: () => void;
+  onMessageSent?: () => void;
 }) {
+  const { userId } = useAuth();
   const [menuOpen, setMenuOpen] = useState(false);
   const [draft, setDraft] = useState('');
+  const [sending, setSending] = useState(false);
+  const [messages, setMessages] = useState<Message[]>(conversation?.messages ?? []);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // Update messages when conversation changes
+  useEffect(() => {
+    setMessages(conversation?.messages ?? []);
+  }, [conversation?.messages]);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
   if (!conversation) {
     return (
@@ -591,6 +363,65 @@ function ConversationPanel({
       </section>
     );
   }
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!draft.trim() || !userId) return;
+
+    const messageText = draft.trim();
+    
+    // Optimistically add message to UI
+    const optimisticMessage: Message = {
+      id: `temp-${Date.now()}`,
+      body: messageText,
+      time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+      from: 'me',
+    };
+    
+    setMessages(prev => [...prev, optimisticMessage]);
+    setDraft('');
+    setSending(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          senderId: userId,
+          recipientId: conversation.id,
+          text: messageText,
+          senderType: 'user',
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to send message');
+      }
+
+      // Remove the temporary message and fetch fresh data
+      const result = await response.json();
+      if (result.data) {
+        // Replace temp message with real one
+        setMessages(prev => 
+          prev.map(msg => msg.id === optimisticMessage.id ? {
+            id: result.data.id,
+            body: result.data.text,
+            time: new Date(result.data.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            from: 'me',
+          } : msg)
+        );
+      }
+      
+      onMessageSent?.();
+    } catch (error) {
+      console.error('Failed to send message:', error);
+      // Remove the optimistic message on error
+      setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <section className="relative flex h-[70vh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100vh-220px)] md:min-h-[520px]">
@@ -613,12 +444,9 @@ function ConversationPanel({
             <h2 className="truncate text-[16px] font-black leading-tight text-gray-900">
               {conversation.name}
             </h2>
-            <Link
-              href="#"
-              className="text-[12px] font-semibold leading-tight text-gray-800 underline underline-offset-2"
-            >
+            <p className="text-[12px] font-semibold leading-tight text-gray-800">
               {conversation.subtitle}
-            </Link>
+            </p>
           </div>
         </div>
         <ChatActionMenu open={menuOpen} onOpenChange={setMenuOpen} />
@@ -631,13 +459,14 @@ function ConversationPanel({
       </div>
 
       <div className="reviews-scroll flex-1 space-y-6 overflow-y-auto pr-2">
-        {conversation.messages.map((message) => (
+        {messages.map((message) => (
           <MessageBubble
             key={message.id}
             message={message}
             avatar={conversation.avatar}
           />
         ))}
+        <div ref={messagesEndRef} />
       </div>
 
       <button
@@ -648,10 +477,7 @@ function ConversationPanel({
       </button>
 
       <form
-        onSubmit={(event) => {
-          event.preventDefault();
-          setDraft('');
-        }}
+        onSubmit={handleSendMessage}
         className="mt-2 flex h-[50px] items-center gap-2 rounded-full border border-gray-300 bg-white py-1 pl-4 pr-1"
       >
         <button
@@ -670,10 +496,10 @@ function ConversationPanel({
         <button
           type="submit"
           aria-label="Send message"
-          disabled={!draft.trim()}
+          disabled={!draft.trim() || sending}
           className={cn(
             'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors',
-            draft.trim() ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300',
+            draft.trim() && !sending ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300',
           )}
         >
           <Send className="h-5 w-5 fill-current" />
@@ -686,18 +512,145 @@ function ConversationPanel({
 export default function ChatWorkspace({
   audience,
   initialSelectedId,
+  initialHostName,
 }: {
   audience: 'guest' | 'host';
   initialSelectedId?: string;
+  initialHostName?: string;
 }) {
   const router = useRouter();
+  const { userId } = useAuth();
   const [filter, setFilter] = useState<FilterKey>('all');
   const [unreadOnly, setUnreadOnly] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [query, setQuery] = useState('');
   const [selectedId, setSelectedId] = useState<string | null>(initialSelectedId ?? null);
+  const [conversations, setConversations] = useState<Conversation[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const conversations = audience === 'host' ? HOST_CONVERSATIONS : GUEST_CONVERSATIONS;
+  // Load conversations from API and subscribe to real-time updates
+  useEffect(() => {
+    const loadConversations = async () => {
+      if (!userId) {
+        setLoading(false);
+        return;
+      }
+
+      try {
+        setLoading(true);
+        // Fetch conversations from the chat API
+        const response = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`);
+        if (!response.ok) throw new Error('Failed to load conversations');
+        const data = await response.json();
+        
+        // Map API response to Conversation format
+        let mappedConversations: Conversation[] = (data.data || []).map((chat: any) => ({
+          id: chat.participant_id,
+          name: chat.participant_name || 'Host',
+          role: chat.type || 'host',
+          avatar: 'https://i.pravatar.cc/150',
+          preview: chat.last_message || 'No messages yet',
+          date: chat.last_message_time ? 'Today' : 'Never',
+          subtitle: 'Property host',
+          messages: (chat.messages || []).map((msg: any) => ({
+            id: msg.id,
+            body: msg.text,
+            time: new Date(msg.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            from: msg.sender_id === userId ? 'me' : 'them',
+          })),
+        }));
+        
+        // If we have an initialSelectedId but it's not in the conversations, create a new one
+        if (initialSelectedId && !mappedConversations.find(c => c.id === initialSelectedId)) {
+          const newConversation: Conversation = {
+            id: initialSelectedId,
+            name: initialHostName && initialHostName !== 'Host' ? initialHostName : 'Property host',
+            role: 'host',
+            avatar: 'https://i.pravatar.cc/150',
+            preview: 'No messages yet',
+            date: 'Now',
+            subtitle: initialHostName && initialHostName !== 'Host' ? initialHostName : 'Property host',
+            messages: [],
+          };
+          mappedConversations.unshift(newConversation);
+        }
+        
+        setConversations(mappedConversations);
+      } catch (error) {
+        console.error('Failed to load conversations:', error);
+        setConversations([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadConversations();
+
+    // Subscribe to real-time updates
+    const channel = supabase
+      .channel(`chat:user:${userId}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'chat_messages',
+          filter: `or(user_id.eq.${userId},host_id.eq.${userId})`,
+        },
+        (payload: any) => {
+          const newMsg = payload.new;
+          const participantId = newMsg.user_id === userId ? newMsg.host_id : newMsg.user_id;
+          
+          setConversations((prev) => {
+            const updated = [...prev];
+            const convIndex = updated.findIndex(c => c.id === participantId);
+            
+            if (convIndex >= 0) {
+              // Update existing conversation
+              const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
+              updated[convIndex].messages.push({
+                id: newMsg.id,
+                body: newMsg.content,
+                time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                from: senderIsCurrentUser ? 'me' : 'them',
+              });
+              updated[convIndex].preview = newMsg.content;
+              updated[convIndex].date = 'Now';
+              
+              // Move to top
+              const [conversation] = updated.splice(convIndex, 1);
+              updated.unshift(conversation);
+            } else {
+              // Create new conversation if it doesn't exist
+              const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
+              const newConversation: Conversation = {
+                id: participantId,
+                name: 'New conversation',
+                role: 'host',
+                avatar: 'https://i.pravatar.cc/150',
+                preview: newMsg.content,
+                date: 'Now',
+                subtitle: 'Property host',
+                messages: [{
+                  id: newMsg.id,
+                  body: newMsg.content,
+                  time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                  from: senderIsCurrentUser ? 'me' : 'them',
+                }],
+              };
+              updated.unshift(newConversation);
+            }
+            
+            return updated;
+          });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, initialSelectedId, initialHostName]);
 
   const filtered = useMemo(() => {
     const normalizedQuery = query.trim().toLowerCase();
@@ -730,8 +683,6 @@ export default function ChatWorkspace({
 
   return (
     <div className="min-h-screen bg-[#fffdf8] text-gray-900">
-      <ChatTopBar />
-
       <main className="mx-auto flex max-w-[1520px] gap-6 px-4 pb-8 pt-8 sm:px-8 lg:gap-8">
         <button
           onClick={() => router.push('/')}
@@ -791,7 +742,14 @@ export default function ChatWorkspace({
             </div>
 
             <div className="reviews-scroll mt-5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-2">
-              {filtered.length === 0 ? (
+              {loading ? (
+                <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
+                  <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-[12px] text-blue-500 font-medium">
+                    Loading conversations…
+                  </p>
+                </div>
+              ) : filtered.length === 0 ? (
                 <EmptyList />
               ) : (
                 <div className="space-y-5">
@@ -852,6 +810,9 @@ export default function ChatWorkspace({
             <ConversationPanel
               conversation={selectedConversation}
               onBack={() => setSelectedId(null)}
+              onMessageSent={() => {
+                // Conversation will be updated automatically by the real-time subscription
+              }}
             />
           </div>
         </div>

@@ -8,9 +8,17 @@ interface LeafletMapProps {
   latitude: number;
   longitude: number;
   onMarkerMove?: (lat: number, lng: number) => void;
+  onMapClick?: (lat: number, lng: number) => void;
+  allowClickToPlace?: boolean;
 }
 
-export default function LeafletMap({ latitude, longitude, onMarkerMove }: LeafletMapProps) {
+export default function LeafletMap({ 
+  latitude, 
+  longitude, 
+  onMarkerMove,
+  onMapClick,
+  allowClickToPlace = false,
+}: LeafletMapProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const markerRef = useRef<L.Marker | null>(null);
@@ -27,23 +35,16 @@ export default function LeafletMap({ latitude, longitude, onMarkerMove }: Leafle
       maxZoom: 19,
     }).addTo(map);
 
-    // Fix marker icon issue in Next.js
-    const iconUrl = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon.png';
-    const shadowUrl =
-      'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png';
-
-    const markerIcon = L.icon({
-      iconUrl,
-      shadowUrl,
-      iconSize: [25, 41],
-      iconAnchor: [12, 41],
-      popupAnchor: [1, -34],
-      shadowSize: [41, 41],
+    // Fix marker icon issue in Next.js by using mergeOptions
+    // This ensures icons are loaded from the correct CDN URL
+    L.Icon.Default.mergeOptions({
+      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
+      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
+      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
     });
 
-    // Create draggable marker
+    // Create marker with default icon (now properly configured)
     const marker = L.marker([latitude, longitude], {
-      icon: markerIcon,
       draggable: true,
     }).addTo(map);
 
@@ -52,6 +53,16 @@ export default function LeafletMap({ latitude, longitude, onMarkerMove }: Leafle
       const pos = marker.getLatLng();
       onMarkerMove?.(pos.lat, pos.lng);
     });
+
+    // Handle map clicks to place new pins if enabled
+    if (allowClickToPlace) {
+      map.on('click', (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        marker.setLatLng([lat, lng]);
+        onMapClick?.(lat, lng);
+        onMarkerMove?.(lat, lng);
+      });
+    }
 
     mapRef.current = map;
     markerRef.current = marker;
@@ -64,7 +75,7 @@ export default function LeafletMap({ latitude, longitude, onMarkerMove }: Leafle
       mapRef.current = null;
       markerRef.current = null;
     };
-  }, []);
+  }, [allowClickToPlace]);
 
   // Update marker position when lat/lng change externally
   useEffect(() => {
