@@ -142,21 +142,33 @@ function CheckRow({
   );
 }
 
-// Must match the real `property_types.name` values exactly (verified against
-// the property_types catalogue table) — the old placeholder list ('Homestay',
-// 'Resort', etc.) didn't match any real row, so this filter always returned 0.
-const PROPERTY_TYPES = ['House', 'Apartment / Flat', 'Guest House', 'Villa', 'Cottage', 'Tiny Home'];
-// Matches the real `stay_types.title` values.
-const STAY_TYPES = ['Entire Property', 'Private Room', 'Shared Space'];
+// Only the property types actually offered in the host's create-listing
+// wizard (src/app/host/list/property-type/page.tsx) — these are the only
+// values a host can ever choose, so they're the only ones worth filtering by.
+const PROPERTY_TYPES = ['House', 'Apartment / Flat', 'Guest House', 'Hotel', 'Cabin', 'Villa', 'Treehouse', 'Tiny Home', 'Farm Stay'];
+// Only amenities that have a real catalogue row AND a working id mapping on
+// the host side (src/app/host/list/amenities/page.tsx AMENITY_DB_ID) — labels
+// match the real `amenities.name` values exactly so the fuzzy resolver in
+// ListingFilterContext always finds an exact (not guessed) match.
 const AMENITY_LIST = [
   'WiFi',
   'Kitchen',
-  'Parking',
-  'Pool',
-  'Mountain view',
+  'AC',
+  'Heating',
+  'TV',
+  'Washing Machine',
+  'Free Parking',
+  'Swimming Pool',
+  'Gym',
+  'Hot Tub',
   'Balcony',
+  'Smoke Alarm',
+  'Fire Extinguisher',
+  'First Aid Kit',
+  'Pets Allowed',
+  'BBQ Grill',
+  'Garden',
 ];
-const BED_TYPES = ['Single bed', 'Double bed', 'Queen bed', 'King bed'];
 
 function fmtPrice(v: number, isMax: boolean, MAX: number) {
   if (isMax && v >= MAX) return '₹1L+';
@@ -319,10 +331,13 @@ export default function FiltersSidebar({
 
         <Section title="Popular Filters">
           <div className="flex flex-wrap gap-2 mt-1">
-            {/* Private room / Shared room map to the real stay_type data and
-                actually filter results. The rest (free cancellation, free
-                breakfast, etc.) have no corresponding field anywhere in the
-                schema, so they're disabled rather than pretending to work. */}
+            {/* Private room / Shared room are the only "Popular Filters"
+                concepts with a real backing field (stay_types.title) —
+                everything else that used to live here (free cancellation,
+                free breakfast, couple/family friendly, etc.) has no
+                corresponding column anywhere in the schema or the
+                create-listing wizard, so it was removed rather than shown
+                as dead/disabled clutter. */}
             <CheckChip
               label="Private room"
               checked={filters.stayTypes.includes('Private Room')}
@@ -333,11 +348,6 @@ export default function FiltersSidebar({
               checked={filters.stayTypes.includes('Shared Space')}
               onChange={() => toggleStayType('Shared Space')}
             />
-            {['Free cancellation', 'Free breakfast', 'Double bed', 'Couple friendly', 'Family friendly'].map(
-              (label) => (
-                <CheckChip key={label} label={label} checked={false} onChange={() => {}} disabled />
-              ),
-            )}
           </div>
         </Section>
 
@@ -403,7 +413,7 @@ export default function FiltersSidebar({
           </div>
         </Section>
 
-        <Section title="Facilities">
+        <Section title="Facilities" noBorder>
           <div className="space-y-0.5">
             {AMENITY_LIST.map((am) => (
               <CheckRow
@@ -412,17 +422,6 @@ export default function FiltersSidebar({
                 checked={filters.amenities.includes(am)}
                 onChange={() => toggleAmenity(am)}
               />
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Bed Type" noBorder>
-          {/* No per-bedroom bed-type data exists anywhere in the schema
-              (listings only store aggregate num_beds), so this can't
-              actually filter anything yet — disabled rather than faked. */}
-          <div className="space-y-0.5">
-            {BED_TYPES.map((bt) => (
-              <CheckRow key={bt} label={bt} checked={false} onChange={() => {}} disabled />
             ))}
           </div>
         </Section>

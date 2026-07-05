@@ -137,14 +137,9 @@ export function mapListingToProperty(input: any): Property {
         : undefined,
     host: buildHost(row),
     reviews,
-    ratingBreakdown: {
-      cleanliness: rating || 4.5,
-      accuracy: rating || 4.5,
-      communication: rating || 4.5,
-      location: rating || 4.5,
-      checkIn: rating || 4.5,
-      value: rating || 4.5,
-    },
+    // No per-category (cleanliness/accuracy/communication/location/checkIn/
+    // value) rating exists anywhere in the schema — only a single overall
+    // `rating` per review — so no ratingBreakdown is fabricated here.
   };
 }
 

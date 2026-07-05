@@ -299,7 +299,7 @@ export default function InteractiveMap({
               <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 rounded-lg px-1.5 py-0.5">
                 <StarIcon className="w-3 h-3 text-amber-500 fill-amber-500" />
                 <span className="text-[11px] font-bold text-amber-700">
-                  {selectedProperty.rating.toFixed(1)}
+                  {selectedProperty.rating > 0 ? selectedProperty.rating.toFixed(1) : 'New'}
                 </span>
               </div>
               <span className="text-[11px] text-gray-400">

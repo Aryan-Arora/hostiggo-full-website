@@ -413,26 +413,6 @@ function PropertyMap({ property }: { property: Property }) {
   );
 }
 
-// ── 4. Rating Breakdown ──────────────────────────────────────────────
-function RatingBar({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-[12px] text-gray-600 w-28 flex-shrink-0">
-        {label}
-      </span>
-      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gray-800 rounded-full"
-          style={{ width: `${(value / 5) * 100}%` }}
-        />
-      </div>
-      <span className="text-[12px] font-bold text-gray-700 w-6 text-right">
-        {value.toFixed(1)}
-      </span>
-    </div>
-  );
-}
-
 // ── 5. Review Card ───────────────────────────────────────────────────
 function ReviewCard({ review }: { review: Review }) {
   const [expanded, setExpanded] = useState(false);
@@ -778,7 +758,7 @@ function SuggestedStays({ current }: { current: Property }) {
                 <div className="flex items-center gap-1">
                   <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
                   <span className="text-[10px] font-bold text-gray-700">
-                    {p.rating.toFixed(1)}
+                    {p.rating > 0 ? p.rating.toFixed(1) : 'New'}
                   </span>
                 </div>
                 <div>
@@ -1123,7 +1103,7 @@ function ReviewsModal({
           <div className="flex items-center gap-1.5 bg-emerald-500 text-white px-2.5 py-1 rounded-lg">
             <Star className="w-3.5 h-3.5 fill-white" />
             <span className="text-[14px] font-extrabold">
-              {rating.toFixed(1)}
+              {rating > 0 ? rating.toFixed(1) : 'New'}
             </span>
           </div>
           <div>
@@ -1450,7 +1430,6 @@ export default function PropertyDetailsPage() {
   const visibleAmenities = showAllAmenities ? amenities : amenities.slice(0, 8);
   const reviews = property.reviews ?? [];
   const previewReviews = reviews.slice(0, 3);
-  const rb = property.ratingBreakdown;
 
   const descIsLong = (property.description?.length ?? 0) > 200;
 
@@ -1570,7 +1549,7 @@ export default function PropertyDetailsPage() {
                 <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
                   <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                   <span className="text-[14px] font-extrabold text-amber-700">
-                    {property.rating.toFixed(1)}
+                    {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
                   </span>
                   <span className="text-[12px] text-amber-600">
                     ({property.reviewCount} reviews)
@@ -1715,10 +1694,12 @@ export default function PropertyDetailsPage() {
                 </div>
               )}
 
-              {/* Overall rating + breakdown */}
+              {/* Overall rating — no per-category breakdown is shown here
+                  because the database only stores one rating per review;
+                  there's no real cleanliness/accuracy/communication/location/
+                  check-in/value sub-score anywhere to break it down into. */}
               {reviews.length > 0 && (
               <div className="flex items-start gap-5 mb-5">
-                {/* Score */}
                 <div className="text-center flex-shrink-0">
                   <p className="text-[42px] font-extrabold text-gray-800 leading-none">
                     {property.rating.toFixed(1)}
@@ -1740,18 +1721,6 @@ export default function PropertyDetailsPage() {
                     {property.reviewCount} reviews
                   </p>
                 </div>
-
-                {/* Bar breakdown */}
-                {rb && (
-                  <div className="flex-1 space-y-2 pl-4 border-l border-gray-100">
-                    <RatingBar label="Cleanliness" value={rb.cleanliness} />
-                    <RatingBar label="Accuracy" value={rb.accuracy} />
-                    <RatingBar label="Communication" value={rb.communication} />
-                    <RatingBar label="Location" value={rb.location} />
-                    <RatingBar label="Check-in" value={rb.checkIn} />
-                    <RatingBar label="Value" value={rb.value} />
-                  </div>
-                )}
               </div>
               )}
 
