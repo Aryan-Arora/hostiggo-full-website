@@ -45,8 +45,9 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
       className="bg-white rounded-[2rem] p-3 flex flex-col sm:flex-row gap-4 sm:gap-6 cursor-pointer group transition-all duration-200 border border-gray-100 hover:shadow-md"
       onClick={handleNavigate}
     >
-      {/* Image Container */}
-      <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] sm:h-auto rounded-[1.5rem] overflow-hidden">
+      {/* Image Container — fixed height so every card is the same size
+          regardless of each photo's own aspect ratio */}
+      <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] rounded-[1.5rem] overflow-hidden">
         <img
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
