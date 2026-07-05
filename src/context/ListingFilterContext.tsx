@@ -46,6 +46,7 @@ interface ListingActions {
   setRating: (rating: number | null) => void;
   toggleAmenity: (amenity: string) => void;
   togglePropertyType: (type: string) => void;
+  toggleStayType: (type: string) => void;
   toggleBedType: (type: string) => void;
   setBooleanFilter: (key: keyof SearchFilters, value: boolean) => void;
   fetchMore: () => void;
@@ -72,6 +73,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   priceMax: 100000,
   guestRating: null,
   propertyTypes: [],
+  stayTypes: [],
   amenities: [],
   bedTypes: [],
   freeCancellation: false,
@@ -262,6 +264,15 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const toggleStayType = useCallback((type: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      stayTypes: prev.stayTypes.includes(type)
+        ? prev.stayTypes.filter((t) => t !== type)
+        : [...prev.stayTypes, type],
+    }));
+  }, []);
+
   const toggleBedType = useCallback((type: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -404,6 +415,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     setRating,
     toggleAmenity,
     togglePropertyType,
+    toggleStayType,
     toggleBedType,
     setBooleanFilter,
     fetchMore,

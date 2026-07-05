@@ -108,7 +108,7 @@ export function mapListingToProperty(input: any): Property {
     city: row.district ?? location.district ?? row.city ?? "Unknown",
     state: row.state ?? location.state ?? row.state_name ?? "",
     price: Number(row.price_weekday ?? row.price ?? 0),
-    rating: rating || 4.5,
+    rating,
     reviewCount: Number(row.review_count ?? reviews.length ?? 0),
     amenities,
     amenityDetails: buildAmenityDetails(amenities),
@@ -357,7 +357,12 @@ export const api = {
         totalGuests: extra?.totalGuests,
         ratings: filters.guestRating != null ? [filters.guestRating] : [],
         amenities: extra?.amenities ?? ([] as number[]),
-        roomTypes: filters.propertyTypes,
+        // roomTypes intentionally NOT sent to the RPC — its p_roomtypes
+        // matching doesn't line up with the real property_type_name values,
+        // so property type is filtered as a post-process below instead
+        // (see /api/search/route.ts) using the RPC's own returned rows.
+        propertyTypes: filters.propertyTypes,
+        stayTypes: filters.stayTypes,
       },
     };
     console.log("[api.search] Request payload:", payload);

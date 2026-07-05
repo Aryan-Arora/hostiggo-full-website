@@ -88,6 +88,7 @@ export interface SearchFilters {
   priceMax: number;
   guestRating: number | null;
   propertyTypes: string[];
+  stayTypes: string[];
   amenities: string[];
   bedTypes: string[];
   freeCancellation: boolean;

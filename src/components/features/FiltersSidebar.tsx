@@ -55,20 +55,26 @@ function CheckChip({
   checked,
   onChange,
   className,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      title={disabled ? 'Coming soon' : undefined}
       className={cn(
         'px-3 py-2 rounded-[10px] text-[13px] font-medium border transition-all h-auto min-h-[38px] text-center flex items-center justify-center flex-1 min-w-[calc(50%-4px)]',
-        checked
-          ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
-          : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+        disabled
+          ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+          : checked
+            ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
+            : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
         className,
       )}
     >
@@ -81,25 +87,34 @@ function CheckRow({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
-      className="w-full flex items-center gap-2.5 cursor-pointer py-1.5 group text-left"
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      title={disabled ? 'Coming soon' : undefined}
+      className={cn(
+        'w-full flex items-center gap-2.5 py-1.5 group text-left',
+        disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+      )}
     >
       <div
         className={cn(
           'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all',
-          checked
-            ? 'bg-[#0396EF] border-[#0396EF]'
-            : 'border-gray-300 group-hover:border-[#0396EF]',
+          disabled
+            ? 'border-gray-100 bg-gray-50'
+            : checked
+              ? 'bg-[#0396EF] border-[#0396EF]'
+              : 'border-gray-300 group-hover:border-[#0396EF]',
         )}
       >
-        {checked && (
+        {checked && !disabled && (
           <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
             <path
               d="M1 3L3 5L7 1"
@@ -114,9 +129,11 @@ function CheckRow({
       <span
         className={cn(
           'text-[13px] transition-colors',
-          checked
-            ? 'text-[#1A1A1A] font-semibold'
-            : 'text-gray-600 group-hover:text-[#1A1A1A]',
+          disabled
+            ? 'text-gray-300'
+            : checked
+              ? 'text-[#1A1A1A] font-semibold'
+              : 'text-gray-600 group-hover:text-[#1A1A1A]',
         )}
       >
         {label}
@@ -125,7 +142,12 @@ function CheckRow({
   );
 }
 
-const PROPERTY_TYPES = ['Homestay', 'Villa', 'Cottage', 'Apartment', 'Resort'];
+// Must match the real `property_types.name` values exactly (verified against
+// the property_types catalogue table) — the old placeholder list ('Homestay',
+// 'Resort', etc.) didn't match any real row, so this filter always returned 0.
+const PROPERTY_TYPES = ['House', 'Apartment / Flat', 'Guest House', 'Villa', 'Cottage', 'Tiny Home'];
+// Matches the real `stay_types.title` values.
+const STAY_TYPES = ['Entire Property', 'Private Room', 'Shared Space'];
 const AMENITY_LIST = [
   'WiFi',
   'Kitchen',
@@ -257,10 +279,9 @@ export default function FiltersSidebar({
   const {
     setPriceRange,
     setRating,
-    setBooleanFilter,
     toggleAmenity,
-    toggleBedType,
     togglePropertyType,
+    toggleStayType,
     clearFilters,
   } = useListingActions();
 
@@ -298,23 +319,25 @@ export default function FiltersSidebar({
 
         <Section title="Popular Filters">
           <div className="flex flex-wrap gap-2 mt-1">
-            {[
-              { label: 'Free cancellation', key: 'hasFreeCancellation' },
-              { label: 'Free breakfast', key: 'hasBreakfast' },
-              { label: 'Private room', key: 'hasPrivateRoom' },
-              { label: 'Shared room', key: 'hasSharedRoom' },
-              { label: 'Double bed', key: 'hasDoubleBed' },
-              { label: 'Couple friendly', key: 'isCoupleFriendly' },
-              { label: 'Free wifi', key: 'hasWifi' },
-              { label: 'Family friendly', key: 'isFamilyFriendly' },
-            ].map(({ label, key }) => (
-              <CheckChip
-                key={label}
-                label={label}
-                checked={Boolean(filters[key as keyof SearchFilters])}
-                onChange={(v) => setBooleanFilter(key as any, v)}
-              />
-            ))}
+            {/* Private room / Shared room map to the real stay_type data and
+                actually filter results. The rest (free cancellation, free
+                breakfast, etc.) have no corresponding field anywhere in the
+                schema, so they're disabled rather than pretending to work. */}
+            <CheckChip
+              label="Private room"
+              checked={filters.stayTypes.includes('Private Room')}
+              onChange={() => toggleStayType('Private Room')}
+            />
+            <CheckChip
+              label="Shared room"
+              checked={filters.stayTypes.includes('Shared Space')}
+              onChange={() => toggleStayType('Shared Space')}
+            />
+            {['Free cancellation', 'Free breakfast', 'Double bed', 'Couple friendly', 'Family friendly'].map(
+              (label) => (
+                <CheckChip key={label} label={label} checked={false} onChange={() => {}} disabled />
+              ),
+            )}
           </div>
         </Section>
 
@@ -364,14 +387,6 @@ export default function FiltersSidebar({
                 5 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
               </button>
             </div>
-            <div className="flex gap-2">
-              <button className="flex-1 px-3 py-2 rounded-[10px] text-[12px] font-medium border border-gray-200 bg-white text-gray-500 min-h-[38px]">
-                Lowest to highest
-              </button>
-              <button className="flex-1 px-3 py-2 rounded-[10px] text-[12px] font-medium border border-gray-200 bg-white text-gray-500 min-h-[38px]">
-                Highest to lowest
-              </button>
-            </div>
           </div>
         </Section>
 
@@ -402,14 +417,12 @@ export default function FiltersSidebar({
         </Section>
 
         <Section title="Bed Type" noBorder>
+          {/* No per-bedroom bed-type data exists anywhere in the schema
+              (listings only store aggregate num_beds), so this can't
+              actually filter anything yet — disabled rather than faked. */}
           <div className="space-y-0.5">
             {BED_TYPES.map((bt) => (
-              <CheckRow
-                key={bt}
-                label={bt}
-                checked={filters.bedTypes.includes(bt)}
-                onChange={() => toggleBedType(bt)}
-              />
+              <CheckRow key={bt} label={bt} checked={false} onChange={() => {}} disabled />
             ))}
           </div>
         </Section>

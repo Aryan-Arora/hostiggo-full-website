@@ -12,6 +12,25 @@ export async function POST(req: NextRequest) {
     let data = await HotelServiceApi.filterHotels(filters, page, pageSize);
     console.log("[/api/search] Result count:", data?.length ?? 0);
 
+    // Property type filter: the RPC's p_roomtypes doesn't reliably match the
+    // real property_type_name values, so filter here against the RPC's own
+    // returned property_type_name instead of trusting the RPC to do it.
+    if (filters?.propertyTypes?.length && data?.length) {
+      const wanted = new Set(filters.propertyTypes.map((t: string) => t.toLowerCase()));
+      data = data.filter((r: any) =>
+        wanted.has((r.listing?.property_type_name ?? "").toLowerCase()),
+      );
+    }
+
+    // Stay type filter (Private room / Shared room / Entire property) —
+    // same reasoning: filter on the real stay_type_title from the RPC row.
+    if (filters?.stayTypes?.length && data?.length) {
+      const wanted = new Set(filters.stayTypes.map((t: string) => t.toLowerCase()));
+      data = data.filter((r: any) =>
+        wanted.has((r.listing?.stay_type_title ?? "").toLowerCase()),
+      );
+    }
+
     // If date range provided, filter out listings that are unavailable.
     const { startDate, endDate } = filters ?? {};
     if (startDate && endDate && data?.length) {

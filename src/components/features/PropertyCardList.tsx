@@ -78,12 +78,21 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
               {property.city}, {property.state} • <button className="text-blue-600 hover:underline">View on map</button> • {property.distanceFromCenter ?? "15.8km from centre"}
             </p>
 
-            {/* Rating Block */}
+            {/* Rating Block — show an honest "New" badge instead of a fake
+                score when the listing has no real reviews yet, so this
+                doesn't contradict the guest-rating filter which correctly
+                excludes listings with no genuine rating. */}
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center gap-1.5 bg-emerald-500 rounded-md px-2 py-0.5 shadow-sm">
-                <span className="text-[12px] font-bold text-white">{property.rating.toFixed(1)}</span>
-                <Star className="w-3 h-3 text-white fill-white" />
-              </div>
+              {property.rating > 0 ? (
+                <div className="flex items-center gap-1.5 bg-emerald-500 rounded-md px-2 py-0.5 shadow-sm">
+                  <span className="text-[12px] font-bold text-white">{property.rating.toFixed(1)}</span>
+                  <Star className="w-3 h-3 text-white fill-white" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-gray-100 rounded-md px-2 py-0.5">
+                  <span className="text-[12px] font-bold text-gray-500">New</span>
+                </div>
+              )}
               <span className="text-[12px] font-bold text-gray-700">{property.reviewCount} reviews</span>
             </div>
 
