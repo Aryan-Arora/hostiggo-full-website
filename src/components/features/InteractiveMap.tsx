@@ -97,14 +97,6 @@ export default function InteractiveMap({
       document.head.appendChild(link);
     }
 
-    // Fix marker icon issue in Next.js by using mergeOptions
-    // This ensures the default icon is properly configured if needed
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
-    });
-
     mapInstanceRef.current = L.map(mapRef.current).setView(
       [INDIA_CENTER.lat, INDIA_CENTER.lng],
       5,
@@ -115,6 +107,15 @@ export default function InteractiveMap({
         '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
       maxZoom: 19,
     }).addTo(mapInstanceRef.current);
+
+    // Handle map clicks to add a location marker
+    if (mapInstanceRef.current) {
+      mapInstanceRef.current.on('click', (e: L.LeafletMouseEvent) => {
+        const { lat, lng } = e.latlng;
+        syncMapToPointer(lat, lng);
+        onPointerMoved?.(lat, lng);
+      });
+    }
 
     setMapLoaded(true);
   }, []);

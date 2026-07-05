@@ -35,16 +35,28 @@ export default function LeafletMap({
       maxZoom: 19,
     }).addTo(map);
 
-    // Fix marker icon issue in Next.js by using mergeOptions
-    // This ensures icons are loaded from the correct CDN URL
-    L.Icon.Default.mergeOptions({
-      iconRetinaUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon-2x.png',
-      iconUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png',
-      shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
+    // Create custom red pin marker using divIcon (reliable approach)
+    const customIcon = L.divIcon({
+      html: `
+        <div style="
+          width: 32px;
+          height: 40px;
+          background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23ef4444%22><path d=%22M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z%22/></svg>');
+          background-repeat: no-repeat;
+          background-position: center;
+          background-size: contain;
+          cursor: pointer;
+        "></div>
+      `,
+      iconSize: [32, 40],
+      iconAnchor: [16, 40],
+      popupAnchor: [0, -40],
+      className: 'custom-marker-pin',
     });
 
-    // Create marker with default icon (now properly configured)
+    // Create marker with custom red pin icon
     const marker = L.marker([latitude, longitude], {
+      icon: customIcon,
       draggable: true,
     }).addTo(map);
 
