@@ -1,5 +1,6 @@
 import type { AmenityItem, Host, Property, Review, SearchFilters } from "@/types";
 import { supabase } from "@/lib/supabase";
+import { toISODate } from "@/lib/utils";
 
 const FALLBACK_IMAGE =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
@@ -107,7 +108,7 @@ export function mapListingToProperty(input: any): Property {
     city: row.district ?? location.district ?? row.city ?? "Unknown",
     state: row.state ?? location.state ?? row.state_name ?? "",
     price: Number(row.price_weekday ?? row.price ?? 0),
-    rating: rating || 4.5,
+    rating,
     reviewCount: Number(row.review_count ?? reviews.length ?? 0),
     amenities,
     amenityDetails: buildAmenityDetails(amenities),
@@ -136,14 +137,9 @@ export function mapListingToProperty(input: any): Property {
         : undefined,
     host: buildHost(row),
     reviews,
-    ratingBreakdown: {
-      cleanliness: rating || 4.5,
-      accuracy: rating || 4.5,
-      communication: rating || 4.5,
-      location: rating || 4.5,
-      checkIn: rating || 4.5,
-      value: rating || 4.5,
-    },
+    // No per-category (cleanliness/accuracy/communication/location/checkIn/
+    // value) rating exists anywhere in the schema — only a single overall
+    // `rating` per review — so no ratingBreakdown is fabricated here.
   };
 }
 
@@ -242,8 +238,22 @@ export const api = {
   hotels: () => request<any[]>("/api/hotels"),
   hotelsByLocation: (locationId: string | number, limit = 4) =>
     request<any[]>(`/api/hotels?locationId=${locationId}&limit=${limit}`),
-  hostListings: (userId: string) =>
-    request<any[]>(`/api/host/listings?userId=${encodeURIComponent(userId)}`),
+  hostListings: async (
+    userId: string,
+    offset: number = 0,
+    limit: number = 24,
+  ): Promise<{ data: any[]; total: number }> => {
+    const res = await fetch(
+      `/api/host/listings?userId=${encodeURIComponent(userId)}&offset=${offset}&limit=${limit}`,
+    );
+    const payload = await res.json().catch(() => ({}));
+    if (!res.ok || payload.error) {
+      throw new Error(payload.error || `Request failed: ${res.status}`);
+    }
+    return { data: payload.data ?? [], total: payload.total ?? 0 };
+  },
+  hostReviews: (userId: string) =>
+    request<any[]>(`/api/host/reviews?userId=${encodeURIComponent(userId)}`),
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
   bookingDetail: (id: string) =>
@@ -420,8 +430,8 @@ export const api = {
       body: JSON.stringify({
         action: "dates",
         bookingId,
-        checkIn: checkIn.toISOString(),
-        checkOut: checkOut.toISOString(),
+        checkIn: toISODate(checkIn),
+        checkOut: toISODate(checkOut),
       }),
     }),
   updateBookingGuests: (bookingId: string, guests: { adults: number; children: number; pets?: number }) =>

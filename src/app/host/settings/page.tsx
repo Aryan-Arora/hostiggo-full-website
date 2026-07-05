@@ -1,6 +1,7 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
+import { toast } from 'sonner';
 import {
   User,
   Landmark,
@@ -12,13 +13,13 @@ import {
   MoreVertical,
   ShieldCheck,
   CheckCircle2,
-  type LucideIcon,
   Loader2,
+  type LucideIcon,
 } from 'lucide-react';
-import { toast } from 'sonner';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
 
 const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'personal', label: 'Personal Info', icon: User },
@@ -28,7 +29,7 @@ const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'support', label: 'Support', icon: LifeBuoy },
 ];
 
-interface HostProfile {
+interface ProfileData {
   name: string;
   email: string;
   phone: string;
@@ -45,82 +46,64 @@ interface HostProfile {
 export default function HostSettingsPage() {
   const { userId } = useAuth();
   const [tab, setTab] = useState('personal');
-  const [profile, setProfile] = useState<HostProfile | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [about, setAbout] = useState('');
   const [saving, setSaving] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    email: '',
-    phone: '',
-    about: '',
-    language: 'English (US)',
-  });
-
-  useEffect(() => {
-    if (!userId) return;
-    loadProfile();
-  }, [userId]);
 
   const loadProfile = async () => {
     if (!userId) return;
-    setLoading(true);
+    setLoadingProfile(true);
     try {
       const res = await fetch(`/api/host/profile-info?userId=${encodeURIComponent(userId)}`);
-      if (!res.ok) throw new Error('Failed to load profile');
-
-      const { data } = await res.json();
-      setProfile(data);
-      setFormData({
-        name: data.name || '',
-        email: data.email || '',
-        phone: data.phone || '',
-        about: data.about || '',
-        language: 'English (US)',
-      });
+      if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
+      const json = await res.json();
+      setProfile(json.data);
+      setName(json.data.name ?? '');
+      setEmail(json.data.email ?? '');
+      setPhone(json.data.phone ?? '');
+      setAbout(json.data.about ?? '');
     } catch (err) {
-      console.error('Failed to load profile:', err);
-      toast.error('Failed to load profile');
+      console.error('[host/settings] load failed:', err);
+      toast.error('Could not load your profile.');
     } finally {
-      setLoading(false);
+      setLoadingProfile(false);
     }
   };
 
+  useEffect(() => {
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
   const handleSave = async () => {
     if (!userId) return;
-
     setSaving(true);
     try {
-      const promises = [];
-
-      // Update about section if changed
-      if (formData.about !== profile?.about) {
-        promises.push(
-          fetch('/api/host/profile', {
-            method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              userId,
-              about: formData.about,
-            }),
-          }),
-        );
-      }
-
-      // Note: Full personal details update would require a separate endpoint
-      // For now, we only update the about section via the existing endpoint
-
-      await Promise.all(promises);
-      toast.success('Changes saved!');
+      await Promise.all([
+        api.updateProfile(userId, { name, email, phone }),
+        fetch('/api/host/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, about: about.trim() }),
+        }).then((res) => {
+          if (!res.ok) throw new Error('Failed to save about section');
+        }),
+      ]);
+      toast.success('Profile updated.');
       await loadProfile();
     } catch (err) {
-      console.error('Save error:', err);
-      toast.error('Failed to save changes');
+      console.error('[host/settings] save failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not save your profile.');
     } finally {
       setSaving(false);
     }
   };
 
-  if (loading) {
+  if (loadingProfile) {
     return (
       <HostDashboardShell active="settings">
         <div className="flex justify-center py-16">
@@ -167,40 +150,44 @@ export default function HostSettingsPage() {
 
         {/* Content */}
         <div className="flex-1 space-y-6">
-          {tab === 'personal' && profile && (
+          {tab === 'personal' && (loadingProfile ? (
+            <div className="bg-white rounded-2xl p-16 shadow-card border border-gray-200 flex justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : (
             <>
               {/* Profile header */}
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <div className="relative">
                     <img
-                      src={profile.avatar}
-                      alt={profile.name}
+                      src={profile?.avatar || 'https://i.pravatar.cc/200?img=45'}
+                      alt={profile?.name || 'Host'}
                       className="w-32 h-32 rounded-3xl object-cover ring-4 ring-gray-100 shadow"
                     />
                     <button
                       disabled
-                      title="Coming soon"
-                      className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform opacity-60 cursor-not-allowed"
+                      title="Photo upload coming soon"
+                      className="absolute -bottom-2 -right-2 bg-blue-600/70 text-white p-2 rounded-xl shadow-md cursor-not-allowed"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="text-center sm:text-left">
-                    <h2 className="text-xl font-bold text-gray-800">{profile.name}</h2>
+                    <h2 className="text-xl font-bold text-gray-800">{profile?.name}</h2>
                     <p className="text-sm text-gray-500 mb-4">Hosting since {new Date().getFullYear()}</p>
                     <div className="flex items-center gap-6 justify-center sm:justify-start">
                       <div className="text-center">
                         <p className="text-lg font-bold text-gray-800">
-                          {typeof profile.stats.rating === 'string'
+                          {typeof profile?.stats.rating === 'string'
                             ? profile.stats.rating
-                            : profile.stats.rating.toFixed(1)}
+                            : profile?.stats.rating?.toFixed(1) ?? '—'}
                         </p>
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Rating</p>
                       </div>
                       <div className="w-px h-10 bg-gray-200" />
                       <div className="text-center">
-                        <p className="text-lg font-bold text-gray-800">{profile.stats.reviews}</p>
+                        <p className="text-lg font-bold text-gray-800">{profile?.stats.reviews ?? 0}</p>
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Reviews</p>
                       </div>
                     </div>
@@ -212,70 +199,59 @@ export default function HostSettingsPage() {
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-800 mb-6">Personal Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  <Field
-                    label="Legal Name"
-                    value={formData.name}
-                    onChange={(v) => setFormData((prev) => ({ ...prev, name: v }))}
-                    type="text"
-                  />
-                  <Field
-                    label="Email Address"
-                    value={formData.email}
-                    onChange={(v) => setFormData((prev) => ({ ...prev, email: v }))}
-                    type="email"
-                    disabled
-                  />
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Legal Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-bold text-gray-500 ml-1">
                       Bio / Host Description
                     </label>
                     <textarea
                       rows={4}
-                      value={formData.about}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, about: e.target.value }))
-                      }
+                      value={about}
+                      onChange={(e) => setAbout(e.target.value)}
+                      placeholder="Tell guests a bit about yourself as a host."
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-none"
-                      placeholder="Tell guests about yourself..."
                     />
                   </div>
-                  <Field
-                    label="Phone Number"
-                    value={formData.phone}
-                    onChange={(v) => setFormData((prev) => ({ ...prev, phone: v }))}
-                    type="tel"
-                  />
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-500 ml-1">
-                      Language Preferences
-                    </label>
-                    <select
-                      value={formData.language}
-                      onChange={(e) =>
-                        setFormData((prev) => ({ ...prev, language: e.target.value }))
-                      }
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
-                    >
-                      <option>English (US)</option>
-                      <option>Spanish</option>
-                      <option>French</option>
-                      <option>German</option>
-                    </select>
+                    <label className="text-sm font-bold text-gray-500 ml-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                    />
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end">
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 flex items-center gap-2"
+                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-                    {saving ? 'Saving...' : 'Save Changes'}
+                    {saving ? 'Saving…' : 'Save Changes'}
                   </button>
                 </div>
               </div>
             </>
-          )}
+          ))}
 
           {tab === 'payouts' && (
             <>
@@ -345,35 +321,5 @@ export default function HostSettingsPage() {
         </div>
       </div>
     </HostDashboardShell>
-  );
-}
-
-function Field({
-  label,
-  value,
-  type,
-  disabled = false,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  type: string;
-  disabled?: boolean;
-  onChange?: (value: string) => void;
-}) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-bold text-gray-500 ml-1">{label}</label>
-      <input
-        type={type}
-        value={value}
-        onChange={(e) => onChange?.(e.target.value)}
-        disabled={disabled}
-        className={cn(
-          'w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm',
-          disabled && 'bg-gray-50 cursor-not-allowed opacity-60',
-        )}
-      />
-    </div>
   );
 }

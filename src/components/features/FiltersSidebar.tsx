@@ -55,20 +55,26 @@ function CheckChip({
   checked,
   onChange,
   className,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   className?: string;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      title={disabled ? 'Coming soon' : undefined}
       className={cn(
         'px-3 py-2 rounded-[10px] text-[13px] font-medium border transition-all h-auto min-h-[38px] text-center flex items-center justify-center flex-1 min-w-[calc(50%-4px)]',
-        checked
-          ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
-          : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+        disabled
+          ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
+          : checked
+            ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
+            : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
         className,
       )}
     >
@@ -81,25 +87,34 @@ function CheckRow({
   label,
   checked,
   onChange,
+  disabled = false,
 }: {
   label: string;
   checked: boolean;
   onChange: (v: boolean) => void;
+  disabled?: boolean;
 }) {
   return (
     <button
-      onClick={() => onChange(!checked)}
-      className="w-full flex items-center gap-2.5 cursor-pointer py-1.5 group text-left"
+      onClick={() => !disabled && onChange(!checked)}
+      disabled={disabled}
+      title={disabled ? 'Coming soon' : undefined}
+      className={cn(
+        'w-full flex items-center gap-2.5 py-1.5 group text-left',
+        disabled ? 'cursor-not-allowed' : 'cursor-pointer',
+      )}
     >
       <div
         className={cn(
           'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all',
-          checked
-            ? 'bg-[#0396EF] border-[#0396EF]'
-            : 'border-gray-300 group-hover:border-[#0396EF]',
+          disabled
+            ? 'border-gray-100 bg-gray-50'
+            : checked
+              ? 'bg-[#0396EF] border-[#0396EF]'
+              : 'border-gray-300 group-hover:border-[#0396EF]',
         )}
       >
-        {checked && (
+        {checked && !disabled && (
           <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
             <path
               d="M1 3L3 5L7 1"
@@ -114,9 +129,11 @@ function CheckRow({
       <span
         className={cn(
           'text-[13px] transition-colors',
-          checked
-            ? 'text-[#1A1A1A] font-semibold'
-            : 'text-gray-600 group-hover:text-[#1A1A1A]',
+          disabled
+            ? 'text-gray-300'
+            : checked
+              ? 'text-[#1A1A1A] font-semibold'
+              : 'text-gray-600 group-hover:text-[#1A1A1A]',
         )}
       >
         {label}
@@ -125,16 +142,40 @@ function CheckRow({
   );
 }
 
-const PROPERTY_TYPES = ['Homestay', 'Villa', 'Cottage', 'Apartment', 'Resort'];
+// Only the property types actually offered in the host's create-listing
+// wizard (src/app/host/list/property-type/page.tsx) — these are the only
+// values a host can ever choose, so they're the only ones worth filtering by.
+const PROPERTY_TYPES = ['House', 'Apartment / Flat', 'Guest House', 'Hotel', 'Cabin', 'Villa', 'Treehouse', 'Tiny Home', 'Farm Stay'];
+// Only amenities that have a real catalogue row AND a working id mapping on
+// the host side (src/app/host/list/amenities/page.tsx AMENITY_DB_ID) — labels
+// match the real `amenities.name` values exactly so the fuzzy resolver in
+// ListingFilterContext always finds an exact (not guessed) match.
 const AMENITY_LIST = [
   'WiFi',
   'Kitchen',
-  'Parking',
-  'Pool',
-  'Mountain view',
+  'AC',
+  'Heating',
+  'TV',
+  'Washing Machine',
+  'Free Parking',
+  'Swimming Pool',
+  'Gym',
+  'Hot Tub',
   'Balcony',
+  'Smoke Alarm',
+  'Fire Extinguisher',
+  'First Aid Kit',
+  'Pets Allowed',
+  'BBQ Grill',
+  'Garden',
 ];
-const BED_TYPES = ['Single bed', 'Double bed', 'Queen bed', 'King bed'];
+
+function fmtPrice(v: number, isMax: boolean, MAX: number) {
+  if (isMax && v >= MAX) return '₹1L+';
+  if (v >= 100000) return `₹${(v / 100000).toFixed(v % 100000 === 0 ? 0 : 1)}L`;
+  if (v >= 1000) return `₹${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`;
+  return `₹${v}`;
+}
 
 function PriceSlider({
   min,
@@ -145,78 +186,95 @@ function PriceSlider({
   max: number;
   onPriceChange: (min: number, max: number) => void;
 }) {
-  const MIN = 0,
-    MAX = 15000;
-  const pct1 = (min / MAX) * 100;
-  const pct2 = (max / MAX) * 100;
+  const MIN = 0;
+  const MAX = 100000;
+  const pct1 = Math.min(100, Math.max(0, (min / MAX) * 100));
+  const pct2 = Math.min(100, Math.max(0, (max / MAX) * 100));
+
+  const ticks = [
+    { v: 0, label: '₹0' },
+    { v: 25000, label: '₹25k' },
+    { v: 50000, label: '₹50k' },
+    { v: 75000, label: '₹75k' },
+    { v: 100000, label: '₹1L+' },
+  ];
 
   return (
     <div className="mt-2 overflow-x-hidden">
-      <p className="text-[15px] font-semibold text-gray-700 mb-6">
-        Min - Max :{' '}
-        <span className="font-bold text-[#1A1A1A]">
-          ₹ {Math.round(min).toLocaleString('en-IN')} - ₹{' '}
-          {max === MAX ? Math.round(MAX).toLocaleString('en-IN') + '+' : Math.round(max).toLocaleString('en-IN')}
-        </span>
-      </p>
+      {/* Selected range label */}
+      <div className="flex items-center justify-between mb-5">
+        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center">
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Min</p>
+          <p className="text-[14px] font-bold text-[#004772]">{fmtPrice(min, false, MAX)}</p>
+        </div>
+        <div className="mx-3 h-px w-4 bg-gray-300" />
+        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center">
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Max</p>
+          <p className="text-[14px] font-bold text-[#004772]">{fmtPrice(max, true, MAX)}</p>
+        </div>
+      </div>
 
-      <div className="relative h-10 flex items-center mb-8 px-1 w-full">
-        <div className="absolute w-full h-2 bg-gray-100 rounded-full" />
+      {/* Dual range track — px-3 gives thumb room at both edges */}
+      <div className="relative h-10 flex items-center mb-5 px-3 w-full">
+        {/* Background track — inset to match padding */}
+        <div className="absolute left-3 right-3 h-[5px] bg-gray-200 rounded-full" />
+        {/* Active range fill */}
         <div
-          className="absolute h-2 bg-[#004772] rounded-full"
-          style={{ left: `${pct1}%`, right: `${100 - pct2}%` }}
+          className="absolute h-[5px] bg-[#004772] rounded-full"
+          style={{
+            left: `calc(${pct1}% * (100% - 24px) / 100% + 12px)`,
+            right: `calc((100% - ${pct2}%) * (100% - 24px) / 100% + 12px)`,
+          }}
         />
-
+        {/* Min thumb indicator */}
         <div
-          className="absolute w-6 h-6 bg-[#004772] rounded-full shadow-lg border-2 border-white pointer-events-none z-30"
-          style={{ left: `calc(${pct1}% - 12px)` }}
+          className="absolute w-5 h-5 bg-white rounded-full shadow-md border-2 border-[#004772] pointer-events-none z-30"
+          style={{ left: `calc(${pct1}% * (100% - 24px) / 100% + 2px)` }}
         />
+        {/* Max thumb indicator */}
         <div
-          className="absolute w-6 h-6 bg-[#004772] rounded-full shadow-lg border-2 border-white pointer-events-none z-30"
-          style={{ left: `calc(${pct2}% - 12px)` }}
+          className="absolute w-5 h-5 bg-white rounded-full shadow-md border-2 border-[#004772] pointer-events-none z-30"
+          style={{ left: `calc(${pct2}% * (100% - 24px) / 100% + 2px)` }}
         />
-
+        {/* Min range input — range-thumb-only lets clicks pass through the
+            invisible track so only its own thumb is grabbable, otherwise
+            the max slider (drawn on top) intercepts everything including
+            drags near the ₹0 end. */}
         <input
           type="range"
           min={MIN}
           max={MAX}
-          step={100}
+          step={1000}
           value={min}
           onChange={(e) => {
             const v = +e.target.value;
             if (v < max) onPriceChange(v, max);
           }}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer z-40 pointer-events-auto"
+          className="range-thumb-only absolute inset-0 w-full opacity-0 cursor-pointer z-40"
           style={{ height: '100%' }}
         />
+        {/* Max range input */}
         <input
           type="range"
           min={MIN}
           max={MAX}
-          step={100}
+          step={1000}
           value={max}
           onChange={(e) => {
             const v = +e.target.value;
             if (v > min) onPriceChange(min, v);
           }}
-          className="absolute inset-0 w-full opacity-0 cursor-pointer z-50 pointer-events-auto"
+          className="range-thumb-only absolute inset-0 w-full opacity-0 cursor-pointer z-50"
           style={{ height: '100%' }}
         />
       </div>
 
-      <div className="flex justify-between px-0.5">
-        {[
-          { v: 0, label: '₹0' },
-          { v: 1000, label: '₹1000' },
-          { v: 4000, label: '₹4000' },
-          { v: 10000, label: '₹10,000' },
-          { v: 15000, label: '15k+' },
-        ].map((tick) => (
+      {/* Tick labels */}
+      <div className="flex justify-between px-3">
+        {ticks.map((tick) => (
           <div key={tick.v} className="flex flex-col items-center">
-            <div className="w-0.5 h-1.5 bg-gray-200 mb-1" />
-            <span className="text-[11px] font-medium text-gray-400">
-              {tick.label}
-            </span>
+            <div className="w-px h-2 bg-gray-200 mb-1" />
+            <span className="text-[10px] font-medium text-gray-400">{tick.label}</span>
           </div>
         ))}
       </div>
@@ -233,10 +291,9 @@ export default function FiltersSidebar({
   const {
     setPriceRange,
     setRating,
-    setBooleanFilter,
     toggleAmenity,
-    toggleBedType,
     togglePropertyType,
+    toggleStayType,
     clearFilters,
   } = useListingActions();
 
@@ -274,23 +331,23 @@ export default function FiltersSidebar({
 
         <Section title="Popular Filters">
           <div className="flex flex-wrap gap-2 mt-1">
-            {[
-              { label: 'Free cancellation', key: 'hasFreeCancellation' },
-              { label: 'Free breakfast', key: 'hasBreakfast' },
-              { label: 'Private room', key: 'hasPrivateRoom' },
-              { label: 'Shared room', key: 'hasSharedRoom' },
-              { label: 'Double bed', key: 'hasDoubleBed' },
-              { label: 'Couple friendly', key: 'isCoupleFriendly' },
-              { label: 'Free wifi', key: 'hasWifi' },
-              { label: 'Family friendly', key: 'isFamilyFriendly' },
-            ].map(({ label, key }) => (
-              <CheckChip
-                key={label}
-                label={label}
-                checked={Boolean(filters[key as keyof SearchFilters])}
-                onChange={(v) => setBooleanFilter(key as any, v)}
-              />
-            ))}
+            {/* Private room / Shared room are the only "Popular Filters"
+                concepts with a real backing field (stay_types.title) —
+                everything else that used to live here (free cancellation,
+                free breakfast, couple/family friendly, etc.) has no
+                corresponding column anywhere in the schema or the
+                create-listing wizard, so it was removed rather than shown
+                as dead/disabled clutter. */}
+            <CheckChip
+              label="Private room"
+              checked={filters.stayTypes.includes('Private Room')}
+              onChange={() => toggleStayType('Private Room')}
+            />
+            <CheckChip
+              label="Shared room"
+              checked={filters.stayTypes.includes('Shared Space')}
+              onChange={() => toggleStayType('Shared Space')}
+            />
           </div>
         </Section>
 
@@ -340,14 +397,6 @@ export default function FiltersSidebar({
                 5 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
               </button>
             </div>
-            <div className="flex gap-2">
-              <button className="flex-1 px-3 py-2 rounded-[10px] text-[12px] font-medium border border-gray-200 bg-white text-gray-500 min-h-[38px]">
-                Lowest to highest
-              </button>
-              <button className="flex-1 px-3 py-2 rounded-[10px] text-[12px] font-medium border border-gray-200 bg-white text-gray-500 min-h-[38px]">
-                Highest to lowest
-              </button>
-            </div>
           </div>
         </Section>
 
@@ -364,7 +413,7 @@ export default function FiltersSidebar({
           </div>
         </Section>
 
-        <Section title="Facilities">
+        <Section title="Facilities" noBorder>
           <div className="space-y-0.5">
             {AMENITY_LIST.map((am) => (
               <CheckRow
@@ -372,19 +421,6 @@ export default function FiltersSidebar({
                 label={am}
                 checked={filters.amenities.includes(am)}
                 onChange={() => toggleAmenity(am)}
-              />
-            ))}
-          </div>
-        </Section>
-
-        <Section title="Bed Type" noBorder>
-          <div className="space-y-0.5">
-            {BED_TYPES.map((bt) => (
-              <CheckRow
-                key={bt}
-                label={bt}
-                checked={filters.bedTypes.includes(bt)}
-                onChange={() => toggleBedType(bt)}
               />
             ))}
           </div>

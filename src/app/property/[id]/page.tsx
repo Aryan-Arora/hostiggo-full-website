@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter } from 'next/navigation';
+import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import DateRangePicker from '@/components/features/DateRangePicker';
 import {
   Star,
   Heart,
@@ -34,7 +35,7 @@ import {
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-import { cn } from '@/lib/utils';
+import { cn, toISODate } from '@/lib/utils';
 import type { Property, AmenityItem, Review, Host } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
@@ -365,26 +366,6 @@ function PropertyMap({ property }: { property: Property }) {
         <ExternalLink className="w-3.5 h-3.5" />
         View on OpenStreetMap
       </a>
-    </div>
-  );
-}
-
-// ── 4. Rating Breakdown ──────────────────────────────────────────────
-function RatingBar({ label, value }: { label: string; value: number }) {
-  return (
-    <div className="flex items-center gap-3">
-      <span className="text-[12px] text-gray-600 w-28 flex-shrink-0">
-        {label}
-      </span>
-      <div className="flex-1 h-1.5 bg-gray-100 rounded-full overflow-hidden">
-        <div
-          className="h-full bg-gray-800 rounded-full"
-          style={{ width: `${(value / 5) * 100}%` }}
-        />
-      </div>
-      <span className="text-[12px] font-bold text-gray-700 w-6 text-right">
-        {value.toFixed(1)}
-      </span>
     </div>
   );
 }
@@ -734,7 +715,7 @@ function SuggestedStays({ current }: { current: Property }) {
                 <div className="flex items-center gap-1">
                   <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
                   <span className="text-[10px] font-bold text-gray-700">
-                    {p.rating.toFixed(1)}
+                    {p.rating > 0 ? p.rating.toFixed(1) : 'New'}
                   </span>
                 </div>
                 <div>
@@ -762,84 +743,100 @@ function BookingWidget({
   onNightsChange?: (n: number) => void;
   onGuestsChange?: (g: number) => void;
 }) {
-  const [checkIn, setCheckIn] = useState('');
-  const [checkOut, setCheckOut] = useState('');
-  const [guests, setGuests] = useState(1);
-  const [dateError, setDateError] = useState('');
-  const [showSuccess, setShowSuccess] = useState(false);
-  const [booking, setBooking] = useState(false);
+  const searchParams = useSearchParams();
   const { isAuthenticated, userId } = useAuth();
   const router = useRouter();
 
-  const today = new Date().toISOString().split('T')[0];
+  // Seed dates from URL params (passed by search results)
+  const paramCheckIn = searchParams.get('checkIn');
+  const paramCheckOut = searchParams.get('checkOut');
+  const toDate = (s: string | null) => s ? new Date(s + 'T00:00:00') : null;
 
-  const nights =
-    checkIn && checkOut
-      ? Math.max(
-          0,
-          Math.ceil(
-            (new Date(checkOut).getTime() - new Date(checkIn).getTime()) /
-              86400000,
-          ),
-        )
-      : 0;
+  const [checkIn, setCheckIn] = useState<Date | null>(toDate(paramCheckIn));
+  const [checkOut, setCheckOut] = useState<Date | null>(toDate(paramCheckOut));
+  const [guests, setGuests] = useState(1);
+  const [showPicker, setShowPicker] = useState(false);
 
-  // Sync to sticky bar
-  useEffect(() => {
-    onNightsChange?.(nights);
-  }, [nights]);
-  useEffect(() => {
-    onGuestsChange?.(guests);
-  }, [guests]);
+  // 'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'
+  const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'>(
+    paramCheckIn && paramCheckOut ? 'available' : 'idle'
+  );
+  const [unavailableReason, setUnavailableReason] = useState('');
+
+  const nights = checkIn && checkOut
+    ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
+    : 0;
+
+  useEffect(() => { onNightsChange?.(nights); }, [nights]);
+  useEffect(() => { onGuestsChange?.(guests); }, [guests]);
 
   const subtotal = property.price * (nights || 1);
   const serviceFee = Math.round(subtotal * 0.08);
   const taxes = Math.round(subtotal * 0.12);
   const total = subtotal + serviceFee + taxes;
 
-  const validateAndBook = async () => {
-    setDateError('');
-    // Booking requires an account — guests can browse freely, but must sign in
-    // to reserve. Send them to sign-in and bring them back to this property.
+  const handleDatesChange = (ci: Date | null, co: Date | null) => {
+    setCheckIn(ci);
+    setCheckOut(co);
+    setStatus('idle');
+    setUnavailableReason('');
+    if (ci && co) setShowPicker(false);
+  };
+
+  const checkAvailability = async () => {
+    if (!checkIn || !checkOut) return;
+    setStatus('checking');
+    setUnavailableReason('');
+    try {
+      const res = await fetch(
+        `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISODate(checkIn)}&endDate=${toISODate(checkOut)}`
+      );
+      const data = await res.json();
+      if (data.available) {
+        setStatus('available');
+      } else {
+        setStatus('unavailable');
+        setUnavailableReason(data.reason ?? 'Property is not available on these dates.');
+      }
+    } catch {
+      setStatus('idle');
+      toast.error('Could not check availability. Please try again.');
+    }
+  };
+
+  const book = async () => {
     if (!isAuthenticated || !userId) {
       toast('Please sign in to book this stay.');
-      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      const params = new URLSearchParams();
+      if (checkIn) params.set('checkIn', toISODate(checkIn)!);
+      if (checkOut) params.set('checkOut', toISODate(checkOut)!);
+      const qs = params.toString();
+      const returnTo = `/property/${property.id}${qs ? `?${qs}` : ''}`;
+      router.push(`/signin?redirect=${encodeURIComponent(returnTo)}`);
       return;
     }
-    if (!checkIn || !checkOut) {
-      setDateError('Please select check-in and check-out dates.');
-      return;
-    }
-    if (checkOut <= checkIn) {
-      setDateError('Check-out must be after check-in.');
-      return;
-    }
-    if (nights === 0) {
-      setDateError('Minimum 1 night stay required.');
-      return;
-    }
-
-    setBooking(true);
+    setStatus('booking');
     try {
       await api.createBooking({
         listingId: property.id,
         userId,
-        startDate: checkIn,
-        endDate: checkOut,
+        startDate: toISODate(checkIn)!,
+        endDate: toISODate(checkOut)!,
         numAdults: guests,
         numChildren: 0,
         amount: total,
       });
-      setShowSuccess(true);
+      setStatus('confirmed');
       toast.success('Booking confirmed! See it in your bookings.');
-      setTimeout(() => setShowSuccess(false), 4000);
     } catch (err) {
       console.error('[property] booking failed:', err);
       toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');
-    } finally {
-      setBooking(false);
+      setStatus('available');
     }
   };
+
+  const formatDate = (d: Date | null) =>
+    d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Add date';
 
   return (
     <div
@@ -859,56 +856,34 @@ function BookingWidget({
         <span className="text-[12px] text-gray-400">/night</span>
         {property.originalPrice && (
           <span className="ml-auto text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-            {Math.round(
-              ((property.originalPrice - property.price) /
-                property.originalPrice) *
-                100,
-            )}
-            % off
+            {Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)}% off
           </span>
         )}
       </div>
 
-      {/* Date inputs */}
-      <div className="border border-gray-200 rounded-xl overflow-hidden mb-2">
+      {/* Date selector — displays selected dates, opens picker on click */}
+      <div
+        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-blue-400 transition-colors"
+        onClick={() => setShowPicker((v) => !v)}
+      >
         <div className="grid grid-cols-2 divide-x divide-gray-200">
           <div className="p-2.5">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-              Check in
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Check in</p>
+            <p className={`text-[13px] font-semibold ${checkIn ? 'text-gray-800' : 'text-gray-400'}`}>
+              {formatDate(checkIn)}
             </p>
-            <input
-              type="date"
-              value={checkIn}
-              min={today}
-              onChange={(e) => {
-                setCheckIn(e.target.value);
-                setDateError('');
-                onNightsChange?.(0);
-              }}
-              className="w-full text-[12px] font-semibold text-gray-800 outline-none bg-transparent cursor-pointer"
-            />
           </div>
           <div className="p-2.5">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-              Check out
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Check out</p>
+            <p className={`text-[13px] font-semibold ${checkOut ? 'text-gray-800' : 'text-gray-400'}`}>
+              {formatDate(checkOut)}
             </p>
-            <input
-              type="date"
-              value={checkOut}
-              min={checkIn || today}
-              onChange={(e) => {
-                setCheckOut(e.target.value);
-                setDateError('');
-              }}
-              className="w-full text-[12px] font-semibold text-gray-800 outline-none bg-transparent cursor-pointer"
-            />
           </div>
         </div>
-        {/* Guests */}
-        <div className="border-t border-gray-200 p-2.5">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-            Guests
-          </p>
+
+        {/* Guests row */}
+        <div className="border-t border-gray-200 p-2.5" onClick={(e) => e.stopPropagation()}>
+          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Guests</p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => setGuests((g) => Math.max(1, g - 1))}
@@ -931,62 +906,69 @@ function BookingWidget({
         </div>
       </div>
 
-      {/* Date error */}
-      {dateError && (
+      {/* DateRangePicker dropdown */}
+      {showPicker && (
+        <div className="mb-3">
+          <DateRangePicker
+            checkIn={checkIn}
+            checkOut={checkOut}
+            onChange={handleDatesChange}
+            onClose={() => setShowPicker(false)}
+          />
+        </div>
+      )}
+
+      {/* Unavailable message */}
+      {status === 'unavailable' && (
         <p className="text-[11px] text-red-500 font-medium mb-2 flex items-center gap-1">
-          <X className="w-3 h-3" /> {dateError}
+          <X className="w-3 h-3" /> {unavailableReason}
         </p>
       )}
 
-      {/* Price breakdown */}
-      {nights > 0 && (
+      {/* Price breakdown — only show when available/confirmed */}
+      {nights > 0 && (status === 'available' || status === 'confirmed' || status === 'booking') && (
         <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
           <div className="flex justify-between text-gray-600">
-            <span>
-              ₹{property.price.toLocaleString('en-IN')} × {nights} night
-              {nights > 1 ? 's' : ''}
-            </span>
-            <span className="font-semibold">
-              ₹{subtotal.toLocaleString('en-IN')}
-            </span>
+            <span>₹{property.price.toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}</span>
+            <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Service fee (8%)</span>
-            <span className="font-semibold">
-              ₹{serviceFee.toLocaleString('en-IN')}
-            </span>
+            <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
             <span>Taxes (12%)</span>
-            <span className="font-semibold">
-              ₹{taxes.toLocaleString('en-IN')}
-            </span>
+            <span className="font-semibold">₹{taxes.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
             <span>Total</span>
-            <span className="text-blue-700">
-              ₹{total.toLocaleString('en-IN')}
-            </span>
+            <span className="text-blue-700">₹{total.toLocaleString('en-IN')}</span>
           </div>
         </div>
       )}
 
-      {showSuccess ? (
+      {/* CTA button */}
+      {status === 'confirmed' ? (
         <div className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2">
           <CheckCircle className="w-5 h-5" /> Booking confirmed!
         </div>
-      ) : (
+      ) : status === 'available' || status === 'booking' ? (
         <button
-          onClick={validateAndBook}
-          disabled={booking}
+          onClick={book}
+          disabled={status === 'booking'}
           className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
-          {booking
-            ? 'Reserving…'
-            : nights > 0
-              ? `Book for ${nights} Night${nights > 1 ? 's' : ''}`
-              : 'Check Availability'}
+          {status === 'booking' ? 'Booking…' : `Book for ${nights} Night${nights > 1 ? 's' : ''}`}
+        </button>
+      ) : (
+        <button
+          onClick={checkIn && checkOut ? checkAvailability : () => setShowPicker(true)}
+          disabled={status === 'checking'}
+          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+        >
+          <CalendarDays className="w-4 h-4" />
+          {status === 'checking' ? 'Checking…' : checkIn && checkOut ? 'Check Availability' : 'Select Dates'}
         </button>
       )}
 
@@ -1078,7 +1060,7 @@ function ReviewsModal({
           <div className="flex items-center gap-1.5 bg-emerald-500 text-white px-2.5 py-1 rounded-lg">
             <Star className="w-3.5 h-3.5 fill-white" />
             <span className="text-[14px] font-extrabold">
-              {rating.toFixed(1)}
+              {rating > 0 ? rating.toFixed(1) : 'New'}
             </span>
           </div>
           <div>
@@ -1405,7 +1387,6 @@ export default function PropertyDetailsPage() {
   const visibleAmenities = showAllAmenities ? amenities : amenities.slice(0, 8);
   const reviews = property.reviews ?? [];
   const previewReviews = reviews.slice(0, 3);
-  const rb = property.ratingBreakdown;
 
   const descIsLong = (property.description?.length ?? 0) > 200;
 
@@ -1525,7 +1506,7 @@ export default function PropertyDetailsPage() {
                 <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
                   <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
                   <span className="text-[14px] font-extrabold text-amber-700">
-                    {property.rating.toFixed(1)}
+                    {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
                   </span>
                   <span className="text-[12px] text-amber-600">
                     ({property.reviewCount} reviews)
@@ -1670,10 +1651,12 @@ export default function PropertyDetailsPage() {
                 </div>
               )}
 
-              {/* Overall rating + breakdown */}
+              {/* Overall rating — no per-category breakdown is shown here
+                  because the database only stores one rating per review;
+                  there's no real cleanliness/accuracy/communication/location/
+                  check-in/value sub-score anywhere to break it down into. */}
               {reviews.length > 0 && (
               <div className="flex items-start gap-5 mb-5">
-                {/* Score */}
                 <div className="text-center flex-shrink-0">
                   <p className="text-[42px] font-extrabold text-gray-800 leading-none">
                     {property.rating.toFixed(1)}
@@ -1695,18 +1678,6 @@ export default function PropertyDetailsPage() {
                     {property.reviewCount} reviews
                   </p>
                 </div>
-
-                {/* Bar breakdown */}
-                {rb && (
-                  <div className="flex-1 space-y-2 pl-4 border-l border-gray-100">
-                    <RatingBar label="Cleanliness" value={rb.cleanliness} />
-                    <RatingBar label="Accuracy" value={rb.accuracy} />
-                    <RatingBar label="Communication" value={rb.communication} />
-                    <RatingBar label="Location" value={rb.location} />
-                    <RatingBar label="Check-in" value={rb.checkIn} />
-                    <RatingBar label="Value" value={rb.value} />
-                  </div>
-                )}
               </div>
               )}
 

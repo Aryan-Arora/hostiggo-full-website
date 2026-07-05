@@ -34,6 +34,18 @@ export default function MapPicker({
   const [loading, setLoading] = useState(false);
   const [gettingLocation, setGettingLocation] = useState(false);
 
+  // Keep the map in sync when the parent supplies new coordinates (e.g. the
+  // user picked an address-search suggestion) — the map only followed
+  // marker-drags and "use current location" before this, silently ignoring
+  // address search.
+  useEffect(() => {
+    setLocation({ lat: latitude, lng: longitude });
+  }, [latitude, longitude]);
+
+  useEffect(() => {
+    if (displayAddress) setAddress(displayAddress);
+  }, [displayAddress]);
+
   // Handle reverse geocoding when marker moves
   const handleMarkerMove = async (lat: number, lng: number) => {
     setLocation({ lat, lng });

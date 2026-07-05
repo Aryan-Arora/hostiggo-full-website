@@ -2,7 +2,8 @@ import { useState } from "react";
 import { Heart, Star, Wifi, Car, Coffee, Zap, Droplets, UtensilsCrossed, CheckCircle, Clock } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
-import { cn } from "@/lib/utils";
+import { cn, toISODate } from "@/lib/utils";
+import { useListingState } from "@/context/ListingFilterContext";
 
 interface PropertyCardListProps {
   property: Property;
@@ -23,6 +24,17 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
+  const { dates } = useListingState();
+
+  const handleNavigate = () => {
+    const checkIn = toISODate(dates.checkIn);
+    const checkOut = toISODate(dates.checkOut);
+    const params = new URLSearchParams();
+    if (checkIn) params.set('checkIn', checkIn);
+    if (checkOut) params.set('checkOut', checkOut);
+    const qs = params.toString();
+    router.push(`/property/${property.id}${qs ? `?${qs}` : ''}`);
+  };
 
   const discount = property.originalPrice
     ? Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)
@@ -31,10 +43,11 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   return (
     <div
       className="bg-white rounded-[2rem] p-3 flex flex-col sm:flex-row gap-4 sm:gap-6 cursor-pointer group transition-all duration-200 border border-gray-100 hover:shadow-md"
-      onClick={() => router.push(`/property/${property.id}`)}
+      onClick={handleNavigate}
     >
-      {/* Image Container */}
-      <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] sm:h-auto rounded-[1.5rem] overflow-hidden">
+      {/* Image Container — fixed height so every card is the same size
+          regardless of each photo's own aspect ratio */}
+      <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] rounded-[1.5rem] overflow-hidden">
         <img
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
@@ -65,12 +78,21 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
               {property.city}, {property.state} • <button className="text-blue-600 hover:underline">View on map</button> • {property.distanceFromCenter ?? "15.8km from centre"}
             </p>
 
-            {/* Rating Block */}
+            {/* Rating Block — show an honest "New" badge instead of a fake
+                score when the listing has no real reviews yet, so this
+                doesn't contradict the guest-rating filter which correctly
+                excludes listings with no genuine rating. */}
             <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center gap-1.5 bg-emerald-500 rounded-md px-2 py-0.5 shadow-sm">
-                <span className="text-[12px] font-bold text-white">{property.rating.toFixed(1)}</span>
-                <Star className="w-3 h-3 text-white fill-white" />
-              </div>
+              {property.rating > 0 ? (
+                <div className="flex items-center gap-1.5 bg-emerald-500 rounded-md px-2 py-0.5 shadow-sm">
+                  <span className="text-[12px] font-bold text-white">{property.rating.toFixed(1)}</span>
+                  <Star className="w-3 h-3 text-white fill-white" />
+                </div>
+              ) : (
+                <div className="flex items-center gap-1.5 bg-gray-100 rounded-md px-2 py-0.5">
+                  <span className="text-[12px] font-bold text-gray-500">New</span>
+                </div>
+              )}
               <span className="text-[12px] font-bold text-gray-700">{property.reviewCount} reviews</span>
             </div>
 

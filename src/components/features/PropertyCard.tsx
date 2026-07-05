@@ -51,7 +51,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
         <p className="text-[11px] text-gray-400 mb-2 line-clamp-1">{property.city}, {property.state}</p>
         <div className="flex items-center gap-1 mb-2">
           <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />
-          <span className="text-[11px] font-bold text-gray-700">{property.rating.toFixed(2)}</span>
+          <span className="text-[11px] font-bold text-gray-700">{property.rating > 0 ? property.rating.toFixed(2) : 'New'}</span>
           <span className="text-[11px] text-gray-400">· {property.reviewCount} reviews</span>
         </div>
         <div className="flex items-baseline gap-1">

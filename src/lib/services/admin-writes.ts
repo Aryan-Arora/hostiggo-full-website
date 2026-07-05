@@ -150,6 +150,30 @@ export async function createBooking(input: {
   if (lerr) throw lerr;
   if (!listing?.host_uuid) throw new Error("Listing not found");
 
+  // Check A: blocked calendar days in the requested range.
+  const { data: blocked, error: blockedErr } = await supabaseAdmin
+    .from("listing_calendar")
+    .select("date")
+    .eq("listing_id", input.listingId)
+    .gte("date", input.startDate)
+    .lt("date", input.endDate) // end date is check-out night, not a stay night
+    .eq("is_available", false);
+  if (blockedErr) throw blockedErr;
+  if (blocked && blocked.length > 0)
+    throw new Error("Some of the selected dates are not available.");
+
+  // Check B: overlapping confirmed bookings for the same listing.
+  const { data: conflicts, error: conflictsErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id")
+    .eq("listing_id", input.listingId)
+    .eq("status_id", 2) // CONFIRMED only
+    .lt("start_date", input.endDate) // existing booking starts before new end
+    .gt("end_date", input.startDate); // existing booking ends after new start
+  if (conflictsErr) throw conflictsErr;
+  if (conflicts && conflicts.length > 0)
+    throw new Error("These dates are already booked.");
+
   const numAdults = input.numAdults ?? 1;
   const numChildren = input.numChildren ?? 0;
 
@@ -173,7 +197,54 @@ export async function createBooking(input: {
     .select()
     .single();
   if (error) throw error;
+
+  // Block all nights in the booked range so they can't be double-booked.
+  const nights = eachDateInRange(input.startDate, input.endDate);
+  if (nights.length) {
+    const now = new Date().toISOString();
+    // Update existing calendar rows first, then insert missing ones.
+    const { data: existing } = await supabaseAdmin
+      .from("listing_calendar")
+      .select("calendar_id, date")
+      .eq("listing_id", input.listingId)
+      .in("date", nights);
+
+    const existingDates = new Set((existing ?? []).map((r: any) => r.date));
+
+    if (existing?.length) {
+      await supabaseAdmin
+        .from("listing_calendar")
+        .update({ is_available: false, updated_at: now })
+        .eq("listing_id", input.listingId)
+        .in("date", nights);
+    }
+
+    const missing = nights.filter((d) => !existingDates.has(d));
+    if (missing.length) {
+      await supabaseAdmin.from("listing_calendar").insert(
+        missing.map((date) => ({
+          listing_id: input.listingId,
+          date,
+          is_available: false,
+          price: 0,
+          currency: "INR",
+        })),
+      );
+    }
+  }
+
   return data;
+}
+
+function eachDateInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(startDate);
+  const end = new Date(endDate);
+  while (cur < end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
 }
 
 // ── Booking cancellation ─────────────────────────────────────────────────────
@@ -197,6 +268,21 @@ export async function createReview(input: {
   rating: number;
   comment?: string | null;
 }) {
+  // Only allow reviews after a confirmed stay has ended.
+  const today = new Date().toISOString().slice(0, 10);
+  const { data: eligible, error: eligErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id")
+    .eq("listing_id", input.listingId)
+    .eq("user_id", input.userId)
+    .eq("status_id", 2) // CONFIRMED
+    .lt("end_date", today) // stay has ended
+    .limit(1)
+    .maybeSingle();
+  if (eligErr) throw eligErr;
+  if (!eligible)
+    throw new Error("You can only review a listing after completing your stay.");
+
   const { data, error } = await supabaseAdmin
     .from("review")
     .insert({

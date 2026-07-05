@@ -73,14 +73,6 @@ export interface Property {
   coordinates?: { lat: number; lng: number };
   host?: Host;
   reviews?: Review[];
-  ratingBreakdown?: {
-    cleanliness: number;
-    accuracy: number;
-    communication: number;
-    location: number;
-    checkIn: number;
-    value: number;
-  };
 }
 
 export interface SearchFilters {
@@ -88,6 +80,7 @@ export interface SearchFilters {
   priceMax: number;
   guestRating: number | null;
   propertyTypes: string[];
+  stayTypes: string[];
   amenities: string[];
   bedTypes: string[];
   freeCancellation: boolean;

@@ -66,8 +66,6 @@ const HOST_AMIT: Host = {
   responseRate: 90, responseTime: "within a day", isSuperhost: false,
 };
 
-const DEFAULT_RATING_BREAKDOWN = { cleanliness: 4.8, accuracy: 4.7, communication: 4.9, location: 4.6, checkIn: 4.8, value: 4.5 };
-
 export const ALL_PROPERTIES: Property[] = [
   // ── New Delhi ──
   {
@@ -93,7 +91,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6139, lng: 77.2090 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 4.9, accuracy: 4.7, communication: 5.0, location: 4.8, checkIn: 4.7, value: 4.5 },
   },
   {
     id: "p2", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -116,7 +113,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6229, lng: 77.2195 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "p3", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -139,7 +135,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6050, lng: 77.2300 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "p4", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -160,7 +155,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6300, lng: 77.1950 },
     host: HOST_AMIT,
     reviews: MOCK_REVIEWS_SET_A.slice(2, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "p5", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -183,7 +177,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6180, lng: 77.2050 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 4.8, accuracy: 4.9, communication: 4.7, location: 4.9, checkIn: 4.8, value: 4.6 },
   },
   {
     id: "p6", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -204,7 +197,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6400, lng: 77.2150 },
     host: HOST_AMIT,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 3),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "p7", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -227,7 +219,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.5980, lng: 77.2280 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 5.0, accuracy: 4.9, communication: 5.0, location: 4.7, checkIn: 4.9, value: 4.8 },
   },
   {
     id: "p8", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
@@ -248,7 +239,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 28.6350, lng: 77.1870 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A.slice(1, 4),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Manali ──
   {
@@ -274,7 +264,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 32.2396, lng: 77.1887 },
     host: HOST_AMIT,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 4.7, accuracy: 4.8, communication: 4.9, location: 5.0, checkIn: 4.7, value: 4.6 },
   },
   {
     id: "m2", propertyName: "Triply Stone House Cottages Homestay", city: "Manali", state: "Himachal Pradesh",
@@ -295,7 +284,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 32.2450, lng: 77.1950 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "m3", propertyName: "Triply Stone House Cottages Homestay", city: "Manali", state: "Himachal Pradesh",
@@ -318,7 +306,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 32.2320, lng: 77.1820 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 5.0, accuracy: 5.0, communication: 4.9, location: 5.0, checkIn: 5.0, value: 4.8 },
   },
   // ── Shimla ──
   {
@@ -341,7 +328,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 31.1048, lng: 77.1734 },
     host: HOST_AMIT,
     reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "s2", propertyName: "Triply Stone House Cottages Homestay", city: "Shimla", state: "Himachal Pradesh",
@@ -362,7 +348,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 31.1120, lng: 77.1800 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 3),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Jaipur ──
   {
@@ -386,7 +371,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 26.9124, lng: 75.7873 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 4.9, accuracy: 4.8, communication: 4.9, location: 4.7, checkIn: 4.8, value: 4.7 },
   },
   {
     id: "j2", propertyName: "Triply Stone House Cottages Homestay", city: "Jaipur", state: "Rajasthan",
@@ -407,7 +391,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 26.9200, lng: 75.7950 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A.slice(2, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Bangalore ──
   {
@@ -431,7 +414,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 12.9716, lng: 77.5946 },
     host: HOST_AMIT,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   {
     id: "b2", propertyName: "Triply Stone House Cottages Homestay", city: "Bangalore", state: "Karnataka",
@@ -453,7 +435,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 12.9800, lng: 77.6050 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Rishikesh ──
   {
@@ -476,7 +457,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 30.0869, lng: 78.2676 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Goa ──
   {
@@ -501,7 +481,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 15.2993, lng: 74.1240 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A,
-    ratingBreakdown: { cleanliness: 5.0, accuracy: 4.9, communication: 5.0, location: 5.0, checkIn: 5.0, value: 4.8 },
   },
   {
     id: "g2", propertyName: "Triply Stone House Cottages Homestay", city: "Goa", state: "Goa",
@@ -523,7 +502,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 15.3100, lng: 74.1350 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Dharamshala ──
   {
@@ -547,7 +525,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 32.2190, lng: 76.3234 },
     host: HOST_AMIT,
     reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Kasol ──
   {
@@ -570,7 +547,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 32.0109, lng: 77.3130 },
     host: HOST_SURESH,
     reviews: MOCK_REVIEWS_SET_A.slice(2, 5),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
   // ── Kolkata ──
   {
@@ -593,7 +569,6 @@ export const ALL_PROPERTIES: Property[] = [
     coordinates: { lat: 22.5726, lng: 88.3639 },
     host: HOST_MEERA,
     reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
-    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
   },
 ];
 

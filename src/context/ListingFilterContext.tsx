@@ -12,6 +12,7 @@ import React, {
 } from 'react';
 import type { Property, SearchFilters, SortOption, GuestCount } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
+import { toISODate } from '@/lib/utils';
 
 interface ListingState {
   properties: Property[];
@@ -45,6 +46,7 @@ interface ListingActions {
   setRating: (rating: number | null) => void;
   toggleAmenity: (amenity: string) => void;
   togglePropertyType: (type: string) => void;
+  toggleStayType: (type: string) => void;
   toggleBedType: (type: string) => void;
   setBooleanFilter: (key: keyof SearchFilters, value: boolean) => void;
   fetchMore: () => void;
@@ -71,6 +73,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   priceMax: 100000,
   guestRating: null,
   propertyTypes: [],
+  stayTypes: [],
   amenities: [],
   bedTypes: [],
   freeCancellation: false,
@@ -90,15 +93,6 @@ const DEFAULT_GUESTS: GuestCount = {
   children: 0,
   rooms: 1,
   pets: false,
-};
-
-// yyyy-mm-dd in local time (avoids the UTC shift of toISOString).
-const toISODate = (d: Date | null): string | null => {
-  if (!d) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 };
 
 // The Facilities checkboxes hold display labels (e.g. "Parking", "Pool") while
@@ -276,6 +270,15 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const toggleStayType = useCallback((type: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      stayTypes: prev.stayTypes.includes(type)
+        ? prev.stayTypes.filter((t) => t !== type)
+        : [...prev.stayTypes, type],
+    }));
+  }, []);
+
   const toggleBedType = useCallback((type: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -418,6 +421,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     setRating,
     toggleAmenity,
     togglePropertyType,
+    toggleStayType,
     toggleBedType,
     setBooleanFilter,
     fetchMore,

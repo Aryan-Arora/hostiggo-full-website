@@ -110,7 +110,13 @@ export const HotelServiceApi = {
   },
 
   // Listings owned by a given user (resolves host_uuid via the host table).
-  getListingsByHost: async (userId: string): Promise<any[]> => {
+  // Paginated via offset/limit so hosts with more than a page of listings
+  // (the demo host has 150+) aren't silently capped.
+  getListingsByHost: async (
+    userId: string,
+    offset: number = 0,
+    limit: number = 24,
+  ): Promise<{ data: any[]; total: number }> => {
     const { data: host, error: hostError } = await supabase
       .from('host')
       .select('host_uuid')
@@ -123,10 +129,10 @@ export const HotelServiceApi = {
     }
     if (!host?.host_uuid) {
       console.warn('[getListingsByHost] No host profile found for user:', userId);
-      return [];
+      return { data: [], total: 0 };
     }
 
-    const { data, error } = await supabase
+    const { data, error, count } = await supabase
       .from('listings')
       .select(
         `
@@ -138,16 +144,17 @@ export const HotelServiceApi = {
         locations (state, district),
         listing_media (media_url, is_cover)
       `,
+        { count: 'exact' },
       )
       .eq('host_uuid', host.host_uuid)
       .order('listing_id', { ascending: false })
-      .limit(60);
+      .range(offset, offset + limit - 1);
 
     if (error) {
       console.error('Fetch error (getListingsByHost/listings):', error);
       throw error;
     }
-    return data || [];
+    return { data: data || [], total: count ?? 0 };
   },
 
   filterHotels: async (
