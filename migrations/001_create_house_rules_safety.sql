@@ -46,13 +46,19 @@ CREATE POLICY "Hosts can manage own listing house rules"
   USING (
     listing_id IN (
       SELECT listing_id FROM hostiggo_testing_schema.listings 
-      WHERE user_id = auth.uid()
+      WHERE host_uuid IN (
+        SELECT host_uuid FROM hostiggo_testing_schema.host 
+        WHERE user_id = auth.uid()
+      )
     )
   )
   WITH CHECK (
     listing_id IN (
       SELECT listing_id FROM hostiggo_testing_schema.listings 
-      WHERE user_id = auth.uid()
+      WHERE host_uuid IN (
+        SELECT host_uuid FROM hostiggo_testing_schema.host 
+        WHERE user_id = auth.uid()
+      )
     )
   );
 
@@ -67,13 +73,19 @@ CREATE POLICY "Hosts can manage own listing safety details"
   USING (
     listing_id IN (
       SELECT listing_id FROM hostiggo_testing_schema.listings 
-      WHERE user_id = auth.uid()
+      WHERE host_uuid IN (
+        SELECT host_uuid FROM hostiggo_testing_schema.host 
+        WHERE user_id = auth.uid()
+      )
     )
   )
   WITH CHECK (
     listing_id IN (
       SELECT listing_id FROM hostiggo_testing_schema.listings 
-      WHERE user_id = auth.uid()
+      WHERE host_uuid IN (
+        SELECT host_uuid FROM hostiggo_testing_schema.host 
+        WHERE user_id = auth.uid()
+      )
     )
   );
 
