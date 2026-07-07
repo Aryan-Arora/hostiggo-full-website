@@ -7,6 +7,10 @@ import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import HostDashboardShell from '../../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
+import HouseRulesForm from '@/components/features/HouseRulesForm';
+import SafetyDetailsForm from '@/components/features/SafetyDetailsForm';
+import AddonsForm from '@/components/features/AddonsForm';
+import DiscountsForm from '@/components/features/DiscountsForm';
 
 interface ListingDetails {
   listing_id: number;
@@ -388,6 +392,34 @@ export default function ManageListingPage() {
               </div>
             </div>
           </div>
+
+          {/* Discounts */}
+          {listingId && (
+            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
+              <DiscountsForm listingId={parseInt(listingId)} />
+            </div>
+          )}
+
+          {/* Addons */}
+          {listingId && (
+            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
+              <AddonsForm listingId={parseInt(listingId)} />
+            </div>
+          )}
+
+          {/* House Rules */}
+          {listingId && (
+            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
+              <HouseRulesForm listingId={parseInt(listingId)} />
+            </div>
+          )}
+
+          {/* Safety Details */}
+          {listingId && (
+            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
+              <SafetyDetailsForm listingId={parseInt(listingId)} />
+            </div>
+          )}
         </div>
 
         {/* Sidebar */}

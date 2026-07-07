@@ -1,6 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
 import {
   Home,
   Cigarette,
@@ -13,21 +15,21 @@ import {
   FireExtinguisher,
   BriefcaseMedical,
   type LucideIcon,
+  Loader2,
+  Plus,
+  Trash2,
+  Edit2,
 } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
+import { useListingDraft } from '@/context/ListingDraftContext';
+import HouseRulesForm from '@/components/features/HouseRulesForm';
+import SafetyDetailsForm from '@/components/features/SafetyDetailsForm';
 
 const RULES: { id: string; label: string; icon: LucideIcon; on: boolean }[] = [
   { id: 'smoking', label: 'Smoking allowed', icon: Cigarette, on: false },
   { id: 'pets', label: 'Pets allowed', icon: PawPrint, on: true },
   { id: 'parties', label: 'Parties or events allowed', icon: PartyPopper, on: false },
-];
-
-const SAFETY: { id: string; label: string; desc: string; icon: LucideIcon; on: boolean }[] = [
-  { id: 'cameras', label: 'Security cameras', desc: 'Located in public areas only.', icon: Video, on: true },
-  { id: 'smoke', label: 'Smoke alarm', desc: 'Functional alarms in all rooms.', icon: ShieldAlert, on: true },
-  { id: 'extinguisher', label: 'Fire extinguisher', desc: 'Located in the kitchen.', icon: FireExtinguisher, on: false },
-  { id: 'firstaid', label: 'First aid kit', desc: 'Available in the utility closet.', icon: BriefcaseMedical, on: false },
 ];
 
 function Check({ on }: { on: boolean }) {
@@ -48,9 +50,48 @@ function Check({ on }: { on: boolean }) {
 }
 
 export default function HouseRulesPage() {
+  const searchParams = useSearchParams();
+  const { draft } = useListingDraft();
+  const listingId = searchParams.get('listingId');
+  
   const [rules, setRules] = useState(() => Object.fromEntries(RULES.map((r) => [r.id, r.on])));
-  const [safety, setSafety] = useState(() => Object.fromEntries(SAFETY.map((s) => [s.id, s.on])));
+  const [loading, setLoading] = useState(!!listingId);
+  const [quietHoursFrom, setQuietHoursFrom] = useState('22:00');
+  const [quietHoursTo, setQuietHoursTo] = useState('08:00');
+  const [checkInTime, setCheckInTime] = useState('14:00');
+  const [checkOutTime, setCheckOutTime] = useState('11:00');
 
+  useEffect(() => {
+    if (listingId) {
+      // Load existing rules if editing
+      setLoading(false);
+    }
+  }, [listingId]);
+
+  // For new listings, show the backend forms after they're created
+  if (listingId && !loading) {
+    return (
+      <WizardShell
+        step={8}
+        title="Set house rules and safety details"
+        subtitle="These can be managed later from your listing management dashboard"
+      >
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+          {/* House Rules */}
+          <div>
+            <HouseRulesForm listingId={parseInt(listingId)} />
+          </div>
+
+          {/* Safety Details */}
+          <div>
+            <SafetyDetailsForm listingId={parseInt(listingId)} />
+          </div>
+        </div>
+      </WizardShell>
+    );
+  }
+
+  // For draft listings during wizard flow, show simple checkboxes
   return (
     <WizardShell
       step={8}
@@ -96,34 +137,37 @@ export default function HouseRulesPage() {
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
               {[
-                { label: 'Quiet hours from', value: '10:00 PM' },
-                { label: 'Quiet hours to', value: '08:00 AM' },
+                { label: 'Quiet hours from', state: quietHoursFrom, setState: setQuietHoursFrom },
+                { label: 'Quiet hours to', state: quietHoursTo, setState: setQuietHoursTo },
               ].map((f) => (
                 <div key={f.label} className="space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {f.label}
                   </label>
-                  <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
-                    <span className="text-sm font-bold text-gray-800">{f.value}</span>
-                    <Clock className="w-5 h-5 text-gray-400" />
-                  </div>
+                  <input
+                    type="time"
+                    value={f.state}
+                    onChange={(e) => f.setState(e.target.value)}
+                    className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               ))}
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               {[
-                { label: 'Check-in time', opts: ['02:00 PM', '03:00 PM', '04:00 PM'] },
-                { label: 'Check-out time', opts: ['10:00 AM', '11:00 AM', '12:00 PM'] },
+                { label: 'Check-in time', state: checkInTime, setState: setCheckInTime },
+                { label: 'Check-out time', state: checkOutTime, setState: setCheckOutTime },
               ].map((f) => (
                 <div key={f.label} className="space-y-2">
                   <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
                     {f.label}
                   </label>
-                  <select className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                    {f.opts.map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
+                  <input
+                    type="time"
+                    value={f.state}
+                    onChange={(e) => f.setState(e.target.value)}
+                    className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                  />
                 </div>
               ))}
             </div>
@@ -148,32 +192,17 @@ export default function HouseRulesPage() {
             </div>
           </section>
 
-          <section className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <ShieldCheck className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-bold text-gray-800">Safety Details</h2>
+          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
+            <div className="flex items-start gap-3">
+              <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+              <div>
+                <h3 className="text-sm font-bold text-blue-900 mb-1">Safety Details Coming</h3>
+                <p className="text-sm text-blue-800">
+                  You'll be able to add detailed safety information in the next step. This includes security cameras, smoke alarms, and other safety features.
+                </p>
+              </div>
             </div>
-            <div className="space-y-4">
-              {SAFETY.map((s) => {
-                const Icon = s.icon;
-                const on = safety[s.id];
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setSafety((p) => ({ ...p, [s.id]: !p[s.id] }))}
-                    className="w-full flex items-start gap-4 p-4 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all text-left"
-                  >
-                    <Icon className="w-5 h-5 text-gray-500 mt-1" />
-                    <div className="flex-grow">
-                      <p className="text-sm font-bold text-gray-800">{s.label}</p>
-                      <p className="text-xs text-gray-500">{s.desc}</p>
-                    </div>
-                    <Check on={on} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+          </div>
         </div>
       </div>
     </WizardShell>
