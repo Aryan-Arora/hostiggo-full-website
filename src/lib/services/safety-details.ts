@@ -57,8 +57,8 @@ export async function getListingSafetyDetails(listingId: number): Promise<Listin
     
     return (data || []).map((item: any) => ({
       ...item,
-      safety_features: item.safety_features || undefined,
-    }));
+      safety_features: item.safety_features as unknown as SafetyFeature || undefined,
+    })) as ListingSafetyDetail[];
   } catch (error) {
     console.error('[safety-details] Failed to fetch listing safety details:', error);
     throw error;
@@ -97,8 +97,8 @@ export async function addSafetyDetailToListing(
     if (error) throw error;
     return {
       ...data,
-      safety_features: data.safety_features || undefined,
-    };
+      safety_features: data.safety_features as unknown as SafetyFeature || undefined,
+    } as ListingSafetyDetail;
   } catch (error) {
     console.error('[safety-details] Failed to add safety detail to listing:', error);
     throw error;
@@ -129,8 +129,8 @@ export async function toggleSafetyDetail(id: number, enabled: boolean): Promise<
     if (error) throw error;
     return {
       ...data,
-      safety_features: data.safety_features || undefined,
-    };
+      safety_features: data.safety_features as unknown as SafetyFeature || undefined,
+    } as ListingSafetyDetail;
   } catch (error) {
     console.error('[safety-details] Failed to toggle safety detail:', error);
     throw error;

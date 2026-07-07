@@ -2,7 +2,22 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Loader2, MapPin } from 'lucide-react';
+import {
+  ArrowLeft,
+  Loader2,
+  ImageIcon,
+  DollarSign,
+  Percent,
+  Package,
+  Home,
+  Shield,
+  MapPinIcon,
+  Building2,
+  Pause,
+  Trash2,
+  ChevronRight,
+  FileText,
+} from 'lucide-react';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import HostDashboardShell from '../../_components/HostDashboardShell';
@@ -11,6 +26,7 @@ import HouseRulesForm from '@/components/features/HouseRulesForm';
 import SafetyDetailsForm from '@/components/features/SafetyDetailsForm';
 import AddonsForm from '@/components/features/AddonsForm';
 import DiscountsForm from '@/components/features/DiscountsForm';
+import { cn } from '@/lib/utils';
 
 interface ListingDetails {
   listing_id: number;
@@ -27,6 +43,7 @@ interface ListingDetails {
   landmark: string;
   location_id: number;
   property_type_id: number;
+  is_active?: boolean;
 }
 
 interface Location {
@@ -36,6 +53,29 @@ interface Location {
   lower_division_name: string;
   pincode: string;
 }
+
+type SectionType = 
+  | 'overview' 
+  | 'description' 
+  | 'pricing' 
+  | 'discounts' 
+  | 'addons' 
+  | 'house-rules' 
+  | 'safety' 
+  | 'location' 
+  | 'capacity';
+
+const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
+  { id: 'overview', label: 'Listing Title', icon: <FileText className="w-5 h-5" /> },
+  { id: 'description', label: 'Description', icon: <FileText className="w-5 h-5" /> },
+  { id: 'pricing', label: 'Base & Weekend Price', icon: <DollarSign className="w-5 h-5" /> },
+  { id: 'discounts', label: 'Discounts', icon: <Percent className="w-5 h-5" /> },
+  { id: 'addons', label: 'Add-ons', icon: <Package className="w-5 h-5" /> },
+  { id: 'house-rules', label: 'House Rules', icon: <Home className="w-5 h-5" /> },
+  { id: 'safety', label: 'Safety Details', icon: <Shield className="w-5 h-5" /> },
+  { id: 'location', label: 'Location', icon: <MapPinIcon className="w-5 h-5" /> },
+  { id: 'capacity', label: 'Room & Capacity', icon: <Building2 className="w-5 h-5" /> },
+];
 
 export default function ManageListingPage() {
   const { userId } = useAuth();
@@ -48,6 +88,7 @@ export default function ManageListingPage() {
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState<ListingDetails | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionType>('overview');
 
   useEffect(() => {
     if (!listingId || !userId) return;
@@ -63,7 +104,6 @@ export default function ManageListingPage() {
         `/api/hotels/${encodeURIComponent(listingId)}?userId=${encodeURIComponent(userId)}`,
       );
       if (!res.ok) throw new Error('Failed to load listing');
-
       const { data } = await res.json();
       setListing(data);
       setFormData(data);
@@ -80,7 +120,6 @@ export default function ManageListingPage() {
     try {
       const res = await fetch('/api/locations');
       if (!res.ok) throw new Error('Failed to load locations');
-
       const { data } = await res.json();
       setLocations(data || []);
     } catch (err) {
@@ -99,8 +138,6 @@ export default function ManageListingPage() {
 
     setSaving(true);
     try {
-      console.log('Saving listing:', { listingId, formData });
-
       const res = await fetch('/api/host/listings/update', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -121,18 +158,12 @@ export default function ManageListingPage() {
         }),
       });
 
-      console.log('Save response status:', res.status);
-      const responseData = await res.json();
-      console.log('Save response data:', responseData);
-
       if (!res.ok) {
-        const error = responseData.error || 'Failed to save listing';
-        throw new Error(error);
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save listing');
       }
 
       toast.success('Listing updated successfully!');
-      
-      // Reload the listing to get fresh data from database
       await loadListing();
     } catch (err) {
       console.error('Save error:', err);
@@ -145,7 +176,7 @@ export default function ManageListingPage() {
   if (loading) {
     return (
       <HostDashboardShell active="listings">
-        <div className="flex justify-center py-16">
+        <div className="flex items-center justify-center py-20">
           <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
         </div>
       </HostDashboardShell>
@@ -155,9 +186,9 @@ export default function ManageListingPage() {
   if (!listing) {
     return (
       <HostDashboardShell active="listings">
-        <div className="bg-white rounded-2xl p-8 text-center">
-          <p className="text-gray-500">Listing not found</p>
-          <Link href="/host/listings" className="text-blue-600 mt-4 inline-block">
+        <div className="text-center py-20">
+          <p className="text-gray-500 mb-4">Listing not found</p>
+          <Link href="/host/listings" className="text-blue-600 hover:underline">
             Back to Listings
           </Link>
         </div>
@@ -165,319 +196,426 @@ export default function ManageListingPage() {
     );
   }
 
-  const selectedLocation = formData?.location_id
-    ? locations.find((l) => l.location_id === formData.location_id)
-    : null;
+  const selectedLocation = locations.find((l) => l.location_id === formData?.location_id);
 
   return (
     <HostDashboardShell active="listings">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/host/listings"
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-blue-600"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Edit Listing</h1>
-            <p className="text-sm text-gray-500">{formData?.title || 'Untitled listing'}</p>
+      <div className="h-screen flex flex-col bg-gray-50">
+        {/* Header */}
+        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200 bg-white">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/host/listings"
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
+            >
+              <ArrowLeft className="w-5 h-5" />
+            </Link>
+            <div>
+              <h1 className="text-xl font-bold text-gray-900">Edit Listing</h1>
+              <p className="text-sm text-gray-500">{formData?.title || 'Loading...'}</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            {formData && (
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-gray-100">
+                <span className={cn('w-2 h-2 rounded-full', formData.is_active ? 'bg-green-500' : 'bg-gray-400')} />
+                <span className="text-xs font-semibold text-gray-700">
+                  {formData.is_active ? 'Live' : 'Paused'}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving ? 'Saving...' : 'Save'}
+            </button>
           </div>
         </div>
-        <div className="flex items-center gap-3">
-          <Link
-            href="/host/listings"
-            className="px-6 py-2.5 text-blue-600 border border-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all"
-          >
-            Cancel
-          </Link>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-md hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-60 flex items-center gap-2"
-          >
-            {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            {saving ? 'Saving...' : 'Save'}
-          </button>
+
+        {/* Main Content */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar Navigation */}
+          <div className="w-80 border-r border-gray-200 bg-white overflow-y-auto">
+            {/* Listing Preview Card - Sticky */}
+            <div className="sticky top-0 p-4 bg-gradient-to-b from-white to-gray-50 border-b border-gray-200 z-10">
+              <div className="space-y-3">
+                <div className="aspect-video bg-gray-200 rounded-lg overflow-hidden">
+                  <div className="w-full h-full flex items-center justify-center bg-gray-100">
+                    <ImageIcon className="w-8 h-8 text-gray-400" />
+                  </div>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-sm line-clamp-2">
+                    {formData?.title || 'Untitled Listing'}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-1">
+                    {selectedLocation?.district && selectedLocation?.state && (
+                      <>
+                        {selectedLocation.district}, {selectedLocation.state}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <div>
+                    <p className="text-xs text-gray-600">Base Price</p>
+                    <p className="text-base font-bold text-blue-600">
+                      ₹{formData?.price_weekday?.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Weekend</p>
+                    <p className="text-base font-bold text-blue-600">
+                      ₹{formData?.price_weekend?.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Navigation */}
+            <nav className="p-3 space-y-1">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-left',
+                    activeSection === section.id
+                      ? 'bg-blue-100 text-blue-900'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className={activeSection === section.id ? 'text-blue-600' : 'text-gray-500'}>
+                      {section.icon}
+                    </span>
+                    <span className="font-medium text-sm">{section.label}</span>
+                  </div>
+                  {activeSection === section.id && (
+                    <ChevronRight className="w-4 h-4 text-blue-600" />
+                  )}
+                </button>
+              ))}
+
+              {/* Divider */}
+              <div className="my-4 border-t border-gray-200" />
+
+              {/* Listing Status Section */}
+              <div className="space-y-1">
+                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
+                  <Pause className="w-5 h-5" />
+                  <span className="font-medium text-sm">Pause listing</span>
+                </button>
+                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all">
+                  <Trash2 className="w-5 h-5" />
+                  <span className="font-medium text-sm">Remove Listing</span>
+                </button>
+              </div>
+            </nav>
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="max-w-2xl mx-auto p-8">
+              <SectionRenderer
+                section={activeSection}
+                formData={formData}
+                setFormData={setFormData}
+                locations={locations}
+                locationsLoading={locationsLoading}
+                selectedLocation={selectedLocation}
+                listingId={listingId ? parseInt(listingId) : 0}
+              />
+            </div>
+          </div>
         </div>
       </div>
+    </HostDashboardShell>
+  );
+}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Main form */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Basic info */}
-          <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 space-y-4">
-            <h2 className="text-lg font-bold text-gray-800">Basic Information</h2>
 
+/**
+ * Render the appropriate section based on activeSection
+ */
+function SectionRenderer({
+  section,
+  formData,
+  setFormData,
+  locations,
+  locationsLoading,
+  selectedLocation,
+  listingId,
+}: {
+  section: SectionType;
+  formData: any;
+  setFormData: any;
+  locations: any[];
+  locationsLoading: boolean;
+  selectedLocation: any;
+  listingId: number;
+}) {
+  const inputClasses = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-base';
+  const labelClasses = 'block text-sm font-semibold text-gray-700 mb-2';
+
+  const sectionConfig: Record<SectionType, { title: string; description: string }> = {
+    overview: {
+      title: 'Listing Title',
+      description: 'Give your listing a clear, attractive title that stands out',
+    },
+    description: {
+      title: 'Description',
+      description: 'Tell guests about your property in detail - what makes it special',
+    },
+    pricing: {
+      title: 'Base & Weekend Price',
+      description: 'Set your nightly rates for weekdays and weekends',
+    },
+    discounts: {
+      title: 'Discounts',
+      description: 'Offer discounts to encourage longer stays and bookings',
+    },
+    addons: {
+      title: 'Add-ons',
+      description: 'Offer additional services for extra income',
+    },
+    'house-rules': {
+      title: 'House Rules',
+      description: 'Set clear expectations and guidelines for your guests',
+    },
+    safety: {
+      title: 'Safety Details',
+      description: 'Highlight safety features and build trust with guests',
+    },
+    location: {
+      title: 'Location',
+      description: 'Help guests find your property with address details',
+    },
+    capacity: {
+      title: 'Room & Capacity',
+      description: 'Define your property specifications and room details',
+    },
+  };
+
+  const config = sectionConfig[section];
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold text-gray-900 mb-1">{config.title}</h2>
+        <p className="text-gray-600">{config.description}</p>
+      </div>
+
+      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-6">
+        {section === 'overview' && (
+          <div>
+            <label className={labelClasses}>Listing Title</label>
+            <input
+              type="text"
+              value={formData?.title || ''}
+              onChange={(e) =>
+                setFormData((prev: any) => prev ? { ...prev, title: e.target.value } : null)
+              }
+              className={inputClasses}
+              placeholder="e.g., Cozy Studio in Downtown"
+              maxLength={100}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              {formData?.title?.length || 0} / 100 characters
+            </p>
+          </div>
+        )}
+
+        {section === 'description' && (
+          <div>
+            <label className={labelClasses}>Description</label>
+            <textarea
+              value={formData?.description || ''}
+              onChange={(e) =>
+                setFormData((prev: any) => prev ? { ...prev, description: e.target.value } : null)
+              }
+              rows={8}
+              className={cn(inputClasses, 'resize-none')}
+              placeholder="Describe your listing, amenities, and what makes it special..."
+              maxLength={5000}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              {formData?.description?.length || 0} / 5000 characters
+            </p>
+          </div>
+        )}
+
+        {section === 'pricing' && (
+          <div className="grid grid-cols-2 gap-6">
             <div>
-              <label className="text-sm font-bold text-gray-600 block mb-2">Title</label>
+              <label className={labelClasses}>Weekday Price (₹/night)</label>
               <input
-                type="text"
-                value={formData?.title || ''}
+                type="number"
+                value={formData?.price_weekday || 0}
                 onChange={(e) =>
-                  setFormData((prev) => prev ? { ...prev, title: e.target.value } : null)
+                  setFormData((prev: any) =>
+                    prev ? { ...prev, price_weekday: parseInt(e.target.value) || 0 } : null
+                  )
                 }
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                placeholder="e.g., Cozy Studio in Downtown"
+                className={inputClasses}
+                min="0"
               />
             </div>
-
             <div>
-              <label className="text-sm font-bold text-gray-600 block mb-2">Description</label>
-              <textarea
-                value={formData?.description || ''}
+              <label className={labelClasses}>Weekend Price (₹/night)</label>
+              <input
+                type="number"
+                value={formData?.price_weekend || 0}
                 onChange={(e) =>
-                  setFormData((prev) => prev ? { ...prev, description: e.target.value } : null)
+                  setFormData((prev: any) =>
+                    prev ? { ...prev, price_weekend: parseInt(e.target.value) || 0 } : null
+                  )
                 }
-                rows={4}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm resize-none"
-                placeholder="Describe your listing..."
+                className={inputClasses}
+                min="0"
               />
             </div>
           </div>
+        )}
 
-          {/* Location */}
-          <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 space-y-4">
-            <h2 className="text-lg font-bold text-gray-800">Location</h2>
+        {section === 'discounts' && listingId ? (
+          <DiscountsForm listingId={listingId} />
+        ) : null}
 
-            {/* Location dropdown */}
+        {section === 'addons' && listingId ? (
+          <AddonsForm listingId={listingId} />
+        ) : null}
+
+        {section === 'house-rules' && listingId ? (
+          <HouseRulesForm listingId={listingId} />
+        ) : null}
+
+        {section === 'safety' && listingId ? (
+          <SafetyDetailsForm listingId={listingId} />
+        ) : null}
+
+        {section === 'location' && (
+          <div className="space-y-4">
             <div>
-              <label className="text-sm font-bold text-gray-600 block mb-2">Select Location</label>
+              <label className={labelClasses}>Select Location</label>
               <select
                 value={formData?.location_id || ''}
                 onChange={(e) => {
                   const locId = parseInt(e.target.value);
-                  setFormData((prev) =>
-                    prev ? { ...prev, location_id: locId } : null,
+                  setFormData((prev: any) =>
+                    prev ? { ...prev, location_id: locId } : null
                   );
                 }}
                 disabled={locationsLoading}
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white"
+                className={cn(inputClasses, 'bg-white')}
               >
                 <option value="">
                   {locationsLoading ? 'Loading locations...' : 'Select a location'}
                 </option>
                 {locations.map((loc) => (
                   <option key={loc.location_id} value={loc.location_id}>
-                    {loc.state} • {loc.district} • {loc.lower_division_name} • {loc.pincode}
+                    {loc.state} • {loc.district} • {loc.lower_division_name}
                   </option>
                 ))}
               </select>
             </div>
 
-            {/* Location preview */}
             {selectedLocation && (
-              <div className="p-4 bg-blue-50 rounded-xl border border-blue-200 space-y-2">
-                <p className="text-sm font-semibold text-blue-900">Selected Location</p>
-                <div className="text-sm text-blue-800 space-y-1">
-                  <p><span className="font-medium">State:</span> {selectedLocation.state}</p>
-                  <p><span className="font-medium">District:</span> {selectedLocation.district}</p>
-                  <p><span className="font-medium">Area:</span> {selectedLocation.lower_division_name}</p>
-                  <p><span className="font-medium">Pincode:</span> {selectedLocation.pincode}</p>
+              <>
+                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                  <p className="text-sm font-semibold text-blue-900 mb-2">📍 Selected Location</p>
+                  <div className="space-y-1 text-sm text-blue-800">
+                    <p><strong>State:</strong> {selectedLocation.state}</p>
+                    <p><strong>District:</strong> {selectedLocation.district}</p>
+                    <p><strong>Area:</strong> {selectedLocation.lower_division_name}</p>
+                    <p><strong>Pincode:</strong> {selectedLocation.pincode}</p>
+                  </div>
                 </div>
-              </div>
-            )}
 
-            {/* Google Maps Preview */}
-            {selectedLocation && (
-              <div className="space-y-2">
-                <p className="text-sm font-semibold text-gray-700">Map Preview</p>
-                <div className="relative w-full rounded-xl overflow-hidden border border-gray-200 shadow-sm bg-gray-100 h-80">
-                  <iframe
-                    width="100%"
-                    height="100%"
-                    style={{ border: 0 }}
-                    loading="lazy"
-                    allowFullScreen
-                    referrerPolicy="no-referrer-when-downgrade"
-                    src={`https://www.google.com/maps/embed/v1/place?key=AIzaSyDy0EQmM0GDq5QNHB72RP4sRh8eTLmFY68&q=${encodeURIComponent(
-                      `${selectedLocation.lower_division_name}, ${selectedLocation.district}, ${selectedLocation.state}`
-                    )}&zoom=15`}
-                  />
-                </div>
-                <a
-                  href={`https://www.google.com/maps/search/${encodeURIComponent(
-                    `${selectedLocation.lower_division_name}, ${selectedLocation.district}, ${selectedLocation.state}`
-                  )}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-flex items-center gap-2 text-blue-600 text-sm font-medium hover:underline"
-                >
-                  <MapPin className="w-4 h-4" />
-                  View on Google Maps
-                </a>
-              </div>
-            )}
-
-            {!selectedLocation && (
-              <div className="p-4 bg-gray-50 rounded-xl border border-gray-200 text-center py-12">
-                <MapPin className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Select a location to preview map</p>
-              </div>
-            )}
-
-            <div>
-              <label className="text-sm font-bold text-gray-600 block mb-2">Address Line 1</label>
-              <input
-                type="text"
-                value={formData?.address_line1 || ''}
-                onChange={(e) =>
-                  setFormData((prev) => prev ? { ...prev, address_line1: e.target.value } : null)
-                }
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                placeholder="Street address"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-bold text-gray-600 block mb-2">Address Line 2</label>
-              <input
-                type="text"
-                value={formData?.address_line2 || ''}
-                onChange={(e) =>
-                  setFormData((prev) => prev ? { ...prev, address_line2: e.target.value } : null)
-                }
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                placeholder="Apt, suite, etc. (optional)"
-              />
-            </div>
-
-            <div>
-              <label className="text-sm font-bold text-gray-600 block mb-2">Landmark</label>
-              <input
-                type="text"
-                value={formData?.landmark || ''}
-                onChange={(e) =>
-                  setFormData((prev) => prev ? { ...prev, landmark: e.target.value } : null)
-                }
-                className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                placeholder="e.g., Near Central Park"
-              />
-            </div>
-          </div>
-
-          {/* Pricing */}
-          <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 space-y-4">
-            <h2 className="text-lg font-bold text-gray-800">Pricing</h2>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="text-sm font-bold text-gray-600 block mb-2">Weekday (₹/night)</label>
-                <input
-                  type="number"
-                  value={formData?.price_weekday || 0}
-                  onChange={(e) =>
-                    setFormData((prev) =>
-                      prev ? { ...prev, price_weekday: parseInt(e.target.value) || 0 } : null,
-                    )
-                  }
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                  min="0"
-                />
-              </div>
-              <div>
-                <label className="text-sm font-bold text-gray-600 block mb-2">Weekend (₹/night)</label>
-                <input
-                  type="number"
-                  value={formData?.price_weekend || 0}
-                  onChange={(e) =>
-                    setFormData((prev) =>
-                      prev ? { ...prev, price_weekend: parseInt(e.target.value) || 0 } : null,
-                    )
-                  }
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                  min="0"
-                />
-              </div>
-            </div>
-          </div>
-
-          {/* Discounts */}
-          {listingId && (
-            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-              <DiscountsForm listingId={parseInt(listingId)} />
-            </div>
-          )}
-
-          {/* Addons */}
-          {listingId && (
-            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-              <AddonsForm listingId={parseInt(listingId)} />
-            </div>
-          )}
-
-          {/* House Rules */}
-          {listingId && (
-            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-              <HouseRulesForm listingId={parseInt(listingId)} />
-            </div>
-          )}
-
-          {/* Safety Details */}
-          {listingId && (
-            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-              <SafetyDetailsForm listingId={parseInt(listingId)} />
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar */}
-        <div className="space-y-6">
-          {/* Capacity */}
-          <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 space-y-4">
-            <h2 className="text-lg font-bold text-gray-800">Capacity</h2>
-
-            <div className="space-y-3">
-              {[
-                { label: 'Max Guests', key: 'num_guests' },
-                { label: 'Bedrooms', key: 'num_bedrooms' },
-                { label: 'Total Beds', key: 'num_beds' },
-                { label: 'Bathrooms', key: 'num_bathrooms' },
-              ].map(({ label, key }) => (
-                <div key={key}>
-                  <label className="text-sm font-bold text-gray-600 block mb-2">{label}</label>
+                <div>
+                  <label className={labelClasses}>Address Line 1</label>
                   <input
-                    type="number"
-                    value={formData?.[key as keyof ListingDetails] || 0}
+                    type="text"
+                    value={formData?.address_line1 || ''}
                     onChange={(e) =>
-                      setFormData((prev) =>
-                        prev
-                          ? {
-                              ...prev,
-                              [key]: parseInt(e.target.value) || 0,
-                            }
-                          : null,
+                      setFormData((prev: any) =>
+                        prev ? { ...prev, address_line1: e.target.value } : null
                       )
                     }
-                    className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm"
-                    min="0"
+                    className={inputClasses}
+                    placeholder="Street address"
                   />
                 </div>
-              ))}
-            </div>
-          </div>
 
-          {/* Summary */}
-          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100 space-y-3">
-            <h3 className="font-bold text-blue-900">Summary</h3>
-            <div className="text-sm space-y-2 text-blue-800">
-              <p>
-                <span className="font-semibold">{formData?.num_guests}</span> guests •{' '}
-                <span className="font-semibold">{formData?.num_bedrooms}</span> bedrooms
-              </p>
-              <p className="text-lg font-bold text-blue-900">
-                ₹{(formData?.price_weekday || 0).toLocaleString('en-IN')}/night
-              </p>
-              {selectedLocation && (
-                <p className="text-xs text-blue-700 pt-2 border-t border-blue-200">
-                  📍 {selectedLocation.state}, {selectedLocation.district}
-                </p>
-              )}
-            </div>
+                <div>
+                  <label className={labelClasses}>Address Line 2 (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData?.address_line2 || ''}
+                    onChange={(e) =>
+                      setFormData((prev: any) =>
+                        prev ? { ...prev, address_line2: e.target.value } : null
+                      )
+                    }
+                    className={inputClasses}
+                    placeholder="Apt, suite, etc."
+                  />
+                </div>
+
+                <div>
+                  <label className={labelClasses}>Landmark (Optional)</label>
+                  <input
+                    type="text"
+                    value={formData?.landmark || ''}
+                    onChange={(e) =>
+                      setFormData((prev: any) =>
+                        prev ? { ...prev, landmark: e.target.value } : null
+                      )
+                    }
+                    className={inputClasses}
+                    placeholder="e.g., Near Central Park"
+                  />
+                </div>
+              </>
+            )}
           </div>
-        </div>
+        )}
+
+        {section === 'capacity' && (
+          <div className="grid grid-cols-2 gap-6">
+            {[
+              { label: 'Max Guests', key: 'num_guests' },
+              { label: 'Bedrooms', key: 'num_bedrooms' },
+              { label: 'Total Beds', key: 'num_beds' },
+              { label: 'Bathrooms', key: 'num_bathrooms' },
+            ].map(({ label, key }) => (
+              <div key={key}>
+                <label className={labelClasses}>{label}</label>
+                <input
+                  type="number"
+                  value={formData?.[key as keyof typeof formData] || 0}
+                  onChange={(e) =>
+                    setFormData((prev: any) =>
+                      prev
+                        ? {
+                            ...prev,
+                            [key]: parseInt(e.target.value) || 0,
+                          }
+                        : null
+                    )
+                  }
+                  className={inputClasses}
+                  min="0"
+                />
+              </div>
+            ))}
+          </div>
+        )}
       </div>
-    </HostDashboardShell>
+    </div>
   );
 }

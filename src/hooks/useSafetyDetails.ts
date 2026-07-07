@@ -2,8 +2,8 @@ import { useState, useCallback } from 'react';
 import * as safetyDetailsApi from '@/lib/api/safety-details';
 
 export function useSafetyDetails(listingId: number) {
-  const [features, setFeatures] = useState([]);
-  const [selected, setSelected] = useState([]);
+  const [features, setFeatures] = useState<any[]>([]);
+  const [selected, setSelected] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);

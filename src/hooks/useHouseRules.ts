@@ -2,7 +2,7 @@ import { useState, useCallback } from 'react';
 import * as houseRulesApi from '@/lib/api/house-rules';
 
 export function useHouseRules(listingId: number) {
-  const [rules, setRules] = useState([]);
+  const [rules, setRules] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
