@@ -26,8 +26,9 @@ import { cn } from '@/lib/utils';
 const FALLBACK_PROPERTY =
   'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=200&h=200&fit=crop&q=80';
 
-// status_id: 1 = pending, 2 = confirmed, 3 = cancelled
-const STATUS_LABEL: Record<number, string> = { 1: 'Pending', 2: 'Confirmed', 3: 'Cancelled' };
+// Bookings are instant-confirmed on creation — booking_status only ever
+// defines 2 (CONFIRMED) and 3 (CANCELLED), there is no pending/approval step.
+const STATUS_LABEL: Record<number, string> = { 2: 'Confirmed', 3: 'Cancelled' };
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
@@ -219,13 +220,6 @@ function DetailsInner() {
             className="px-6 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-semibold hover:bg-gray-50 transition-all flex items-center gap-2"
           >
             <Printer className="w-5 h-5" /> Print
-          </button>
-          <button
-            disabled
-            title="Booking actions coming soon"
-            className="px-6 py-2.5 rounded-xl bg-blue-600/60 text-white font-bold cursor-not-allowed"
-          >
-            Approve Stay
           </button>
         </div>
       </div>
