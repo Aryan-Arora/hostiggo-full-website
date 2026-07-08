@@ -375,7 +375,6 @@ export async function createListing(draft: ListingDraft) {
     num_bathrooms: draft.numBathrooms ?? 1,
     host_uuid: hostUuid,
     is_active: true, // new listings start active (visible)
-    published_at: new Date().toISOString(),
     check_in_time: draft.checkInTime ?? "14:00:00",
     check_out_time: draft.checkOutTime ?? "11:00:00",
     address_line1: draft.addressLine1 ?? null,
@@ -396,12 +395,16 @@ export async function createListing(draft: ListingDraft) {
   if (error) throw error;
 
   const listingId = listing.listing_id;
+  const warnings: string[] = [];
 
   // Amenities (join rows).
   if (draft.amenityIds?.length) {
     const amenRows = draft.amenityIds.map((amenity_id) => ({ listing_id: listingId, amenity_id }));
     const { error: aerr } = await supabaseAdmin.from("listing_amenities").insert(amenRows);
-    if (aerr) console.error("[createListing] amenities insert failed:", aerr.message);
+    if (aerr) {
+      console.error("[createListing] amenities insert failed:", aerr.message);
+      warnings.push("Your listing was created, but the selected amenities failed to save.");
+    }
   }
 
   // Photos (media rows). First photo is the cover.
@@ -413,10 +416,13 @@ export async function createListing(draft: ListingDraft) {
       is_cover: i === 0,
     }));
     const { error: merr } = await supabaseAdmin.from("listing_media").insert(mediaRows);
-    if (merr) console.error("[createListing] media insert failed:", merr.message);
+    if (merr) {
+      console.error("[createListing] media insert failed:", merr.message);
+      warnings.push("Your listing was created, but the photos failed to save.");
+    }
   }
 
-  return { listing_id: listingId, title: listing.title };
+  return { listing_id: listingId, title: listing.title, warnings };
 }
 
 // ── User profile ─────────────────────────────────────────────────────────────

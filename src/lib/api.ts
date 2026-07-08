@@ -299,7 +299,7 @@ export const api = {
       body: JSON.stringify({ action: "update-profile", userId, patch }),
     }),
   createListing: (draft: Record<string, any>) =>
-    request<{ listing_id: number; title: string }>(`/api/host/listings`, {
+    request<{ listing_id: number; title: string; warnings?: string[] }>(`/api/host/listings`, {
       method: "POST",
       body: JSON.stringify(draft),
     }),
