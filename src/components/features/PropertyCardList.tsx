@@ -4,6 +4,8 @@ import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn, toISODate } from "@/lib/utils";
 import { useListingState } from "@/context/ListingFilterContext";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 interface PropertyCardListProps {
   property: Property;
@@ -25,6 +27,27 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
   const { dates } = useListingState();
+  const { userId, isAuthenticated } = useAuth();
+
+  const toggleLiked = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || !userId) {
+      router.push("/signin");
+      return;
+    }
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) {
+        await api.addWishlistItem(userId, String(property.id));
+      } else {
+        await api.removeWishlistItem(userId, String(property.id));
+      }
+    } catch (err) {
+      console.error("[PropertyCardList] wishlist toggle failed:", err);
+      setLiked(!next);
+    }
+  };
 
   const handleNavigate = () => {
     const checkIn = toISODate(dates.checkIn);
@@ -57,7 +80,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         />
         {/* Heart button */}
         <button
-          onClick={(e) => { e.stopPropagation(); setLiked(v => !v); }}
+          onClick={toggleLiked}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
             liked ? "text-rose-500" : "text-gray-500 hover:text-rose-400 hover:scale-110"

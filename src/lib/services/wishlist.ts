@@ -24,11 +24,53 @@ export type AddWishlistCategoryPayload = {
   name: string;
 };
 
+const DEFAULT_CATEGORY_NAME = "Saved";
+
 export const wishlistAPI = {
   async addToWishlist(item: AddWishlistPayload): Promise<WishlistDTO> {
+    const { user_id, listing_id, category_id } = item;
+
+    const { data: alreadySaved, error: dupeErr } = await supabase
+      .from("wishlists")
+      .select("*")
+      .eq("user_id", user_id)
+      .eq("listing_id", listing_id)
+      .limit(1);
+
+    if (dupeErr) throw dupeErr;
+    if (alreadySaved && alreadySaved.length > 0) {
+      return alreadySaved[0];
+    }
+
+    let categoryId = category_id;
+
+    if (!categoryId) {
+      const { data: existing, error: findErr } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("name", DEFAULT_CATEGORY_NAME)
+        .limit(1);
+
+      if (findErr) throw findErr;
+
+      if (existing && existing.length > 0) {
+        categoryId = existing[0].id;
+      } else {
+        const { data: created, error: createErr } = await supabase
+          .from("categories")
+          .insert([{ user_id, name: DEFAULT_CATEGORY_NAME }])
+          .select("id")
+          .single();
+
+        if (createErr) throw createErr;
+        categoryId = created.id;
+      }
+    }
+
     const { data, error } = await supabase
       .from("wishlists")
-      .insert([item])
+      .insert([{ user_id, listing_id, category_id: categoryId }])
       .select()
       .single();
 
