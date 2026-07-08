@@ -164,19 +164,27 @@ export function mapBooking(item: any) {
   const checkOut = new Date(item.end_date);
   const status = String(item.booking_label ?? "upcoming").toLowerCase();
 
+  // Only build real coordinates when the listing actually has them — the
+  // guest-facing "Location" button previously defaulted to 22.5937,78.9629
+  // (the geographic center of India) whenever they were missing, silently
+  // sending guests to the wrong place instead of telling them it's unknown.
+  const hasCoords = item.latitude != null && item.longitude != null;
+
   return {
     id: String(item.booking_id),
     title: item.listing_title ?? "Booked stay",
     image: item.cover_photo_url || FALLBACK_IMAGE,
-    location: item.location ?? "",
-    distanceText: item.distanceText ?? "Location available after booking",
+    location: item.location ?? [item.district, item.state].filter(Boolean).join(", "),
+    distanceText:
+      item.distanceText ||
+      [item.district, item.state].filter(Boolean).join(", ") ||
+      "Location unavailable",
     checkIn,
     checkOut,
     status: status === "completed" || status === "cancelled" ? status : "upcoming",
-    coordinates: {
-      lat: Number(item.latitude ?? 22.5937),
-      lng: Number(item.longitude ?? 78.9629),
-    },
+    coordinates: hasCoords
+      ? { lat: Number(item.latitude), lng: Number(item.longitude) }
+      : null,
     guests: {
       adults: Number(item.num_adults ?? 1),
       children: Number(item.num_children ?? 0),
