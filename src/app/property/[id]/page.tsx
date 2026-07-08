@@ -827,6 +827,11 @@ function BookingWidget({
         `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISODate(checkIn)}&endDate=${toISODate(checkOut)}`
       );
       const data = await res.json();
+      if (!res.ok || data.error) {
+        setStatus('idle');
+        toast.error(data.error ?? 'Could not check availability. Please try again.');
+        return;
+      }
       if (data.available) {
         setStatus('available');
       } else {
