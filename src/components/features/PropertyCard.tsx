@@ -3,6 +3,8 @@ import { Heart, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { api } from "@/lib/api";
 
 interface PropertyCardProps {
   property: Property;
@@ -14,6 +16,27 @@ export default function PropertyCard({ property }: PropertyCardProps) {
   const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
+  const { userId, isAuthenticated } = useAuth();
+
+  const toggleLiked = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || !userId) {
+      router.push("/signin");
+      return;
+    }
+    const next = !liked;
+    setLiked(next);
+    try {
+      if (next) {
+        await api.addWishlistItem(userId, String(property.id));
+      } else {
+        await api.removeWishlistItem(userId, String(property.id));
+      }
+    } catch (err) {
+      console.error("[PropertyCard] wishlist toggle failed:", err);
+      setLiked(!next);
+    }
+  };
 
   return (
     <div
@@ -30,7 +53,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <button
-          onClick={(e) => { e.stopPropagation(); setLiked(v => !v); }}
+          onClick={toggleLiked}
           aria-label={liked ? "Remove from favourites" : "Add to favourites"}
           className={cn(
             "absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",

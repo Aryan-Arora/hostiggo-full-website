@@ -392,6 +392,16 @@ export const api = {
         type: params.email ? "email" : "sms",
       }),
     }),
+  addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
+    request<any>("/api/wishlist", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "add",
+        user_id: userId,
+        listing_id: listingId,
+        ...(categoryId ? { category_id: categoryId } : {}),
+      }),
+    }),
   wishlistCategories: (userId: string) =>
     request<any[]>(`/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`),
   wishlistListings: (userId: string, categoryId?: string) =>

@@ -1321,6 +1321,7 @@ export default function PropertyDetailsPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const router = useRouter();
+  const { userId, isAuthenticated } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -1459,7 +1460,24 @@ export default function PropertyDetailsPage() {
               <Share2 className="w-3.5 h-3.5" /> Share
             </button>
             <button
-              onClick={() => setLiked((v) => !v)}
+              onClick={async () => {
+                if (!isAuthenticated || !userId || !property) {
+                  router.push('/signin');
+                  return;
+                }
+                const next = !liked;
+                setLiked(next);
+                try {
+                  if (next) {
+                    await api.addWishlistItem(userId, String(property.id));
+                  } else {
+                    await api.removeWishlistItem(userId, String(property.id));
+                  }
+                } catch (err) {
+                  console.error('[property] wishlist toggle failed:', err);
+                  setLiked(!next);
+                }
+              }}
               className={cn(
                 'flex items-center gap-1.5 text-[12px] font-semibold bg-white border px-3 py-1.5 rounded-xl transition-all',
                 liked
