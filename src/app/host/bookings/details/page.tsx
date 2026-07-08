@@ -220,13 +220,6 @@ function DetailsInner() {
           >
             <Printer className="w-5 h-5" /> Print
           </button>
-          <button
-            disabled
-            title="Booking actions coming soon"
-            className="px-6 py-2.5 rounded-xl bg-blue-600/60 text-white font-bold cursor-not-allowed"
-          >
-            Approve Stay
-          </button>
         </div>
       </div>
 
