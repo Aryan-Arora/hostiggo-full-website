@@ -108,6 +108,7 @@ export function mapListingToProperty(input: any): Property {
     city: row.district ?? location.district ?? row.city ?? "Unknown",
     state: row.state ?? location.state ?? row.state_name ?? "",
     price: Number(row.price_weekday ?? row.price ?? 0),
+    priceWeekend: Number(row.price_weekend ?? row.price_weekday ?? row.price ?? 0),
     rating,
     reviewCount: Number(row.review_count ?? reviews.length ?? 0),
     amenities,
@@ -140,6 +141,53 @@ export function mapListingToProperty(input: any): Property {
     // No per-category (cleanliness/accuracy/communication/location/checkIn/
     // value) rating exists anywhere in the schema — only a single overall
     // `rating` per review — so no ratingBreakdown is fabricated here.
+    houseRules: (() => {
+      // listing_house_rules is one structured row per listing (booleans +
+      // times), not a list of free-text rules — build readable strings
+      // from it. Supabase may return it as an object or a 1-item array
+      // depending on the relationship hint, so handle both.
+      const hr = Array.isArray(row.listing_house_rules)
+        ? row.listing_house_rules[0]
+        : row.listing_house_rules;
+      if (!hr) return undefined;
+      const rules: string[] = [];
+      rules.push(hr.smoking_allowed ? 'Smoking allowed' : 'No smoking');
+      rules.push(hr.pets_allowed ? 'Pets allowed' : 'No pets');
+      rules.push(hr.parties_allowed ? 'Parties or events allowed' : 'No parties or events');
+      if (hr.quiet_hours) rules.push('Quiet hours enforced (10 PM – 8 AM)');
+      if (hr.check_in_time) rules.push(`Check-in from ${String(hr.check_in_time).slice(0, 5)}`);
+      if (hr.check_out_time) rules.push(`Check-out before ${String(hr.check_out_time).slice(0, 5)}`);
+      return rules;
+    })(),
+    safetyFeatures: Array.isArray(row.listing_safety_details)
+      ? row.listing_safety_details
+          .filter((d: any) => d.enabled && d.safety_features)
+          .map((d: any) => ({
+            name: d.safety_features.name,
+            icon: d.safety_features.icon,
+            description: d.safety_features.description,
+          }))
+      : undefined,
+    activeDiscount: (() => {
+      const active = Array.isArray(row.listing_discounts)
+        ? row.listing_discounts.find((d: any) => d.enabled)
+        : null;
+      return active ? { type: active.discount_type, percent: Number(active.percent ?? 0) } : null;
+    })(),
+    addons: Array.isArray(row.listing_addons)
+      ? row.listing_addons
+          .filter((a: any) => a.addons)
+          .map((a: any) => ({
+            name: a.addons.name,
+            icon: a.addons.icon,
+            category: a.addons.category,
+            price: Number(a.price ?? 0),
+            includes: a.includes ?? "",
+            timingFrom: a.timing_from ?? null,
+            timingTo: a.timing_to ?? null,
+            notes: a.additional_notes ?? null,
+          }))
+      : undefined,
   };
 }
 
@@ -183,12 +231,6 @@ export function mapBooking(item: any) {
       rooms: 1,
       pets: false,
     },
-    addons: [
-      { id: "breakfast", label: "Breakfast", emoji: "🍳", price: 500, selected: false },
-      { id: "airport", label: "Airport Pickup", emoji: "🚗", price: 1200, selected: false },
-      { id: "extrabed", label: "Extra Bed", emoji: "🛏️", price: 800, selected: false },
-      { id: "earlycheckin", label: "Early Check-in", emoji: "⏰", price: 600, selected: false },
-    ],
   };
 }
 
@@ -279,7 +321,9 @@ export const api = {
     endDate: string;
     numAdults?: number;
     numChildren?: number;
-    amount?: number;
+    // amount is intentionally not accepted here — the server recomputes the
+    // real charge from the listing's own prices, see createBooking() in
+    // src/lib/services/admin-writes.ts
   }) =>
     request<any>(`/api/bookings/reserve`, {
       method: "POST",
@@ -394,6 +438,20 @@ export const api = {
     }),
   wishlistCategories: (userId: string) =>
     request<any[]>(`/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`),
+  wishlistIds: (userId: string) =>
+    request<{ listing_id: string }[]>(
+      `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
+    ),
+  addWishlistItem: (userId: string, listingId: string | number, categoryId?: string) =>
+    request<any>("/api/wishlist", {
+      method: "POST",
+      body: JSON.stringify({
+        action: "add",
+        user_id: userId,
+        listing_id: String(listingId),
+        ...(isUuid(categoryId) ? { category_id: categoryId } : {}),
+      }),
+    }),
   wishlistListings: (userId: string, categoryId?: string) =>
     request<any[]>(
       `/api/wishlist?resource=listings&userId=${encodeURIComponent(userId)}${

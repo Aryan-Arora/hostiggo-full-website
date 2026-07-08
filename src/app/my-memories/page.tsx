@@ -45,14 +45,6 @@ interface GuestCounts {
   pets: boolean;
 }
 
-interface AddOn {
-  id: string;
-  label: string;
-  emoji: string;
-  price: number;
-  selected: boolean;
-}
-
 interface Booking {
   id: string;
   title: string;
@@ -64,7 +56,6 @@ interface Booking {
   status: TabKey;
   coordinates: { lat: number; lng: number };
   guests: GuestCounts;
-  addons: AddOn[];
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -496,61 +487,6 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add-Ons Selector
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AddOnsSelector({
-  addons,
-  onChange,
-}: {
-  addons: AddOn[];
-  onChange: (a: AddOn[]) => void;
-}) {
-  const toggle = (id: string) => {
-    onChange(
-      addons.map((a) => (a.id === id ? { ...a, selected: !a.selected } : a)),
-    );
-  };
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {addons.map((addon) => (
-        <button
-          key={addon.id}
-          onClick={() => toggle(addon.id)}
-          className={cn(
-            'flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-[0.97]',
-            addon.selected
-              ? 'border-[#1B3FA0] bg-blue-50/50 shadow-sm'
-              : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm',
-          )}
-        >
-          <span className="text-2xl">{addon.emoji}</span>
-          <div>
-            <p
-              className={cn(
-                'text-[12.5px] font-bold leading-tight',
-                addon.selected ? 'text-[#1B3FA0]' : 'text-gray-800',
-              )}
-            >
-              {addon.label}
-            </p>
-            <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-              +₹{addon.price.toLocaleString('en-IN')}
-            </p>
-          </div>
-          {addon.selected && (
-            <div className="absolute top-2 right-2 w-4 h-4 bg-[#1B3FA0] rounded-full flex items-center justify-center">
-              <CheckCircle className="w-2.5 h-2.5 text-white" />
-            </div>
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Manage Booking Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
@@ -575,14 +511,8 @@ function ManageBookingModal({
   const [tempGuests, setTempGuests] = useState<GuestCounts>({
     ...booking.guests,
   });
-  const [tempAddons, setTempAddons] = useState<AddOn[]>(
-    booking.addons.map((a) => ({ ...a })),
-  );
   const [saving, setSaving] = useState(false);
 
-  const addonsTotal = tempAddons
-    .filter((a) => a.selected)
-    .reduce((s, a) => s + a.price, 0);
   const nights =
     tempCheckIn && tempCheckOut ? getNights(tempCheckIn, tempCheckOut) : 0;
 
@@ -615,7 +545,6 @@ function ManageBookingModal({
         checkIn: nextCheckIn,
         checkOut: nextCheckOut,
         guests: tempGuests,
-        addons: tempAddons,
       });
       onClose();
     } catch (error) {
@@ -848,59 +777,18 @@ function ManageBookingModal({
                 <GuestSelector guests={tempGuests} onChange={setTempGuests} />
               </div>
 
-              {/* Add-ons */}
-              <div>
-                <div className="mb-3">
-                  <p className="text-[14px] font-bold text-gray-900">
-                    Enhance Your Stay
-                  </p>
-                  <p className="text-[12px] text-gray-400 mt-0.5">
-                    Select add-ons to make your trip special
-                  </p>
-                </div>
-                <div className="relative">
-                  <AddOnsSelector
-                    addons={tempAddons}
-                    onChange={setTempAddons}
-                  />
-                </div>
-              </div>
-
               {/* Summary */}
-              {(nights > 0 || addonsTotal > 0) && (
+              {nights > 0 && (
                 <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5">
                   <p className="text-[13px] font-bold text-gray-900">
                     Updated Summary
                   </p>
-                  {nights > 0 && (
-                    <div className="flex justify-between text-[13px] text-gray-600">
-                      <span>
-                        {nights} night{nights !== 1 ? 's' : ''} ·{' '}
-                        {guestLabel(tempGuests)}
-                      </span>
-                    </div>
-                  )}
-                  {tempAddons
-                    .filter((a) => a.selected)
-                    .map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex justify-between text-[13px] text-gray-600"
-                      >
-                        <span>
-                          {a.emoji} {a.label}
-                        </span>
-                        <span className="font-medium">
-                          +₹{a.price.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    ))}
-                  {addonsTotal > 0 && (
-                    <div className="pt-2 border-t border-gray-200 flex justify-between text-[13px] font-bold text-gray-900">
-                      <span>Add-ons total</span>
-                      <span>₹{addonsTotal.toLocaleString('en-IN')}</span>
-                    </div>
-                  )}
+                  <div className="flex justify-between text-[13px] text-gray-600">
+                    <span>
+                      {nights} night{nights !== 1 ? 's' : ''} ·{' '}
+                      {guestLabel(tempGuests)}
+                    </span>
+                  </div>
                 </div>
               )}
             </div>

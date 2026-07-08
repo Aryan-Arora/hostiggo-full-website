@@ -26,9 +26,34 @@ export type AddWishlistCategoryPayload = {
 
 export const wishlistAPI = {
   async addToWishlist(item: AddWishlistPayload): Promise<WishlistDTO> {
+    // category_id is NOT NULL on wishlists — a heart-icon click anywhere in
+    // the app (search cards, property page) doesn't have a category in
+    // context, so fall back to a "Saved" category, creating it the first
+    // time this user ever saves something.
+    let categoryId = item.category_id;
+    if (!categoryId) {
+      const { data: existing } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("user_id", item.user_id)
+        .eq("name", "Saved")
+        .maybeSingle();
+      if (existing) {
+        categoryId = existing.id;
+      } else {
+        const { data: created, error: createErr } = await supabase
+          .from("categories")
+          .insert([{ user_id: item.user_id, name: "Saved" }])
+          .select("id")
+          .single();
+        if (createErr) throw createErr;
+        categoryId = created.id;
+      }
+    }
+
     const { data, error } = await supabase
       .from("wishlists")
-      .insert([item])
+      .insert([{ ...item, category_id: categoryId }])
       .select()
       .single();
 

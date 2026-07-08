@@ -1,4 +1,4 @@
-import { supabase } from '@/lib/supabase';
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
 
 export interface SafetyFeature {
   feature_id: number;

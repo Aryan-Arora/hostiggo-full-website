@@ -6,13 +6,15 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId, userId, startDate, endDate, numAdults, numChildren, amount } = body ?? {};
+    const { listingId, userId, startDate, endDate, numAdults, numChildren } = body ?? {};
     if (!listingId || !userId || !startDate || !endDate) {
       return NextResponse.json(
         { error: "listingId, userId, startDate and endDate are required" },
         { status: 400 },
       );
     }
+    // Note: any `amount` sent by the client is intentionally ignored —
+    // createBooking() always recomputes the real charge server-side.
     const data = await createBooking({
       listingId: Number(listingId),
       userId: String(userId),
@@ -20,7 +22,6 @@ export async function POST(req: NextRequest) {
       endDate: String(endDate),
       numAdults: numAdults === undefined ? undefined : Number(numAdults),
       numChildren: numChildren === undefined ? undefined : Number(numChildren),
-      amount: amount === undefined || amount === null ? undefined : Number(amount),
     });
     return NextResponse.json({ data });
   } catch (err: any) {

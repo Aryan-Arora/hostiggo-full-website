@@ -3,6 +3,9 @@ import { Heart, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn } from "@/lib/utils";
+import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/hooks/useWishlist";
+import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: Property;
@@ -11,9 +14,25 @@ interface PropertyCardProps {
 const FALLBACK = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop&q=80";
 
 export default function PropertyCard({ property }: PropertyCardProps) {
-  const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle } = useWishlist(userId);
+  const liked = isSaved(property.id);
+
+  const handleToggleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || !userId) {
+      toast("Sign in to save properties to your wishlist.");
+      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      return;
+    }
+    try {
+      await toggle(property.id);
+    } catch {
+      toast.error("Could not update your wishlist. Please try again.");
+    }
+  };
 
   return (
     <div
@@ -30,7 +49,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <button
-          onClick={(e) => { e.stopPropagation(); setLiked(v => !v); }}
+          onClick={handleToggleLike}
           aria-label={liked ? "Remove from favourites" : "Add to favourites"}
           className={cn(
             "absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",

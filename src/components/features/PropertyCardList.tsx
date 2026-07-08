@@ -4,6 +4,9 @@ import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn, toISODate } from "@/lib/utils";
 import { useListingState } from "@/context/ListingFilterContext";
+import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/hooks/useWishlist";
+import { toast } from "sonner";
 
 interface PropertyCardListProps {
   property: Property;
@@ -21,10 +24,26 @@ const AMENITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function PropertyCardList({ property }: PropertyCardListProps) {
-  const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
   const { dates } = useListingState();
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle } = useWishlist(userId);
+  const liked = isSaved(property.id);
+
+  const handleToggleLike = async (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || !userId) {
+      toast("Sign in to save properties to your wishlist.");
+      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      return;
+    }
+    try {
+      await toggle(property.id);
+    } catch {
+      toast.error("Could not update your wishlist. Please try again.");
+    }
+  };
 
   const handleNavigate = () => {
     const checkIn = toISODate(dates.checkIn);
@@ -57,7 +76,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         />
         {/* Heart button */}
         <button
-          onClick={(e) => { e.stopPropagation(); setLiked(v => !v); }}
+          onClick={handleToggleLike}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
             liked ? "text-rose-500" : "text-gray-500 hover:text-rose-400 hover:scale-110"

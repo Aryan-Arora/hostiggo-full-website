@@ -559,10 +559,12 @@ export default function WishlistPage() {
     return p.liked && p.group === selectedGroup;
   });
 
+  // Every property on this page is, by definition, already in the wishlist
+  // (that's how it got fetched here), so un-hearting it can only mean one
+  // real thing: remove it. Previously this just flipped local `liked` state
+  // and did nothing server-side, leaving the item shown but "unliked".
   const toggleHeart = (id: string) => {
-    setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, liked: !p.liked } : p)),
-    );
+    removeProperty(id);
   };
 
   const removeProperty = (id: string) => {

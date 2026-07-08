@@ -47,6 +47,7 @@ export interface Property {
   city: string;
   state: string;
   price: number;
+  priceWeekend?: number;
   originalPrice?: number;
   rating: number;
   reviewCount: number;
@@ -73,6 +74,19 @@ export interface Property {
   coordinates?: { lat: number; lng: number };
   host?: Host;
   reviews?: Review[];
+  houseRules?: string[];
+  safetyFeatures?: { name: string; icon: string; description: string }[];
+  activeDiscount?: { type: string; percent: number } | null;
+  addons?: {
+    name: string;
+    icon: string;
+    category: string;
+    price: number;
+    includes: string;
+    timingFrom: string | null;
+    timingTo: string | null;
+    notes: string | null;
+  }[];
 }
 
 export interface SearchFilters {
