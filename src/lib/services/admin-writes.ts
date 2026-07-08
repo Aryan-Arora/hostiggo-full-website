@@ -144,11 +144,22 @@ export async function createBooking(input: {
   // Resolve the owning host from the listing.
   const { data: listing, error: lerr } = await supabaseAdmin
     .from("listings")
-    .select("host_uuid")
+    .select("host_uuid, price_weekday")
     .eq("listing_id", input.listingId)
     .maybeSingle();
   if (lerr) throw lerr;
   if (!listing?.host_uuid) throw new Error("Listing not found");
+
+  // The price is always computed server-side from the listing's real rate,
+  // mirroring the exact formula the guest UI displays (property/[id]/page.tsx:
+  // subtotal = price_weekday * nights, +8% service fee, +12% tax). The
+  // client-submitted `amount` is never trusted — without this, a caller could
+  // POST any amount (including 0) for a real, confirmed booking.
+  const nightsCount = eachDateInRange(input.startDate, input.endDate).length;
+  const subtotal = Number(listing.price_weekday ?? 0) * Math.max(1, nightsCount);
+  const serviceFee = Math.round(subtotal * 0.08);
+  const taxes = Math.round(subtotal * 0.12);
+  const computedAmount = subtotal + serviceFee + taxes;
 
   // Check A: blocked calendar days in the requested range.
   const { data: blocked, error: blockedErr } = await supabaseAdmin
@@ -187,7 +198,7 @@ export async function createBooking(input: {
       num_adults: numAdults,
       num_children: numChildren,
       nom_guests: numAdults + numChildren,
-      amount: input.amount ?? null,
+      amount: computedAmount,
       // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row),
       // so a new reservation is created as CONFIRMED.
       status_id: 2,
