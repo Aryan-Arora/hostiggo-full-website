@@ -558,10 +558,12 @@ type ModalView = 'overview' | 'modify';
 
 function ManageBookingModal({
   booking,
+  userId,
   onClose,
   onUpdate,
 }: {
   booking: Booking;
+  userId: string;
   onClose: () => void;
   onUpdate: (b: Partial<Booking>) => void;
 }) {
@@ -604,12 +606,16 @@ function ManageBookingModal({
     setSaving(true);
     try {
       await Promise.all([
-        api.updateBookingDates(booking.id, nextCheckIn, nextCheckOut),
-        api.updateBookingGuests(booking.id, {
-          adults: tempGuests.adults,
-          children: tempGuests.children,
-          pets: tempGuests.pets ? 1 : 0,
-        }),
+        api.updateBookingDates(booking.id, nextCheckIn, nextCheckOut, userId),
+        api.updateBookingGuests(
+          booking.id,
+          {
+            adults: tempGuests.adults,
+            children: tempGuests.children,
+            pets: tempGuests.pets ? 1 : 0,
+          },
+          userId,
+        ),
       ]);
       onUpdate({
         checkIn: nextCheckIn,
@@ -634,6 +640,7 @@ function ManageBookingModal({
         booking.id,
         'cancelled',
         'Cancelled by guest',
+        userId,
       );
       onUpdate({ status: 'cancelled' });
       onClose();
@@ -1375,9 +1382,10 @@ export default function MyMemoriesPage() {
 
       <Footer />
 
-      {managingBooking && (
+      {managingBooking && userId && (
         <ManageBookingModal
           booking={managingBooking}
+          userId={userId}
           onClose={() => setManagingId(null)}
           onUpdate={(updates) => handleUpdate(managingBooking.id, updates)}
         />

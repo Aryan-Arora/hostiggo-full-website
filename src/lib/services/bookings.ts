@@ -1,5 +1,25 @@
 import { supabase } from "../supabase";
 
+// None of updateBookingStatus/updateBookingDates/updateBookingGuests ever
+// checked that the caller actually owns the booking they're modifying —
+// only bookingId was required, so any guest could edit or cancel any other
+// guest's booking just by knowing (or guessing) its id. Confirmed live:
+// a demo guest was able to overwrite booking #46 (belonging to a different
+// user) to 99 guests with a plain PATCH request. This throws unless the
+// requesting user is the booking's actual owner.
+async function assertOwnsBooking(bookingId: string | number, requestingUserId: string) {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("user_id")
+    .eq("booking_id", Number(bookingId))
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Booking not found.");
+  if (data.user_id !== requestingUserId) {
+    throw new Error("You don't have permission to modify this booking.");
+  }
+}
+
 export const bookingsAPI = {
   async fetchGuestBookings(
     userId: string,
@@ -129,7 +149,10 @@ export const bookingsAPI = {
     status: string,
     _cancelledBy: "host" | "user" = "user",
     _reason?: string,
+    requestingUserId?: string,
   ) {
+    if (!requestingUserId) throw new Error("requestingUserId is required.");
+    await assertOwnsBooking(bookingId, requestingUserId);
     const updateData: any = {};
 
     if (status.toLowerCase() === "cancelled") {
@@ -152,7 +175,13 @@ export const bookingsAPI = {
     return data;
   },
 
-  async updateBookingDates(bookingId: string | number, checkIn: string, checkOut: string) {
+  async updateBookingDates(
+    bookingId: string | number,
+    checkIn: string,
+    checkOut: string,
+    requestingUserId: string,
+  ) {
+    await assertOwnsBooking(bookingId, requestingUserId);
     const formattedCheckIn = checkIn.split("T")[0];
     const formattedCheckOut = checkOut.split("T")[0];
 
@@ -172,7 +201,10 @@ export const bookingsAPI = {
     adults: number,
     children: number,
     _pets: number = 0,
+    requestingUserId?: string,
   ) {
+    if (!requestingUserId) throw new Error("requestingUserId is required.");
+    await assertOwnsBooking(bookingId, requestingUserId);
     const { data, error } = await supabase
       .from("bookings")
       .update({
