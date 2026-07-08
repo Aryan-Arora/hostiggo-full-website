@@ -38,22 +38,24 @@ export async function POST(req: NextRequest) {
       const listingIds = data.map((r: any) => r.listing?.listing_id ?? r.listing_id).filter(Boolean);
 
       // Listings with at least one blocked calendar day in the range.
-      const { data: blockedRows } = await supabaseAdmin
+      const { data: blockedRows, error: blockedErr } = await supabaseAdmin
         .from("listing_calendar")
         .select("listing_id")
         .in("listing_id", listingIds)
         .gte("date", startDate)
         .lt("date", endDate)
         .eq("is_available", false);
+      if (blockedErr) throw blockedErr;
 
       // Listings with a confirmed booking that overlaps the range.
-      const { data: bookedRows } = await supabaseAdmin
+      const { data: bookedRows, error: bookedErr } = await supabaseAdmin
         .from("bookings")
         .select("listing_id")
         .in("listing_id", listingIds)
         .eq("status_id", 2)
         .lt("start_date", endDate)
         .gt("end_date", startDate);
+      if (bookedErr) throw bookedErr;
 
       const unavailable = new Set([
         ...(blockedRows ?? []).map((r: any) => r.listing_id),

@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
   }
 
   // Check for blocked calendar days.
-  const { data: blocked } = await supabaseAdmin
+  const { data: blocked, error: blockedErr } = await supabaseAdmin
     .from("listing_calendar")
     .select("date")
     .eq("listing_id", listingId)
@@ -23,12 +23,20 @@ export async function GET(req: NextRequest) {
     .eq("is_available", false)
     .limit(1);
 
+  if (blockedErr) {
+    console.error("[check-availability] blocked-days query failed:", blockedErr);
+    return NextResponse.json(
+      { error: "Could not verify availability. Please try again." },
+      { status: 500 },
+    );
+  }
+
   if (blocked && blocked.length > 0) {
     return NextResponse.json({ available: false, reason: "Some of the selected dates are not available." });
   }
 
   // Check for overlapping confirmed bookings.
-  const { data: conflicts } = await supabaseAdmin
+  const { data: conflicts, error: conflictsErr } = await supabaseAdmin
     .from("bookings")
     .select("booking_id")
     .eq("listing_id", listingId)
@@ -36,6 +44,14 @@ export async function GET(req: NextRequest) {
     .lt("start_date", endDate)
     .gt("end_date", startDate)
     .limit(1);
+
+  if (conflictsErr) {
+    console.error("[check-availability] conflicts query failed:", conflictsErr);
+    return NextResponse.json(
+      { error: "Could not verify availability. Please try again." },
+      { status: 500 },
+    );
+  }
 
   if (conflicts && conflicts.length > 0) {
     return NextResponse.json({ available: false, reason: "These dates are already booked." });
