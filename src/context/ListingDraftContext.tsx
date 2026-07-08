@@ -94,9 +94,14 @@ export function ListingDraftProvider({ children }: { children: ReactNode }) {
     }
     setSubmitting(true);
     try {
-      await api.createListing({ userId, ...draft });
+      const result = await api.createListing({ userId, ...draft });
       reset();
-      toast.success('Listing created! It will appear once reviewed.');
+      if (result.warnings?.length) {
+        toast.success('Listing created, but with some issues.');
+        result.warnings.forEach((w) => toast.error(w));
+      } else {
+        toast.success('Listing created! It will appear once reviewed.');
+      }
       router.push('/host/listings?created=1');
     } catch (err) {
       console.error('[listing-draft] submit failed:', err);
