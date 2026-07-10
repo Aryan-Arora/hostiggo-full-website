@@ -8,15 +8,17 @@ import { useListingDraft } from '@/context/ListingDraftContext';
 
 // Ordered list of the listing-creation wizard steps.
 export const WIZARD_STEPS = [
-  { slug: 'property-type', label: 'Property type' },
-  { slug: 'location', label: 'Location' },
-  { slug: 'capacity', label: 'Capacity' },
-  { slug: 'amenities', label: 'Amenities' },
-  { slug: 'photos', label: 'Photos' },
-  { slug: 'details', label: 'Details' },
-  { slug: 'pricing', label: 'Pricing' },
-  { slug: 'house-rules', label: 'House rules' },
-  { slug: 'verification', label: 'Verification' },
+  { slug: 'property-type', label: 'Property type', optional: false as const },
+  { slug: 'location', label: 'Location', optional: false as const },
+  { slug: 'capacity', label: 'Capacity', optional: false as const },
+  { slug: 'amenities', label: 'Amenities', optional: false as const },
+  { slug: 'photos', label: 'Photos', optional: false as const },
+  { slug: 'details', label: 'Details', optional: false as const },
+  { slug: 'pricing', label: 'Pricing', optional: false as const },
+  { slug: 'house-rules', label: 'House rules', optional: false as const },
+  { slug: 'verification', label: 'Verification', optional: false as const },
+  { slug: 'discounts', label: 'Discounts', optional: true as const },
+  { slug: 'addons', label: 'Add-ons', optional: true as const },
 ] as const;
 
 export const WIZARD_TOTAL = WIZARD_STEPS.length;
@@ -46,23 +48,23 @@ export default function WizardShell({
   return (
     <div className="min-h-screen flex flex-col bg-[#f0f2f5] text-gray-800">
       {/* Top bar */}
-      <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-12 h-20 bg-white shadow-nav">
+      <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 md:px-16 lg:px-20 h-20 bg-white shadow-sm border-b border-gray-100">
         <Link
           href="/"
-          className="text-xl font-extrabold tracking-tight text-gray-900"
+          className="text-xl font-extrabold tracking-tight text-gray-900 flex items-center gap-2"
         >
-          HOSTI<span className="text-blue-600">GGO</span>
+          <span>HOSTI</span><span className="text-blue-600">GGO</span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Link
             href="/host/listings"
-            className="text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors px-4 py-2 rounded-lg"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-lg hover:bg-gray-50"
           >
             Save &amp; Exit
           </Link>
           <button
             type="button"
-            className="text-blue-600 hover:bg-blue-50 transition-colors p-2 rounded-full"
+            className="text-blue-600 hover:bg-blue-50 transition-colors p-2 rounded-lg"
             aria-label="Help"
           >
             <HelpCircle className="w-5 h-5" />
@@ -82,17 +84,24 @@ export default function WizardShell({
       </div>
 
       {/* Content */}
-      <main className="flex-grow pt-32 pb-32 px-4 md:px-12 w-full">
-        <div className="max-w-5xl mx-auto">
-          <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-2">
-              Step {step} of {WIZARD_TOTAL}
-            </p>
-            <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
+      <main className="flex-grow pt-32 pb-32 px-6 md:px-16 lg:px-20 w-full">
+        <div className="max-w-6xl mx-auto">
+        <div className="mb-12">
+            <div className="flex items-center gap-3 mb-3">
+              <p className="text-sm font-semibold uppercase tracking-widest text-blue-600">
+                Step {step} of {WIZARD_TOTAL}
+              </p>
+              {WIZARD_STEPS[idx]?.optional && (
+                <span className="text-xs font-semibold uppercase tracking-widest px-3 py-1 bg-blue-50 text-blue-600 rounded-full">
+                  Optional
+                </span>
+              )}
+            </div>
+            <h1 className="text-4xl md:text-5xl font-bold text-gray-900 mb-3 leading-tight">
               {title}
             </h1>
             {subtitle && (
-              <p className="text-base md:text-lg text-gray-500 max-w-2xl">
+              <p className="text-lg md:text-xl text-gray-600 max-w-3xl leading-relaxed">
                 {subtitle}
               </p>
             )}
@@ -102,18 +111,18 @@ export default function WizardShell({
       </main>
 
       {/* Footer nav */}
-      <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-12 py-4 bg-white border-t border-gray-200">
+      <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-6 md:px-16 lg:px-20 py-5 bg-white border-t border-gray-200 shadow-lg">
         <button
           type="button"
           onClick={() => (prev ? router.push(`/host/list/${prev.slug}`) : router.back())}
-          className="px-6 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
+          className="px-6 py-2.5 border border-gray-300 rounded-lg text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-all active:scale-95"
         >
           Back
         </button>
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-6">
           <button
             type="button"
-            className="hidden md:block text-sm font-medium text-gray-500 hover:underline"
+            className="hidden md:block text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors"
           >
             Need help?
           </button>
@@ -126,9 +135,9 @@ export default function WizardShell({
               else submit();
             }}
             className={cn(
-              'rounded-xl px-10 py-3 text-sm font-bold text-white transition-all active:scale-95 shadow-md flex items-center gap-2',
+              'rounded-lg px-8 py-2.5 text-sm font-bold text-white transition-all active:scale-95 shadow-sm flex items-center gap-2',
               nextDisabled || submitting
-                ? 'bg-gray-300 cursor-not-allowed'
+                ? 'bg-gray-400 cursor-not-allowed'
                 : 'bg-blue-600 hover:bg-blue-700',
             )}
           >
