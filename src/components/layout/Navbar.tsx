@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/components/providers/AuthProvider';
 import {
@@ -236,11 +237,13 @@ export default function Navbar() {
             href="/"
             className="flex items-center gap-2.5 flex-shrink-0 group"
           >
-            <div className="w-9 h-9 bg-[#004772] rounded-full flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
-              <span className="text-white font-bold text-[18px] leading-none">
-                H
-              </span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Hostiggo Logo"
+              width={36}
+              height={36}
+              className="transition-transform group-hover:scale-105"
+            />
             <div className="flex items-baseline">
               <span className="font-black text-[#374151] text-[17px] tracking-wider uppercase">
                 Hosti

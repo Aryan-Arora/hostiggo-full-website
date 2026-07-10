@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   CalendarCheck,
   Building2,
@@ -55,8 +56,16 @@ function SidebarContent({
   return (
     <>
       <div className="mb-10 px-2">
-        <Link href="/" onClick={onNavigate} className="text-lg font-extrabold text-gray-900">
-          HOSTI<span className="text-blue-600">GGO</span>
+        <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5">
+          <Image
+            src="/logo.png"
+            alt="Hostiggo Logo"
+            width={32}
+            height={32}
+          />
+          <span className="text-lg font-extrabold text-gray-900">
+            HOSTI<span className="text-blue-600">GGO</span>
+          </span>
         </Link>
         <p className="text-sm text-gray-500 mt-1">Host Dashboard</p>
       </div>
@@ -163,8 +172,16 @@ export default function HostDashboardShell({
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link href="/" className="text-lg font-extrabold text-gray-900">
-            HOSTI<span className="text-blue-600">GGO</span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="Hostiggo Logo"
+              width={24}
+              height={24}
+            />
+            <span className="text-lg font-extrabold text-gray-900">
+              HOSTI<span className="text-blue-600">GGO</span>
+            </span>
           </Link>
         </div>
         <div className="hidden lg:block" />
