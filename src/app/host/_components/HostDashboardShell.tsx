@@ -67,7 +67,9 @@ function SidebarContent({
             HOSTI<span className="text-blue-600">GGO</span>
           </span>
         </Link>
-        <p className="text-sm text-gray-500 mt-1">Host Dashboard</p>
+        <div className="ml-11">
+          <p className="text-sm text-gray-500 mt-1">Host Dashboard</p>
+        </div>
       </div>
       <div className="flex-1 space-y-1">
         {NAV.map((item) => {
