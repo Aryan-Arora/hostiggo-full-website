@@ -8,7 +8,6 @@ import {
   Printer,
   BadgeCheck,
   MessageSquare,
-  Phone,
   Check,
   Hourglass,
   CalendarX,
@@ -271,14 +270,6 @@ function DetailsInner() {
                   >
                     <MessageSquare className="w-5 h-5" /> Contact Guest
                   </button>
-                  {view.guestPhone && (
-                    <a
-                      href={`tel:${view.guestPhone}`}
-                      className="flex items-center gap-2 px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all"
-                    >
-                      <Phone className="w-5 h-5" /> Call {view.guestFirst}
-                    </a>
-                  )}
                 </div>
               </div>
             </div>
