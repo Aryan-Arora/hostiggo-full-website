@@ -127,9 +127,9 @@ export default function Footer() {
             <button className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs transition-colors">
               <Globe className="w-3.5 h-3.5" /> English
             </button>
-            <button className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs transition-colors">
+            <span className="flex items-center gap-1 text-gray-500 text-xs">
               <IndianRupee className="w-3.5 h-3.5" /> INR
-            </button>
+            </span>
             <div className="flex items-center gap-1.5">
               {[{ Icon: Facebook, label: "Facebook" }, { Icon: Twitter, label: "Twitter" }, { Icon: Instagram, label: "Instagram" }].map(({ Icon, label }) => (
                 <span key={label} aria-hidden="true" className="w-7 h-7 bg-gray-100 text-gray-400 rounded-full flex items-center justify-center">
