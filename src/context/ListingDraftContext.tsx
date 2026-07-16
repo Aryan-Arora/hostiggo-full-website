@@ -19,6 +19,7 @@ export type ListingDraft = {
   numBeds?: number;
   numBathrooms?: number;
   amenityIds?: number[];
+  addonSelections?: { addon_id: number; price: number; includes: string }[];
   photoUrls?: string[];
   addressLine1?: string;
   landmark?: string;

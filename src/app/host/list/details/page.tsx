@@ -27,7 +27,7 @@ export default function DetailsPage() {
 
   return (
     <WizardShell
-      step={6}
+      step={7}
       title="Now, let's give your place a title and description"
       subtitle="Short, catchy titles work best. Describe what makes your place special to attract more guests."
       nextDisabled={!title.trim()}

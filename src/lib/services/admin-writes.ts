@@ -346,6 +346,7 @@ export type ListingDraft = {
   numBeds?: number;
   numBathrooms?: number;
   amenityIds?: number[];
+  addonSelections?: { addon_id: number; price: number; includes: string }[];
   photoUrls?: string[];
   checkInTime?: string;
   checkOutTime?: string;
@@ -404,6 +405,22 @@ export async function createListing(draft: ListingDraft) {
     if (aerr) {
       console.error("[createListing] amenities insert failed:", aerr.message);
       warnings.push("Your listing was created, but the selected amenities failed to save.");
+    }
+  }
+
+  // Add-ons picked in the wizard (host can still add/remove/reprice these
+  // later from listing settings - this just seeds the initial selection).
+  if (draft.addonSelections?.length) {
+    const addonRows = draft.addonSelections.map((s) => ({
+      listing_id: listingId,
+      addon_id: s.addon_id,
+      price: s.price ?? 0,
+      includes: s.includes ?? "",
+    }));
+    const { error: addonErr } = await supabaseAdmin.from("listing_addons").insert(addonRows);
+    if (addonErr) {
+      console.error("[createListing] addons insert failed:", addonErr.message);
+      warnings.push("Your listing was created, but the selected add-ons failed to save.");
     }
   }
 

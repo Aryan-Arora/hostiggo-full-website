@@ -12,6 +12,7 @@ export const WIZARD_STEPS = [
   { slug: 'location', label: 'Location' },
   { slug: 'capacity', label: 'Capacity' },
   { slug: 'amenities', label: 'Amenities' },
+  { slug: 'addons', label: 'Add-ons' },
   { slug: 'photos', label: 'Photos' },
   { slug: 'details', label: 'Details' },
   { slug: 'pricing', label: 'Pricing' },

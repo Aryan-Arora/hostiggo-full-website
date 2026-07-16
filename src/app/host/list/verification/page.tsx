@@ -12,7 +12,7 @@ const STEPS = [
 export default function VerificationPage() {
   return (
     <WizardShell
-      step={9}
+      step={10}
       title="Security starts with verification"
       subtitle="To maintain the highest level of trust on Hostiggo, we require all hosts to complete a quick mobile video verification."
       nextLabel="Verify via App"

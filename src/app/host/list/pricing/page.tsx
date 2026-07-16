@@ -45,7 +45,7 @@ export default function PricingPage() {
 
   return (
     <WizardShell
-      step={7}
+      step={8}
       title="Now, set your price"
       subtitle="You can change it anytime after you publish your listing."
     >
