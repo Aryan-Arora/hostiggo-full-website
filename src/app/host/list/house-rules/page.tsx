@@ -72,7 +72,7 @@ export default function HouseRulesPage() {
   if (listingId && !loading) {
     return (
       <WizardShell
-        step={8}
+        step={9}
         title="Set house rules and safety details"
         subtitle="These can be managed later from your listing management dashboard"
       >
@@ -94,7 +94,7 @@ export default function HouseRulesPage() {
   // For draft listings during wizard flow, show simple checkboxes
   return (
     <WizardShell
-      step={8}
+      step={9}
       title="Set some rules for your guests"
       subtitle="Clear rules help avoid misunderstandings and set the right expectations for your stay."
     >

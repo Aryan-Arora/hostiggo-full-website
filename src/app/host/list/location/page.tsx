@@ -29,6 +29,28 @@ export default function LocationPage() {
     loadInitialAddress();
   }, [draft]);
 
+  // Auto-detect the host's location on first visit to this step, instead of
+  // silently defaulting to Delhi and making them find the pin and their
+  // actual address manually. Only runs once, and only when no location has
+  // been set yet (so it never overrides an address the host already picked).
+  useEffect(() => {
+    if (draft.latitude || draft.longitude || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const result = await reverseGeocode(lat, lng);
+        handleLocationSelect(lat, lng, result?.displayName ?? '');
+      },
+      () => {
+        // Permission denied or unavailable - keep the Delhi default and let
+        // the host search/pick manually instead of interrupting them.
+      },
+      { timeout: 10000 },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const handleAddressChange = (newAddress: string) => {
     setAddress(newAddress);
     update({ addressLine1: newAddress });
