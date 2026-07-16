@@ -442,31 +442,42 @@ export const api = {
     request<any[]>(
       `/api/bookings?role=guest&userId=${encodeURIComponent(userId)}&label=${label}&limit=50`,
     ),
-  updateBookingDates: (bookingId: string, checkIn: Date, checkOut: Date) =>
+  updateBookingDates: (bookingId: string, checkIn: Date, checkOut: Date, userId: string) =>
     request<any>("/api/bookings", {
       method: "PATCH",
       body: JSON.stringify({
         action: "dates",
         bookingId,
+        userId,
         checkIn: toISODate(checkIn),
         checkOut: toISODate(checkOut),
       }),
     }),
-  updateBookingGuests: (bookingId: string, guests: { adults: number; children: number; pets?: number }) =>
+  updateBookingGuests: (
+    bookingId: string,
+    guests: { adults: number; children: number; pets?: number },
+    userId: string,
+  ) =>
     request<any>("/api/bookings", {
       method: "PATCH",
       body: JSON.stringify({
         action: "guests",
         bookingId,
+        userId,
         adults: guests.adults,
         children: guests.children,
         pets: guests.pets ?? 0,
       }),
     }),
-  updateBookingStatus: (bookingId: string, status: "pending" | "confirmed" | "cancelled", reason?: string) =>
+  updateBookingStatus: (
+    bookingId: string,
+    status: "pending" | "confirmed" | "cancelled",
+    reason: string | undefined,
+    userId: string,
+  ) =>
     request<any>("/api/bookings", {
       method: "PATCH",
-      body: JSON.stringify({ action: "status", bookingId, status, reason }),
+      body: JSON.stringify({ action: "status", bookingId, status, reason, userId }),
     }),
   // iCal integration
   registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>

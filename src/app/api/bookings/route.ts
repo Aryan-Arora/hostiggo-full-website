@@ -32,8 +32,16 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { action, bookingId } = body;
+    const { action, bookingId, userId } = body;
     if (!bookingId) return NextResponse.json({ error: "bookingId is required" }, { status: 400 });
+
+    // status/dates/guests all mutate an existing guest booking — require
+    // the caller's userId so ownership can be verified (see
+    // assertOwnsBooking in bookings.ts). "review" is a new row, not a
+    // mutation of someone else's data, so it doesn't need this.
+    if (["status", "dates", "guests"].includes(action) && !userId) {
+      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    }
 
     if (action === "status") {
       const data = await bookingsAPI.updateBookingStatus(
@@ -41,12 +49,13 @@ export async function PATCH(req: NextRequest) {
         body.status,
         body.cancelledBy,
         body.reason,
+        userId,
       );
       return NextResponse.json({ data });
     }
 
     if (action === "dates") {
-      const data = await bookingsAPI.updateBookingDates(bookingId, body.checkIn, body.checkOut);
+      const data = await bookingsAPI.updateBookingDates(bookingId, body.checkIn, body.checkOut, userId);
       return NextResponse.json({ data });
     }
 
@@ -56,6 +65,7 @@ export async function PATCH(req: NextRequest) {
         Number(body.adults ?? 0),
         Number(body.children ?? 0),
         Number(body.pets ?? 0),
+        userId,
       );
       return NextResponse.json({ data });
     }
