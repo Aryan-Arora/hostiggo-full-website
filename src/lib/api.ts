@@ -100,7 +100,13 @@ export function mapListingToProperty(input: any): Property {
   const images = mediaUrls(row);
   const amenities = amenityNames(row);
   const reviews = buildReviews(row);
-  const rating = Number(row.avg_rating ?? row.rating ?? 0);
+  // Prefer the live joined reviews over listings.avg_rating/review_count,
+  // which are separately materialized columns that createReview never updates
+  // and so go stale as soon as a new review is submitted.
+  const rating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : Number(row.avg_rating ?? row.rating ?? 0);
 
   return {
     id: String(row.listing_id ?? row.id ?? ""),
@@ -110,7 +116,7 @@ export function mapListingToProperty(input: any): Property {
     price: Number(row.price_weekday ?? row.price ?? 0),
     priceWeekend: Number(row.price_weekend ?? row.price_weekday ?? row.price ?? 0),
     rating,
-    reviewCount: Number(row.review_count ?? reviews.length ?? 0),
+    reviewCount: reviews.length > 0 ? reviews.length : Number(row.review_count ?? 0),
     amenities,
     amenityDetails: buildAmenityDetails(amenities),
     propertyType: row.property_type ?? row.propertyType ?? "Homestay",
