@@ -15,7 +15,8 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-// status_id: 1 = pending, 2 = confirmed, 3 = cancelled (see bookings service)
+// Bookings are instant-confirmed on creation — status_id is only ever
+// 2 (confirmed) or 3 (cancelled), there is no pending/approval step.
 const STATUS_CANCELLED = 3;
 const STATUS_CONFIRMED = 2;
 
