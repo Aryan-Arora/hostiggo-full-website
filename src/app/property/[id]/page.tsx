@@ -793,6 +793,44 @@ function BookingWidget({
   const [guests, setGuests] = useState(1);
   const [showPicker, setShowPicker] = useState(false);
   const pickerRef = useRef<HTMLDivElement>(null);
+  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+
+  // Fetch booked/unavailable dates so the calendar can grey them out up
+  // front, instead of only telling the guest after they pick a range and
+  // hit "Reserve".
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const start = new Date();
+      const end = new Date();
+      end.setMonth(end.getMonth() + 12);
+      try {
+        const res = await fetch(
+          `/api/calendar?listingId=${property.id}&startDate=${toISODate(start)}&endDate=${toISODate(end)}`
+        );
+        const json = await res.json();
+        if (cancelled || !res.ok) return;
+        const blocked = new Set<string>();
+        for (const entry of json.data?.entries ?? []) {
+          if (entry.is_available === false) blocked.add(entry.date);
+        }
+        for (const b of json.data?.bookings ?? []) {
+          if (b.status_id !== 2) continue;
+          const cur = new Date(b.start_date + 'T00:00:00');
+          const bookingEnd = new Date(b.end_date + 'T00:00:00');
+          while (cur < bookingEnd) {
+            blocked.add(toISODate(cur)!);
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+        setBlockedDates(blocked);
+      } catch {
+        /* non-critical: calendar just won't grey out booked dates */
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [property.id]);
 
   // The booking card is `sticky`, so it only sits near the top of the
   // viewport once the page has been scrolled. Opened before that (e.g.
@@ -1007,6 +1045,7 @@ function BookingWidget({
             checkOut={checkOut}
             onChange={handleDatesChange}
             onClose={() => setShowPicker(false)}
+            blockedDates={blockedDates}
           />
         </div>
       )}

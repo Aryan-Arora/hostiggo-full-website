@@ -7,6 +7,7 @@ interface DateRangePickerProps {
   checkOut: Date | null;
   onChange: (checkIn: Date | null, checkOut: Date | null) => void;
   onClose: () => void;
+  blockedDates?: Set<string>;
 }
 
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -20,6 +21,12 @@ function firstDayOf(y: number, m: number) { return new Date(y, m, 1).getDay(); }
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
+function isoDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 interface CalendarMonthProps {
   year: number;
@@ -28,12 +35,13 @@ interface CalendarMonthProps {
   checkOut: Date | null;
   hoverDate: Date | null;
   selecting: "checkin" | "checkout";
+  blockedDates: Set<string>;
   onDayClick: (d: Date) => void;
   onDayHover: (d: Date | null) => void;
   onDayMouseDown: (d: Date) => void;
 }
 
-function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, onDayClick, onDayHover, onDayMouseDown }: CalendarMonthProps) {
+function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, blockedDates, onDayClick, onDayHover, onDayMouseDown }: CalendarMonthProps) {
   const today = new Date(); today.setHours(0,0,0,0);
   const totalDays = daysInMonth(year, month);
   const startOffset = firstDayOf(year, month);
@@ -47,6 +55,8 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
     const date = new Date(year, month, day);
     date.setHours(0,0,0,0);
     const isPast = date < today;
+    const isBooked = blockedDates.has(isoDate(date));
+    const isDisabled = isPast || isBooked;
     const isStart = checkIn ? sameDay(date, checkIn) : false;
     const isEnd   = checkOut ? sameDay(date, checkOut) : false;
     const isHoverEnd = !checkOut && selecting === "checkout" && hoverDate ? sameDay(date, hoverDate) : false;
@@ -56,14 +66,16 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
     cells.push(
       <button
         key={day}
-        disabled={isPast}
-        onClick={() => !isPast && onDayClick(date)}
-        onMouseDown={() => !isPast && onDayMouseDown(date)}
-        onMouseEnter={() => !isPast && onDayHover(date)}
+        disabled={isDisabled}
+        title={isBooked && !isPast ? "Already booked" : undefined}
+        onClick={() => !isDisabled && onDayClick(date)}
+        onMouseDown={() => !isDisabled && onDayMouseDown(date)}
+        onMouseEnter={() => !isDisabled && onDayHover(date)}
         onMouseLeave={() => onDayHover(null)}
         className={cn(
           "calendar-day",
-          isPast && "disabled",
+          isDisabled && "disabled",
+          isBooked && !isPast && "line-through text-gray-300",
           isStart && "selected range-start",
           isEnd && "selected range-end",
           isHoverEnd && !isEnd && "selected range-end",
@@ -91,12 +103,14 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
   );
 }
 
+const EMPTY_BLOCKED = new Set<string>();
+
 function fmtDate(d: Date | null) {
   if (!d) return "—";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }: DateRangePickerProps) {
+export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, blockedDates = EMPTY_BLOCKED }: DateRangePickerProps) {
   const today = new Date();
   const [baseYear, setBaseYear] = useState(today.getFullYear());
   const [baseMonth, setBaseMonth] = useState(today.getMonth());
@@ -218,6 +232,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
           year={baseYear} month={baseMonth}
           checkIn={checkIn} checkOut={checkOut}
           hoverDate={hoverDate} selecting={selecting}
+          blockedDates={blockedDates}
           onDayClick={handleDayClick} onDayHover={setHoverDate}
           onDayMouseDown={handleDayMouseDown}
         />
@@ -226,6 +241,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
           year={nextYear} month={nextMonth}
           checkIn={checkIn} checkOut={checkOut}
           hoverDate={hoverDate} selecting={selecting}
+          blockedDates={blockedDates}
           onDayClick={handleDayClick} onDayHover={setHoverDate}
           onDayMouseDown={handleDayMouseDown}
         />
