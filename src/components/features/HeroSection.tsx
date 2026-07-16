@@ -1,4 +1,3 @@
-import { useRouter } from "next/navigation";
 import SearchForm from "@/components/features/SearchForm";
 
 import { cn } from "@/lib/utils";
@@ -18,7 +17,6 @@ const HERO_TAGS = [
 ] as const;
 
 export default function HeroSection() {
-  const router = useRouter();
   const { filters, sort } = useListingState();
   const { setPriceRange, setRating, setBooleanFilter, setSort } = useListingActions();
 
@@ -68,7 +66,6 @@ export default function HeroSection() {
         setSort(active ? "recommended" : "price_asc");
         break;
     }
-    router.push("/search");
   };
 
   return (
