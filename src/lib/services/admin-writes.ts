@@ -209,6 +209,34 @@ export async function createBooking(input: {
     .single();
   if (error) throw error;
 
+  // Checks A/B above are check-then-insert, not atomic — two requests can
+  // both pass them and both insert a CONFIRMED booking for overlapping
+  // dates. There's no way to add a real DB-level exclusion constraint from
+  // here (would need direct schema access this service doesn't have), so
+  // instead re-check immediately after inserting: if another CONFIRMED
+  // booking for the same listing/dates already existed before ours
+  // (lower booking_id = arrived first), we lost the race — cancel the
+  // booking we just created rather than leave two guests both holding a
+  // "confirmed" reservation for the same nights. This shrinks the race
+  // window from the whole request round-trip down to just this recheck,
+  // it doesn't eliminate it outright.
+  const { data: raceLosers, error: raceErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id")
+    .eq("listing_id", input.listingId)
+    .eq("status_id", 2)
+    .neq("booking_id", data.booking_id)
+    .lt("booking_id", data.booking_id)
+    .lt("start_date", input.endDate)
+    .gt("end_date", input.startDate);
+  if (!raceErr && raceLosers && raceLosers.length > 0) {
+    await supabaseAdmin
+      .from("bookings")
+      .update({ status_id: 3, cancellation_reason: "Dates were booked by another guest first" })
+      .eq("booking_id", data.booking_id);
+    throw new Error("These dates were just booked by someone else. Please choose different dates.");
+  }
+
   // Block all nights in the booked range so they can't be double-booked.
   const nights = eachDateInRange(input.startDate, input.endDate);
   if (nights.length) {
