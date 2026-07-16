@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -30,9 +30,10 @@ interface CalendarMonthProps {
   selecting: "checkin" | "checkout";
   onDayClick: (d: Date) => void;
   onDayHover: (d: Date | null) => void;
+  onDayMouseDown: (d: Date) => void;
 }
 
-function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, onDayClick, onDayHover }: CalendarMonthProps) {
+function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, onDayClick, onDayHover, onDayMouseDown }: CalendarMonthProps) {
   const today = new Date(); today.setHours(0,0,0,0);
   const totalDays = daysInMonth(year, month);
   const startOffset = firstDayOf(year, month);
@@ -57,6 +58,7 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
         key={day}
         disabled={isPast}
         onClick={() => !isPast && onDayClick(date)}
+        onMouseDown={() => !isPast && onDayMouseDown(date)}
         onMouseEnter={() => !isPast && onDayHover(date)}
         onMouseLeave={() => onDayHover(null)}
         className={cn(
@@ -101,6 +103,37 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
   const [selecting, setSelecting] = useState<"checkin"|"checkout">(checkIn ? "checkout" : "checkin");
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
 
+  // Click-and-drag range selection: mousedown on a day starts a drag: holding
+  // and moving across days previews the range (via the existing hover
+  // highlighting below), and releasing on a later day commits check-in and
+  // check-out together in one gesture, instead of requiring two separate
+  // taps. A plain click (mousedown+mouseup on the same day, no movement)
+  // still falls through to the original tap-to-tap flow via handleDayClick.
+  const dragStartRef = useRef<Date | null>(null);
+  const justDraggedRef = useRef(false);
+
+  const handleDayMouseDown = (date: Date) => {
+    // Clear any stale flag from a previous drag so it can't accidentally
+    // suppress a later, unrelated click.
+    justDraggedRef.current = false;
+    if (selecting === "checkin") dragStartRef.current = date;
+  };
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      const start = dragStartRef.current;
+      dragStartRef.current = null;
+      if (!start || !hoverDate || sameDay(start, hoverDate) || hoverDate <= start) return;
+      justDraggedRef.current = true;
+      onChange(start, hoverDate);
+      setSelecting("checkin");
+      onClose();
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoverDate]);
+
   const nextYear  = baseMonth === 11 ? baseYear + 1 : baseYear;
   const nextMonth = baseMonth === 11 ? 0 : baseMonth + 1;
 
@@ -114,6 +147,12 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
   };
 
   const handleDayClick = (date: Date) => {
+    if (justDraggedRef.current) {
+      // A drag just committed the range and closed the picker on mouseup;
+      // suppress the click event that fires right after on the same day.
+      justDraggedRef.current = false;
+      return;
+    }
     if (selecting === "checkin") {
       onChange(date, null);
       setSelecting("checkout");
@@ -178,6 +217,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
           checkIn={checkIn} checkOut={checkOut}
           hoverDate={hoverDate} selecting={selecting}
           onDayClick={handleDayClick} onDayHover={setHoverDate}
+          onDayMouseDown={handleDayMouseDown}
         />
         <div className="w-px bg-gray-100 flex-shrink-0 self-stretch" />
         <CalendarMonth
@@ -185,6 +225,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
           checkIn={checkIn} checkOut={checkOut}
           hoverDate={hoverDate} selecting={selecting}
           onDayClick={handleDayClick} onDayHover={setHoverDate}
+          onDayMouseDown={handleDayMouseDown}
         />
       </div>
 
