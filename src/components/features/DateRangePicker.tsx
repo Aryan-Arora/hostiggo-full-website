@@ -130,7 +130,10 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
   };
 
   return (
-    <div className="dropdown-panel animate-fade-in-down p-5" style={{ width: "min(600px, 95vw)" }}>
+    <div
+      className="dropdown-panel animate-fade-in-down p-5 right-0 max-h-[min(75vh,600px)] overflow-y-auto"
+      style={{ width: "min(600px, calc(100vw - 2rem))" }}
+    >
       {/* Date selection header */}
       <div className="flex gap-3 mb-5">
         {[

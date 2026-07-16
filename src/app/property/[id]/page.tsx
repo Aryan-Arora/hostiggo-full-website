@@ -791,6 +791,19 @@ function BookingWidget({
   const [checkOut, setCheckOut] = useState<Date | null>(toDate(paramCheckOut));
   const [guests, setGuests] = useState(1);
   const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+
+  // The booking card is `sticky`, so it only sits near the top of the
+  // viewport once the page has been scrolled. Opened before that (e.g.
+  // right after landing on the page), the calendar renders in the card's
+  // natural, far-down document position - off-screen below the fold, with
+  // nothing prompting the guest to scroll for it. Scroll it into view
+  // whenever it opens so it's never invisible.
+  useEffect(() => {
+    if (showPicker) {
+      pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showPicker]);
 
   // 'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'
   const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'>(
@@ -948,7 +961,7 @@ function BookingWidget({
 
       {/* DateRangePicker dropdown */}
       {showPicker && (
-        <div className="mb-3">
+        <div className="mb-3" ref={pickerRef} style={{ scrollMarginTop: '90px' }}>
           <DateRangePicker
             checkIn={checkIn}
             checkOut={checkOut}
