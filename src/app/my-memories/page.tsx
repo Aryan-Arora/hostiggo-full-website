@@ -62,7 +62,7 @@ interface Booking {
   checkIn: Date;
   checkOut: Date;
   status: TabKey;
-  coordinates: { lat: number; lng: number };
+  coordinates: { lat: number; lng: number } | null;
   guests: GuestCounts;
   addons: AddOn[];
 }
@@ -994,6 +994,7 @@ function BookingCard({
         : 'text-red-400';
 
   const handleLocation = () => {
+    if (!booking.coordinates) return;
     window.open(
       `https://www.google.com/maps?q=${booking.coordinates.lat},${booking.coordinates.lng}`,
       '_blank',
@@ -1041,7 +1042,14 @@ function BookingCard({
             <div className="flex items-center gap-2.5">
               <button
                 onClick={handleLocation}
-                className="flex items-center gap-2 border border-gray-200 text-gray-600 text-[12.5px] font-semibold px-4 py-2 rounded-full hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                disabled={!booking.coordinates}
+                title={booking.coordinates ? undefined : 'Exact location unavailable'}
+                className={cn(
+                  'flex items-center gap-2 border text-[12.5px] font-semibold px-4 py-2 rounded-full transition-all duration-200',
+                  booking.coordinates
+                    ? 'border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'
+                    : 'border-gray-100 text-gray-300 cursor-not-allowed',
+                )}
               >
                 <Navigation className="w-3.5 h-3.5" />
                 Location

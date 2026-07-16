@@ -29,7 +29,42 @@ export const bookingsAPI = {
       .order("start_date", { ascending: bookingLabel === "upcoming" });
 
     if (error) throw error;
-    return data || [];
+    const rows = data || [];
+    if (!rows.length) return rows;
+
+    // user_bookings_detailed has no listing_id/coordinates/location at all,
+    // so the guest-facing "Location" button had no real place to point to
+    // and silently defaulted to the geographic center of India. Fetch the
+    // real listing_id + coordinates + district/state for these bookings
+    // and merge them in.
+    const bookingIds = rows.map((r: any) => r.booking_id);
+    const { data: withListing } = await supabase
+      .from("bookings")
+      .select(
+        `
+        booking_id,
+        listings (
+          latitude, longitude,
+          locations (district, state)
+        )
+      `,
+      )
+      .in("booking_id", bookingIds);
+
+    const byId = new Map(
+      (withListing ?? []).map((r: any) => [r.booking_id, r.listings]),
+    );
+
+    return rows.map((r: any) => {
+      const listing = byId.get(r.booking_id);
+      return {
+        ...r,
+        latitude: listing?.latitude ?? null,
+        longitude: listing?.longitude ?? null,
+        district: listing?.locations?.district ?? null,
+        state: listing?.locations?.state ?? null,
+      };
+    });
   },
 
   async fetchGuestBookingDetail(bookingId: string | number) {
