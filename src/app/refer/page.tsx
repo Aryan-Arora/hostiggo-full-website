@@ -42,8 +42,8 @@ export default function ReferPage() {
         <div className="bg-white rounded-3xl p-10 shadow-card border border-gray-200 mb-16 text-center">
           <h3 className="text-lg font-bold text-gray-800 mb-2">Referral program coming soon</h3>
           <p className="text-sm text-gray-500 max-w-md mx-auto">
-            We're still building referral codes, tracking, and rewards. This page will show your
-            real referral link and earnings once that's live.
+            We&apos;re still building referral codes, tracking, and rewards. This page will show your
+            real referral link and earnings once that&apos;s live.
           </p>
         </div>
 

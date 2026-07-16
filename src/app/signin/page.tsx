@@ -243,7 +243,7 @@ function SignInContent() {
 
         {/* Terms */}
         <p className="text-center text-[11px] text-gray-400 leading-relaxed">
-          By continuing, you agree to Hostiggo's{' '}
+          By continuing, you agree to Hostiggo&apos;s{' '}
           <a href="/terms" className="text-blue-500 hover:underline">
             Terms and Conditions
           </a>{' '}

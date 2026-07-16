@@ -155,7 +155,7 @@ export default function DestinationDropdown({
               No exact match found in database
             </p>
             <p className="text-xs text-gray-300 mt-1">
-              You can still search for "{query}"
+              You can still search for &quot;{query}&quot;
             </p>
           </div>
         ) : (

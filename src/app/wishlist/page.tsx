@@ -85,7 +85,7 @@ function ConfirmModal({
       />
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-[320px] mx-4 animate-slide-up">
         <p className="text-[15px] font-semibold text-gray-800 leading-relaxed mb-5">
-          Confirm to remove <span className="text-blue-600">"{groupName}"</span>{' '}
+          Confirm to remove <span className="text-blue-600">&quot;{groupName}&quot;</span>{' '}
           from list?
         </p>
         <div className="flex items-center gap-3">
@@ -747,7 +747,7 @@ export default function WishlistPage() {
               Sign in to see your wishlist
             </p>
             <p className="text-gray-400 text-sm mb-6">
-              Your saved stays will show up here once you're signed in.
+              Your saved stays will show up here once you&apos;re signed in.
             </p>
             <button
               onClick={() => router.push('/signin?redirect=/wishlist')}

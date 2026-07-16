@@ -198,7 +198,7 @@ export default function HouseRulesPage() {
               <div>
                 <h3 className="text-sm font-bold text-blue-900 mb-1">Safety Details Coming</h3>
                 <p className="text-sm text-blue-800">
-                  You'll be able to add detailed safety information in the next step. This includes security cameras, smoke alarms, and other safety features.
+                  You&apos;ll be able to add detailed safety information in the next step. This includes security cameras, smoke alarms, and other safety features.
                 </p>
               </div>
             </div>

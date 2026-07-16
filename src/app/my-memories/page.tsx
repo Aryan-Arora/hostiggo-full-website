@@ -1037,7 +1037,7 @@ function SignedOutState() {
           Sign in to see your trips
         </h3>
         <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
-          Your bookings and stay history will show up here once you're signed in.
+          Your bookings and stay history will show up here once you&apos;re signed in.
         </p>
         <button
           onClick={() => router.push('/signin?redirect=/my-memories')}

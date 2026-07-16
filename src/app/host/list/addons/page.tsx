@@ -142,7 +142,7 @@ export default function AddonsPage() {
                               </div>
                             </label>
                             <label className="text-xs font-medium text-gray-600">
-                              What's included
+                              What&apos;s included
                               <input
                                 type="text"
                                 value={selections[addon.addon_id]?.includes ?? ''}
@@ -171,7 +171,7 @@ export default function AddonsPage() {
                 </div>
                 {selectedCount === 0 ? (
                   <p className="text-sm text-gray-400 italic">
-                    No add-ons selected yet - guests won't see any extras.
+                    No add-ons selected yet - guests won&apos;t see any extras.
                   </p>
                 ) : (
                   <div className="space-y-2">

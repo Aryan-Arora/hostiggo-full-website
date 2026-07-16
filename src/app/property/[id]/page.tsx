@@ -1079,7 +1079,7 @@ function BookingWidget({
         )}
       </div>
       <p className="text-center text-[10px] text-gray-400 mt-2">
-        You won't be charged yet
+        You won&apos;t be charged yet
       </p>
     </div>
   );

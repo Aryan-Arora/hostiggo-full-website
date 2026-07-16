@@ -196,7 +196,7 @@ export default function OTPPageContent() {
           OTP sent successfully
         </h2>
         <p className="text-[13px] text-gray-500 mb-6 leading-relaxed">
-          We've sent you the code on your{' '}
+          We&apos;ve sent you the code on your{' '}
           {mode === 'phone' ? 'mobile' : 'email'}{' '}
           <span className="font-semibold text-gray-700">{maskedValue}</span>
         </p>

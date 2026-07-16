@@ -216,7 +216,7 @@ function EmptyList() {
     <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
       <CircleSlash className="mb-5 h-9 w-9 text-gray-500" strokeWidth={1.8} />
       <p className="max-w-[190px] text-[13px] font-semibold leading-5 text-gray-500">
-        You don't have any chat for this moment
+        You don&apos;t have any chat for this moment
       </p>
     </div>
   );
