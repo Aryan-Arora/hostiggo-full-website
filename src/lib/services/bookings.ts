@@ -20,6 +20,17 @@ async function assertOwnsBooking(bookingId: string | number, requestingUserId: s
   }
 }
 
+function eachDateInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(startDate);
+  const end = new Date(endDate);
+  while (cur < end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
+}
+
 export const bookingsAPI = {
   async fetchGuestBookings(
     userId: string,
@@ -203,10 +214,30 @@ export const bookingsAPI = {
       .from("bookings")
       .update(updateData)
       .eq("booking_id", Number(bookingId))
-      .select()
+      .select("booking_id, status_id, listing_id, start_date, end_date")
       .single();
 
     if (error) throw error;
+
+    // Release the calendar nights this booking had blocked — otherwise a
+    // guest cancelling from "My Trips" (a different code path than the
+    // host-side cancelBooking) leaves those dates unavailable forever.
+    if (
+      status.toLowerCase() === "cancelled" &&
+      data?.listing_id &&
+      data.start_date &&
+      data.end_date
+    ) {
+      const nights = eachDateInRange(data.start_date, data.end_date);
+      if (nights.length) {
+        await supabase
+          .from("listing_calendar")
+          .update({ is_available: true, updated_at: new Date().toISOString() })
+          .eq("listing_id", data.listing_id)
+          .in("date", nights);
+      }
+    }
+
     return data;
   },
 
@@ -220,6 +251,40 @@ export const bookingsAPI = {
     const formattedCheckIn = checkIn.split("T")[0];
     const formattedCheckOut = checkOut.split("T")[0];
 
+    const { data: existing, error: fetchErr } = await supabase
+      .from("bookings")
+      .select("listing_id, start_date, end_date")
+      .eq("booking_id", Number(bookingId))
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    // Same conflict checks createBooking runs — otherwise "modify dates"
+    // can move a booking onto already-blocked or already-booked nights.
+    const { data: blocked, error: blockedErr } = await supabase
+      .from("listing_calendar")
+      .select("date")
+      .eq("listing_id", existing.listing_id)
+      .gte("date", formattedCheckIn)
+      .lt("date", formattedCheckOut)
+      .eq("is_available", false);
+    if (blockedErr) throw blockedErr;
+    if (blocked && blocked.length > 0) {
+      throw new Error("Some of the selected dates are not available.");
+    }
+
+    const { data: conflicts, error: conflictsErr } = await supabase
+      .from("bookings")
+      .select("booking_id")
+      .eq("listing_id", existing.listing_id)
+      .eq("status_id", 2)
+      .neq("booking_id", Number(bookingId))
+      .lt("start_date", formattedCheckOut)
+      .gt("end_date", formattedCheckIn);
+    if (conflictsErr) throw conflictsErr;
+    if (conflicts && conflicts.length > 0) {
+      throw new Error("These dates are already booked.");
+    }
+
     const { data, error } = await supabase
       .from("bookings")
       .update({ start_date: formattedCheckIn, end_date: formattedCheckOut })
@@ -228,6 +293,47 @@ export const bookingsAPI = {
       .single();
 
     if (error) throw error;
+
+    // Release the old nights and block the new ones so the calendar stays
+    // in sync with the booking's actual dates.
+    const now = new Date().toISOString();
+    const oldNights = eachDateInRange(existing.start_date, existing.end_date);
+    if (oldNights.length) {
+      await supabase
+        .from("listing_calendar")
+        .update({ is_available: true, updated_at: now })
+        .eq("listing_id", existing.listing_id)
+        .in("date", oldNights);
+    }
+    const newNights = eachDateInRange(formattedCheckIn, formattedCheckOut);
+    if (newNights.length) {
+      const { data: existingRows } = await supabase
+        .from("listing_calendar")
+        .select("date")
+        .eq("listing_id", existing.listing_id)
+        .in("date", newNights);
+      const existingDates = new Set((existingRows ?? []).map((r: any) => r.date));
+      if (existingRows?.length) {
+        await supabase
+          .from("listing_calendar")
+          .update({ is_available: false, updated_at: now })
+          .eq("listing_id", existing.listing_id)
+          .in("date", newNights);
+      }
+      const missing = newNights.filter((d) => !existingDates.has(d));
+      if (missing.length) {
+        await supabase.from("listing_calendar").insert(
+          missing.map((date) => ({
+            listing_id: existing.listing_id,
+            date,
+            is_available: false,
+            price: 0,
+            currency: "INR",
+          })),
+        );
+      }
+    }
+
     return data;
   },
 
@@ -240,6 +346,19 @@ export const bookingsAPI = {
   ) {
     if (!requestingUserId) throw new Error("requestingUserId is required.");
     await assertOwnsBooking(bookingId, requestingUserId);
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from("bookings")
+      .select("listing_id, listings(num_guests)")
+      .eq("booking_id", Number(bookingId))
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const maxGuests = Number((existing as any)?.listings?.num_guests ?? 1);
+    if (adults + children > maxGuests) {
+      throw new Error(`This listing only accommodates up to ${maxGuests} guests.`);
+    }
+
     const { data, error } = await supabase
       .from("bookings")
       .update({

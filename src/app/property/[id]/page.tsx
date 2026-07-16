@@ -39,6 +39,7 @@ import { cn, toISODate } from '@/lib/utils';
 import type { Property, AmenityItem, Review, Host } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useWishlist } from '@/hooks/useWishlist';
 import { toast } from 'sonner';
 
 const FALLBACK =
@@ -805,7 +806,21 @@ function BookingWidget({
   useEffect(() => { onNightsChange?.(nights); }, [nights]);
   useEffect(() => { onGuestsChange?.(guests); }, [guests]);
 
-  const subtotal = property.price * (nights || 1);
+  // Mirrors the server-side calc in createBooking() — weekend nights
+  // (Fri/Sat) bill at priceWeekend, everything else at the weekday price,
+  // so this preview matches what actually gets charged.
+  const subtotal = (() => {
+    if (!checkIn || !checkOut || nights === 0) return property.price;
+    const priceWeekend = property.priceWeekend ?? property.price;
+    let sum = 0;
+    const cur = new Date(checkIn);
+    for (let i = 0; i < nights; i++) {
+      const dow = cur.getDay();
+      sum += dow === 5 || dow === 6 ? priceWeekend : property.price;
+      cur.setDate(cur.getDate() + 1);
+    }
+    return sum;
+  })();
   const serviceFee = Math.round(subtotal * 0.08);
   const taxes = Math.round(subtotal * 0.12);
   const total = subtotal + serviceFee + taxes;
@@ -864,7 +879,6 @@ function BookingWidget({
         endDate: toISODate(checkOut)!,
         numAdults: guests,
         numChildren: 0,
-        amount: total,
       });
       setStatus('confirmed');
       toast.success('Booking confirmed! See it in your bookings.');
@@ -884,7 +898,7 @@ function BookingWidget({
       style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
     >
       {/* Price header */}
-      <div className="flex items-baseline gap-2 mb-4">
+      <div className="flex items-baseline gap-2 mb-1">
         {property.originalPrice && (
           <span className="text-[13px] text-gray-400 line-through">
             ₹{property.originalPrice.toLocaleString('en-IN')}
@@ -900,8 +914,21 @@ function BookingWidget({
           </span>
         )}
       </div>
+      {/* Discount badge — informational only. The booking price calc below
+          doesn't apply this discount yet (that's a separate pricing-logic
+          change), so it's shown honestly as a host-offered discount rather
+          than baked into the displayed/charged price. */}
+      <p className="text-[11px] font-bold text-emerald-600 mb-4 min-h-[14px]">
+        {property.activeDiscount &&
+          `🏷️ ${property.activeDiscount.percent}% off — ${property.activeDiscount.type.replace(/_/g, ' ')}`}
+      </p>
 
-      {/* Date selector — displays selected dates, opens picker on click */}
+      {/* Date selector — displays selected dates, opens picker on click.
+          Wrapped in `relative` so the absolutely-positioned dropdown-panel
+          below anchors to this row instead of the sticky booking widget
+          container (sticky also establishes a positioning context, which
+          was making the calendar render detached/misplaced). */}
+      <div className="relative">
       <div
         className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-blue-400 transition-colors"
         onClick={() => setShowPicker((v) => !v)}
@@ -946,9 +973,21 @@ function BookingWidget({
         </div>
       </div>
 
-      {/* DateRangePicker dropdown */}
+      {/* DateRangePicker dropdown — anchored to the *right* edge of this
+          narrow sidebar card. DateRangePicker renders itself at a fixed
+          min(600px, 95vw) width (sized for the wide, centered SearchForm
+          bar), much wider than this sidebar. `right-0` alone doesn't work
+          here: since DateRangePicker's own root is itself `position:
+          absolute` (the shared `.dropdown-panel` class), this wrapper's
+          only child is out-of-flow, so the wrapper's shrink-to-fit width
+          collapses to 0 and `right-0` just anchors a single point instead
+          of pushing the 600px box leftward. Giving the wrapper the same
+          explicit width fixes that, so it actually stays on-screen. */}
       {showPicker && (
-        <div className="mb-3">
+        <div
+          className="absolute top-[calc(100%+8px)] right-0 z-50"
+          style={{ width: 'min(600px, 95vw)' }}
+        >
           <DateRangePicker
             checkIn={checkIn}
             checkOut={checkOut}
@@ -957,6 +996,7 @@ function BookingWidget({
           />
         </div>
       )}
+      </div>
 
       {/* Unavailable message */}
       {status === 'unavailable' && (
@@ -1326,11 +1366,11 @@ export default function PropertyDetailsPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const router = useRouter();
-  const { userId, isAuthenticated } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [liked, setLiked] = useState(!!property?.isFavorite);
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle: toggleWishlist } = useWishlist(userId);
+  const liked = property ? isSaved(property.id) : false;
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [descExpanded, setDescExpanded] = useState(false);
@@ -1354,7 +1394,6 @@ export default function PropertyDetailsPage() {
         if (!mounted) return;
         const mapped = row ? mapListingToProperty(row) : null;
         setProperty(mapped);
-        setLiked(Boolean(mapped?.isFavorite));
       } catch (error) {
         console.error('[property] failed to load detail:', error);
         if (mounted) setProperty(null);
@@ -1470,17 +1509,11 @@ export default function PropertyDetailsPage() {
                   router.push('/signin');
                   return;
                 }
-                const next = !liked;
-                setLiked(next);
                 try {
-                  if (next) {
-                    await api.addWishlistItem(userId, String(property.id));
-                  } else {
-                    await api.removeWishlistItem(userId, String(property.id));
-                  }
+                  await toggleWishlist(property.id);
                 } catch (err) {
                   console.error('[property] wishlist toggle failed:', err);
-                  setLiked(!next);
+                  toast.error('Could not update your wishlist. Please try again.');
                 }
               }}
               className={cn(
@@ -1671,6 +1704,87 @@ export default function PropertyDetailsPage() {
                 </button>
               )}
             </div>
+
+            {/* ── 3b. ADD-ONS ── */}
+            {property.addons && property.addons.length > 0 && (
+              <div
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+              >
+                <h2 className="text-[15px] font-bold text-gray-800 mb-4">
+                  Available add-ons
+                </h2>
+                <div className="space-y-2.5">
+                  {property.addons.map((addon, i) => (
+                    <div
+                      key={i}
+                      className="flex items-start justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
+                    >
+                      <div className="min-w-0">
+                        <p className="text-[13px] font-bold text-gray-800">{addon.name}</p>
+                        {addon.includes && (
+                          <p className="text-[11px] text-gray-500 mt-0.5">{addon.includes}</p>
+                        )}
+                        {addon.timingFrom && addon.timingTo && (
+                          <p className="text-[11px] text-gray-400 mt-0.5">
+                            {addon.timingFrom.slice(0, 5)} – {addon.timingTo.slice(0, 5)}
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[13px] font-bold text-blue-700 flex-shrink-0">
+                        +₹{addon.price.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-3">
+                  Ask the host about these add-ons when booking.
+                </p>
+              </div>
+            )}
+
+            {/* ── 3c. HOUSE RULES ── */}
+            {property.houseRules && property.houseRules.length > 0 && (
+              <div
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+              >
+                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-500" /> House rules
+                </h2>
+                <ul className="space-y-2">
+                  {property.houseRules.map((rule, i) => (
+                    <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
+                      {rule}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* ── 3d. SAFETY & PROPERTY ── */}
+            {property.safetyFeatures && property.safetyFeatures.length > 0 && (
+              <div
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+              >
+                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-gray-500" /> Safety & property
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {property.safetyFeatures.map((f, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 border border-gray-100"
+                    >
+                      <span className="text-[16px] flex-shrink-0">{f.icon || '🛡️'}</span>
+                      <span className="text-[12px] font-semibold text-gray-700">{f.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* ── 5. MAP LOCATION ── */}
             <div

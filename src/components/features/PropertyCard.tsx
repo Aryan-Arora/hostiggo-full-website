@@ -4,7 +4,8 @@ import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
+import { useWishlist } from "@/hooks/useWishlist";
+import { toast } from "sonner";
 
 interface PropertyCardProps {
   property: Property;
@@ -13,28 +14,23 @@ interface PropertyCardProps {
 const FALLBACK = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop&q=80";
 
 export default function PropertyCard({ property }: PropertyCardProps) {
-  const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
-  const { userId, isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle } = useWishlist(userId);
+  const liked = isSaved(property.id);
 
-  const toggleLiked = async (e: React.MouseEvent) => {
+  const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
-      router.push("/signin");
+      toast("Sign in to save properties to your wishlist.");
+      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
       return;
     }
-    const next = !liked;
-    setLiked(next);
     try {
-      if (next) {
-        await api.addWishlistItem(userId, String(property.id));
-      } else {
-        await api.removeWishlistItem(userId, String(property.id));
-      }
-    } catch (err) {
-      console.error("[PropertyCard] wishlist toggle failed:", err);
-      setLiked(!next);
+      await toggle(property.id);
+    } catch {
+      toast.error("Could not update your wishlist. Please try again.");
     }
   };
 
@@ -53,7 +49,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <button
-          onClick={toggleLiked}
+          onClick={handleToggleLike}
           aria-label={liked ? "Remove from favourites" : "Add to favourites"}
           className={cn(
             "absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",

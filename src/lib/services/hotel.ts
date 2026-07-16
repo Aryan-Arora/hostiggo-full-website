@@ -1,4 +1,5 @@
 import { supabase } from '../supabase';
+import { supabaseAdmin } from '../supabase-admin';
 import {
   SearchFilters,
   GuestlistingSearchResults,
@@ -216,6 +217,13 @@ export const HotelServiceApi = {
         review (*),
         listing_amenities (
           amenities (name)
+        ),
+        listing_discounts (
+          id, discount_type, percent, enabled
+        ),
+        listing_addons (
+          id, price, includes, timing_from, timing_to, additional_notes,
+          addons (addon_id, name, icon, category)
         )
       `,
       )
@@ -230,7 +238,32 @@ export const HotelServiceApi = {
       return null;
     }
 
-    return data;
+    // listing_house_rules and listing_safety_details have RLS policies that
+    // block the anon client's SELECT entirely (confirmed live — rows exist
+    // but the anon key always sees an empty result), unlike the other
+    // tables joined above. Fetch these two with the service-role client
+    // instead so real host-entered data actually reaches the guest page.
+    // Note: use a plain array select + take [0], not .maybeSingle() — in
+    // this Promise.all/dev-server context .maybeSingle() reproducibly
+    // returned null even though the row genuinely exists (confirmed via an
+    // isolated script and a plain array query against the identical
+    // filter); the array form doesn't have that problem.
+    const [houseRules, safetyDetails] = await Promise.all([
+      supabaseAdmin
+        .from('listing_house_rules')
+        .select('check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours')
+        .eq('listing_id', listingId),
+      supabaseAdmin
+        .from('listing_safety_details')
+        .select('id, enabled, safety_features (feature_id, name, icon, description)')
+        .eq('listing_id', listingId),
+    ]);
+
+    return {
+      ...data,
+      listing_house_rules: houseRules.data?.[0] ?? null,
+      listing_safety_details: safetyDetails.data ?? [],
+    };
   },
 
   getAmenities: async () => {

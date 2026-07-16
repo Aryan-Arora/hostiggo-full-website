@@ -3,8 +3,14 @@ import { wishlistAPI } from "@/lib/services/wishlist";
 
 export const dynamic = "force-dynamic";
 
-const jsonError = (err: unknown, status = 500) =>
-  NextResponse.json({ error: err instanceof Error ? err.message : "Request failed" }, { status });
+const jsonError = (err: unknown, status = 500) => {
+  console.error("[/api/wishlist] error:", err);
+  const message =
+    err instanceof Error
+      ? err.message
+      : (err as any)?.message || (err as any)?.hint || "Request failed";
+  return NextResponse.json({ error: message }, { status });
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,12 +40,17 @@ export async function POST(req: NextRequest) {
     const action = body.action ?? "add";
 
     if (action === "add") {
-      const data = await wishlistAPI.addToWishlist(body);
+      // Only pass the real wishlists columns through — the raw body also
+      // carries `action`, which isn't a column and made every insert fail
+      // with "Could not find the 'action' column of 'wishlists'".
+      const { user_id, listing_id, category_id } = body;
+      const data = await wishlistAPI.addToWishlist({ user_id, listing_id, category_id });
       return NextResponse.json({ data });
     }
 
     if (action === "create-category") {
-      const data = await wishlistAPI.addWishlistCategories(body);
+      const { user_id, name } = body;
+      const data = await wishlistAPI.addWishlistCategories({ user_id, name });
       return NextResponse.json({ data });
     }
 

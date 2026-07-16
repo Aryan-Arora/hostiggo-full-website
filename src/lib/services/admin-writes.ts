@@ -139,27 +139,27 @@ export async function createBooking(input: {
   endDate: string;
   numAdults?: number;
   numChildren?: number;
-  amount?: number;
+  // `amount` is intentionally NOT accepted from the client anymore — the
+  // charge is always recomputed here from the listing's real prices so a
+  // guest can't submit an arbitrary (or zero) amount for a real booking.
 }) {
-  // Resolve the owning host from the listing.
+  // Resolve the owning host + real pricing/capacity from the listing —
+  // never trust client-supplied price or guest-count data for the charge.
   const { data: listing, error: lerr } = await supabaseAdmin
     .from("listings")
-    .select("host_uuid, price_weekday")
+    .select("host_uuid, price_weekday, price_weekend, num_guests")
     .eq("listing_id", input.listingId)
     .maybeSingle();
   if (lerr) throw lerr;
   if (!listing?.host_uuid) throw new Error("Listing not found");
 
-  // The price is always computed server-side from the listing's real rate,
-  // mirroring the exact formula the guest UI displays (property/[id]/page.tsx:
-  // subtotal = price_weekday * nights, +8% service fee, +12% tax). The
-  // client-submitted `amount` is never trusted — without this, a caller could
-  // POST any amount (including 0) for a real, confirmed booking.
-  const nightsCount = eachDateInRange(input.startDate, input.endDate).length;
-  const subtotal = Number(listing.price_weekday ?? 0) * Math.max(1, nightsCount);
-  const serviceFee = Math.round(subtotal * 0.08);
-  const taxes = Math.round(subtotal * 0.12);
-  const computedAmount = subtotal + serviceFee + taxes;
+  const numAdults = input.numAdults ?? 1;
+  const numChildren = input.numChildren ?? 0;
+  const totalGuests = numAdults + numChildren;
+  const maxGuests = Number(listing.num_guests ?? 1);
+  if (totalGuests > maxGuests) {
+    throw new Error(`This listing only accommodates up to ${maxGuests} guests.`);
+  }
 
   // Check A: blocked calendar days in the requested range.
   const { data: blocked, error: blockedErr } = await supabaseAdmin
@@ -185,8 +185,22 @@ export async function createBooking(input: {
   if (conflicts && conflicts.length > 0)
     throw new Error("These dates are already booked.");
 
-  const numAdults = input.numAdults ?? 1;
-  const numChildren = input.numChildren ?? 0;
+  // Recompute the charge server-side from the listing's real per-night
+  // prices — weekend nights (Fri/Sat) use price_weekend, everything else
+  // uses price_weekday — plus the same 8% service fee / 12% tax the guest
+  // sees on the property page, so the stored amount always matches a real
+  // price and can't be spoofed by the client.
+  const stayNights = eachDateInRange(input.startDate, input.endDate);
+  const priceWeekday = Number(listing.price_weekday ?? 0);
+  const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
+  const subtotal = stayNights.reduce((sum, date) => {
+    const dow = new Date(date + "T00:00:00Z").getUTCDay();
+    const isWeekend = dow === 5 || dow === 6; // Friday or Saturday night
+    return sum + (isWeekend ? priceWeekend : priceWeekday);
+  }, 0);
+  const serviceFee = Math.round(subtotal * 0.08);
+  const taxes = Math.round(subtotal * 0.12);
+  const amount = subtotal + serviceFee + taxes;
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
@@ -198,7 +212,7 @@ export async function createBooking(input: {
       num_adults: numAdults,
       num_children: numChildren,
       nom_guests: numAdults + numChildren,
-      amount: computedAmount,
+      amount,
       // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row),
       // so a new reservation is created as CONFIRMED.
       status_id: 2,
@@ -238,7 +252,7 @@ export async function createBooking(input: {
   }
 
   // Block all nights in the booked range so they can't be double-booked.
-  const nights = eachDateInRange(input.startDate, input.endDate);
+  const nights = stayNights;
   if (nights.length) {
     const now = new Date().toISOString();
     // Update existing calendar rows first, then insert missing ones.
@@ -294,9 +308,23 @@ export async function cancelBooking(bookingId: number, reason?: string | null) {
     .from("bookings")
     .update(patch)
     .eq("booking_id", bookingId)
-    .select("booking_id, status_id, cancellation_reason")
+    .select("booking_id, status_id, cancellation_reason, listing_id, start_date, end_date")
     .single();
   if (error) throw error;
+
+  // Release the calendar nights createBooking blocked for this reservation —
+  // otherwise a cancelled booking's dates stay marked unavailable forever.
+  if (data?.listing_id && data.start_date && data.end_date) {
+    const nights = eachDateInRange(data.start_date, data.end_date);
+    if (nights.length) {
+      await supabaseAdmin
+        .from("listing_calendar")
+        .update({ is_available: true, updated_at: new Date().toISOString() })
+        .eq("listing_id", data.listing_id)
+        .in("date", nights);
+    }
+  }
+
   return data;
 }
 

@@ -5,7 +5,8 @@ import type { Property } from "@/types";
 import { cn, toISODate } from "@/lib/utils";
 import { useListingState } from "@/context/ListingFilterContext";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
+import { useWishlist } from "@/hooks/useWishlist";
+import { toast } from "sonner";
 
 interface PropertyCardListProps {
   property: Property;
@@ -23,29 +24,24 @@ const AMENITY_ICONS: Record<string, React.ReactNode> = {
 };
 
 export default function PropertyCardList({ property }: PropertyCardListProps) {
-  const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
   const { dates } = useListingState();
-  const { userId, isAuthenticated } = useAuth();
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle } = useWishlist(userId);
+  const liked = isSaved(property.id);
 
-  const toggleLiked = async (e: React.MouseEvent) => {
+  const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
-      router.push("/signin");
+      toast("Sign in to save properties to your wishlist.");
+      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
       return;
     }
-    const next = !liked;
-    setLiked(next);
     try {
-      if (next) {
-        await api.addWishlistItem(userId, String(property.id));
-      } else {
-        await api.removeWishlistItem(userId, String(property.id));
-      }
-    } catch (err) {
-      console.error("[PropertyCardList] wishlist toggle failed:", err);
-      setLiked(!next);
+      await toggle(property.id);
+    } catch {
+      toast.error("Could not update your wishlist. Please try again.");
     }
   };
 
@@ -80,7 +76,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         />
         {/* Heart button */}
         <button
-          onClick={toggleLiked}
+          onClick={handleToggleLike}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
             liked ? "text-rose-500" : "text-gray-500 hover:text-rose-400 hover:scale-110"
