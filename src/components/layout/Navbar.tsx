@@ -20,133 +20,16 @@ import {
   HelpCircle,
   Home,
   LogOut,
-  Search,
-  Check,
   Gift,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
-
-const CURRENCIES = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'THB', symbol: '฿', name: 'Thai Baht' },
-  { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
-  { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
-  { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
-  { code: 'NZD', symbol: 'NZ$', name: 'New Zealand Dollar' },
-  { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
-];
 
 // Signed-in user display (avatar only until profile fetch is wired).
 const USER = {
   name: 'Account',
   avatar: 'https://i.pravatar.cc/150?img=11',
 };
-
-function CurrencyDropdown() {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(CURRENCIES[0]);
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const filtered = CURRENCIES.filter(
-    (c) =>
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.name.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => {
-          setOpen((v) => !v);
-          setSearch('');
-        }}
-        className="flex items-center gap-1 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium"
-      >
-        <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
-        <span>{selected.code}.</span>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+8px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in-down">
-          {/* Search */}
-          <div className="px-3 pt-3 pb-2">
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-400/10 transition-all">
-              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-[13px] text-gray-700 placeholder:text-gray-400 outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Currency list */}
-          <div className="max-h-[240px] overflow-y-auto scrollbar-hide pb-2">
-            {filtered.length === 0 ? (
-              <p className="px-4 py-3 text-[12px] text-gray-400 text-center">
-                No currencies found
-              </p>
-            ) : (
-              filtered.map((cur) => (
-                <button
-                  key={cur.code}
-                  onClick={() => {
-                    setSelected(cur);
-                    setOpen(false);
-                    setSearch('');
-                  }}
-                  className={cn(
-                    'w-full flex items-center justify-between px-4 py-2.5 text-[13px] transition-colors',
-                    cur.code === selected.code
-                      ? 'text-blue-600 font-semibold bg-blue-50/50'
-                      : 'text-gray-700 hover:bg-gray-50',
-                  )}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="w-5 text-center text-[14px] font-semibold text-gray-500">
-                      {cur.symbol}
-                    </span>
-                    <span>{cur.code}</span>
-                  </span>
-                  {cur.code === selected.code && (
-                    <Check
-                      className="w-4 h-4 text-blue-600"
-                      strokeWidth={2.5}
-                    />
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface MenuItem {
   icon: React.ReactNode;
@@ -256,7 +139,10 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-0.5">
-            <CurrencyDropdown />
+            <span className="flex items-center gap-1 text-gray-500 px-3 py-1.5 text-[13px] font-medium">
+              <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
+              INR
+            </span>
             <button className="flex items-center gap-1 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium">
               <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
               <span>English</span>
@@ -386,9 +272,9 @@ export default function Navbar() {
         {/* Mobile menu */}
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-100 py-3 space-y-1 pb-4">
-            <button className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium">
+            <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
               <IndianRupee className="w-4 h-4 text-gray-500" /> INR
-            </button>
+            </div>
             <button className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium">
               <Globe className="w-4 h-4 text-gray-500" /> English
             </button>
