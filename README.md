@@ -164,4 +164,3 @@ The app uses modern loading patterns:
 // Search page fallback
 <SearchPageSkeleton />
 ```
-
