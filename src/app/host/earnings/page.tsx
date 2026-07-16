@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { jsPDF } from 'jspdf';
 import {
   Download,
   Wallet,
@@ -172,29 +173,118 @@ export default function EarningsPage() {
     };
   }, [rows]);
 
+  const exportStatement = useCallback(() => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 14;
+    let y = 20;
+
+    const newPageIfNeeded = (needed = 10) => {
+      if (y + needed > pageHeight - 15) {
+        doc.addPage();
+        y = 20;
+      }
+    };
+
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hostiggo — Earnings Statement', marginX, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text(`Generated ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, marginX, y);
+    doc.setTextColor(0);
+    y += 12;
+
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', marginX, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    [
+      ['Total earnings', inr(stats.total)],
+      ['Confirmed revenue', inr(stats.confirmedRevenue)],
+      ['Pending revenue', inr(stats.pendingRevenue)],
+    ].forEach(([label, value]) => {
+      doc.text(label, marginX, y);
+      doc.text(value, pageWidth - marginX, y, { align: 'right' });
+      y += 6;
+    });
+    y += 6;
+
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Monthly revenue (last 12 months)', marginX, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    stats.labels.forEach((label, i) => {
+      newPageIfNeeded();
+      doc.text(label, marginX, y);
+      doc.text(inr(stats.series[i] ?? 0), pageWidth - marginX, y, { align: 'right' });
+      y += 6;
+    });
+    y += 6;
+
+    const earningRows = rows.filter((r) => !r.cancelled);
+    newPageIfNeeded(14);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('All bookings', marginX, y);
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Booking', marginX, y);
+    doc.text('Check-in', marginX + 28, y);
+    doc.text('Checkout', marginX + 58, y);
+    doc.text('Property', marginX + 88, y);
+    doc.text('Status', pageWidth - marginX - 24, y);
+    doc.text('Amount', pageWidth - marginX, y, { align: 'right' });
+    y += 2;
+    doc.setDrawColor(200);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    if (earningRows.length === 0) {
+      doc.text('No bookings yet.', marginX, y);
+      y += 6;
+    }
+    earningRows
+      .slice()
+      .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0))
+      .forEach((r) => {
+        newPageIfNeeded();
+        doc.text(`#${r.id}`, marginX, y);
+        doc.text(fmtDate(r.start), marginX + 28, y);
+        doc.text(fmtDate(r.end), marginX + 58, y);
+        doc.text(r.title.slice(0, 26), marginX + 88, y);
+        doc.text(r.confirmed ? 'Confirmed' : 'Pending', pageWidth - marginX - 24, y);
+        doc.text(inr(r.amount), pageWidth - marginX, y, { align: 'right' });
+        y += 6;
+      });
+
+    doc.save(`hostiggo-earnings-statement-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }, [stats, rows]);
+
   return (
     <HostDashboardShell active="earnings">
       <DashboardHeading
         title="Financial Overview"
         subtitle="Track your revenue and payouts across all properties."
         actions={
-          <>
-            <button
-              disabled
-              title="Coming soon"
-              className="px-4 py-2 border border-gray-200 rounded-full text-sm font-medium flex items-center gap-2 text-gray-400 cursor-not-allowed"
-            >
-              <Download className="w-4 h-4" />
-              Export Statement
-            </button>
-            <button
-              disabled
-              title="Coming soon"
-              className="px-6 py-2 bg-blue-600/60 text-white rounded-full text-sm font-semibold cursor-not-allowed"
-            >
-              Withdraw Funds
-            </button>
-          </>
+          <button
+            onClick={exportStatement}
+            disabled={loading || rows.length === 0}
+            className="px-4 py-2 border border-gray-200 rounded-full text-sm font-medium flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            <Download className="w-4 h-4" />
+            Export Statement
+          </button>
         }
       />
 
