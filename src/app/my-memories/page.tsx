@@ -710,18 +710,36 @@ function ManageBookingModal({
                 )}
                 {booking.status === 'completed' && (
                   <>
-                    <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all">
+                    <button
+                      onClick={() => {
+                        onClose();
+                        router.push(`/property/${booking.id}`);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all"
+                    >
                       <span>Book Again</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
-                    <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-all">
+                    <button
+                      onClick={() => {
+                        onClose();
+                        router.push(`/property/${booking.id}#write-review`);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-all"
+                    >
                       <span>Write a Review</span>
                       <Star className="w-4 h-4" />
                     </button>
                   </>
                 )}
                 {booking.status === 'cancelled' && (
-                  <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all">
+                  <button
+                    onClick={() => {
+                      onClose();
+                      router.push(`/property/${booking.id}`);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all"
+                  >
                     <span>Book Again</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
@@ -948,9 +966,6 @@ function BookingCard({
               >
                 <Navigation className="w-3.5 h-3.5" />
                 Location
-              </button>
-              <button className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200">
-                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>

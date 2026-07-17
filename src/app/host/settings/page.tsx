@@ -10,7 +10,6 @@ import {
   LifeBuoy,
   Pencil,
   Plus,
-  MoreVertical,
   ShieldCheck,
   CheckCircle2,
   Loader2,
@@ -263,28 +262,18 @@ export default function HostSettingsPage() {
                       Manage how you receive your hosting earnings.
                     </p>
                   </div>
-                  <button className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all">
+                  <button
+                    disabled
+                    title="Coming soon"
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-400 rounded-xl font-bold cursor-not-allowed"
+                  >
                     <Plus className="w-4 h-4" /> Add method
                   </button>
                 </div>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                      <Landmark className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800">Chase Bank •••• 8821</p>
-                      <p className="text-xs text-gray-500">Default Payout Method • Bank Transfer</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-[11px] rounded-full font-bold uppercase tracking-wider">
-                      Active
-                    </span>
-                    <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                  </div>
+                <div className="p-8 rounded-xl border border-dashed border-gray-200 text-center">
+                  <Landmark className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No payout method on file yet.</p>
+                  <p className="text-xs text-gray-400 mt-1">Payout management is coming soon.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 flex items-center justify-between">

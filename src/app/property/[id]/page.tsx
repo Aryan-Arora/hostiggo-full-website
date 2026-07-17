@@ -1462,6 +1462,16 @@ export default function PropertyDetailsPage() {
     };
   }, [id]);
 
+  // Next.js client-side navigation doesn't scroll to a URL hash the way a
+  // full page load does, so a link like /property/74#write-review lands at
+  // the top instead of the review form -- scroll to it manually once the
+  // page (and therefore the target element) has actually rendered.
+  useEffect(() => {
+    if (loading || !property || typeof window === 'undefined' || !window.location.hash) return;
+    const el = document.getElementById(window.location.hash.slice(1));
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, property]);
+
   // Show sticky bar after scrolling past gallery
   useEffect(() => {
     const handleScroll = () => {
@@ -1475,6 +1485,7 @@ export default function PropertyDetailsPage() {
   }, []);
 
   useEffect(() => {
+    if (window.location.hash) return;
     window.scrollTo(0, 0);
   }, [id]);
 
@@ -1856,6 +1867,7 @@ export default function PropertyDetailsPage() {
 
             {/* ── 6. RATINGS & REVIEWS ── */}
             <div
+              id="write-review"
               className="bg-white rounded-2xl p-5"
               style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
             >
