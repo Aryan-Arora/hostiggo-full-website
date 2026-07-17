@@ -9,7 +9,6 @@ import {
   Plus,
   Edit2,
   Check,
-  List,
   Home,
   Wrench,
   Clock,
@@ -690,11 +689,6 @@ export default function WishlistPage() {
 
         {/* Controls row */}
         <div className="flex items-center gap-3 mb-8">
-          {/* List icon */}
-          <button className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm">
-            <List className="w-4 h-4" />
-          </button>
-
           {/* Group dropdown */}
           <GroupDropdown
             groups={groups}

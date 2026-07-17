@@ -18,7 +18,7 @@ import {
   ChevronRight,
   FileText,
 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import HostDashboardShell from '../../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
@@ -79,6 +79,7 @@ const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode }[] = [
 
 export default function ManageListingPage() {
   const { userId } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const listingId = searchParams.get('id');
 
@@ -87,6 +88,8 @@ export default function ManageListingPage() {
   const [loading, setLoading] = useState(true);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [formData, setFormData] = useState<ListingDetails | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
 
@@ -170,6 +173,56 @@ export default function ManageListingPage() {
       toast.error(err instanceof Error ? err.message : 'Failed to save changes');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleTogglePause = async () => {
+    if (!listingId || !formData) return;
+    setPausing(true);
+    try {
+      const res = await fetch('/api/host/listings/toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: parseInt(listingId), isActive: !formData.is_active }),
+      });
+      if (!res.ok) throw new Error('Failed to update listing status');
+      const { data } = await res.json();
+      setFormData((prev) => (prev ? { ...prev, is_active: data.isActive } : prev));
+      setListing((prev) => (prev ? { ...prev, is_active: data.isActive } : prev));
+      toast.success(data.isActive ? 'Listing is now live!' : 'Listing paused');
+    } catch (err) {
+      console.error('Toggle pause error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update listing status');
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!listingId) return;
+    if (
+      !window.confirm(
+        'Remove this listing permanently? This cannot be undone. Listings with existing bookings can\'t be removed -- pause them instead.',
+      )
+    ) {
+      return;
+    }
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to remove listing');
+      }
+      toast.success('Listing removed.');
+      router.push('/host/listings');
+    } catch (err) {
+      console.error('Remove listing error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove listing');
+    } finally {
+      setRemoving(false);
     }
   };
 
@@ -306,13 +359,23 @@ export default function ManageListingPage() {
 
               {/* Listing Status Section */}
               <div className="space-y-1">
-                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
+                <button
+                  onClick={handleTogglePause}
+                  disabled={pausing || removing}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
                   <Pause className="w-5 h-5" />
-                  <span className="font-medium text-sm">Pause listing</span>
+                  <span className="font-medium text-sm">
+                    {pausing ? 'Updating...' : formData?.is_active ? 'Pause listing' : 'Reactivate listing'}
+                  </span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all">
+                <button
+                  onClick={handleRemove}
+                  disabled={removing || pausing}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
                   <Trash2 className="w-5 h-5" />
-                  <span className="font-medium text-sm">Remove Listing</span>
+                  <span className="font-medium text-sm">{removing ? 'Removing...' : 'Remove Listing'}</span>
                 </button>
               </div>
             </nav>
