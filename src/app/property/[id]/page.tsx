@@ -614,30 +614,36 @@ function HostCard({ host }: { host: Host }) {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Shield className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-[11px] font-bold text-gray-600">
-              Response rate
-            </span>
-          </div>
-          <p className="text-[14px] font-extrabold text-gray-800">
-            {host.responseRate}%
-          </p>
+      {(host.responseRate != null || host.responseTime) && (
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          {host.responseRate != null && (
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[11px] font-bold text-gray-600">
+                  Response rate
+                </span>
+              </div>
+              <p className="text-[14px] font-extrabold text-gray-800">
+                {host.responseRate}%
+              </p>
+            </div>
+          )}
+          {host.responseTime && (
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Clock className="w-3.5 h-3.5 text-blue-600" />
+                <span className="text-[11px] font-bold text-gray-600">
+                  Response time
+                </span>
+              </div>
+              <p className="text-[13px] font-bold text-gray-800 capitalize">
+                {host.responseTime}
+              </p>
+            </div>
+          )}
         </div>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Clock className="w-3.5 h-3.5 text-blue-600" />
-            <span className="text-[11px] font-bold text-gray-600">
-              Response time
-            </span>
-          </div>
-          <p className="text-[13px] font-bold text-gray-800 capitalize">
-            {host.responseTime}
-          </p>
-        </div>
-      </div>
+      )}
 
       <div className="flex gap-2 mt-4">
         <button
@@ -648,8 +654,9 @@ function HostCard({ host }: { host: Host }) {
           Message Host
         </button>
         <button
-          onClick={() => alert('Host profile coming soon!')}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white py-2.5 rounded-xl text-[13px] font-bold transition-colors"
+          disabled
+          title="Coming soon"
+          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-200 text-gray-400 py-2.5 rounded-xl text-[13px] font-bold cursor-not-allowed"
         >
           <ExternalLink className="w-4 h-4" />
           View Profile
@@ -1347,12 +1354,16 @@ function StickyBookingBar({
   guests,
   onReserve,
   show,
+  liked,
+  onToggleSave,
 }: {
   property: Property;
   nights: number;
   guests: number;
   onReserve: () => void;
   show: boolean;
+  liked: boolean;
+  onToggleSave: () => void;
 }) {
   return (
     <div
@@ -1403,10 +1414,16 @@ function StickyBookingBar({
             <Share2 className="w-3.5 h-3.5" />
           </button>
           <button
-            className="w-8 h-8 rounded-full border border-gray-200 hover:border-rose-300 bg-white flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors"
+            onClick={onToggleSave}
+            className={cn(
+              'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
+              liked
+                ? 'border-rose-300 text-rose-500'
+                : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+            )}
             title="Save"
           >
-            <Heart className="w-3.5 h-3.5" />
+            <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
           </button>
         </div>
       </div>
@@ -1543,6 +1560,19 @@ export default function PropertyDetailsPage() {
         guests={barGuests}
         onReserve={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         show={stickyBar}
+        liked={liked}
+        onToggleSave={async () => {
+          if (!isAuthenticated || !userId) {
+            router.push('/signin');
+            return;
+          }
+          try {
+            await toggleWishlist(property.id);
+          } catch (err) {
+            console.error('[property] wishlist toggle failed:', err);
+            toast.error('Could not update your wishlist. Please try again.');
+          }
+        }}
       />
 
       <Navbar />

@@ -166,22 +166,26 @@ export default function AmenitiesPage() {
         <div className="md:col-span-4 hidden md:block">
           <div className="sticky top-28">
             <div className="bg-white rounded-2xl shadow-card p-6 border border-gray-200">
-              <div className="relative w-full h-48 rounded-xl mb-4 overflow-hidden">
-                <img
-                  src="https://images.unsplash.com/photo-1582268611958-ebfd161ef9cf?w=600&h=400&fit=crop&q=80"
-                  alt="Listing preview"
-                  className="w-full h-full object-cover"
-                />
+              <div className="relative w-full h-48 rounded-xl mb-4 overflow-hidden bg-gray-100 flex items-center justify-center">
+                {draft.photoUrls?.[0] ? (
+                  <img
+                    src={draft.photoUrls[0]}
+                    alt="Listing preview"
+                    className="w-full h-full object-cover"
+                  />
+                ) : (
+                  <span className="text-xs text-gray-400">Photos added later will show here</span>
+                )}
                 <div className="absolute top-3 right-3 bg-white/80 backdrop-blur-md px-3 py-1 rounded-full text-xs font-semibold">
                   Listing Preview
                 </div>
               </div>
               <h3 className="text-lg font-bold text-gray-800 mb-2">
-                Coastal Modern Retreat
+                {draft.title || 'Your listing title'}
               </h3>
               <div className="flex items-center gap-1.5 text-sm text-gray-500 mb-4">
                 <MapPin className="w-4 h-4" />
-                Malibu, California
+                {draft.addressLine1 || 'Location added earlier in the wizard'}
               </div>
               <div className="space-y-3">
                 <div className="text-xs font-semibold uppercase tracking-wider text-gray-400">

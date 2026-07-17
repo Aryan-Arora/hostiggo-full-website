@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import { ListingDiscount } from '@/lib/services/discounts';
 import { cn } from '@/lib/utils';
@@ -131,10 +132,10 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
         </p>
       </div>
 
-      <p className="text-xs font-medium text-blue-600 flex items-center gap-1">
+      <Link href="/support" className="text-xs font-medium text-blue-600 flex items-center gap-1 hover:underline w-fit">
         <HelpCircle className="w-4 h-4" />
         How discounts work?
-      </p>
+      </Link>
 
       <div className="space-y-4">
         {discounts.map((discount) => {

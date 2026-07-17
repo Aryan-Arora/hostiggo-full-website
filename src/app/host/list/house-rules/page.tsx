@@ -51,15 +51,20 @@ function Check({ on }: { on: boolean }) {
 
 export default function HouseRulesPage() {
   const searchParams = useSearchParams();
-  const { draft } = useListingDraft();
+  const { draft, update } = useListingDraft();
   const listingId = searchParams.get('listingId');
-  
-  const [rules, setRules] = useState(() => Object.fromEntries(RULES.map((r) => [r.id, r.on])));
+
+  const savedRules = draft.houseRules;
+  const [rules, setRules] = useState(() => ({
+    smoking: savedRules?.smoking_allowed ?? RULES.find((r) => r.id === 'smoking')!.on,
+    pets: savedRules?.pets_allowed ?? RULES.find((r) => r.id === 'pets')!.on,
+    parties: savedRules?.parties_allowed ?? RULES.find((r) => r.id === 'parties')!.on,
+  }));
   const [loading, setLoading] = useState(!!listingId);
   const [quietHoursFrom, setQuietHoursFrom] = useState('22:00');
   const [quietHoursTo, setQuietHoursTo] = useState('08:00');
-  const [checkInTime, setCheckInTime] = useState('14:00');
-  const [checkOutTime, setCheckOutTime] = useState('11:00');
+  const [checkInTime, setCheckInTime] = useState(savedRules?.check_in_time ?? '14:00');
+  const [checkOutTime, setCheckOutTime] = useState(savedRules?.check_out_time ?? '11:00');
 
   useEffect(() => {
     if (listingId) {
@@ -67,6 +72,26 @@ export default function HouseRulesPage() {
       setLoading(false);
     }
   }, [listingId]);
+
+  // Only persist the wizard's own draft state on the fresh-listing branch --
+  // once a listingId exists (editing an already-created listing) the forms
+  // below write straight to the DB instead.
+  useEffect(() => {
+    if (listingId) return;
+    update({
+      houseRules: {
+        smoking_allowed: rules.smoking,
+        pets_allowed: rules.pets,
+        parties_allowed: rules.parties,
+        // Not a time range in the real schema (see ListingDraft comment) --
+        // true here just means "this host set a quiet-hours window".
+        quiet_hours: true,
+        check_in_time: checkInTime,
+        check_out_time: checkOutTime,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules, quietHoursFrom, quietHoursTo, checkInTime, checkOutTime, listingId]);
 
   // For new listings, show the backend forms after they're created
   if (listingId && !loading) {
@@ -109,11 +134,12 @@ export default function HouseRulesPage() {
             <div className="space-y-4">
               {RULES.map((r) => {
                 const Icon = r.icon;
-                const on = rules[r.id];
+                const key = r.id as keyof typeof rules;
+                const on = rules[key];
                 return (
                   <button
                     key={r.id}
-                    onClick={() => setRules((s) => ({ ...s, [r.id]: !s[r.id] }))}
+                    onClick={() => setRules((s) => ({ ...s, [key]: !s[key] }))}
                     className={cn(
                       'w-full flex items-center justify-between p-4 rounded-xl border transition-colors group',
                       on ? 'border-blue-400 bg-blue-50/40' : 'border-gray-200 hover:border-blue-300',

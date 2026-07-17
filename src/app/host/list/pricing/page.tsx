@@ -27,15 +27,36 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
+const DEFAULT_DISCOUNT_PERCENT = { newListing: 20, weekly: 10, monthly: 15 };
+
 export default function PricingPage() {
   const { draft, update } = useListingDraft();
   const [price, setPrice] = useState(draft.priceWeekday ?? 2999);
-  const [discounts, setDiscounts] = useState({ newListing: true, weekly: true, monthly: false });
+  const [discounts, setDiscounts] = useState({
+    newListing: draft.discounts?.find((d) => d.discount_type === 'new_listing')?.enabled ?? true,
+    weekly: draft.discounts?.find((d) => d.discount_type === 'weekly')?.enabled ?? true,
+    monthly: draft.discounts?.find((d) => d.discount_type === 'monthly')?.enabled ?? false,
+  });
+  const [weeklyPercent, setWeeklyPercent] = useState(
+    draft.discounts?.find((d) => d.discount_type === 'weekly')?.percent ?? DEFAULT_DISCOUNT_PERCENT.weekly,
+  );
 
   useEffect(() => {
     update({ priceWeekday: price, priceWeekend: price });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [price]);
+
+  useEffect(() => {
+    update({
+      discounts: [
+        { discount_type: 'new_listing', percent: DEFAULT_DISCOUNT_PERCENT.newListing, enabled: discounts.newListing },
+        { discount_type: 'weekly', percent: weeklyPercent, enabled: discounts.weekly },
+        { discount_type: 'monthly', percent: DEFAULT_DISCOUNT_PERCENT.monthly, enabled: discounts.monthly },
+      ],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discounts, weeklyPercent]);
+
   const toggle = (k: keyof typeof discounts) =>
     setDiscounts((d) => ({ ...d, [k]: !d[k] }));
 
@@ -87,8 +108,8 @@ export default function PricingPage() {
               <div className="space-y-1">
                 <h4 className="text-sm font-bold text-blue-700">Tip: Stay competitive</h4>
                 <p className="text-sm text-gray-600">
-                  Places like yours in Delhi typically range between ₹1,800 and
-                  ₹3,500 during weekends.
+                  Check what similar homestays nearby are charging before you finalize
+                  your price -- you can always adjust it later.
                 </p>
               </div>
             </div>
@@ -121,7 +142,10 @@ export default function PricingPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <input
                         type="number"
-                        defaultValue={10}
+                        min={1}
+                        max={100}
+                        value={weeklyPercent}
+                        onChange={(e) => setWeeklyPercent(Number(e.target.value) || 0)}
                         className="w-16 border border-gray-200 rounded-lg p-1 text-center text-sm outline-none focus:ring-2 focus:ring-blue-500"
                       />
                       <span className="text-sm text-gray-600">%</span>

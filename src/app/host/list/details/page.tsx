@@ -102,9 +102,8 @@ export default function DetailsPage() {
               <div className="relative z-10">
                 <p className="text-sm font-bold mb-1">Pro Tip</p>
                 <p className="text-xs opacity-90 leading-relaxed">
-                  Listings with descriptions over 500 characters tend to get 20%
-                  more bookings. Mention unique features like &quot;high-speed
-                  wifi&quot; or &quot;morning sun&quot;.
+                  A detailed description helps guests know what to expect. Mention
+                  unique features like &quot;high-speed wifi&quot; or &quot;morning sun&quot;.
                 </p>
               </div>
               <Sparkles className="absolute -bottom-3 -right-3 w-20 h-20 opacity-20" />

@@ -1,8 +1,9 @@
 import { useState, useRef, useEffect } from 'react';
-import { MapPin, Clock, Navigation } from 'lucide-react';
+import { MapPin, Clock, Navigation, Loader2 } from 'lucide-react';
 import { SUGGESTED_DESTINATIONS } from '@/constants/data';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { reverseGeocode } from '@/lib/services/geocoding';
 
 interface DestinationDropdownProps {
   value: string;
@@ -11,7 +12,27 @@ interface DestinationDropdownProps {
   onClose: () => void;
 }
 
-const RECENT = ['New Delhi', 'Manali', 'Shimla'];
+const RECENT_STORAGE_KEY = 'hostiggo:recent-searches';
+const MAX_RECENT = 3;
+
+function getRecentSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecentSearch(value: string) {
+  try {
+    const current = getRecentSearches().filter((v) => v.toLowerCase() !== value.toLowerCase());
+    const next = [value, ...current].slice(0, MAX_RECENT);
+    localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
+}
 
 export default function DestinationDropdown({
   value,
@@ -22,8 +43,14 @@ export default function DestinationDropdown({
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    setRecent(getRecentSearches());
+  }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -57,8 +84,27 @@ export default function DestinationDropdown({
   }, [query]);
 
   const handleSelect = (name: string) => {
+    pushRecentSearch(name);
     onSelect(name);
     onClose();
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const result = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+          const label = result?.address.city || result?.address.county || result?.displayName;
+          if (label) handleSelect(label);
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => setLocating(false),
+      { timeout: 10000 },
+    );
   };
 
   const handleQueryChange = (newQuery: string) => {
@@ -104,27 +150,32 @@ export default function DestinationDropdown({
       <div className="py-2 max-h-[340px] overflow-y-auto scrollbar-hide">
         {/* Current location */}
         <button
-          onClick={() => handleSelect('Current location')}
-          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group"
+          onClick={handleUseCurrentLocation}
+          disabled={locating}
+          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group disabled:opacity-60"
         >
           <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-            <Navigation className="w-4 h-4 text-blue-600" />
+            {locating ? (
+              <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+            ) : (
+              <Navigation className="w-4 h-4 text-blue-600" />
+            )}
           </div>
           <div>
             <p className="text-[13px] font-semibold text-gray-800">
-              Use current location
+              {locating ? 'Finding your location…' : 'Use current location'}
             </p>
             <p className="text-[11px] text-gray-400">Near me stays</p>
           </div>
         </button>
 
         {/* Recent if no query */}
-        {!query.trim() && (
+        {!query.trim() && recent.length > 0 && (
           <>
             <p className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
               Recent searches
             </p>
-            {RECENT.map((r) => (
+            {recent.map((r) => (
               <button
                 key={r}
                 onClick={() => handleSelect(r)}
