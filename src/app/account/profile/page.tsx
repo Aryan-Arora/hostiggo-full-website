@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { ChevronRight, Camera, ShieldCheck, Mail, Phone, Loader2 } from 'lucide-react';
@@ -17,6 +17,8 @@ export default function GuestProfilePage() {
   const [age, setAge] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Seed the form from the real user once it loads.
   useEffect(() => {
@@ -51,6 +53,24 @@ export default function GuestProfilePage() {
   };
 
   const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/200?img=45';
+
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !userId) return;
+    setUploadingPhoto(true);
+    try {
+      const url = await api.uploadProfilePhoto(file);
+      await api.updateProfile(userId, { profile_pic_url: url });
+      await refresh();
+      toast.success('Profile photo updated.');
+    } catch (err) {
+      console.error('[account/profile] photo upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not upload photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
@@ -90,12 +110,24 @@ export default function GuestProfilePage() {
                       alt={name || 'Profile'}
                       className="w-full h-full rounded-full object-cover border-4 border-blue-100 shadow-lg"
                     />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handlePhotoChange}
+                      className="hidden"
+                    />
                     <button
-                      disabled
-                      title="Photo upload coming soon"
-                      className="absolute bottom-1 right-1 bg-blue-600/70 text-white p-2 rounded-full shadow-lg cursor-not-allowed"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      title="Change photo"
+                      className="absolute bottom-1 right-1 bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                     >
-                      <Camera className="w-5 h-5" />
+                      {uploadingPhoto ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Camera className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                   <h1 className="text-xl font-bold text-gray-900 mb-1">{name || 'Your name'}</h1>

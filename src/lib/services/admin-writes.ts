@@ -65,13 +65,16 @@ export async function ensureHostProfile(userId: string): Promise<string> {
 // ── Storage ──────────────────────────────────────────────────────────────────
 const LISTING_BUCKET = "homestay photos";
 
-export async function uploadListingPhoto(file: {
-  data: ArrayBuffer;
-  name: string;
-  type: string;
-}): Promise<string> {
+export async function uploadListingPhoto(
+  file: {
+    data: ArrayBuffer;
+    name: string;
+    type: string;
+  },
+  folder: string = "listings/uploads",
+): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `listings/uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabaseAdmin.storage
     .from(LISTING_BUCKET)
     .upload(path, file.data, { contentType: file.type || "image/jpeg", upsert: false });
@@ -501,17 +504,36 @@ export async function createListing(draft: ListingDraft) {
 // ── User profile ─────────────────────────────────────────────────────────────
 export async function updateUserProfile(
   userId: string,
-  patch: Partial<{ name: string; email: string; phone: string; age: number; emergency_contact: string }>,
+  patch: Partial<{
+    name: string;
+    email: string;
+    phone: string;
+    age: number;
+    emergency_contact: string;
+    profile_pic_url: string;
+    email_notifications: boolean;
+    sms_alerts: boolean;
+    promo_notifications: boolean;
+    host_message_notifications: boolean;
+    show_profile_to_hosts: boolean;
+    include_in_search: boolean;
+    activity_status: boolean;
+  }>,
 ) {
   const clean: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const [k, v] of Object.entries(patch)) {
     if (v !== undefined && v !== null && v !== "") clean[k] = v;
   }
+  // select("*") rather than an explicit column list: the preference columns
+  // below are added by a migration the operator applies separately (see
+  // supabase/migrations), and an explicit list of not-yet-existing columns
+  // would break this RETURNING clause -- and therefore every profile save,
+  // including unrelated name/email/phone edits -- until that migration runs.
   const { data, error } = await supabaseAdmin
     .from("users")
     .update(clean)
     .eq("user_id", userId)
-    .select("user_id, name, email, phone, age, profile_pic_url, is_verified, emergency_contact")
+    .select("*")
     .single();
   if (error) throw error;
   return data;
