@@ -1,11 +1,9 @@
 'use client';
 
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import { Send, Search, MoreVertical, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { useChat } from '@/hooks/useChat';
 import { supabase } from '@/lib/supabase';
-import type { ChatMessage } from '@/lib/chatSocket';
 
 interface ConversationUser {
   id: string;
@@ -27,120 +25,90 @@ interface Message {
 
 export default function HostChatUI() {
   const { user, userId } = useAuth();
-  const { socket, isConnected } = useChat({ autoConnect: true });
-  
+
   const [conversations, setConversations] = useState<ConversationUser[]>([]);
+  // Full API response (each conversation's complete message history), kept
+  // separately from the sidebar-display-only `conversations` list above so
+  // opening a thread doesn't need a second, unsupported fetch.
+  const [rawChats, setRawChats] = useState<any[]>([]);
   const [selectedConversationId, setSelectedConversationId] = useState<string | null>(null);
-  const [messages, setMessages] = useState<Message[]>([]);
   const [messageText, setMessageText] = useState('');
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  // Fetch conversations on mount
+  const fetchConversations = useCallback(async () => {
+    if (!userId) return;
+
+    try {
+      const response = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`);
+      if (!response.ok) throw new Error('Failed to fetch conversations');
+
+      const data = await response.json();
+      const chats = data.data || [];
+      setRawChats(chats);
+
+      const formattedConversations: ConversationUser[] = chats.map((chat: any) => ({
+        id: chat.participant_id,
+        name: chat.participant_name || 'Guest',
+        avatar: chat.participant_avatar || 'https://i.pravatar.cc/150',
+        lastMessage: chat.last_message || 'No messages yet',
+        lastMessageTime: chat.last_message_time ? formatTime(new Date(chat.last_message_time)) : 'Never',
+        unreadCount: chat.unread_count || 0,
+      }));
+
+      setConversations(formattedConversations);
+
+      setSelectedConversationId((current) =>
+        current ?? (formattedConversations.length > 0 ? formattedConversations[0].id : null)
+      );
+    } catch (error) {
+      console.error('Failed to fetch conversations:', error);
+    } finally {
+      setLoading(false);
+    }
+  }, [userId]);
+
+  // Fetch conversations (with full message history) on mount.
   useEffect(() => {
-    const fetchConversations = async () => {
-      if (!userId) return;
-
-      try {
-        setLoading(true);
-        const response = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`);
-        
-        if (!response.ok) throw new Error('Failed to fetch conversations');
-        
-        const data = await response.json();
-        
-        const formattedConversations: ConversationUser[] = (data.data || []).map((chat: any) => ({
-          id: chat.participant_id,
-          name: chat.participant_name || 'Guest',
-          avatar: chat.participant_avatar || 'https://i.pravatar.cc/150',
-          lastMessage: chat.last_message || 'No messages yet',
-          lastMessageTime: chat.last_message_time ? formatTime(new Date(chat.last_message_time)) : 'Never',
-          unreadCount: chat.unread_count || 0,
-        }));
-        
-        setConversations(formattedConversations);
-        
-        // Set first conversation as selected by default
-        if (formattedConversations.length > 0 && !selectedConversationId) {
-          setSelectedConversationId(formattedConversations[0].id);
-        }
-      } catch (error) {
-        console.error('Failed to fetch conversations:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchConversations();
-  }, [userId, selectedConversationId]);
+  }, [fetchConversations]);
 
-  // Fetch messages for selected conversation
+  // Messages for the open thread, derived from the already-fetched
+  // conversation history (the API has no per-conversation message endpoint).
+  const messages: Message[] = useMemo(() => {
+    const chat = rawChats.find((c) => c.participant_id === selectedConversationId);
+    if (!chat) return [];
+    return (chat.messages || []).map((msg: any) => ({
+      id: msg.id,
+      text: msg.text,
+      senderId: msg.sender_id,
+      senderName: msg.sender_name || 'Unknown',
+      timestamp: formatTime(new Date(msg.timestamp)),
+      isFromMe: msg.sender_id === userId,
+    }));
+  }, [rawChats, selectedConversationId, userId]);
+
+  // Subscribe to real-time messages involving this host, then just refetch
+  // -- the payload's column names already come back verified/consistent
+  // via fetchChatHistory, so re-deriving state from one source avoids
+  // duplicating that mapping logic here.
   useEffect(() => {
-    const fetchMessages = async () => {
-      if (!selectedConversationId || !userId) return;
-
-      try {
-        const response = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}&conversationId=${selectedConversationId}`);
-        
-        if (!response.ok) throw new Error('Failed to fetch messages');
-        
-        const data = await response.json();
-        
-        const formattedMessages: Message[] = (data.data?.messages || []).map((msg: any) => ({
-          id: msg.id,
-          text: msg.text,
-          senderId: msg.sender_id,
-          senderName: msg.sender_name || 'Unknown',
-          timestamp: formatTime(new Date(msg.timestamp)),
-          isFromMe: msg.sender_id === userId,
-        }));
-        
-        setMessages(formattedMessages);
-      } catch (error) {
-        console.error('Failed to fetch messages:', error);
-      }
-    };
-
-    fetchMessages();
-  }, [selectedConversationId, userId]);
-
-  // Subscribe to real-time messages
-  useEffect(() => {
-    if (!userId || !selectedConversationId) return;
+    if (!userId) return;
 
     const channel = supabase
-      .channel(`chat:${selectedConversationId}:${userId}`)
+      .channel(`chat:host:${userId}`)
       .on(
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'public',
+          schema: 'hostiggo_testing_schema',
           table: 'chat_messages',
-          filter: `recipient_id.eq.${selectedConversationId},sender_id.eq.${userId}`,
+          filter: `or(user_id.eq.${userId},host_id.eq.${userId})`,
         },
-        (payload: any) => {
-          const newMsg = payload.new;
-          const formattedMessage: Message = {
-            id: newMsg.id,
-            text: newMsg.content,
-            senderId: newMsg.sender_id,
-            senderName: newMsg.sender_name || 'Unknown',
-            timestamp: formatTime(new Date(newMsg.created_at)),
-            isFromMe: newMsg.sender_id === userId,
-          };
-          
-          setMessages((prev) => [...prev, formattedMessage]);
-          
-          // Update conversation list
-          setConversations((prev) =>
-            prev.map((conv) =>
-              conv.id === selectedConversationId
-                ? { ...conv, lastMessage: newMsg.content, lastMessageTime: 'Now' }
-                : conv
-            )
-          );
+        () => {
+          fetchConversations();
         }
       )
       .subscribe();
@@ -148,7 +116,7 @@ export default function HostChatUI() {
     return () => {
       supabase.removeChannel(channel);
     };
-  }, [userId, selectedConversationId]);
+  }, [userId, fetchConversations]);
 
   // Auto-scroll to latest message
   useEffect(() => {
@@ -161,18 +129,6 @@ export default function HostChatUI() {
 
     setSending(true);
     const textToSend = messageText.trim();
-
-    // Optimistically add message to UI
-    const optimisticMessage: Message = {
-      id: `temp-${Date.now()}`,
-      text: textToSend,
-      senderId: userId,
-      senderName: user?.name || 'You',
-      timestamp: 'now',
-      isFromMe: true,
-    };
-
-    setMessages((prev) => [...prev, optimisticMessage]);
     setMessageText('');
 
     try {
@@ -191,44 +147,17 @@ export default function HostChatUI() {
         throw new Error('Failed to send message');
       }
 
-      const result = await response.json();
-      
-      // Replace optimistic message with real one
-      if (result.data) {
-        setMessages((prev) =>
-          prev.map((msg) =>
-            msg.id === optimisticMessage.id
-              ? {
-                  id: result.data.id,
-                  text: result.data.text,
-                  senderId: result.data.sender_id,
-                  senderName: user?.name || 'You',
-                  timestamp: formatTime(new Date(result.data.timestamp)),
-                  isFromMe: true,
-                }
-              : msg
-          )
-        );
-      }
-
-      // Update conversation preview
-      setConversations((prev) =>
-        prev.map((conv) =>
-          conv.id === selectedConversationId
-            ? { ...conv, lastMessage: textToSend, lastMessageTime: 'Now' }
-            : conv
-        )
-      );
+      // Pull the new message (and updated preview) back from the source of
+      // truth rather than hand-rolling an optimistic merge into rawChats.
+      await fetchConversations();
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Remove optimistic message on error
-      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
-      // Restore text
+      // Restore text so the guest doesn't lose what they typed.
       setMessageText(textToSend);
     } finally {
       setSending(false);
     }
-  }, [messageText, selectedConversationId, userId, user, sending]);
+  }, [messageText, selectedConversationId, userId, sending, fetchConversations]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
   
@@ -336,9 +265,6 @@ export default function HostChatUI() {
                 />
                 <div>
                   <h3 className="font-bold text-gray-900">{selectedConversation.name}</h3>
-                  <p className="text-xs text-gray-500">
-                    {isConnected ? 'Connected' : 'Connecting...'}
-                  </p>
                 </div>
               </div>
               <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -390,12 +316,12 @@ export default function HostChatUI() {
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Type your message..."
-                disabled={sending || !isConnected}
+                disabled={sending}
                 className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
-                disabled={sending || !messageText.trim() || !isConnected}
+                disabled={sending || !messageText.trim()}
                 className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 <Send className="w-5 h-5" />

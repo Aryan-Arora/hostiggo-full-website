@@ -593,7 +593,7 @@ export default function ChatWorkspace({
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'public',
+          schema: 'hostiggo_testing_schema',
           table: 'chat_messages',
           filter: `or(user_id.eq.${userId},host_id.eq.${userId})`,
         },
