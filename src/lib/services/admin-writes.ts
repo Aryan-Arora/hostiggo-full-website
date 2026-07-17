@@ -398,6 +398,7 @@ export type ListingDraft = {
   userId: string;
   title?: string;
   description?: string;
+  propertyType?: string;
   priceWeekday?: number;
   priceWeekend?: number;
   numGuests?: number;
@@ -406,6 +407,15 @@ export type ListingDraft = {
   numBathrooms?: number;
   amenityIds?: number[];
   addonSelections?: { addon_id: number; price: number; includes: string }[];
+  discounts?: { discount_type: string; percent: number; enabled: boolean }[];
+  houseRules?: {
+    check_in_time?: string;
+    check_out_time?: string;
+    smoking_allowed?: boolean;
+    pets_allowed?: boolean;
+    parties_allowed?: boolean;
+    quiet_hours?: boolean;
+  };
   photoUrls?: string[];
   checkInTime?: string;
   checkOutTime?: string;
@@ -447,6 +457,15 @@ export async function createListing(draft: ListingDraft) {
   };
   if (draft.locationId) row.location_id = draft.locationId;
 
+  if (draft.propertyType) {
+    const { data: propType } = await supabaseAdmin
+      .from("property_types")
+      .select("id")
+      .eq("type_id", draft.propertyType)
+      .maybeSingle();
+    if (propType) row.property_type_id = propType.id;
+  }
+
   const { data: listing, error } = await supabaseAdmin
     .from("listings")
     .insert(row)
@@ -480,6 +499,33 @@ export async function createListing(draft: ListingDraft) {
     if (addonErr) {
       console.error("[createListing] addons insert failed:", addonErr.message);
       warnings.push("Your listing was created, but the selected add-ons failed to save.");
+    }
+  }
+
+  // Discounts picked in the wizard's pricing step.
+  if (draft.discounts?.length) {
+    const discountRows = draft.discounts.map((d) => ({
+      listing_id: listingId,
+      discount_type: d.discount_type,
+      percent: d.percent,
+      enabled: d.enabled,
+    }));
+    const { error: discountErr } = await supabaseAdmin.from("listing_discounts").insert(discountRows);
+    if (discountErr) {
+      console.error("[createListing] discounts insert failed:", discountErr.message);
+      warnings.push("Your listing was created, but the discount settings failed to save.");
+    }
+  }
+
+  // House rules set in the wizard's rules step (one structured row, not a list).
+  if (draft.houseRules) {
+    const { error: rulesErr } = await supabaseAdmin.from("listing_house_rules").insert({
+      listing_id: listingId,
+      ...draft.houseRules,
+    });
+    if (rulesErr) {
+      console.error("[createListing] house rules insert failed:", rulesErr.message);
+      warnings.push("Your listing was created, but the house rules failed to save.");
     }
   }
 

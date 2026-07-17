@@ -14,24 +14,33 @@ import {
 } from 'lucide-react';
 import WizardShell, { OptionCard } from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
+// ids match the `type_id` column in the property_types table so createListing
+// can resolve them straight to a property_type_id foreign key.
 const POPULAR = [
   { id: 'house', icon: Home, name: 'House', desc: 'A standalone home with private indoor spaces.' },
   { id: 'apartment', icon: Building2, name: 'Apartment / Flat', desc: 'A private unit within a residential building.' },
-  { id: 'guesthouse', icon: BedDouble, name: 'Guest House', desc: 'A separate property designed for hosting guests.' },
+  { id: 'guest-house', icon: BedDouble, name: 'Guest House', desc: 'A separate property designed for hosting guests.' },
   { id: 'hotel', icon: Hotel, name: 'Hotel', desc: 'A professionally managed property with multiple rooms.' },
 ];
 
 const UNIQUE = [
   { id: 'cabin', icon: TreePine, name: 'Cabin' },
   { id: 'villa', icon: Castle, name: 'Villa' },
-  { id: 'treehouse', icon: Trees, name: 'Treehouse' },
-  { id: 'tiny', icon: Home, name: 'Tiny Home' },
-  { id: 'farm', icon: Tractor, name: 'Farm Stay' },
+  { id: 'tree-house', icon: Trees, name: 'Treehouse' },
+  { id: 'tiny-home', icon: Home, name: 'Tiny Home' },
+  { id: 'farm-stay', icon: Tractor, name: 'Farm Stay' },
 ];
 
 export default function PropertyTypePage() {
-  const [selected, setSelected] = useState<string>('house');
+  const { draft, update } = useListingDraft();
+  const [selected, setSelected] = useState<string>(draft.propertyType || 'house');
+
+  const select = (id: string) => {
+    setSelected(id);
+    update({ propertyType: id });
+  };
 
   return (
     <WizardShell
@@ -67,7 +76,7 @@ export default function PropertyTypePage() {
               <OptionCard
                 key={opt.id}
                 selected={active}
-                onClick={() => setSelected(opt.id)}
+                onClick={() => select(opt.id)}
                 className="flex flex-col items-start gap-4"
               >
                 <div
@@ -105,7 +114,7 @@ export default function PropertyTypePage() {
               <OptionCard
                 key={opt.id}
                 selected={active}
-                onClick={() => setSelected(opt.id)}
+                onClick={() => select(opt.id)}
                 className="flex flex-col items-center text-center gap-3 p-4"
               >
                 <Icon

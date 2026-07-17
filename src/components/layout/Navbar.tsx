@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/components/providers/AuthProvider';
 import {
   Globe,
-  ChevronDown,
   IndianRupee,
   Menu,
   X,
@@ -143,11 +142,10 @@ export default function Navbar() {
               <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
               INR
             </span>
-            <button className="flex items-center gap-1 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium">
+            <span className="flex items-center gap-1 text-gray-500 px-3 py-1.5 text-[13px] font-medium">
               <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-              <span>English</span>
-              <ChevronDown className="w-3 h-3 text-gray-400" />
-            </button>
+              English
+            </span>
 
             {isAuthenticated ? (
               <>
@@ -275,9 +273,9 @@ export default function Navbar() {
             <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
               <IndianRupee className="w-4 h-4 text-gray-500" /> INR
             </div>
-            <button className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium">
+            <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
               <Globe className="w-4 h-4 text-gray-500" /> English
-            </button>
+            </div>
             {isAuthenticated ? (
               <>
                 <Link

@@ -55,7 +55,11 @@ export default function VerificationPage() {
               ))}
             </div>
             <div className="pt-6 border-t border-gray-100">
-              <button className="flex items-center gap-2 text-blue-600 font-bold hover:underline">
+              <button
+                disabled
+                title="Coming soon"
+                className="flex items-center gap-2 text-gray-400 font-bold cursor-not-allowed"
+              >
                 <MessageSquare className="w-5 h-5" />
                 Send link via SMS instead
               </button>
@@ -84,7 +88,11 @@ export default function VerificationPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-3 w-full">
-                <button className="bg-blue-600 text-white font-bold py-4 rounded-full shadow-lg hover:bg-blue-700 active:scale-[0.98] transition-all">
+                <button
+                  disabled
+                  title="Coming soon -- use the Finish button below to publish your listing"
+                  className="bg-gray-200 text-gray-400 font-bold py-4 rounded-full cursor-not-allowed"
+                >
                   Verify via App
                 </button>
                 <p className="text-xs text-gray-500">

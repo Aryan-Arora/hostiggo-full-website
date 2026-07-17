@@ -124,9 +124,9 @@ export default function Footer() {
             <p className="text-gray-400 text-xs">© 2025 Hostiggo · hostiggo.com</p>
           </div>
           <div className="flex items-center gap-4">
-            <button className="flex items-center gap-1 text-gray-500 hover:text-gray-700 text-xs transition-colors">
+            <span className="flex items-center gap-1 text-gray-500 text-xs">
               <Globe className="w-3.5 h-3.5" /> English
-            </button>
+            </span>
             <span className="flex items-center gap-1 text-gray-500 text-xs">
               <IndianRupee className="w-3.5 h-3.5" /> INR
             </span>

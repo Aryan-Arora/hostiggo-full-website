@@ -82,6 +82,10 @@ const buildReviews = (row: any): Review[] => {
   }));
 };
 
+// The `host` table has no response_rate/response_time/superhost columns at
+// all -- those were previously hardcoded (99%, "Within a day", true for
+// every host) and displayed as if real. Left undefined here instead so the
+// UI can honestly omit them; only is_verified reflects a real column.
 const buildHost = (row: any): Host => ({
   id: String(row?.host_uuid ?? row?.host?.id ?? ""),
   name: row?.host?.name ?? "Host",
@@ -89,9 +93,9 @@ const buildHost = (row: any): Host => ({
   rating: Number(row?.host?.rating ?? 0),
   tripsHosted: Number(row?.host?.tripsHosted ?? 0),
   joinDate: row?.host?.joinDate ?? "",
-  responseRate: Number(row?.host?.responseRate ?? 99),
-  responseTime: row?.host?.responseTime ?? "Within a day",
-  isSuperhost: true,
+  responseRate: row?.host?.responseRate != null ? Number(row.host.responseRate) : undefined,
+  responseTime: row?.host?.responseTime ?? undefined,
+  isSuperhost: Boolean(row?.host?.is_verified),
 });
 
 export function mapListingToProperty(input: any): Property {

@@ -61,13 +61,13 @@ export default function WizardShell({
           >
             Save &amp; Exit
           </Link>
-          <button
-            type="button"
+          <Link
+            href="/support"
             className="text-blue-600 hover:bg-blue-50 transition-colors p-2 rounded-full"
             aria-label="Help"
           >
             <HelpCircle className="w-5 h-5" />
-          </button>
+          </Link>
         </div>
       </header>
 
@@ -112,12 +112,12 @@ export default function WizardShell({
           Back
         </button>
         <div className="flex items-center gap-4">
-          <button
-            type="button"
+          <Link
+            href="/support"
             className="hidden md:block text-sm font-medium text-gray-500 hover:underline"
           >
             Need help?
-          </button>
+          </Link>
           <button
             type="button"
             disabled={nextDisabled || submitting}

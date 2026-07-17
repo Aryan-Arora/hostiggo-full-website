@@ -26,7 +26,13 @@ const AMENITY_ICONS: Record<string, React.ReactNode> = {
 export default function PropertyCardList({ property }: PropertyCardListProps) {
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
-  const { dates } = useListingState();
+  const { dates, guests } = useListingState();
+
+  const nights =
+    dates.checkIn && dates.checkOut
+      ? Math.max(0, Math.round((dates.checkOut.getTime() - dates.checkIn.getTime()) / 86400000))
+      : null;
+  const totalGuests = guests.adults + guests.children;
   const { isAuthenticated, userId } = useAuth();
   const { isSaved, toggle } = useWishlist(userId);
   const liked = isSaved(property.id);
@@ -94,7 +100,8 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
           <div className="min-w-0 flex-1">
             <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-1">{property.propertyName}</h3>
             <p className="text-[13px] text-gray-500 font-medium line-clamp-1 mb-2">
-              {property.city}, {property.state} • <button className="text-blue-600 hover:underline">View on map</button> • {property.distanceFromCenter ?? "15.8km from centre"}
+              {property.city}, {property.state}
+              {property.distanceFromCenter ? ` • ${property.distanceFromCenter} from centre` : ''}
             </p>
 
             {/* Rating Block — show an honest "New" badge instead of a fake
@@ -131,13 +138,17 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
 
             {/* Room details text */}
             <p className="text-[11px] text-gray-500 font-medium mt-3">
-              1 bedroom <br /> 1 double bed • 1 bathroom
+              Up to {property.maxGuests} guest{property.maxGuests === 1 ? '' : 's'}
             </p>
           </div>
 
           {/* Pricing Column (Right side) */}
           <div className="flex-shrink-0 flex flex-col items-end text-right">
-            <p className="text-[12px] text-gray-500 font-medium mb-1">10 nights, 2 adults</p>
+            {nights !== null && nights > 0 && (
+              <p className="text-[12px] text-gray-500 font-medium mb-1">
+                {nights} night{nights === 1 ? '' : 's'}, {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+              </p>
+            )}
             {property.originalPrice && (
               <p className="text-[13px] text-gray-400 font-medium line-through mb-0.5">₹ {property.originalPrice.toLocaleString("en-IN")}</p>
             )}

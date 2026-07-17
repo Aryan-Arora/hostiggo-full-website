@@ -20,6 +20,19 @@ export type ListingDraft = {
   numBathrooms?: number;
   amenityIds?: number[];
   addonSelections?: { addon_id: number; price: number; includes: string }[];
+  discounts?: { discount_type: string; percent: number; enabled: boolean }[];
+  houseRules?: {
+    check_in_time?: string;
+    check_out_time?: string;
+    smoking_allowed?: boolean;
+    pets_allowed?: boolean;
+    parties_allowed?: boolean;
+    // The real listing_house_rules.quiet_hours column is a plain boolean
+    // flag ("quiet hours policy in effect"), not a time range -- the actual
+    // from/to times the wizard collects have no backing column to persist
+    // into, so they're kept as local UI state only.
+    quiet_hours?: boolean;
+  };
   photoUrls?: string[];
   addressLine1?: string;
   landmark?: string;
