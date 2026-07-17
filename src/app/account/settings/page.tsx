@@ -1,12 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 import { Bell, Lock, CreditCard, Globe, Loader2, type LucideIcon } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
 
 const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'notifications', label: 'Notifications', icon: Bell },
@@ -15,44 +17,100 @@ const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'language', label: 'Language & Region', icon: Globe },
 ];
 
-// None of these preferences have a real column/table backing them yet — no
-// notification-preference or privacy-flag fields exist anywhere in the
-// schema — so every row is shown disabled with "Coming soon" rather than a
-// toggle that looks interactive but silently doesn't save anything.
-const TOGGLES: Record<string, { label: string; desc: string }[]> = {
+type PrefKey =
+  | 'email_notifications'
+  | 'sms_alerts'
+  | 'promo_notifications'
+  | 'host_message_notifications'
+  | 'show_profile_to_hosts'
+  | 'include_in_search'
+  | 'activity_status';
+
+const ROWS: Record<'notifications' | 'privacy', { key: PrefKey; label: string; desc: string }[]> = {
   notifications: [
-    { label: 'Email notifications', desc: 'Booking confirmations, receipts, and reminders' },
-    { label: 'SMS alerts', desc: 'Time-sensitive trip updates' },
-    { label: 'Promotions & offers', desc: 'Deals, discounts, and Hostiggo news' },
-    { label: 'Host messages', desc: 'New messages from your hosts' },
+    { key: 'email_notifications', label: 'Email notifications', desc: 'Booking confirmations, receipts, and reminders' },
+    { key: 'sms_alerts', label: 'SMS alerts', desc: 'Time-sensitive trip updates' },
+    { key: 'promo_notifications', label: 'Promotions & offers', desc: 'Deals, discounts, and Hostiggo news' },
+    { key: 'host_message_notifications', label: 'Host messages', desc: 'New messages from your hosts' },
   ],
   privacy: [
-    { label: 'Show profile to hosts', desc: 'Let hosts see your public profile before booking' },
-    { label: 'Include in search', desc: 'Allow your reviews to appear on listings' },
-    { label: 'Activity status', desc: 'Show when you were last active' },
+    { key: 'show_profile_to_hosts', label: 'Show profile to hosts', desc: 'Let hosts see your public profile before booking' },
+    { key: 'include_in_search', label: 'Include in search', desc: 'Allow your reviews to appear on listings' },
+    { key: 'activity_status', label: 'Activity status', desc: 'Show when you were last active' },
   ],
 };
 
-function Toggle({ disabled }: { disabled?: boolean }) {
+// Payment and Language & Region have no backing data anywhere in the
+// schema (no saved-payment-methods table, no locale/currency preference
+// column) -- shown honestly as "coming soon" rather than fake toggles.
+
+function Toggle({
+  on,
+  onToggle,
+  saving,
+}: {
+  on: boolean;
+  onToggle: () => void;
+  saving: boolean;
+}) {
   return (
     <button
-      disabled={disabled}
-      title={disabled ? 'Coming soon' : undefined}
+      onClick={onToggle}
+      disabled={saving}
+      aria-pressed={on}
       className={cn(
-        'relative w-12 h-7 rounded-full transition-colors shrink-0',
-        disabled ? 'bg-gray-200 cursor-not-allowed' : 'bg-gray-300',
+        'relative w-12 h-7 rounded-full transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed',
+        on ? 'bg-blue-600' : 'bg-gray-300',
       )}
     >
-      <span className="absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow" />
+      <span
+        className={cn(
+          'absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform',
+          on ? 'translate-x-5' : 'translate-x-0.5',
+        )}
+      />
     </button>
   );
 }
 
 export default function GuestSettingsPage() {
-  const [tab, setTab] = useState('notifications');
-  const { isAuthenticated, loading: authLoading } = useAuth();
+  const [tab, setTab] = useState<'notifications' | 'privacy' | 'payment' | 'language'>('notifications');
+  const { user, userId, isAuthenticated, loading: authLoading, refresh } = useAuth();
 
-  const rows = TOGGLES[tab];
+  const [prefs, setPrefs] = useState<Partial<Record<PrefKey, boolean>>>({});
+  const [savingKey, setSavingKey] = useState<PrefKey | null>(null);
+
+  useEffect(() => {
+    if (!user) return;
+    setPrefs({
+      email_notifications: user.email_notifications ?? true,
+      sms_alerts: user.sms_alerts ?? true,
+      promo_notifications: user.promo_notifications ?? false,
+      host_message_notifications: user.host_message_notifications ?? true,
+      show_profile_to_hosts: user.show_profile_to_hosts ?? true,
+      include_in_search: user.include_in_search ?? true,
+      activity_status: user.activity_status ?? true,
+    });
+  }, [user]);
+
+  const handleToggle = async (key: PrefKey) => {
+    if (!userId || savingKey) return;
+    const next = !prefs[key];
+    setPrefs((p) => ({ ...p, [key]: next }));
+    setSavingKey(key);
+    try {
+      await api.updateProfile(userId, { [key]: next });
+      await refresh();
+    } catch (err) {
+      console.error('[account/settings] toggle failed:', err);
+      setPrefs((p) => ({ ...p, [key]: !next }));
+      toast.error(err instanceof Error ? err.message : 'Could not save that preference.');
+    } finally {
+      setSavingKey(null);
+    }
+  };
+
+  const rows = tab === 'notifications' || tab === 'privacy' ? ROWS[tab] : null;
 
   return (
     <div className="min-h-screen bg-[#f0f2f5]">
@@ -90,7 +148,7 @@ export default function GuestSettingsPage() {
                   return (
                     <button
                       key={n.id}
-                      onClick={() => setTab(n.id)}
+                      onClick={() => setTab(n.id as typeof tab)}
                       className={cn(
                         'flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm',
                         on ? 'bg-blue-600 text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
@@ -113,12 +171,16 @@ export default function GuestSettingsPage() {
               {rows ? (
                 <div className="divide-y divide-gray-100">
                   {rows.map((r) => (
-                    <div key={r.label} className="flex items-center justify-between py-4">
+                    <div key={r.key} className="flex items-center justify-between py-4">
                       <div>
                         <p className="text-sm font-bold text-gray-800">{r.label}</p>
                         <p className="text-xs text-gray-500">{r.desc}</p>
                       </div>
-                      <Toggle disabled />
+                      <Toggle
+                        on={!!prefs[r.key]}
+                        onToggle={() => handleToggle(r.key)}
+                        saving={savingKey === r.key}
+                      />
                     </div>
                   ))}
                 </div>

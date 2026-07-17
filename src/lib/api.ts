@@ -274,6 +274,13 @@ export type CurrentUser = {
   emergency_contact: string | null;
   created_at: string | null;
   updated_at: string | null;
+  email_notifications: boolean | null;
+  sms_alerts: boolean | null;
+  promo_notifications: boolean | null;
+  host_message_notifications: boolean | null;
+  show_profile_to_hosts: boolean | null;
+  include_in_search: boolean | null;
+  activity_status: boolean | null;
 };
 
 export const normalizePhone = (phone: string) => {
@@ -377,6 +384,20 @@ export const api = {
     const formData = new FormData();
     formData.append("file", file);
     const response = await fetch("/api/host/upload", {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Upload failed");
+    }
+    const { data } = await response.json();
+    return data.url;
+  },
+  uploadProfilePhoto: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/account/upload-photo", {
       method: "POST",
       body: formData,
     });

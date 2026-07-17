@@ -28,6 +28,13 @@ export type UserRow = {
   profile_pic_url: string | null;
   is_verified: boolean | null;
   emergency_contact: string | null;
+  email_notifications: boolean | null;
+  sms_alerts: boolean | null;
+  promo_notifications: boolean | null;
+  host_message_notifications: boolean | null;
+  show_profile_to_hosts: boolean | null;
+  include_in_search: boolean | null;
+  activity_status: boolean | null;
 };
 
 const upsertUserWithSchema = async (payload: UpsertUserPayload) => {
