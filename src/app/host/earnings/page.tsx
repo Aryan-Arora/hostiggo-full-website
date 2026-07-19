@@ -15,6 +15,7 @@ import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboa
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { calculateHostPayout } from '@/lib/billing/payout';
 
 // Bookings are instant-confirmed on creation — status_id is only ever
 // 2 (confirmed) or 3 (cancelled), there is no pending/approval step.
@@ -33,15 +34,25 @@ type Earn = {
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-const mapEarn = (row: any): Earn => ({
-  id: String(row.booking_id),
-  title: row.property?.title?.trim() || 'Booked stay',
-  start: row.start_date ? new Date(row.start_date) : null,
-  end: row.end_date ? new Date(row.end_date) : null,
-  amount: Number(row.amount ?? 0),
-  cancelled: Number(row.status_id) === STATUS_CANCELLED,
-  confirmed: Number(row.status_id) === STATUS_CONFIRMED,
-});
+// Host earnings must show the NET payout (after Hostiggo's 5% commission,
+// 1% TCS, 1% TDS) -- never the raw guest-paid `bookings.amount`, which is
+// the grand total including GST and the Hostiggo service fee. Recomputed
+// from the listing's property price rather than stored on the booking,
+// same simplification previewCancellationRefund() already uses (add-on
+// price isn't tracked per-booking yet).
+const mapEarn = (row: any): Earn => {
+  const propertyPrice = Number(row.property?.price_weekday ?? 0);
+  const payout = calculateHostPayout({ propertyPrice });
+  return {
+    id: String(row.booking_id),
+    title: row.property?.title?.trim() || 'Booked stay',
+    start: row.start_date ? new Date(row.start_date) : null,
+    end: row.end_date ? new Date(row.end_date) : null,
+    amount: payout.netHostPayoutRupees,
+    cancelled: Number(row.status_id) === STATUS_CANCELLED,
+    confirmed: Number(row.status_id) === STATUS_CONFIRMED,
+  };
+};
 
 const inr = (n: number) =>
   `₹${Math.round(n).toLocaleString('en-IN')}`;
