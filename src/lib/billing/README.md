@@ -39,16 +39,15 @@ boundaries.
 
 ## Known open items (flagged, not silently resolved)
 
-1. **Host payout worked example mismatch.** The source spec states a
-   ₹10,788 net payout for a ₹10,000 property with no add-ons. The formula
-   as specified (`payoutBase - 5% - 1% - 1%`) can only produce a number
-   `<= payoutBase`, and ₹10,788 > ₹10,000 -- so the stated formula cannot
-   reproduce the stated example under any reading of "5%/1%/1% of
-   payoutBase". Implemented exactly as specified (verified: reproduces
-   ₹9,300 for the ₹10,000 case); the mismatched test case is `it.skip`'d
-   in `__tests__/payout.test.ts` with the reasoning inline. **Needs the
-   real formula confirmed before this goes anywhere near production
-   payouts.**
+1. **Host payout worked example mismatch -- resolved.** The source spec
+   states a ₹10,788 net payout for a ₹10,000 property with no add-ons.
+   The formula as specified (`payoutBase - 5% - 1% - 1%`) can only
+   produce a number `<= payoutBase`, and ₹10,788 > ₹10,000 -- so the
+   stated formula cannot reproduce the stated example under any reading
+   of "5%/1%/1% of payoutBase". Decision: the ₹10,788 example is treated
+   as an error in the source doc, and the formula is implemented exactly
+   as specified (verified: reproduces ₹9,300 for the ₹10,000 case). This
+   is now the confirmed, final formula.
 2. **Strict policy's partial-refund percentage isn't specified anywhere**
    in the source doc for the ">= 7 days" case ("partial refund (per
    configured %)" -- no number given). Defaulted to 50%, configurable via

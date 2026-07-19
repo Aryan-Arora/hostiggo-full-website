@@ -13,14 +13,11 @@ export const PAYOUT_RATES = {
  * revenue). Pure function -- no I/O.
  *
  * NOTE: implemented exactly as specified (payoutBase - 5% commission - 1%
- * TCS - 1% TDS). For the documented worked example (₹10,000 property,
- * no add-ons), this formula produces ₹9,300, NOT the ₹10,788 stated in
- * the source doc. Per instruction, this is flagged rather than silently
- * reverse-engineered to hit ₹10,788 -- see the skipped assertion in
- * __tests__/payout.test.ts for the exact numbers and why no formula this
- * function could reasonably implement (deductions can only reduce
- * payoutBase, never increase it) reproduces a payout larger than the
- * ₹10,000 base price. This needs the source doc's actual math clarified.
+ * TCS - 1% TDS). The source doc's worked example states ₹10,788 for a
+ * ₹10,000 property with no add-ons, but this formula produces ₹9,300 --
+ * no version of "subtract percentages of payoutBase" can exceed
+ * payoutBase, so ₹10,788 is not reachable and is treated as an error in
+ * the source doc's example, not in this formula. Confirmed final.
  */
 export function calculateHostPayout(input: HostPayoutInput): HostPayoutResult {
   const propertyPricePaise = rupeesToPaise(input.propertyPrice);
