@@ -415,7 +415,10 @@ export const api = {
     const { data } = await response.json();
     return data.url;
   },
-  locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
+  locations: (limit = 40, q?: string, popular = false) =>
+    request<any[]>(
+      `/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}${popular ? "&popular=1" : ""}`,
+    ),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),
   search: async (

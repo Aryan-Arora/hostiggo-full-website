@@ -10,10 +10,13 @@ export async function GET(req: NextRequest) {
   try {
     const query = req.nextUrl.searchParams.get("q");
     const limit = Number(req.nextUrl.searchParams.get("limit") ?? 22);
+    const popular = req.nextUrl.searchParams.get("popular") === "1";
 
     const data = query
       ? await HotelServiceApi.searchLocations(query)
-      : await HotelServiceApi.getLocationSample(limit);
+      : popular
+        ? await HotelServiceApi.getPopularLocations(limit)
+        : await HotelServiceApi.getLocationSample(limit);
 
     return NextResponse.json({ data });
   } catch (err) {
