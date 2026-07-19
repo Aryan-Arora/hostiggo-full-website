@@ -781,10 +781,12 @@ function BookingWidget({
   property,
   onNightsChange,
   onGuestsChange,
+  selectedAddonIds,
 }: {
   property: Property;
   onNightsChange?: (n: number) => void;
   onGuestsChange?: (g: number) => void;
+  selectedAddonIds: number[];
 }) {
   const searchParams = useSearchParams();
   const { isAuthenticated, userId } = useAuth();
@@ -856,6 +858,8 @@ function BookingWidget({
     paramCheckIn && paramCheckOut ? 'available' : 'idle'
   );
   const [unavailableReason, setUnavailableReason] = useState('');
+  const selectedAddons = (property.addons ?? []).filter((a) => selectedAddonIds.includes(a.addonId));
+  const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
 
   const nights = checkIn && checkOut
     ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
@@ -879,9 +883,10 @@ function BookingWidget({
     }
     return sum;
   })();
-  const serviceFee = Math.round(subtotal * 0.08);
-  const taxes = Math.round(subtotal * 0.12);
-  const total = subtotal + serviceFee + taxes;
+  const feeable = subtotal + addonsTotal;
+  const serviceFee = Math.round(feeable * 0.08);
+  const taxes = Math.round(feeable * 0.12);
+  const total = feeable + serviceFee + taxes;
 
   const handleDatesChange = (ci: Date | null, co: Date | null) => {
     setCheckIn(ci);
@@ -937,6 +942,7 @@ function BookingWidget({
         endDate: toISODate(checkOut)!,
         numAdults: guests,
         numChildren: 0,
+        addonIds: selectedAddonIds,
       });
       setStatus('confirmed');
       toast.success('Booking confirmed! See it in your bookings.');
@@ -1072,6 +1078,12 @@ function BookingWidget({
             <span>₹{property.price.toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}</span>
             <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
           </div>
+          {selectedAddons.map((a) => (
+            <div key={a.addonId} className="flex justify-between text-gray-600">
+              <span>{a.name}</span>
+              <span className="font-semibold">₹{a.price.toLocaleString('en-IN')}</span>
+            </div>
+          ))}
           <div className="flex justify-between text-gray-600">
             <span>Service fee (8%)</span>
             <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
@@ -1443,6 +1455,12 @@ export default function PropertyDetailsPage() {
   const liked = property ? isSaved(property.id) : false;
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([]);
+  const toggleAddon = (addonId: number) => {
+    setSelectedAddonIds((prev) =>
+      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId],
+    );
+  };
   const [descExpanded, setDescExpanded] = useState(false);
   const [stickyBar, setStickyBar] = useState(false);
   const [barNights, setBarNights] = useState(0);
@@ -1809,30 +1827,52 @@ export default function PropertyDetailsPage() {
                   Available add-ons
                 </h2>
                 <div className="space-y-2.5">
-                  {property.addons.map((addon, i) => (
-                    <div
-                      key={i}
-                      className="flex items-start justify-between gap-3 p-3 rounded-xl bg-gray-50 border border-gray-100"
-                    >
-                      <div className="min-w-0">
-                        <p className="text-[13px] font-bold text-gray-800">{addon.name}</p>
-                        {addon.includes && (
-                          <p className="text-[11px] text-gray-500 mt-0.5">{addon.includes}</p>
+                  {property.addons.map((addon) => {
+                    const checked = selectedAddonIds.includes(addon.addonId);
+                    return (
+                      <button
+                        key={addon.addonId}
+                        type="button"
+                        onClick={() => toggleAddon(addon.addonId)}
+                        className={cn(
+                          'w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors',
+                          checked ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-100 hover:border-gray-200',
                         )}
-                        {addon.timingFrom && addon.timingTo && (
-                          <p className="text-[11px] text-gray-400 mt-0.5">
-                            {addon.timingFrom.slice(0, 5)} – {addon.timingTo.slice(0, 5)}
-                          </p>
-                        )}
-                      </div>
-                      <span className="text-[13px] font-bold text-blue-700 flex-shrink-0">
-                        +₹{addon.price.toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                  ))}
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span
+                            className={cn(
+                              'mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0',
+                              checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white',
+                            )}
+                          >
+                            {checked && (
+                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
+                                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-bold text-gray-800">{addon.name}</p>
+                            {addon.includes && (
+                              <p className="text-[11px] text-gray-500 mt-0.5">{addon.includes}</p>
+                            )}
+                            {addon.timingFrom && addon.timingTo && (
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                {addon.timingFrom.slice(0, 5)} – {addon.timingTo.slice(0, 5)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[13px] font-bold text-blue-700 flex-shrink-0">
+                          +₹{addon.price.toLocaleString('en-IN')}
+                        </span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <p className="text-[11px] text-gray-400 mt-3">
-                  Ask the host about these add-ons when booking.
+                  Selected add-ons are added to your total at checkout.
                 </p>
               </div>
             )}
@@ -2034,6 +2074,7 @@ export default function PropertyDetailsPage() {
               property={property}
               onNightsChange={setBarNights}
               onGuestsChange={setBarGuests}
+              selectedAddonIds={selectedAddonIds}
             />
           </div>
         </div>

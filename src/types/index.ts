@@ -78,6 +78,7 @@ export interface Property {
   safetyFeatures?: { name: string; icon: string; description: string }[];
   activeDiscount?: { type: string; percent: number } | null;
   addons?: {
+    addonId: number;
     name: string;
     icon: string;
     category: string;
