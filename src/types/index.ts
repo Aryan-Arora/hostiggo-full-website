@@ -61,6 +61,7 @@ export interface Property {
   distanceFromCenter?: string;
   isInstantBook?: boolean;
   freeCancellation?: boolean;
+  cancellationPolicy?: "flexible" | "moderate" | "strict";
   breakfast?: boolean;
   parking?: boolean;
   wifi?: boolean;

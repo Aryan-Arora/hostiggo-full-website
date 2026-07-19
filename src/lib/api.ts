@@ -132,6 +132,7 @@ export function mapListingToProperty(input: any): Property {
       typeof input?.distance === "number" ? `${(input.distance / 1000).toFixed(1)} km` : row.distance,
     isInstantBook: row.booking_mode === "auto" || Boolean(row.isInstantBook),
     freeCancellation: Boolean(row.freeCancellation),
+    cancellationPolicy: (row.cancellation_policy ?? "moderate") as Property["cancellationPolicy"],
     breakfast: boolFromAmenity(amenities, "breakfast"),
     parking: boolFromAmenity(amenities, "parking"),
     wifi: boolFromAmenity(amenities, "wifi"),
@@ -559,6 +560,15 @@ export const api = {
     request<any>("/api/bookings", {
       method: "PATCH",
       body: JSON.stringify({ action: "status", bookingId, status, reason, userId }),
+    }),
+  getRefundPreview: (bookingId: string | number, userId: string) =>
+    request<any>(
+      `/api/bookings/refund-preview?bookingId=${encodeURIComponent(String(bookingId))}&userId=${encodeURIComponent(userId)}`,
+    ),
+  cancelBookingWithRefund: (bookingId: string | number, userId: string, reason?: string) =>
+    request<any>("/api/bookings/cancel-with-refund", {
+      method: "POST",
+      body: JSON.stringify({ bookingId, userId, reason }),
     }),
   // iCal integration
   registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>

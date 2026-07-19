@@ -32,6 +32,7 @@ import {
   ExternalLink,
   Grid3x3,
   Filter,
+  AlertTriangle,
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -42,6 +43,7 @@ import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/hooks/useWishlist';
 import { toast } from 'sonner';
 import { calculateBookingInvoice } from '@/lib/billing/invoice';
+import { CANCELLATION_POLICY_DEFAULTS } from '@/lib/billing/refund';
 
 const FALLBACK =
   'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
@@ -1928,6 +1930,49 @@ export default function PropertyDetailsPage() {
                 </ul>
               </div>
             )}
+
+            {/* ── 3c-2. CANCELLATION POLICY ── */}
+            <div
+              className="bg-white rounded-2xl p-5"
+              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+            >
+              <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-gray-500" /> Cancellation policy
+              </h2>
+
+              {property.cancellationPolicy === 'strict' ? (
+                <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[14px] font-bold text-red-700">
+                      Strict policy — only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
+                    </p>
+                    <p className="text-[12.5px] text-red-600 mt-1 leading-snug">
+                      Cancel {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays}+ days before check-in and get back
+                      only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% of what you paid. Cancel
+                      within {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days of check-in and you get{' '}
+                      <span className="font-bold">no refund at all</span>.
+                    </p>
+                  </div>
+                </div>
+              ) : property.cancellationPolicy === 'flexible' ? (
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <p className="text-[13.5px] font-semibold text-blue-800">Flexible policy</p>
+                  <p className="text-[12.5px] text-blue-700 mt-1 leading-snug">
+                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours
+                    before check-in. No refund after that.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <p className="text-[13.5px] font-semibold text-gray-800">Moderate policy</p>
+                  <p className="text-[12.5px] text-gray-600 mt-1 leading-snug">
+                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays} days
+                    before check-in. After that, you're refunded everything except the Hostiggo service fee.
+                  </p>
+                </div>
+              )}
+            </div>
 
             {/* ── 3d. SAFETY & PROPERTY ── */}
             {property.safetyFeatures && property.safetyFeatures.length > 0 && (

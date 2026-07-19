@@ -38,6 +38,71 @@ export interface CancelBookingResult {
   refundStatus: "processed" | "failed" | "not_applicable" | "flagged_for_manual_settlement";
 }
 
+export interface RefundPreviewResult {
+  bookingId: number;
+  policy: CancellationPolicyType;
+  grandTotalRupees: number;
+  refundAmountRupees: number;
+  refundPercent: number;
+  reason: string;
+}
+
+/**
+ * Read-only counterpart to cancelBookingWithRefund -- computes the same
+ * refund the guest would receive right now, without cancelling anything
+ * or touching Razorpay. Used to show the amount before the guest confirms.
+ */
+export async function previewCancellationRefund(params: {
+  bookingId: number;
+  requestingUserId: string;
+}): Promise<RefundPreviewResult> {
+  const { bookingId, requestingUserId } = params;
+
+  const { data: bookingRaw, error: bookingErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id, listing_id, user_id, start_date, status_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (bookingErr) throw bookingErr;
+  if (!bookingRaw) throw new CancellationValidationError("Booking not found.");
+  const booking = bookingRaw as unknown as Pick<
+    BookingRow,
+    "booking_id" | "listing_id" | "user_id" | "start_date" | "status_id"
+  >;
+  if (booking.user_id !== requestingUserId) {
+    throw new CancellationValidationError("You don't have permission to view this booking.");
+  }
+  if (booking.status_id !== CONFIRMED_STATUS_ID) {
+    throw new CancellationValidationError("Only confirmed bookings can be cancelled.");
+  }
+
+  const { data: listing, error: listingErr } = await supabaseAdmin
+    .from("listings")
+    .select("price_weekday, cancellation_policy")
+    .eq("listing_id", booking.listing_id)
+    .maybeSingle();
+  if (listingErr) throw listingErr;
+  if (!listing) throw new CancellationValidationError("Listing not found.");
+
+  const policy = (listing.cancellation_policy ?? "moderate") as CancellationPolicyType;
+  const invoice = calculateBookingInvoice({ basePropertyPrice: Number(listing.price_weekday ?? 0) });
+  const refundCalc = calculateRefund({
+    invoice,
+    checkIn: new Date(booking.start_date + "T00:00:00Z"),
+    cancellationTime: new Date(),
+    policyConfig: { policy },
+  });
+
+  return {
+    bookingId,
+    policy,
+    grandTotalRupees: invoice.grandTotalRupees,
+    refundAmountRupees: refundCalc.refundAmountRupees,
+    refundPercent: refundCalc.refundPercent,
+    reason: refundCalc.reason,
+  };
+}
+
 /**
  * Section 4.8 end-to-end orchestrating function:
  *   validate -> read policy -> compute time remaining -> compute refund

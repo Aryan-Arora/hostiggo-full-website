@@ -4,7 +4,7 @@ import type { RefundCalculationInput, RefundCalculationResult } from "./types";
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
-const DEFAULTS = {
+export const CANCELLATION_POLICY_DEFAULTS = {
   flexibleFullRefundHours: 48,
   moderateFullRefundDays: 5,
   strictPartialRefundDays: 7,
@@ -14,7 +14,9 @@ const DEFAULTS = {
   // this configurable per listing/policy and confirm the real number
   // before relying on it in production.
   strictPartialRefundPercent: 0.5,
-};
+} as const;
+
+const DEFAULTS = CANCELLATION_POLICY_DEFAULTS;
 
 /**
  * Computes a single final refund amount for the entire booking (no

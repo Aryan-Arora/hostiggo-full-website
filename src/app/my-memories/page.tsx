@@ -490,7 +490,15 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
 // Manage Booking Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
-type ModalView = 'overview' | 'modify';
+type ModalView = 'overview' | 'modify' | 'cancel';
+
+interface RefundPreview {
+  policy: 'flexible' | 'moderate' | 'strict';
+  grandTotalRupees: number;
+  refundAmountRupees: number;
+  refundPercent: number;
+  reason: string;
+}
 
 function ManageBookingModal({
   booking,
@@ -514,6 +522,9 @@ function ManageBookingModal({
     ...booking.guests,
   });
   const [saving, setSaving] = useState(false);
+  const [refundPreview, setRefundPreview] = useState<RefundPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
   const nights =
     tempCheckIn && tempCheckOut ? getNights(tempCheckIn, tempCheckOut) : 0;
@@ -562,17 +573,33 @@ function ManageBookingModal({
     }
   };
 
+  const openCancelConfirm = async () => {
+    setView('cancel');
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const preview = await api.getRefundPreview(booking.id, userId);
+      setRefundPreview(preview);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error ? error.message : 'Could not calculate your refund.',
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleCancel = async () => {
     setSaving(true);
     try {
-      await api.updateBookingStatus(
-        booking.id,
-        'cancelled',
-        'Cancelled by guest',
-        userId,
-      );
+      await api.cancelBookingWithRefund(booking.id, userId, 'Cancelled by guest');
       onUpdate({ status: 'cancelled' });
       onClose();
+      toast.success(
+        refundPreview && refundPreview.refundAmountRupees > 0
+          ? `Booking cancelled. ₹${refundPreview.refundAmountRupees.toLocaleString('en-IN')} will be refunded.`
+          : 'Booking cancelled.',
+      );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to cancel booking',
@@ -699,7 +726,7 @@ function ManageBookingModal({
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={handleCancel}
+                      onClick={openCancelConfirm}
                       disabled={saving}
                       className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 transition-all"
                     >
@@ -818,6 +845,64 @@ function ManageBookingModal({
               )}
             </div>
           )}
+
+          {/* ── Cancel confirm ── */}
+          {view === 'cancel' && (
+            <div className="p-5 space-y-4">
+              <h3 className="text-[15px] font-bold text-gray-900">
+                Cancel this booking?
+              </h3>
+
+              {previewLoading && (
+                <div className="text-[13px] text-gray-500 py-6 text-center">
+                  Calculating your refund...
+                </div>
+              )}
+
+              {previewError && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-[13px] text-red-600">
+                  {previewError}
+                </div>
+              )}
+
+              {refundPreview && (
+                <>
+                  {refundPreview.refundPercent < 1 && (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-start gap-3">
+                      <AlarmClock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[13.5px] font-bold text-amber-800">
+                          {refundPreview.refundPercent === 0
+                            ? 'No refund for this cancellation'
+                            : `Only ${Math.round(refundPreview.refundPercent * 100)}% will be refunded`}
+                        </p>
+                        <p className="text-[12px] text-amber-700 mt-1 leading-snug">
+                          {refundPreview.reason}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
+                    <div className="flex justify-between text-[13px] text-gray-600">
+                      <span>Total paid</span>
+                      <span>₹{refundPreview.grandTotalRupees.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-[15px] font-bold text-gray-900 pt-1 border-t border-gray-200">
+                      <span>You'll be refunded</span>
+                      <span className={refundPreview.refundAmountRupees > 0 ? 'text-green-600' : 'text-red-500'}>
+                        ₹{refundPreview.refundAmountRupees.toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                  </div>
+
+                  {refundPreview.refundPercent === 1 && (
+                    <p className="text-[12px] text-gray-500">{refundPreview.reason}</p>
+                  )}
+                </>
+              )}
+            </div>
+          )}
         </div>
 
         {/* ── Footer ── */}
@@ -829,6 +914,24 @@ function ManageBookingModal({
               className="w-full bg-[#1B3FA0] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#162e82] active:scale-[0.99] transition-all shadow-sm"
             >
               {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
+        {view === 'cancel' && (
+          <div className="flex-shrink-0 p-4 border-t border-gray-100 bg-white flex gap-2.5">
+            <button
+              onClick={() => setView('overview')}
+              disabled={saving}
+              className="flex-1 bg-gray-50 text-gray-700 border border-gray-200 text-[14px] font-bold py-3.5 rounded-2xl hover:bg-gray-100 transition-all"
+            >
+              Keep Booking
+            </button>
+            <button
+              onClick={handleCancel}
+              disabled={saving || previewLoading || !refundPreview}
+              className="flex-1 bg-red-500 text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-red-600 active:scale-[0.99] transition-all shadow-sm disabled:opacity-50"
+            >
+              {saving ? 'Cancelling...' : 'Confirm Cancellation'}
             </button>
           </div>
         )}
