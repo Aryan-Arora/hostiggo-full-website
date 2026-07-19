@@ -188,6 +188,7 @@ export function mapListingToProperty(input: any): Property {
       ? row.listing_addons
           .filter((a: any) => a.addons)
           .map((a: any) => ({
+            addonId: a.addons.addon_id,
             name: a.addons.name,
             icon: a.addons.icon,
             category: a.addons.category,
@@ -346,6 +347,7 @@ export const api = {
     endDate: string;
     numAdults?: number;
     numChildren?: number;
+    addonIds?: number[];
     // amount is intentionally not accepted here — the server recomputes the
     // real charge from the listing's own prices, see createBooking() in
     // src/lib/services/admin-writes.ts
