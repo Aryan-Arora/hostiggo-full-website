@@ -41,6 +41,7 @@ import { api, mapListingToProperty } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/hooks/useWishlist';
 import { toast } from 'sonner';
+import { calculateBookingInvoice } from '@/lib/billing/invoice';
 
 const FALLBACK =
   'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
@@ -859,7 +860,15 @@ function BookingWidget({
   );
   const [unavailableReason, setUnavailableReason] = useState('');
   const selectedAddons = (property.addons ?? []).filter((a) => selectedAddonIds.includes(a.addonId));
-  const addonsTotal = selectedAddons.reduce((sum, a) => sum + a.price, 0);
+  // Breakfast gets 5% GST, everything else selected gets 18% -- split the
+  // selection by category so calculateBookingInvoice applies the right rate.
+  const breakfastAddonsTotal = selectedAddons
+    .filter((a) => a.category?.toLowerCase().includes('breakfast'))
+    .reduce((sum, a) => sum + a.price, 0);
+  const otherAddonsTotal = selectedAddons
+    .filter((a) => !a.category?.toLowerCase().includes('breakfast'))
+    .reduce((sum, a) => sum + a.price, 0);
+  const addonsTotal = breakfastAddonsTotal + otherAddonsTotal;
 
   const nights = checkIn && checkOut
     ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
@@ -883,10 +892,17 @@ function BookingWidget({
     }
     return sum;
   })();
-  const feeable = subtotal + addonsTotal;
-  const serviceFee = Math.round(feeable * 0.08);
-  const taxes = Math.round(feeable * 0.12);
-  const total = feeable + serviceFee + taxes;
+  // Real GST/service-fee invoice from src/lib/billing/invoice.ts, replacing
+  // the old flat 8%/12% estimate. `subtotal` (the weekend-aware sum across
+  // every night of the stay) is passed as the invoice's "property price" --
+  // GST applies to the whole stay's property charge, not per-night.
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: subtotal,
+    breakfastPrice: breakfastAddonsTotal,
+    otherServicesPrice: otherAddonsTotal,
+  });
+  const serviceFee = invoice.hostiggoServiceFeePaise / 100;
+  const total = invoice.grandTotalRupees;
 
   const handleDatesChange = (ci: Date | null, co: Date | null) => {
     setCheckIn(ci);
@@ -1085,13 +1101,29 @@ function BookingWidget({
             </div>
           ))}
           <div className="flex justify-between text-gray-600">
-            <span>Service fee (8%)</span>
+            <span>GST on property ({(invoice.propertyGstRate * 100).toFixed(0)}%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>Hostiggo service fee (13%)</span>
             <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
-            <span>Taxes (12%)</span>
-            <span className="font-semibold">₹{taxes.toLocaleString('en-IN')}</span>
+            <span>GST on service fee (18%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
           </div>
+          {invoice.breakfastGstPaise > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>GST on breakfast (5%)</span>
+              <span className="font-semibold">₹{(invoice.breakfastGstPaise / 100).toLocaleString('en-IN')}</span>
+            </div>
+          )}
+          {invoice.otherServicesGstPaise > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>GST on other services (18%)</span>
+              <span className="font-semibold">₹{(invoice.otherServicesGstPaise / 100).toLocaleString('en-IN')}</span>
+            </div>
+          )}
           <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
             <span>Total</span>
             <span className="text-blue-700">₹{total.toLocaleString('en-IN')}</span>

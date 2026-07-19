@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../supabase-admin";
+import { calculateBookingInvoice } from "../billing/invoice";
 
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
@@ -195,10 +196,10 @@ export async function createBooking(input: {
   // Recompute the charge server-side from the listing's real per-night
   // prices — weekend nights (Fri/Sat) use price_weekend, everything else
   // uses price_weekday — plus whichever add-ons the guest actually picked
-  // (priced from listing_addons, never from the client) — plus the same 8%
-  // service fee / 12% tax the guest sees on the property page, so the
-  // stored amount always matches a real price and can't be spoofed by the
-  // client.
+  // (priced from listing_addons, never from the client) — run through the
+  // real GST/service-fee invoice (src/lib/billing/invoice.ts) so the
+  // stored amount always matches the exact number the guest was shown at
+  // checkout, and can't be spoofed by the client.
   const stayNights = eachDateInRange(input.startDate, input.endDate);
   const priceWeekday = Number(listing.price_weekday ?? 0);
   const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
@@ -208,7 +209,6 @@ export async function createBooking(input: {
     return sum + (isWeekend ? priceWeekend : priceWeekday);
   }, 0);
 
-  let addonsTotal = 0;
   let resolvedAddons: { name: string; price: number; type: string | null }[] = [];
   if (input.addonIds?.length) {
     const { data: addonRows, error: addonErr } = await supabaseAdmin
@@ -222,13 +222,20 @@ export async function createBooking(input: {
       price: Number(a.price ?? 0),
       type: a.addons?.category ?? null,
     }));
-    addonsTotal = resolvedAddons.reduce((sum, a) => sum + a.price, 0);
   }
+  const breakfastTotal = resolvedAddons
+    .filter((a) => a.type?.toLowerCase().includes("breakfast"))
+    .reduce((sum, a) => sum + a.price, 0);
+  const otherServicesTotal = resolvedAddons
+    .filter((a) => !a.type?.toLowerCase().includes("breakfast"))
+    .reduce((sum, a) => sum + a.price, 0);
 
-  const feeable = subtotal + addonsTotal;
-  const serviceFee = Math.round(feeable * 0.08);
-  const taxes = Math.round(feeable * 0.12);
-  const amount = feeable + serviceFee + taxes;
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: subtotal,
+    breakfastPrice: breakfastTotal,
+    otherServicesPrice: otherServicesTotal,
+  });
+  const amount = invoice.grandTotalRupees;
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
