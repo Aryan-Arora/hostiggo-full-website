@@ -117,7 +117,7 @@ export default function PhotosPage() {
         {/* Grid */}
         {photos.length === 0 ? (
           <div className="text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
-            No photos yet — add a few to make your listing stand out.
+            No photos yet. Add a few to make your listing stand out.
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

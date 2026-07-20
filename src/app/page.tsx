@@ -197,7 +197,7 @@ export default function HomePage() {
               <p className="text-sm text-gray-500 mb-6">
                 {error
                   ? 'Something went wrong reaching our listings. Please try again.'
-                  : 'Check back soon — new homestays are added regularly.'}
+                  : 'Check back soon. New homestays are added regularly.'}
               </p>
               {error && (
                 <button

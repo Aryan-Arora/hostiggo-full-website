@@ -261,7 +261,7 @@ function CalendarPicker({
               checkIn ? 'text-gray-900' : 'text-gray-300',
             )}
           >
-            {checkIn ? fmtShort(checkIn) : '—'}
+            {checkIn ? fmtShort(checkIn) : 'N/A'}
           </p>
         </div>
         <div
@@ -281,7 +281,7 @@ function CalendarPicker({
               checkOut ? 'text-gray-900' : 'text-gray-300',
             )}
           >
-            {checkOut ? fmtShort(checkOut) : '—'}
+            {checkOut ? fmtShort(checkOut) : 'N/A'}
           </p>
         </div>
       </div>
@@ -1095,7 +1095,7 @@ function BookingCard({
             </p>
           </div>
           <div className="hidden sm:block w-8 h-px bg-gray-200" />
-          <div className="sm:hidden text-gray-300 font-bold">—</div>
+          <div className="sm:hidden text-gray-300 font-bold">-</div>
           <div className="text-center">
             <p className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-1.5">
               Check-Out

@@ -33,7 +33,7 @@ const STATUS_LABEL: Record<number, string> = { 2: 'Confirmed', 3: 'Cancelled' };
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
 const fmtTime = (t?: string | null) => (t ? t.slice(0, 5) : '');
 
 function DetailsInner() {
@@ -100,7 +100,7 @@ function DetailsInner() {
     const timeline = [
       {
         label: 'Booked',
-        date: booking.booked_at ? fmtDate(new Date(booking.booked_at)) : '—',
+        date: booking.booked_at ? fmtDate(new Date(booking.booked_at)) : 'N/A',
         icon: Check,
         state: 'done' as const,
       },

@@ -136,7 +136,7 @@ export default function ReviewsPage() {
                 Overall Rating
               </p>
               <h2 className="text-6xl font-bold text-gray-900 leading-none mb-3">
-                {overallRating !== null ? overallRating.toFixed(1) : '—'}
+                {overallRating !== null ? overallRating.toFixed(1) : 'N/A'}
               </h2>
               <Stars n={overallRating !== null ? Math.round(overallRating) : 0} />
               <p className="text-sm text-gray-500 mt-3">
@@ -200,7 +200,7 @@ export default function ReviewsPage() {
               <p className="text-4xl mb-3">⭐</p>
               <p className="text-gray-500">
                 {reviews.length === 0
-                  ? "No reviews yet — they'll show up here once guests review a completed stay."
+                  ? "No reviews yet. They'll show up here once guests review a completed stay."
                   : 'No reviews match your search.'}
               </p>
             </div>

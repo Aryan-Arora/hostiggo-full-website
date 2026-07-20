@@ -1002,7 +1002,7 @@ function BookingWidget({
           than baked into the displayed/charged price. */}
       <p className="text-[11px] font-bold text-emerald-600 mb-4 min-h-[14px]">
         {property.activeDiscount &&
-          `🏷️ ${property.activeDiscount.percent}% off — ${property.activeDiscount.type.replace(/_/g, ' ')}`}
+          `🏷️ ${property.activeDiscount.percent}% off: ${property.activeDiscount.type.replace(/_/g, ' ')}`}
       </p>
 
       {/* Date selector — displays selected dates, opens picker on click.
@@ -1945,7 +1945,7 @@ export default function PropertyDetailsPage() {
                   <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
                   <div>
                     <p className="text-[14px] font-bold text-red-700">
-                      Strict policy — only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
+                      Strict policy: only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
                     </p>
                     <p className="text-[12.5px] text-red-600 mt-1 leading-snug">
                       Cancel {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays}+ days before check-in and get back

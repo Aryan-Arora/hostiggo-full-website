@@ -58,7 +58,7 @@ const inr = (n: number) =>
   `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -200,7 +200,7 @@ export default function EarningsPage() {
 
     doc.setFontSize(18);
     doc.setFont('helvetica', 'bold');
-    doc.text('Hostiggo — Earnings Statement', marginX, y);
+    doc.text('Hostiggo: Earnings Statement', marginX, y);
     y += 8;
     doc.setFontSize(10);
     doc.setFont('helvetica', 'normal');

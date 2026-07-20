@@ -180,7 +180,7 @@ export default function HostSettingsPage() {
                         <p className="text-lg font-bold text-gray-800">
                           {typeof profile?.stats.rating === 'string'
                             ? profile.stats.rating
-                            : profile?.stats.rating?.toFixed(1) ?? '—'}
+                            : profile?.stats.rating?.toFixed(1) ?? 'N/A'}
                         </p>
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Rating</p>
                       </div>
