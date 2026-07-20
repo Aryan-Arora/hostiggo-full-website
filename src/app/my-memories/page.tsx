@@ -248,7 +248,7 @@ function CalendarPicker({
           className={cn(
             'flex-1 border-2 rounded-2xl px-4 py-3 transition-all duration-200',
             !checkIn
-              ? 'border-[#004772] bg-figma-navy/40'
+              ? 'border-[#004772] bg-figma-navy/5'
               : 'border-gray-200 bg-white',
           )}
         >
@@ -268,7 +268,7 @@ function CalendarPicker({
           className={cn(
             'flex-1 border-2 rounded-2xl px-4 py-3 transition-all duration-200',
             checkIn && !checkOut
-              ? 'border-[#004772] bg-figma-navy/40'
+              ? 'border-[#004772] bg-figma-navy/5'
               : 'border-gray-200 bg-white',
           )}
         >
@@ -395,7 +395,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
         className={cn(
           'w-full flex items-center gap-3 border-2 rounded-2xl px-4 py-3 transition-all duration-200 text-left',
           open
-            ? 'border-[#004772] bg-figma-navy/30'
+            ? 'border-[#004772] bg-figma-navy/5'
             : 'border-gray-200 hover:border-gray-300',
         )}
       >
