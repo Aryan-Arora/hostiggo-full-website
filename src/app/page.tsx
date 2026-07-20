@@ -41,6 +41,11 @@ const NO_FILTERS: SearchFilters = {
 
 type GeoState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported';
 
+// Remembers the user's choice across refreshes so the banner doesn't nag on
+// every page load -- once they've granted or denied, we respect that and
+// only ask again if they explicitly clear it (e.g. browser site data reset).
+const GEO_CHOICE_KEY = 'hostiggo:geo-choice';
+
 export default function HomePage() {
   const [sections, setSections] = useState<HomeSection[]>([]);
   const [nearbyProperties, setNearbyProperties] = useState<Property[] | null>(null);
@@ -50,8 +55,47 @@ export default function HomePage() {
   const [error, setError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
 
+  const fetchNearby = (latitude: number, longitude: number) => {
+    setNearbyLoading(true);
+    api
+      .search(NO_FILTERS, '', 0, 8, { latitude, longitude })
+      .then((rows) => {
+        setNearbyProperties((rows || []).map(mapListingToProperty).filter((item) => item.id));
+      })
+      .catch((err) => {
+        console.error('[home] failed to load nearby listings:', err);
+        setNearbyProperties([]);
+      })
+      .finally(() => setNearbyLoading(false));
+  };
+
   useEffect(() => {
-    if (!navigator.geolocation) setGeoState('unsupported');
+    if (!navigator.geolocation) {
+      setGeoState('unsupported');
+      return;
+    }
+    const storedChoice = localStorage.getItem(GEO_CHOICE_KEY);
+    if (storedChoice === 'denied') {
+      setGeoState('denied');
+      return;
+    }
+    if (storedChoice === 'granted') {
+      setGeoState('requesting');
+      navigator.geolocation.getCurrentPosition(
+        (pos) => {
+          setGeoState('granted');
+          fetchNearby(pos.coords.latitude, pos.coords.longitude);
+        },
+        (err) => {
+          // Permission was revoked outside the app (browser settings) --
+          // fall back to asking again rather than getting stuck.
+          console.warn('[home] stored geo grant no longer valid:', err.message);
+          localStorage.removeItem(GEO_CHOICE_KEY);
+          setGeoState('idle');
+        },
+        { enableHighAccuracy: false, timeout: 10000 },
+      );
+    }
   }, []);
 
   const requestNearbyStays = () => {
@@ -61,26 +105,14 @@ export default function HomePage() {
     }
     setGeoState('requesting');
     navigator.geolocation.getCurrentPosition(
-      async (pos) => {
+      (pos) => {
+        localStorage.setItem(GEO_CHOICE_KEY, 'granted');
         setGeoState('granted');
-        setNearbyLoading(true);
-        try {
-          const rows = await api.search(NO_FILTERS, '', 0, 8, {
-            latitude: pos.coords.latitude,
-            longitude: pos.coords.longitude,
-          });
-          setNearbyProperties(
-            (rows || []).map(mapListingToProperty).filter((item) => item.id),
-          );
-        } catch (err) {
-          console.error('[home] failed to load nearby listings:', err);
-          setNearbyProperties([]);
-        } finally {
-          setNearbyLoading(false);
-        }
+        fetchNearby(pos.coords.latitude, pos.coords.longitude);
       },
       (err) => {
         console.warn('[home] geolocation denied/failed:', err.message);
+        localStorage.setItem(GEO_CHOICE_KEY, 'denied');
         setGeoState('denied');
       },
       { enableHighAccuracy: false, timeout: 10000 },
