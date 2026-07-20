@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import HeroSection from '@/components/features/HeroSection';
@@ -179,12 +179,27 @@ export default function HomePage() {
                 Share your location to see homestays near you first.
               </p>
             </div>
-            <button
-              onClick={requestNearbyStays}
-              className="bg-figma-navy hover:bg-figma-navy/90 text-white text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors flex-shrink-0"
-            >
-              Use my location
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={requestNearbyStays}
+                className="bg-figma-navy hover:bg-figma-navy/90 text-white text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors"
+              >
+                Use my location
+              </button>
+              <button
+                onClick={() => {
+                  // Explicit opt-out without triggering the browser prompt --
+                  // previously the only way to make this banner go away was
+                  // clicking "Use my location" and denying the prompt.
+                  localStorage.setItem(GEO_CHOICE_KEY, 'denied');
+                  setGeoState('denied');
+                }}
+                aria-label="Dismiss location prompt"
+                className="p-2 rounded-xl text-figma-navy/60 hover:text-figma-navy hover:bg-figma-navy/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 

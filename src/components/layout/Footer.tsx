@@ -121,7 +121,7 @@ export default function Footer() {
             <div className="w-5 h-5 bg-figma-accent rounded flex items-center justify-center">
               <Home className="w-2.5 h-2.5 text-white" strokeWidth={2.5} />
             </div>
-            <p className="text-white/50 text-xs">© 2026 Hostiggo · hostiggo.com</p>
+            <p className="text-white/50 text-xs">© {new Date().getFullYear()} Hostiggo · hostiggo.com</p>
           </div>
           <div className="flex items-center gap-4">
             <span className="flex items-center gap-1 text-white/60 text-xs">

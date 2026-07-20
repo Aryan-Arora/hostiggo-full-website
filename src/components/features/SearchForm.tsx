@@ -229,7 +229,12 @@ export function CompactSearchBar() {
           />
         </button>
         {activePanel === 'guests' && (
-          <div className="absolute top-[calc(100%+12px)] right-0 z-50">
+          // Width must match GuestDropdown's own w-[320px]: the panel is
+          // itself position:absolute (.dropdown-panel), so without a sized
+          // wrapper it would extend 320px RIGHTWARD from this right-edge
+          // anchor -- off the viewport (same bug family as the invisible
+          // date picker).
+          <div className="absolute top-[calc(100%+12px)] right-0 z-50 w-[320px] max-w-[92vw]">
             <GuestDropdown
               guests={guests}
               onChange={setGuests}

@@ -50,7 +50,6 @@ export default function SearchPageContent() {
   useEffect(() => {
     const dest = searchParams?.get('destination');
     if (dest && !location.query) {
-      console.log('[SearchPage] Setting initial location from URL:', dest);
       setLocation({ query: dest });
     }
     const view = searchParams?.get('view');
