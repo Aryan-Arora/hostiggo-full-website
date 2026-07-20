@@ -108,12 +108,14 @@ export async function addSafetyDetailToListing(
 /**
  * Toggle a safety feature for a listing
  */
-export async function toggleSafetyDetail(id: number, enabled: boolean): Promise<ListingSafetyDetail> {
+export async function toggleSafetyDetail(id: number, enabled: boolean, listingId?: number): Promise<ListingSafetyDetail> {
   try {
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from('listing_safety_details')
       .update({ enabled })
-      .eq('id', id)
+      .eq('id', id);
+    if (listingId !== undefined) updateQuery = updateQuery.eq('listing_id', listingId);
+    const { data, error } = await updateQuery
       .select(
         `
         id,
@@ -140,12 +142,14 @@ export async function toggleSafetyDetail(id: number, enabled: boolean): Promise<
 /**
  * Remove a safety detail from a listing
  */
-export async function removeSafetyDetailFromListing(id: number): Promise<void> {
+export async function removeSafetyDetailFromListing(id: number, listingId?: number): Promise<void> {
   try {
-    const { error } = await supabase
+    let deleteQuery = supabase
       .from('listing_safety_details')
       .delete()
       .eq('id', id);
+    if (listingId !== undefined) deleteQuery = deleteQuery.eq('listing_id', listingId);
+    const { error } = await deleteQuery;
 
     if (error) throw error;
   } catch (error) {

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 
 export const dynamic = "force-dynamic";
 
@@ -10,14 +11,15 @@ export const dynamic = "force-dynamic";
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId, isActive } = body;
+    const { listingId, isActive, userId } = body;
 
-    if (!listingId || isActive === undefined) {
+    if (!listingId || isActive === undefined || !userId) {
       return NextResponse.json(
-        { error: "listingId and isActive are required" },
+        { error: "listingId, isActive and userId are required" },
         { status: 400 },
       );
     }
+    await assertListingOwnedBy(Number(listingId), String(userId));
 
     // Update listing active status
     const { data, error } = await supabaseAdmin

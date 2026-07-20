@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import { ListingDiscount } from '@/lib/services/discounts';
 import { cn } from '@/lib/utils';
 import { HelpCircle, Loader2 } from 'lucide-react';
@@ -31,6 +32,7 @@ interface DiscountsFormProps {
 }
 
 export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps) {
+  const { userId } = useAuth();
   const [discounts, setDiscounts] = useState<ListingDiscount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -93,7 +95,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
             {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(change),
+              body: JSON.stringify({ ...change, userId }),
             }
           );
         })

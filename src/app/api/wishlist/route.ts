@@ -62,12 +62,21 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { categoryId, name } = await req.json();
-    if (!categoryId || !name) {
-      return NextResponse.json({ error: "categoryId and name are required" }, { status: 400 });
+    const { categoryId, name, userId } = await req.json();
+    if (!categoryId || !name || !userId) {
+      return NextResponse.json(
+        { error: "categoryId, name and userId are required" },
+        { status: 400 },
+      );
+    }
+    if (String(name).trim().length === 0 || String(name).length > 100) {
+      return NextResponse.json(
+        { error: "name must be 1-100 characters" },
+        { status: 400 },
+      );
     }
 
-    const data = await wishlistAPI.renameWishlistCategory(categoryId, name);
+    const data = await wishlistAPI.renameWishlistCategory(categoryId, String(name).trim(), String(userId));
     return NextResponse.json({ data });
   } catch (err) {
     return jsonError(err);
@@ -79,7 +88,10 @@ export async function DELETE(req: NextRequest) {
     const { userId, listingId, categoryId } = await req.json();
 
     if (categoryId && !listingId) {
-      await wishlistAPI.deleteWishlistCategory(categoryId);
+      if (!userId) {
+        return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      }
+      await wishlistAPI.deleteWishlistCategory(categoryId, String(userId));
       return NextResponse.json({ data: true });
     }
 

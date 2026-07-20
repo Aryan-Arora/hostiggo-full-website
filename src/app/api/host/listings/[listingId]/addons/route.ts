@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as addonService from '@/lib/services/addons';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 
 export async function GET(
   request: NextRequest,
@@ -50,7 +51,13 @@ export async function POST(
       timing_to,
       another_details,
       additional_notes,
+      userId,
     } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, String(userId));
 
     if (addon_id === undefined || price === undefined || !includes) {
       return NextResponse.json(

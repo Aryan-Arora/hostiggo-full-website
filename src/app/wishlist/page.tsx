@@ -618,9 +618,9 @@ export default function WishlistPage() {
   };
 
   const handleRenameGroup = async (newName: string) => {
-    if (!renameGroup) return;
+    if (!renameGroup || !userId) return;
     try {
-      await api.renameWishlistCategory(renameGroup.id, newName);
+      await api.renameWishlistCategory(renameGroup.id, newName, userId);
       setGroups((prev) =>
         prev.map((g) =>
           g.id === renameGroup.id ? { ...g, name: newName } : g,
@@ -635,9 +635,9 @@ export default function WishlistPage() {
   };
 
   const handleRemoveGroupConfirm = async () => {
-    if (!confirmRemoveGroup) return;
+    if (!confirmRemoveGroup || !userId) return;
     try {
-      await api.deleteWishlistCategory(confirmRemoveGroup.id);
+      await api.deleteWishlistCategory(confirmRemoveGroup.id, userId);
       setGroups((prev) => prev.filter((g) => g.id !== confirmRemoveGroup.id));
       setProperties((prev) =>
         prev.filter((p) => p.group !== confirmRemoveGroup.id),

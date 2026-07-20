@@ -507,15 +507,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action: "create-category", user_id: userId, name }),
     }),
-  renameWishlistCategory: (categoryId: string, name: string) =>
+  renameWishlistCategory: (categoryId: string, name: string, userId: string) =>
     request<any>("/api/wishlist", {
       method: "PATCH",
-      body: JSON.stringify({ categoryId, name }),
+      body: JSON.stringify({ categoryId, name, userId }),
     }),
-  deleteWishlistCategory: (categoryId: string) =>
+  deleteWishlistCategory: (categoryId: string, userId: string) =>
     request<boolean>("/api/wishlist", {
       method: "DELETE",
-      body: JSON.stringify({ categoryId }),
+      body: JSON.stringify({ categoryId, userId }),
     }),
   removeWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<boolean>("/api/wishlist", {

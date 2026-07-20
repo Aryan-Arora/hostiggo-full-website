@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as addonService from '@/lib/services/addons';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 
 export async function PATCH(
   request: NextRequest,
@@ -7,7 +8,8 @@ export async function PATCH(
 ) {
   try {
     const addonListingId = parseInt(params.id, 10);
-    if (isNaN(addonListingId)) {
+    const listingId = parseInt(params.listingId, 10);
+    if (isNaN(addonListingId) || isNaN(listingId)) {
       return NextResponse.json({ error: 'Invalid addon listing ID' }, { status: 400 });
     }
 
@@ -19,7 +21,13 @@ export async function PATCH(
       timing_to,
       another_details,
       additional_notes,
+      userId,
     } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, String(userId));
 
     const addon = await addonService.updateListingAddon(
       addonListingId,
@@ -28,7 +36,8 @@ export async function PATCH(
       timing_from,
       timing_to,
       another_details,
-      additional_notes
+      additional_notes,
+      listingId
     );
 
     return NextResponse.json({ data: addon });
@@ -47,11 +56,18 @@ export async function DELETE(
 ) {
   try {
     const addonListingId = parseInt(params.id, 10);
-    if (isNaN(addonListingId)) {
+    const listingId = parseInt(params.listingId, 10);
+    if (isNaN(addonListingId) || isNaN(listingId)) {
       return NextResponse.json({ error: 'Invalid addon listing ID' }, { status: 400 });
     }
 
-    await addonService.removeAddonFromListing(addonListingId);
+    const userId = request.nextUrl.searchParams.get('userId');
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, userId);
+
+    await addonService.removeAddonFromListing(addonListingId, listingId);
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error('[api/addons/id] DELETE error:', error);

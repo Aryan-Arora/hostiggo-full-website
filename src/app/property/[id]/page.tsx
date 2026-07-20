@@ -1794,6 +1794,11 @@ export default function PropertyDetailsPage() {
               <h2 className="text-[15px] font-bold text-gray-800 mb-4">
                 Facilities
               </h2>
+              {visibleAmenities.length === 0 && (
+                <p className="text-[13px] text-gray-400">
+                  The host hasn&apos;t listed any facilities yet.
+                </p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {visibleAmenities.map((am, i) => (
                   <div

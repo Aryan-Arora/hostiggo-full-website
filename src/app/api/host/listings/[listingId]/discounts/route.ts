@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as discountService from '@/lib/services/discounts';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +34,12 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { discount_type, percent } = body;
+    const { discount_type, percent, userId } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, String(userId));
 
     if (!discount_type || percent === undefined) {
       return NextResponse.json(

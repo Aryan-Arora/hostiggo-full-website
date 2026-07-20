@@ -120,6 +120,7 @@ export default function MyListingsPage() {
   }, []);
 
   const handleToggleListing = async (listingId: string, currentActive: boolean) => {
+    if (!userId) return;
     setTogglingId(listingId);
     try {
       const response = await fetch('/api/host/listings/toggle', {
@@ -128,6 +129,7 @@ export default function MyListingsPage() {
         body: JSON.stringify({
           listingId: parseInt(listingId),
           isActive: !currentActive,
+          userId,
         }),
       });
 
