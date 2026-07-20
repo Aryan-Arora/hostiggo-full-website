@@ -419,7 +419,7 @@ export default function CalendarPage() {
                             ? inr(d.price, d.currency)
                             : d.status === 'blocked'
                               ? 'Blocked'
-                              : '—'}
+                              : 'N/A'}
                       </span>
                     </button>
                   );

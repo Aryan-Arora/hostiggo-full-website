@@ -478,7 +478,7 @@ export default function SearchForm() {
         <button
           onClick={() => {
             if (location.query.trim().length > 0) {
-              toast.error('You can either use the map or fill in the location yourself — not both.');
+              toast.error('You can either use the map or fill in the location yourself, not both.');
               return;
             }
             router.push('/search?view=map');

@@ -21,6 +21,7 @@ import HostDashboardShell from '../../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { calculateHostPayout } from '@/lib/billing/payout';
 
 const FALLBACK_PROPERTY =
   'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=200&h=200&fit=crop&q=80';
@@ -32,7 +33,7 @@ const STATUS_LABEL: Record<number, string> = { 2: 'Confirmed', 3: 'Cancelled' };
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
 const fmtTime = (t?: string | null) => (t ? t.slice(0, 5) : '');
 
 function DetailsInner() {
@@ -76,6 +77,12 @@ function DetailsInner() {
     const nights =
       start && end ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000)) : 1;
     const amount = Number(booking.amount ?? 0);
+    // "Total payout" is the host's NET take (after Hostiggo's 5% commission,
+    // 1% TCS, 1% TDS) -- distinct from `amount`, which is the guest-paid
+    // grand total including GST and the Hostiggo service fee.
+    const payoutAmount = calculateHostPayout({
+      propertyPrice: Number(prop.price_weekday ?? 0),
+    }).netHostPayoutRupees;
     const guests =
       Number(booking.nom_guests ?? (booking.num_adults ?? 0) + (booking.num_children ?? 0)) || 1;
     const media = Array.isArray(prop.listing_media) ? prop.listing_media : [];
@@ -93,7 +100,7 @@ function DetailsInner() {
     const timeline = [
       {
         label: 'Booked',
-        date: booking.booked_at ? fmtDate(new Date(booking.booked_at)) : '—',
+        date: booking.booked_at ? fmtDate(new Date(booking.booked_at)) : 'N/A',
         icon: Check,
         state: 'done' as const,
       },
@@ -130,6 +137,7 @@ function DetailsInner() {
       nights,
       guests,
       amount,
+      payoutAmount,
       perNight: nights > 0 ? amount / nights : amount,
       title: prop.title?.trim() || 'Property',
       location: [loc.district, loc.state].filter(Boolean).join(', ') || 'Location pending',
@@ -398,7 +406,7 @@ function DetailsInner() {
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-gray-200 mb-6">
               <span className="font-bold text-gray-800">Total payout</span>
-              <span className="text-xl font-bold text-blue-600">{inr(view.amount)}</span>
+              <span className="text-xl font-bold text-blue-600">{inr(view.payoutAmount)}</span>
             </div>
             {!view.cancelled && (
               <Link

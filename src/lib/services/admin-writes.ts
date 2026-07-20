@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../supabase-admin";
+import { calculateBookingInvoice } from "../billing/invoice";
 
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
@@ -142,6 +143,10 @@ export async function createBooking(input: {
   endDate: string;
   numAdults?: number;
   numChildren?: number;
+  // Guest picks *which* add-ons they want; the price for each is always
+  // looked up server-side from listing_addons below, never trusted from
+  // the client, same reasoning as `amount` never being accepted directly.
+  addonIds?: number[];
   // `amount` is intentionally NOT accepted from the client anymore — the
   // charge is always recomputed here from the listing's real prices so a
   // guest can't submit an arbitrary (or zero) amount for a real booking.
@@ -190,9 +195,11 @@ export async function createBooking(input: {
 
   // Recompute the charge server-side from the listing's real per-night
   // prices — weekend nights (Fri/Sat) use price_weekend, everything else
-  // uses price_weekday — plus the same 8% service fee / 12% tax the guest
-  // sees on the property page, so the stored amount always matches a real
-  // price and can't be spoofed by the client.
+  // uses price_weekday — plus whichever add-ons the guest actually picked
+  // (priced from listing_addons, never from the client) — run through the
+  // real GST/service-fee invoice (src/lib/billing/invoice.ts) so the
+  // stored amount always matches the exact number the guest was shown at
+  // checkout, and can't be spoofed by the client.
   const stayNights = eachDateInRange(input.startDate, input.endDate);
   const priceWeekday = Number(listing.price_weekday ?? 0);
   const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
@@ -201,9 +208,34 @@ export async function createBooking(input: {
     const isWeekend = dow === 5 || dow === 6; // Friday or Saturday night
     return sum + (isWeekend ? priceWeekend : priceWeekday);
   }, 0);
-  const serviceFee = Math.round(subtotal * 0.08);
-  const taxes = Math.round(subtotal * 0.12);
-  const amount = subtotal + serviceFee + taxes;
+
+  let resolvedAddons: { name: string; price: number; type: string | null }[] = [];
+  if (input.addonIds?.length) {
+    const { data: addonRows, error: addonErr } = await supabaseAdmin
+      .from("listing_addons")
+      .select("addon_id, price, addons(name, category)")
+      .eq("listing_id", input.listingId)
+      .in("addon_id", input.addonIds);
+    if (addonErr) throw addonErr;
+    resolvedAddons = (addonRows ?? []).map((a: any) => ({
+      name: a.addons?.name ?? "Add-on",
+      price: Number(a.price ?? 0),
+      type: a.addons?.category ?? null,
+    }));
+  }
+  const breakfastTotal = resolvedAddons
+    .filter((a) => a.type?.toLowerCase().includes("breakfast"))
+    .reduce((sum, a) => sum + a.price, 0);
+  const otherServicesTotal = resolvedAddons
+    .filter((a) => !a.type?.toLowerCase().includes("breakfast"))
+    .reduce((sum, a) => sum + a.price, 0);
+
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: subtotal,
+    breakfastPrice: breakfastTotal,
+    otherServicesPrice: otherServicesTotal,
+  });
+  const amount = invoice.grandTotalRupees;
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
@@ -225,6 +257,23 @@ export async function createBooking(input: {
     .select()
     .single();
   if (error) throw error;
+
+  // Record which add-ons were actually purchased with this booking (their
+  // price is already folded into `amount` above; this is just the record
+  // of which ones, for the guest/host to see later).
+  if (resolvedAddons.length) {
+    const { error: bookingAddonsErr } = await supabaseAdmin.from("booking_addons").insert(
+      resolvedAddons.map((a) => ({
+        booking_id: data.booking_id,
+        name: a.name,
+        price: a.price,
+        type: a.type,
+      })),
+    );
+    if (bookingAddonsErr) {
+      console.error("[createBooking] booking_addons insert failed:", bookingAddonsErr.message);
+    }
+  }
 
   // Checks A/B above are check-then-insert, not atomic — two requests can
   // both pass them and both insert a CONFIRMED booking for overlapping

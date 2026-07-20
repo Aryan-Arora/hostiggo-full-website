@@ -18,7 +18,7 @@ const REASONS = [
 ];
 
 const fmtDate = (s?: string | null) =>
-  s ? new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  s ? new Date(s).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
 
 function CancelInner() {
   const router = useRouter();
@@ -30,7 +30,7 @@ function CancelInner() {
   const [reason, setReason] = useState<string | null>(null);
   const [booking, setBooking] = useState<any>(null);
   const [cancelling, setCancelling] = useState(false);
-  const reasonLabel = REASONS.find((r) => r.id === reason)?.title ?? '—';
+  const reasonLabel = REASONS.find((r) => r.id === reason)?.title ?? 'N/A';
   const detailsHref = id ? `/host/bookings/details?id=${id}` : '/host/bookings';
 
   const load = useCallback(async () => {

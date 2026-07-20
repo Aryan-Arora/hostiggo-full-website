@@ -132,6 +132,7 @@ export function mapListingToProperty(input: any): Property {
       typeof input?.distance === "number" ? `${(input.distance / 1000).toFixed(1)} km` : row.distance,
     isInstantBook: row.booking_mode === "auto" || Boolean(row.isInstantBook),
     freeCancellation: Boolean(row.freeCancellation),
+    cancellationPolicy: (row.cancellation_policy ?? "moderate") as Property["cancellationPolicy"],
     breakfast: boolFromAmenity(amenities, "breakfast"),
     parking: boolFromAmenity(amenities, "parking"),
     wifi: boolFromAmenity(amenities, "wifi"),
@@ -188,6 +189,7 @@ export function mapListingToProperty(input: any): Property {
       ? row.listing_addons
           .filter((a: any) => a.addons)
           .map((a: any) => ({
+            addonId: a.addons.addon_id,
             name: a.addons.name,
             icon: a.addons.icon,
             category: a.addons.category,
@@ -346,6 +348,7 @@ export const api = {
     endDate: string;
     numAdults?: number;
     numChildren?: number;
+    addonIds?: number[];
     // amount is intentionally not accepted here — the server recomputes the
     // real charge from the listing's own prices, see createBooking() in
     // src/lib/services/admin-writes.ts
@@ -412,7 +415,10 @@ export const api = {
     const { data } = await response.json();
     return data.url;
   },
-  locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
+  locations: (limit = 40, q?: string, popular = false) =>
+    request<any[]>(
+      `/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}${popular ? "&popular=1" : ""}`,
+    ),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),
   search: async (
@@ -557,6 +563,15 @@ export const api = {
     request<any>("/api/bookings", {
       method: "PATCH",
       body: JSON.stringify({ action: "status", bookingId, status, reason, userId }),
+    }),
+  getRefundPreview: (bookingId: string | number, userId: string) =>
+    request<any>(
+      `/api/bookings/refund-preview?bookingId=${encodeURIComponent(String(bookingId))}&userId=${encodeURIComponent(userId)}`,
+    ),
+  cancelBookingWithRefund: (bookingId: string | number, userId: string, reason?: string) =>
+    request<any>("/api/bookings/cancel-with-refund", {
+      method: "POST",
+      body: JSON.stringify({ bookingId, userId, reason }),
     }),
   // iCal integration
   registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>

@@ -7,6 +7,7 @@ import { useListingState } from "@/context/ListingFilterContext";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { toast } from "sonner";
+import { calculateBookingInvoice } from "@/lib/billing/invoice";
 
 interface PropertyCardListProps {
   property: Property;
@@ -33,6 +34,8 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
       ? Math.max(0, Math.round((dates.checkOut.getTime() - dates.checkIn.getTime()) / 86400000))
       : null;
   const totalGuests = guests.adults + guests.children;
+  const invoice = calculateBookingInvoice({ basePropertyPrice: property.price });
+  const feesAndTaxes = Math.round(invoice.grandTotalPaise / 100 - property.price);
   const { isAuthenticated, userId } = useAuth();
   const { isSaved, toggle } = useWishlist(userId);
   const liked = isSaved(property.id);
@@ -155,7 +158,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
             <p className="text-[22px] font-extrabold text-blue-800 leading-none mb-1">
               ₹ {property.price.toLocaleString("en-IN")}
             </p>
-            <p className="text-[11px] text-gray-400">+₹ {Math.round(property.price * 0.12).toLocaleString("en-IN")} taxes and fees</p>
+            <p className="text-[11px] text-gray-400">+₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
           </div>
         </div>
 

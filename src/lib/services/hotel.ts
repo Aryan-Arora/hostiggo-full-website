@@ -79,6 +79,46 @@ export const HotelServiceApi = {
     return (data || []) as LocationRow[];
   },
 
+  // Ranks locations by how many active listings they have -- used for the
+  // home page's "Popular in <city>" sections instead of a random sample.
+  getPopularLocations: async (limit: number = 4): Promise<LocationRow[]> => {
+    const { data, error } = await supabase
+      .from('listings')
+      .select('location_id, locations (location_id, state, district, lower_division_name)')
+      .eq('is_active', true)
+      .not('location_id', 'is', null);
+
+    if (error) {
+      console.error('Fetch error (getPopularLocations):', error);
+      throw error;
+    }
+
+    const counts = new Map<number, { row: LocationRow; count: number }>();
+    for (const listing of (data || []) as any[]) {
+      const loc = listing.locations;
+      if (!loc?.location_id) continue;
+      const existing = counts.get(loc.location_id);
+      if (existing) {
+        existing.count += 1;
+      } else {
+        counts.set(loc.location_id, {
+          row: {
+            location_id: loc.location_id,
+            state: loc.state,
+            district: loc.district,
+            lower_division_name: loc.lower_division_name,
+          },
+          count: 1,
+        });
+      }
+    }
+
+    return Array.from(counts.values())
+      .sort((a, b) => b.count - a.count)
+      .slice(0, limit)
+      .map((entry) => entry.row);
+  },
+
   getListingsByLocationId: async (
     locationId: number,
     limit: number = 6,

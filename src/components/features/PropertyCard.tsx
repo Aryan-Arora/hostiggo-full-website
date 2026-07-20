@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { toast } from "sonner";
+import { calculateBookingInvoice } from "@/lib/billing/invoice";
 
 interface PropertyCardProps {
   property: Property;
@@ -19,6 +20,8 @@ export default function PropertyCard({ property }: PropertyCardProps) {
   const { isAuthenticated, userId } = useAuth();
   const { isSaved, toggle } = useWishlist(userId);
   const liked = isSaved(property.id);
+  const invoice = calculateBookingInvoice({ basePropertyPrice: property.price });
+  const feesAndTaxes = Math.round(invoice.grandTotalPaise / 100 - property.price);
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -77,6 +80,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           <span className="text-[15px] font-extrabold text-gray-900">₹{property.price.toLocaleString("en-IN")}</span>
           <span className="text-[11px] text-gray-400 font-medium">/night</span>
         </div>
+        <p className="text-[10.5px] text-gray-400 mt-0.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
       </div>
     </div>
   );

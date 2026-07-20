@@ -59,7 +59,7 @@ const sections = [
 export const metadata = {
   title: "Cancellation & Refund Policy · Hostiggo",
   description:
-    "Hostiggo’s standardized cancellation and refund framework — Flexible, Moderate, and Strict policies — for hosts and guests.",
+    "Hostiggo’s standardized cancellation and refund framework: Flexible, Moderate, and Strict policies, for hosts and guests.",
 };
 
 export default function CancellationPage() {

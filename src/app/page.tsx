@@ -1,12 +1,13 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { MapPin } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import HeroSection from '@/components/features/HeroSection';
 import PopularStays from '@/components/features/PopularStays';
 import CTABanner from '@/components/features/CTABanner';
-import type { Property } from '@/types';
+import type { Property, SearchFilters } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
 
 type HomeSection = {
@@ -15,11 +16,76 @@ type HomeSection = {
   properties: Property[];
 };
 
+// Default, unfiltered search -- both the "near you" and "popular cities"
+// sections go through the same api.search() stack (the same one the
+// search-results page uses), just with different destination/geo params.
+const NO_FILTERS: SearchFilters = {
+  priceMin: 0,
+  priceMax: 100000,
+  guestRating: null,
+  propertyTypes: [],
+  stayTypes: [],
+  amenities: [],
+  bedTypes: [],
+  freeCancellation: false,
+  breakfast: false,
+  parking: false,
+  wifi: false,
+  ac: false,
+  privateRoom: false,
+  sharedRoom: false,
+  doubleBed: false,
+  coupleFriendly: false,
+  familyFriendly: false,
+};
+
+type GeoState = 'idle' | 'requesting' | 'granted' | 'denied' | 'unsupported';
+
 export default function HomePage() {
   const [sections, setSections] = useState<HomeSection[]>([]);
+  const [nearbyProperties, setNearbyProperties] = useState<Property[] | null>(null);
+  const [nearbyLoading, setNearbyLoading] = useState(false);
+  const [geoState, setGeoState] = useState<GeoState>('idle');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+
+  useEffect(() => {
+    if (!navigator.geolocation) setGeoState('unsupported');
+  }, []);
+
+  const requestNearbyStays = () => {
+    if (!navigator.geolocation) {
+      setGeoState('unsupported');
+      return;
+    }
+    setGeoState('requesting');
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        setGeoState('granted');
+        setNearbyLoading(true);
+        try {
+          const rows = await api.search(NO_FILTERS, '', 0, 8, {
+            latitude: pos.coords.latitude,
+            longitude: pos.coords.longitude,
+          });
+          setNearbyProperties(
+            (rows || []).map(mapListingToProperty).filter((item) => item.id),
+          );
+        } catch (err) {
+          console.error('[home] failed to load nearby listings:', err);
+          setNearbyProperties([]);
+        } finally {
+          setNearbyLoading(false);
+        }
+      },
+      (err) => {
+        console.warn('[home] geolocation denied/failed:', err.message);
+        setGeoState('denied');
+      },
+      { enableHighAccuracy: false, timeout: 10000 },
+    );
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -28,24 +94,17 @@ export default function HomePage() {
       setIsLoading(true);
       setError(false);
       try {
-        const locations = await api.locations(40);
-        const selected = locations
-          .slice()
-          .sort(() => Math.random() - 0.5)
-          .slice(0, 4);
+        const popularLocations = await api.locations(4, undefined, true);
 
         const loaded = await Promise.all(
-          selected.map(async (location: any) => {
-            const rows = await api.hotelsByLocation(location.location_id, 4);
+          popularLocations.map(async (location: any) => {
+            const cityName =
+              location.district || location.lower_division_name || location.state || 'India';
+            const rows = await api.search(NO_FILTERS, cityName, 0, 4);
             return {
               id: String(location.location_id),
-              title: `Popular stays in ${
-                location.district ||
-                location.lower_division_name ||
-                location.state ||
-                'India'
-              }`,
-              properties: rows
+              title: `Popular stays in ${cityName}`,
+              properties: (rows || [])
                 .map(mapListingToProperty)
                 .filter((item) => item.id),
             };
@@ -80,6 +139,38 @@ export default function HomePage() {
       <Navbar />
       <HeroSection />
       <div className="container-main py-8 space-y-10">
+        {geoState === 'idle' && (
+          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+            <div className="flex items-center gap-3">
+              <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0" />
+              <p className="text-[13.5px] text-blue-800 font-medium">
+                Share your location to see homestays near you first.
+              </p>
+            </div>
+            <button
+              onClick={requestNearbyStays}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors flex-shrink-0"
+            >
+              Use my location
+            </button>
+          </div>
+        )}
+
+        {geoState === 'requesting' || nearbyLoading ? (
+          <PopularStays
+            title="Finding homestays near you..."
+            properties={[]}
+            isLoading={true}
+            itemsPerRow={4}
+          />
+        ) : geoState === 'granted' && nearbyProperties && nearbyProperties.length > 0 ? (
+          <PopularStays
+            title="Homestays near you"
+            properties={nearbyProperties}
+            itemsPerRow={4}
+          />
+        ) : null}
+
         {isLoading ? (
           // Show 2 loading sections on initial load
           <>
@@ -106,7 +197,7 @@ export default function HomePage() {
               <p className="text-sm text-gray-500 mb-6">
                 {error
                   ? 'Something went wrong reaching our listings. Please try again.'
-                  : 'Check back soon — new homestays are added regularly.'}
+                  : 'Check back soon. New homestays are added regularly.'}
               </p>
               {error && (
                 <button

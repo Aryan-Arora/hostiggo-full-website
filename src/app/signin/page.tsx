@@ -238,7 +238,7 @@ function SignInContent() {
           className="w-full flex items-center justify-center gap-2 py-3 mb-4 rounded-xl border border-gray-200 text-gray-600 font-medium text-[14px] hover:bg-gray-50 transition-all"
         >
           <Compass className="w-4 h-4" />
-          Skip for now — browse properties
+          Skip for now: browse properties
         </button>
 
         {/* Terms */}

@@ -106,7 +106,7 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, b
 const EMPTY_BLOCKED = new Set<string>();
 
 function fmtDate(d: Date | null) {
-  if (!d) return "—";
+  if (!d) return "N/A";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 

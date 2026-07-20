@@ -24,10 +24,12 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 
-// Signed-in user display (avatar only until profile fetch is wired).
+// Signed-in user display fallback -- must match the placeholder used in
+// account/profile/page.tsx so an unset profile photo looks the same
+// everywhere instead of showing a different random face per page.
 const USER = {
   name: 'Account',
-  avatar: 'https://i.pravatar.cc/150?img=11',
+  avatar: 'https://i.pravatar.cc/200?img=45',
 };
 
 interface MenuItem {

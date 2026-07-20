@@ -131,7 +131,9 @@ export default function HostDashboardShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { user, signOut } = useAuth();
   const handleLogout = () => signOut();
-  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/100?img=12';
+  // Must match the placeholder used across host/settings and the
+  // host profile API so an unset photo looks the same everywhere.
+  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/100?img=45';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-gray-800 lg:pl-64">
