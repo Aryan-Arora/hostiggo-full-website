@@ -169,11 +169,11 @@ function CalendarPicker({
     if (isPast)
       return cn(base, 'text-gray-300 cursor-not-allowed pointer-events-none');
     if (checkIn && isSameDay(d, checkIn))
-      return cn(base, 'bg-[#1B3FA0] text-white font-bold');
+      return cn(base, 'bg-[#004772] text-white font-bold');
     if (checkOut && isSameDay(d, checkOut))
-      return cn(base, 'bg-[#1B3FA0] text-white font-bold');
+      return cn(base, 'bg-[#004772] text-white font-bold');
     if (isSameDay(d, today))
-      return cn(base, 'text-[#1B3FA0] font-bold hover:bg-blue-50');
+      return cn(base, 'text-[#004772] font-bold hover:bg-figma-navy/5');
 
     const rangeEnd = checkOut ?? hovered;
     if (
@@ -185,7 +185,7 @@ function CalendarPicker({
         checkIn < rangeEnd ? rangeEnd : checkIn,
       )
     ) {
-      return cn(base, 'bg-blue-50 text-[#1B3FA0] rounded-none');
+      return cn(base, 'bg-figma-navy/5 text-[#004772] rounded-none');
     }
     return cn(base, 'text-gray-700 hover:bg-gray-100');
   };
@@ -196,9 +196,9 @@ function CalendarPicker({
     if (!checkIn || !rangeEnd) return '';
     const lo = checkIn < rangeEnd ? checkIn : rangeEnd;
     const hi = checkIn < rangeEnd ? rangeEnd : checkIn;
-    if (isSameDay(d, lo)) return 'bg-blue-50 rounded-l-full';
-    if (isSameDay(d, hi)) return 'bg-blue-50 rounded-r-full';
-    if (isBetween(d, lo, hi)) return 'bg-blue-50';
+    if (isSameDay(d, lo)) return 'bg-figma-navy/5 rounded-l-full';
+    if (isSameDay(d, hi)) return 'bg-figma-navy/5 rounded-r-full';
+    if (isBetween(d, lo, hi)) return 'bg-figma-navy/5';
     return '';
   };
 
@@ -248,7 +248,7 @@ function CalendarPicker({
           className={cn(
             'flex-1 border-2 rounded-2xl px-4 py-3 transition-all duration-200',
             !checkIn
-              ? 'border-[#1B3FA0] bg-blue-50/40'
+              ? 'border-[#004772] bg-figma-navy/5/40'
               : 'border-gray-200 bg-white',
           )}
         >
@@ -268,7 +268,7 @@ function CalendarPicker({
           className={cn(
             'flex-1 border-2 rounded-2xl px-4 py-3 transition-all duration-200',
             checkIn && !checkOut
-              ? 'border-[#1B3FA0] bg-blue-50/40'
+              ? 'border-[#004772] bg-figma-navy/5/40'
               : 'border-gray-200 bg-white',
           )}
         >
@@ -320,7 +320,7 @@ function CalendarPicker({
         <button
           onClick={onDone}
           disabled={!checkIn || !checkOut}
-          className="bg-[#1B3FA0] text-white text-[14px] font-bold px-8 py-2.5 rounded-2xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="bg-[#004772] text-white text-[14px] font-bold px-8 py-2.5 rounded-2xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           Done
         </button>
@@ -351,7 +351,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
   ) => (
     <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-[#1B3FA0]">
+        <div className="w-9 h-9 bg-figma-navy/5 rounded-full flex items-center justify-center text-[#004772]">
           {icon}
         </div>
         <div>
@@ -395,7 +395,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
         className={cn(
           'w-full flex items-center gap-3 border-2 rounded-2xl px-4 py-3 transition-all duration-200 text-left',
           open
-            ? 'border-[#1B3FA0] bg-blue-50/30'
+            ? 'border-[#004772] bg-figma-navy/5/30'
             : 'border-gray-200 hover:border-gray-300',
         )}
       >
@@ -460,7 +460,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
               onClick={() => onChange({ ...guests, pets: !guests.pets })}
               className={cn(
                 'relative w-11 h-6 rounded-full transition-all duration-300',
-                guests.pets ? 'bg-[#1B3FA0]' : 'bg-gray-200',
+                guests.pets ? 'bg-[#004772]' : 'bg-gray-200',
               )}
             >
               <div
@@ -475,7 +475,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
           <div className="px-5 pb-5">
             <button
               onClick={() => setOpen(false)}
-              className="w-full bg-[#1B3FA0] text-white text-[14px] font-bold py-3 rounded-2xl hover:bg-[#162e82] transition-colors"
+              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3 rounded-2xl hover:bg-[#162e82] transition-colors"
             >
               Done
             </button>
@@ -710,7 +710,7 @@ function ManageBookingModal({
                   <>
                     <button
                       onClick={() => setView('modify')}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all active:scale-[0.98]"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#162e82] transition-all active:scale-[0.98]"
                     >
                       <span>Modify Booking</span>
                       <Edit3 className="w-4 h-4" />
@@ -742,7 +742,7 @@ function ManageBookingModal({
                         onClose();
                         router.push(`/property/${booking.id}`);
                       }}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#162e82] transition-all"
                     >
                       <span>Book Again</span>
                       <ArrowRight className="w-4 h-4" />
@@ -765,7 +765,7 @@ function ManageBookingModal({
                       onClose();
                       router.push(`/property/${booking.id}`);
                     }}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all"
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#162e82] transition-all"
                   >
                     <span>Book Again</span>
                     <ArrowRight className="w-4 h-4" />
@@ -784,7 +784,7 @@ function ManageBookingModal({
                   <p className="text-[14px] font-bold text-gray-900">Dates</p>
                   <button
                     onClick={() => setCalendarOpen((o) => !o)}
-                    className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1B3FA0] hover:underline"
+                    className="flex items-center gap-1.5 text-[12px] font-semibold text-[#004772] hover:underline"
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     {calendarOpen ? 'Close' : 'Change dates'}
@@ -911,7 +911,7 @@ function ManageBookingModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full bg-[#1B3FA0] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#162e82] active:scale-[0.99] transition-all shadow-sm"
+              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#162e82] active:scale-[0.99] transition-all shadow-sm"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -1004,7 +1004,7 @@ function BookingCard({
 
   const statusColor =
     booking.status === 'upcoming'
-      ? 'text-[#1B3FA0]'
+      ? 'text-[#004772]'
       : booking.status === 'completed'
         ? 'text-emerald-600'
         : 'text-red-400';
@@ -1063,7 +1063,7 @@ function BookingCard({
                 className={cn(
                   'flex items-center gap-2 border text-[12.5px] font-semibold px-4 py-2 rounded-full transition-all duration-200',
                   booking.coordinates
-                    ? 'border-gray-200 text-gray-600 hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50'
+                    ? 'border-gray-200 text-gray-600 hover:border-figma-navy/40 hover:text-figma-navy hover:bg-figma-navy/5'
                     : 'border-gray-100 text-gray-300 cursor-not-allowed',
                 )}
               >
@@ -1075,7 +1075,7 @@ function BookingCard({
 
           <button
             onClick={onManage}
-            className="self-start mt-4 bg-[#1B3FA0] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#162e82] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
+            className="self-start mt-4 bg-[#004772] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#162e82] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Manage Booking
           </button>
@@ -1159,7 +1159,7 @@ function SignedOutState() {
         </p>
         <button
           onClick={() => router.push('/signin?redirect=/my-memories')}
-          className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+          className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
         >
           Sign in
         </button>
@@ -1186,7 +1186,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
         {cta && (
           <button
             onClick={() => router.push('/')}
-            className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+            className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
           >
             {cta}
           </button>
@@ -1245,7 +1245,7 @@ function TabSwitcher({
       className="relative flex items-center bg-gray-100 rounded-full p-1"
     >
       <div
-        className="absolute top-1 bottom-1 bg-[#1B3FA0] rounded-full shadow-md transition-all duration-250 ease-in-out pointer-events-none"
+        className="absolute top-1 bottom-1 bg-[#004772] rounded-full shadow-md transition-all duration-250 ease-in-out pointer-events-none"
         style={{ left: indicator.left, width: indicator.width }}
       />
       {TABS.map((tab) => (

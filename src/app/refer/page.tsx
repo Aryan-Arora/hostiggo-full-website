@@ -18,11 +18,11 @@ const STEPS: { icon: LucideIcon; title: string; desc: string }[] = [
 // numbers.
 export default function ReferPage() {
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       <Navbar />
       <main className="container-main py-10">
         {/* Hero */}
-        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#1B3FA0] to-[#0086D8] p-8 md:p-12 mb-12">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-r from-[#004772] to-[#0086d8] p-8 md:p-12 mb-12">
           <div className="relative z-10 max-w-xl">
             <span className="inline-block px-4 py-1 bg-white/20 text-white text-xs font-semibold rounded-full mb-4">
               Limited Offer
@@ -55,7 +55,7 @@ export default function ReferPage() {
               const Icon = s.icon;
               return (
                 <div key={i} className="flex flex-col items-center text-center">
-                  <div className="w-20 h-20 bg-blue-50 rounded-3xl flex items-center justify-center text-blue-600 mb-6">
+                  <div className="w-20 h-20 bg-figma-navy/5 rounded-3xl flex items-center justify-center text-figma-navy mb-6">
                     <Icon className="w-9 h-9" />
                   </div>
                   <h4 className="text-lg font-bold text-gray-800 mb-2">{s.title}</h4>

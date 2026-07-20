@@ -86,7 +86,7 @@ export default function CookiesPage() {
       <div className="container-main py-10 md:py-14">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 mb-6"
+          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-figma-navy mb-6"
         >
           <ChevronLeft className="w-4 h-4" /> Back to home
         </Link>
@@ -125,7 +125,7 @@ export default function CookiesPage() {
                   <li key={s.id}>
                     <a
                       href={`#${s.id}`}
-                      className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                      className="text-sm text-gray-600 hover:text-figma-navy transition-colors"
                     >
                       {s.title}
                     </a>
@@ -151,7 +151,7 @@ export default function CookiesPage() {
               Questions about cookies? Contact us at{" "}
               <a
                 href="mailto:support@hostiggo.com"
-                className="text-blue-600 hover:underline"
+                className="text-figma-navy hover:underline"
               >
                 support@hostiggo.com
               </a>

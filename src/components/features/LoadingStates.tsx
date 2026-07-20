@@ -46,7 +46,7 @@ export function LoadingState({
     <div className="flex items-center justify-center gap-2">
       {variant === 'spinner' && (
         <Loader2
-          className={`${sizeClasses[size]} text-blue-600 animate-spin`}
+          className={`${sizeClasses[size]} text-figma-navy animate-spin`}
         />
       )}
 
@@ -55,7 +55,7 @@ export function LoadingState({
           {[0, 150, 300].map((delay) => (
             <div
               key={delay}
-              className={`${sizeClasses[size]} rounded-full bg-blue-600 animate-bounce`}
+              className={`${sizeClasses[size]} rounded-full bg-figma-navy animate-bounce`}
               style={{ animationDelay: `${delay}ms` }}
             />
           ))}
@@ -64,7 +64,7 @@ export function LoadingState({
 
       {variant === 'pulse' && (
         <div
-          className={`${sizeClasses[size]} rounded-full bg-blue-600 animate-pulse`}
+          className={`${sizeClasses[size]} rounded-full bg-figma-navy animate-pulse`}
         />
       )}
 

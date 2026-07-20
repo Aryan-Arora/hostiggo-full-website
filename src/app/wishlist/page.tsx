@@ -84,13 +84,13 @@ function ConfirmModal({
       />
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-[320px] mx-4 animate-slide-up">
         <p className="text-[15px] font-semibold text-gray-800 leading-relaxed mb-5">
-          Confirm to remove <span className="text-blue-600">&quot;{groupName}&quot;</span>{' '}
+          Confirm to remove <span className="text-figma-navy">&quot;{groupName}&quot;</span>{' '}
           from list?
         </p>
         <div className="flex items-center gap-3">
           <button
             onClick={onConfirm}
-            className="flex-1 py-2.5 bg-[#1B3FA0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] active:scale-[0.98] transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] active:scale-[0.98] transition-all"
           >
             Yes
           </button>
@@ -150,13 +150,13 @@ function CreateListModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all mb-4"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/40/10 transition-all mb-4"
         />
         <div className="flex items-center gap-3">
           <button
             onClick={() => name.trim() && onConfirm(name.trim())}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#1B3FA0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Create
           </button>
@@ -215,13 +215,13 @@ function RenameModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all mb-4"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/40/10 transition-all mb-4"
         />
         <div className="flex items-center gap-3">
           <button
             onClick={() => name.trim() && onConfirm(name.trim())}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#1B3FA0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Save
           </button>
@@ -315,7 +315,7 @@ function GroupDropdown({
                 <span className="truncate">{grp.name}</span>
                 {grp.id === selected && (
                   <Check
-                    className="w-4 h-4 text-blue-600 flex-shrink-0"
+                    className="w-4 h-4 text-figma-navy flex-shrink-0"
                     strokeWidth={2.5}
                   />
                 )}
@@ -680,7 +680,7 @@ export default function WishlistPage() {
           className={cn(
             'text-[30px] sm:text-[34px] font-extrabold tracking-tight mb-6 transition-colors',
             editMode
-              ? 'text-blue-600 underline decoration-2 underline-offset-4'
+              ? 'text-figma-navy underline decoration-2 underline-offset-4'
               : 'text-gray-900',
           )}
         >
@@ -717,7 +717,7 @@ export default function WishlistPage() {
             {editMode ? (
               <button
                 onClick={() => setEditMode(false)}
-                className="px-5 py-2 bg-[#1B3FA0] text-white text-[13px] font-bold rounded-full hover:bg-[#162e82] transition-all shadow-sm"
+                className="px-5 py-2 bg-[#004772] text-white text-[13px] font-bold rounded-full hover:bg-[#162e82] transition-all shadow-sm"
               >
                 Done
               </button>
@@ -745,7 +745,7 @@ export default function WishlistPage() {
             </p>
             <button
               onClick={() => router.push('/signin?redirect=/wishlist')}
-              className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
+              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
             >
               Sign in
             </button>
@@ -815,7 +815,7 @@ export default function WishlistPage() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
+              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
             >
               Explore stays
             </button>

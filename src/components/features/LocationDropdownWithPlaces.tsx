@@ -122,7 +122,7 @@ export function LocationDropdown({
             placeholder={placeholder}
             className="flex-1 bg-transparent text-sm font-medium outline-none"
           />
-          {loading && <Loader className="w-4 h-4 text-blue-500 animate-spin" />}
+          {loading && <Loader className="w-4 h-4 text-figma-navy animate-spin" />}
         </div>
 
         {isOpen && suggestions.length > 0 && (
@@ -131,7 +131,7 @@ export function LocationDropdown({
               <button
                 key={suggestion.placeId}
                 onClick={() => handleSelectLocation(suggestion)}
-                className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
+                className="w-full text-left px-4 py-3 hover:bg-figma-navy/5 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
               >
                 <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
                 <div className="flex-1 min-w-0">

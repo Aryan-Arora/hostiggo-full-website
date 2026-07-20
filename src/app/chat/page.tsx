@@ -43,7 +43,7 @@ function ChatContent() {
   if (resolving) {
     return (
       <div className="pt-4 min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
       </div>
     );
   }
@@ -72,7 +72,7 @@ export default function UserChatPage() {
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
       </div>
     );
   }
@@ -86,7 +86,7 @@ export default function UserChatPage() {
       <Navbar />
       <Suspense fallback={
         <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-          <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+          <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
         </div>
       }>
         <ChatContent />

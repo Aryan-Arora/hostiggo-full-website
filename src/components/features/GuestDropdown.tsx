@@ -22,7 +22,7 @@ function CounterRow({ icon, label, sublabel, value, min = 0, max = 20, onChange 
   return (
     <div className="flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 flex-shrink-0">
+        <div className="w-9 h-9 bg-figma-navy/5 rounded-xl flex items-center justify-center text-figma-navy flex-shrink-0">
           {icon}
         </div>
         <div>
@@ -39,7 +39,7 @@ function CounterRow({ icon, label, sublabel, value, min = 0, max = 20, onChange 
             "w-8 h-8 rounded-full border flex items-center justify-center text-base transition-all font-light leading-none",
             value <= min
               ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:scale-95"
+              : "border-gray-300 text-gray-600 hover:border-figma-navy/40 hover:text-figma-navy active:scale-95"
           )}
         >
           −
@@ -52,7 +52,7 @@ function CounterRow({ icon, label, sublabel, value, min = 0, max = 20, onChange 
             "w-8 h-8 rounded-full border flex items-center justify-center text-base transition-all font-light leading-none",
             value >= max
               ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:scale-95"
+              : "border-gray-300 text-gray-600 hover:border-figma-navy/40 hover:text-figma-navy active:scale-95"
           )}
         >
           +
@@ -98,7 +98,7 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
       {/* Pets toggle */}
       <div className="flex items-center justify-between py-3.5">
         <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
+          <div className="w-9 h-9 bg-figma-navy/5 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
             🐾
           </div>
           <div>
@@ -118,7 +118,7 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
 
       <button
         onClick={onClose}
-        className="w-full mt-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm"
+        className="w-full mt-2 bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm"
       >
         Done
       </button>

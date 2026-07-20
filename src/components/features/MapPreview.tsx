@@ -125,10 +125,10 @@ export default function MapPreview({
       <div ref={mapRef} className="w-full h-full" />
 
       {!mapLoaded && (
-        <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
+        <div className="absolute inset-0 bg-figma-navy/5 flex items-center justify-center">
           <div className="text-center">
-            <div className="w-6 h-6 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-1.5" />
-            <p className="text-[11px] text-blue-500 font-medium">Loading…</p>
+            <div className="w-6 h-6 border-2 border-figma-navy/40 border-t-transparent rounded-full animate-spin mx-auto mb-1.5" />
+            <p className="text-[11px] text-figma-navy font-medium">Loading…</p>
           </div>
         </div>
       )}
@@ -136,7 +136,7 @@ export default function MapPreview({
       {/* Overlay label */}
       <div className="absolute bottom-0 inset-x-0 bg-gradient-to-t from-white/90 to-transparent py-2 px-3 pointer-events-none">
         <p className="text-[11px] font-semibold text-gray-600 flex items-center gap-1">
-          <MapPin className="w-3 h-3 text-blue-500" />
+          <MapPin className="w-3 h-3 text-figma-navy" />
           {city} · {count} properties
         </p>
       </div>
