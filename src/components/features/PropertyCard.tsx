@@ -39,11 +39,12 @@ export default function PropertyCard({ property }: PropertyCardProps) {
 
   return (
     <div
-      className="bg-white rounded-2xl overflow-hidden border border-figma-border cursor-pointer group transition-shadow duration-200 hover:shadow-card-hover"
+      className="bg-white rounded-[35px] overflow-hidden cursor-pointer group transition-shadow duration-200"
+      style={{ boxShadow: "0px 4px 30px 0px rgba(0,0,0,0.25)" }}
       onClick={() => router.push(`/property/${property.id}`)}
     >
-      {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: 190 }}>
+      {/* Image -- Figma: rounded-tl/tr-[35px] matching the card radius */}
+      <div className="relative overflow-hidden rounded-t-[35px]" style={{ height: 190 }}>
         <img
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
@@ -67,20 +68,42 @@ export default function PropertyCard({ property }: PropertyCardProps) {
         <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/20 to-transparent" />
       </div>
 
-      {/* Details */}
-      <div className="p-3.5">
-        <h3 className="text-[13.5px] font-semibold text-figma-ink leading-snug line-clamp-1 mb-0.5">{property.propertyName}</h3>
-        <p className="text-[11.5px] text-figma-muted mb-2 line-clamp-1">{property.city}, {property.state}</p>
-        <div className="flex items-center gap-1 mb-3">
-          <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />
-          <span className="text-[11.5px] font-bold text-figma-ink">{property.rating > 0 ? property.rating.toFixed(2) : 'New'}</span>
-          <span className="text-[11.5px] text-figma-muted-light">· {property.reviewCount} reviews</span>
+      {/* Details -- typography pulled exactly from Figma node 3007:xxxxx:
+          title 18px/medium, location 14px/medium @80% opacity, rating &
+          review-count both 16px/medium, price 25px/semibold -- all #1a1a1a. */}
+      <div className="px-5 py-4">
+        <h3
+          className="font-medium leading-[1.4] tracking-[0.054px] text-figma-ink line-clamp-1 mb-1"
+          style={{ fontSize: 18 }}
+        >
+          {property.propertyName}
+        </h3>
+        <p
+          className="font-medium leading-[1.4] tracking-[0.042px] text-figma-ink/80 line-clamp-1 mb-2"
+          style={{ fontSize: 14 }}
+        >
+          {property.city}, {property.state}
+        </p>
+        <div className="flex items-center gap-1.5 mb-3">
+          <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
+          <span className="font-medium text-figma-ink" style={{ fontSize: 16 }}>
+            {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
+          </span>
+          <span className="font-medium text-figma-ink/60" style={{ fontSize: 16 }}>
+            · {property.reviewCount} reviews
+          </span>
         </div>
-        <div className="flex items-baseline gap-1.5 pt-2.5 border-t border-figma-border">
-          <span className="text-[16px] font-extrabold text-figma-ink">₹{property.price.toLocaleString("en-IN")}</span>
-          <span className="text-[11.5px] text-figma-muted font-medium border-l border-figma-border pl-1.5">/night</span>
+        <div className="flex items-stretch gap-0 border border-figma-navy rounded-r-[24px] w-fit">
+          <div className="flex items-baseline gap-1 pr-3 py-1.5">
+            <span className="font-semibold text-figma-ink" style={{ fontSize: 25 }}>
+              ₹{property.price.toLocaleString("en-IN")}
+            </span>
+          </div>
+          <div className="flex items-center border-l border-figma-navy px-3">
+            <span className="font-medium text-figma-ink" style={{ fontSize: 16 }}>/night</span>
+          </div>
         </div>
-        <p className="text-[10.5px] text-figma-muted-light mt-0.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
+        <p className="text-[11px] text-figma-ink/50 mt-1.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
       </div>
     </div>
   );
