@@ -61,7 +61,7 @@ export default function SortDropdown({ value, onChange }: SortDropdownProps) {
               className={cn(
                 "w-full text-left px-4 py-2.5 text-[12px] transition-colors",
                 value === opt.value
-                  ? "text-figma-navy font-semibold bg-figma-navy/5/50"
+                  ? "text-figma-navy font-semibold bg-figma-navy/50"
                   : "text-gray-600 font-medium hover:bg-gray-50"
               )}
             >

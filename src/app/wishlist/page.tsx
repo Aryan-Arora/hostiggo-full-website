@@ -150,7 +150,7 @@ function CreateListModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/40/10 transition-all mb-4"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all mb-4"
         />
         <div className="flex items-center gap-3">
           <button
@@ -215,7 +215,7 @@ function RenameModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/40/10 transition-all mb-4"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all mb-4"
         />
         <div className="flex items-center gap-3">
           <button
