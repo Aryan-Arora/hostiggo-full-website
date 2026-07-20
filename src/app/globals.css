@@ -6,13 +6,13 @@
   :root {
     --background: 220 14% 96%;
     --foreground: 220 13% 13%;
-    --primary: 217 91% 52%;
-    --primary-hover: 217 91% 45%;
+    --primary: 203 100% 22%;
+    --primary-hover: 203 100% 28%;
     --card: 0 0% 100%;
     --border: 220 13% 91%;
     --muted: 220 13% 95%;
     --muted-foreground: 220 9% 46%;
-    --accent: 217 91% 97%;
+    --accent: 203 40% 96%;
     --radius: 0.75rem;
   }
 
@@ -35,15 +35,15 @@
   }
 
   .bg-primary-gradient {
-    @apply bg-gradient-to-r from-[#1B3FA0] to-[#0086D8];
+    @apply bg-gradient-to-r from-[#004772] to-[#0086d8];
   }
 
   .btn-primary {
-    @apply bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200 text-sm;
+    @apply bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white font-semibold px-5 py-2.5 rounded-lg transition-all duration-200 text-sm;
   }
 
   .btn-outline {
-    @apply border border-blue-600 text-blue-600 hover:bg-blue-50 font-medium px-4 py-2 rounded-lg transition-all duration-200 text-sm;
+    @apply border border-figma-navy text-figma-navy hover:bg-figma-navy/5 font-medium px-4 py-2 rounded-lg transition-all duration-200 text-sm;
   }
 
   .card-base {
@@ -75,7 +75,7 @@
   /* Slim blue scrollbar for the reviews modal (matches Figma) */
   .reviews-scroll {
     scrollbar-width: thin;
-    scrollbar-color: #3b82f6 transparent;
+    scrollbar-color: #004772 transparent;
   }
   .reviews-scroll::-webkit-scrollbar {
     width: 6px;
@@ -84,7 +84,7 @@
     background: transparent;
   }
   .reviews-scroll::-webkit-scrollbar-thumb {
-    background: #3b82f6;
+    background: #004772;
     border-radius: 9999px;
   }
 
@@ -125,17 +125,17 @@
 }
 
 .calendar-day:hover:not(.selected):not(.in-range):not(.range-start):not(.range-end):not(.disabled) {
-  @apply bg-blue-50 text-blue-600 font-medium;
+  @apply bg-figma-navy/5 text-figma-navy font-medium;
 }
 
 .calendar-day.selected,
 .calendar-day.range-start,
 .calendar-day.range-end {
-  @apply bg-blue-600 text-white font-semibold;
+  @apply bg-figma-navy text-white font-semibold;
 }
 
 .calendar-day.in-range {
-  @apply bg-blue-50 text-blue-700 rounded-none;
+  @apply bg-figma-navy/5 text-figma-navy rounded-none;
 }
 
 .calendar-day.range-start {
@@ -155,7 +155,7 @@
 }
 
 .calendar-day.today:not(.selected):not(.in-range):not(.range-start):not(.range-end) {
-  @apply font-bold text-blue-600;
+  @apply font-bold text-figma-navy;
 }
 
 /* Toggle */
@@ -196,7 +196,7 @@
 }
 
 input:checked + .toggle-slider {
-  background-color: #2563eb;
+  background-color: #004772;
 }
 
 input:checked + .toggle-slider::before {
