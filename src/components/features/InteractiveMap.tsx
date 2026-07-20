@@ -59,7 +59,7 @@ export default function InteractiveMap({
         html: `<div style="
           width: 32px;
           height: 32px;
-          background-color: #2563eb;
+          background-color: #004772;
           border: 3px solid white;
           border-radius: 50%;
           box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -146,7 +146,7 @@ export default function InteractiveMap({
     if (!L) return null;
 
     const price = `₹${Math.round(property.price / 1000)}k`;
-    const bgColor = isActive ? '#1d4ed8' : '#2563eb';
+    const bgColor = isActive ? '#003a5c' : '#004772';
     const borderColor = isActive ? 'white' : 'rgba(255,255,255,0.6)';
     const borderWidth = isActive ? 2.5 : 2;
 

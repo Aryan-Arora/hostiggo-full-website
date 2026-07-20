@@ -162,7 +162,7 @@ export default function Navbar() {
                 <div ref={profileRef} className="relative ml-2">
                   <button
                     onClick={() => setProfileOpen((v) => !v)}
-                    className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-offset-1 ring-transparent hover:ring-blue-400 transition-all"
+                    className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-offset-1 ring-transparent hover:ring-figma-accent transition-all"
                   >
                     <img
                       src={user?.profile_pic_url || USER.avatar}
@@ -334,7 +334,7 @@ export default function Navbar() {
                       setMobileOpen(false);
                       router.push('/signin');
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-xl text-sm font-semibold"
+                    className="flex-1 bg-figma-navy text-white py-2 rounded-xl text-sm font-semibold"
                   >
                     New user
                   </button>
@@ -343,7 +343,7 @@ export default function Navbar() {
                       setMobileOpen(false);
                       router.push('/host/list/property-type');
                     }}
-                    className="flex-1 border border-blue-600 text-blue-600 py-2 rounded-xl text-sm font-semibold"
+                    className="flex-1 border border-figma-navy text-figma-navy py-2 rounded-xl text-sm font-semibold"
                   >
                     List property
                   </button>

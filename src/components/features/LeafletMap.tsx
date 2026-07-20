@@ -95,13 +95,13 @@ export default function LeafletMap({
   const getMarkerColor = (iconType?: string): string => {
     switch (iconType) {
       case 'blue':
-        return '#3b82f6';
+        return '#004772';
       case 'red':
         return '#ef4444';
       case 'green':
         return '#10b981';
       default:
-        return '#3b82f6';
+        return '#004772';
     }
   };
 
@@ -153,7 +153,7 @@ export default function LeafletMap({
         [center.lat, center.lng],
         {
           draggable: true,
-          icon: createMarkerIcon('#2563eb'),
+          icon: createMarkerIcon('#004772'),
         },
       ).addTo(mapInstanceRef.current);
 
