@@ -1968,7 +1968,7 @@ export default function PropertyDetailsPage() {
                   <p className="text-[13.5px] font-semibold text-gray-800">Moderate policy</p>
                   <p className="text-[12.5px] text-gray-600 mt-1 leading-snug">
                     Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays} days
-                    before check-in. After that, you're refunded everything except the Hostiggo service fee.
+                    before check-in. After that, you&apos;re refunded everything except the Hostiggo service fee.
                   </p>
                 </div>
               )}

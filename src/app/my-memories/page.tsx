@@ -889,7 +889,7 @@ function ManageBookingModal({
                       <span>₹{refundPreview.grandTotalRupees.toLocaleString('en-IN')}</span>
                     </div>
                     <div className="flex justify-between text-[15px] font-bold text-gray-900 pt-1 border-t border-gray-200">
-                      <span>You'll be refunded</span>
+                      <span>You&apos;ll be refunded</span>
                       <span className={refundPreview.refundAmountRupees > 0 ? 'text-green-600' : 'text-red-500'}>
                         ₹{refundPreview.refundAmountRupees.toLocaleString('en-IN')}
                       </span>
