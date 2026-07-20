@@ -336,6 +336,7 @@ export const api = {
     date: string;
     price?: number;
     isAvailable?: boolean;
+    userId: string;
   }) =>
     request<any>(`/api/host/calendar`, {
       method: "PATCH",
@@ -375,10 +376,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
-  cancelBooking: (bookingId: string | number, reason?: string) =>
+  cancelBooking: (bookingId: string | number, userId: string, reason?: string) =>
     request<any>(`/api/bookings/cancel`, {
       method: "POST",
-      body: JSON.stringify({ bookingId, reason }),
+      body: JSON.stringify({ bookingId, userId, reason }),
     }),
   createReview: (payload: {
     listingId: string | number;
@@ -452,12 +453,10 @@ export const api = {
         longitude: extra?.longitude ?? null,
       },
     };
-    console.log("[api.search] Request payload:", payload);
     const result = await request<any[]>("/api/search", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    console.log("[api.search] Response rows:", result?.length);
     return result;
   },
   sendOtp: (phone: string) =>

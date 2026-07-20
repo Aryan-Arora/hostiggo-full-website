@@ -85,14 +85,41 @@ export async function uploadListingPhoto(
 }
 
 // ── Calendar ─────────────────────────────────────────────────────────────────
+/**
+ * Throws unless `requestingUserId` is the host who owns `listingId`.
+ * Shared guard for host-side writes that previously trusted any client
+ * that knew a listing_id integer.
+ */
+export async function assertListingOwnedBy(listingId: number, requestingUserId: string) {
+  const { data: listing, error: listingError } = await supabaseAdmin
+    .from("listings")
+    .select("host_uuid")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+  if (listingError) throw listingError;
+  if (!listing) throw new Error("Listing not found");
+
+  const { data: host, error: hostError } = await supabaseAdmin
+    .from("host")
+    .select("user_id")
+    .eq("host_uuid", listing.host_uuid)
+    .maybeSingle();
+  if (hostError) throw hostError;
+  if (host?.user_id !== requestingUserId) {
+    throw new Error("You don't have permission to modify this listing.");
+  }
+}
+
 export async function upsertCalendarDay(input: {
   listingId: number;
   date: string; // yyyy-mm-dd
   price?: number;
   isAvailable?: boolean;
   currency?: string;
+  requestingUserId: string;
 }) {
   const { listingId, date, price, isAvailable, currency } = input;
+  await assertListingOwnedBy(listingId, input.requestingUserId);
 
   // Find an existing row for this (listing, date) so we update in place rather
   // than relying on a specific unique-constraint name for upsert.
@@ -353,7 +380,42 @@ function eachDateInRange(startDate: string, endDate: string): string[] {
 }
 
 // ── Booking cancellation ─────────────────────────────────────────────────────
-export async function cancelBooking(bookingId: number, reason?: string | null) {
+export async function cancelBooking(
+  bookingId: number,
+  reason: string | null | undefined,
+  requestingUserId: string,
+) {
+  // Ownership check: only the guest who made the booking or the host of the
+  // listing may cancel it. Without this, any client that guessed a booking_id
+  // integer could cancel someone else's stay.
+  const { data: booking, error: fetchError } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id, user_id, listing_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!booking) throw new Error("Booking not found");
+
+  if (booking.user_id !== requestingUserId) {
+    const { data: listing, error: listingError } = await supabaseAdmin
+      .from("listings")
+      .select("host_uuid")
+      .eq("listing_id", booking.listing_id)
+      .maybeSingle();
+    if (listingError) throw listingError;
+
+    const { data: host, error: hostError } = await supabaseAdmin
+      .from("host")
+      .select("user_id")
+      .eq("host_uuid", listing?.host_uuid ?? "")
+      .maybeSingle();
+    if (hostError) throw hostError;
+
+    if (host?.user_id !== requestingUserId) {
+      throw new Error("You don't have permission to cancel this booking.");
+    }
+  }
+
   const patch: Record<string, any> = { status_id: 3 }; // 3 = CANCELLED
   if (reason) patch.cancellation_reason = reason;
   const { data, error } = await supabaseAdmin
@@ -615,8 +677,28 @@ export async function updateUserProfile(
     activity_status: boolean;
   }>,
 ) {
+  // Runtime allowlist -- the Partial<> type above only constrains TS callers,
+  // but the /api/users PATCH route forwards client JSON straight in, so
+  // without this any users-table column (is_verified, is_active, ...) could
+  // be written by name.
+  const ALLOWED_PROFILE_FIELDS = new Set([
+    "name",
+    "email",
+    "phone",
+    "age",
+    "emergency_contact",
+    "profile_pic_url",
+    "email_notifications",
+    "sms_alerts",
+    "promo_notifications",
+    "host_message_notifications",
+    "show_profile_to_hosts",
+    "include_in_search",
+    "activity_status",
+  ]);
   const clean: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const [k, v] of Object.entries(patch)) {
+    if (!ALLOWED_PROFILE_FIELDS.has(k)) continue;
     if (v !== undefined && v !== null && v !== "") clean[k] = v;
   }
   // select("*") rather than an explicit column list: the preference columns

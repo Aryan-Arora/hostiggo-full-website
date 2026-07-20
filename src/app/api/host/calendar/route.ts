@@ -36,18 +36,22 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId, date, price, isAvailable } = body ?? {};
-    if (!listingId || !date) {
+    const { listingId, date, price, isAvailable, userId } = body ?? {};
+    if (!listingId || !date || !userId) {
       return NextResponse.json(
-        { error: "listingId and date are required" },
+        { error: "listingId, date and userId are required" },
         { status: 400 },
       );
+    }
+    if (price !== undefined && price !== null && (Number(price) < 0 || Number(price) > 10000000)) {
+      return NextResponse.json({ error: "price out of range" }, { status: 400 });
     }
     const data = await upsertCalendarDay({
       listingId: Number(listingId),
       date: String(date),
       price: price === undefined || price === null ? undefined : Number(price),
       isAvailable: typeof isAvailable === "boolean" ? isAvailable : undefined,
+      requestingUserId: String(userId),
     });
     return NextResponse.json({ data });
   } catch (err) {

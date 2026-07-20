@@ -9,7 +9,7 @@ const jsonError = (err: unknown, status = 500) =>
 export async function GET(req: NextRequest) {
   try {
     const query = req.nextUrl.searchParams.get("q");
-    const limit = Number(req.nextUrl.searchParams.get("limit") ?? 22);
+    const limit = Math.min(100, Math.max(1, Number(req.nextUrl.searchParams.get("limit")) || 22));
     const popular = req.nextUrl.searchParams.get("popular") === "1";
 
     const data = query

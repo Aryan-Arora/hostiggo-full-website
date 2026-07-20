@@ -250,7 +250,7 @@ export default function CalendarPage() {
   }, [selectedDay]);
 
   const handleSaveDay = async () => {
-    if (!selected || !listingId) return;
+    if (!selected || !listingId || !userId) return;
     const day = selected.dateStr;
     setSaving(true);
     try {
@@ -259,6 +259,7 @@ export default function CalendarPage() {
         date: day,
         price: priceInput.trim() ? Number(priceInput) : undefined,
         isAvailable: availInput,
+        userId,
       });
       toast.success('Calendar updated');
       await loadCalendar();

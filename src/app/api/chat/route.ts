@@ -39,8 +39,18 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const trimmed = String(text).trim();
+    if (!trimmed) {
+      return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
+    }
+    if (trimmed.length > 4000) {
+      return NextResponse.json(
+        { error: "Message must be 4000 characters or fewer" },
+        { status: 400 },
+      );
+    }
 
-    const data = await postMessageFallback(senderId, recipientId, text, senderType);
+    const data = await postMessageFallback(senderId, recipientId, trimmed, senderType);
     return NextResponse.json({ data });
   } catch (err) {
     return jsonError(err);

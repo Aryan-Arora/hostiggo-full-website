@@ -29,11 +29,8 @@ export async function GET(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const data = await calendarServiceAPI.upsertCalendarEntry(await req.json());
-    return NextResponse.json({ data });
-  } catch (err) {
-    return jsonError(err);
-  }
-}
+// NOTE: this route is read-only. Calendar writes go through
+// /api/host/calendar PATCH (which verifies listing ownership) -- the POST
+// handler that used to live here was never called by any client code and
+// accepted arbitrary listing_calendar upserts with no ownership check, so
+// it was removed rather than hardened.
