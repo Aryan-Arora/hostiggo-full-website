@@ -17,7 +17,7 @@
   }
 
   body {
-    font-family: 'Inter', sans-serif;
+    font-family: var(--font-poppins), system-ui, sans-serif;
     background-color: #f0f2f5;
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
