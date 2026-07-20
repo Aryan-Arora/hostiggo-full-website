@@ -34,13 +34,13 @@ function CancelInner() {
   const detailsHref = id ? `/host/bookings/details?id=${id}` : '/host/bookings';
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id || !userId) return;
     try {
-      setBooking(await api.bookingDetail(id));
+      setBooking(await api.bookingDetail(id, userId));
     } catch (err) {
       console.error('[cancel] load failed:', err);
     }
-  }, [id]);
+  }, [id, userId]);
 
   useEffect(() => {
     load();

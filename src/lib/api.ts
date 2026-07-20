@@ -325,8 +325,10 @@ export const api = {
     request<any[]>(`/api/host/reviews?userId=${encodeURIComponent(userId)}`),
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
-  bookingDetail: (id: string) =>
-    request<any>(`/api/bookings/details?id=${encodeURIComponent(id)}`),
+  bookingDetail: (id: string, userId: string) =>
+    request<any>(
+      `/api/bookings/details?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userId)}`,
+    ),
   hostCalendar: (listingId: string | number, start: string, end: string) =>
     request<{ entries: any[]; bookings: any[] }>(
       `/api/host/calendar?listingId=${encodeURIComponent(String(listingId))}&start=${start}&end=${end}`,
