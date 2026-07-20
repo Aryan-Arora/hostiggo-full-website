@@ -113,7 +113,7 @@ function OnboardingContent() {
             <span className="text-white font-bold text-[16px]">H</span>
           </div>
           <span className="font-black text-gray-800 text-[16px] tracking-wider uppercase">
-            HOSTI<span className="text-sky-300">GO</span>
+            HOSTI<span className="text-figma-accent">GO</span>
           </span>
         </div>
 
@@ -228,7 +228,7 @@ function OnboardingContent() {
           <button
             type="submit"
             disabled={saving || !name.trim() || (needsEmail && !email.includes('@'))}
-            className="w-full py-3.5 bg-[#004772] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Get Started'}
           </button>

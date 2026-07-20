@@ -178,7 +178,7 @@ export default function OTPPageContent() {
           <span className="text-white font-bold text-[16px]">H</span>
         </div>
         <span className="font-black text-white text-[16px] tracking-wider uppercase drop-shadow">
-          HOSTI<span className="text-sky-300">GO</span>
+          HOSTI<span className="text-figma-accent">GO</span>
         </span>
       </div>
 
@@ -254,7 +254,7 @@ export default function OTPPageContent() {
           className={cn(
             'w-full py-3.5 font-semibold rounded-xl transition-all text-[15px] shadow-sm',
             otp.join('').length === OTP_LENGTH
-              ? 'bg-[#004772] hover:bg-[#162e82] active:scale-[0.98] text-white'
+              ? 'bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed',
           )}
         >

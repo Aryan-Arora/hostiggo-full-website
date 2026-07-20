@@ -12,11 +12,11 @@ export default function CTABanner() {
       >
         {/* Decorative blobs */}
         <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-figma-navy opacity-[0.07] blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 left-1/4 w-48 h-48 rounded-full bg-indigo-400 opacity-[0.07] blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 left-1/4 w-48 h-48 rounded-full bg-figma-accent opacity-[0.07] blur-3xl pointer-events-none" />
 
         {/* ── Left: Copy ── */}
         <div className="relative z-10 flex-1 max-w-sm">
-          <p className="text-figma-navy/40 text-xs font-bold uppercase tracking-widest mb-2">
+          <p className="text-figma-accent text-xs font-bold uppercase tracking-widest mb-2">
             For property owners
           </p>
           <h2 className="text-white text-xl md:text-[22px] font-extrabold leading-snug mb-3">

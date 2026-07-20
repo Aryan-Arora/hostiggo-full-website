@@ -320,7 +320,7 @@ function CalendarPicker({
         <button
           onClick={onDone}
           disabled={!checkIn || !checkOut}
-          className="bg-[#004772] text-white text-[14px] font-bold px-8 py-2.5 rounded-2xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="bg-[#004772] text-white text-[14px] font-bold px-8 py-2.5 rounded-2xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           Done
         </button>
@@ -475,7 +475,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
           <div className="px-5 pb-5">
             <button
               onClick={() => setOpen(false)}
-              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3 rounded-2xl hover:bg-[#162e82] transition-colors"
+              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3 rounded-2xl hover:bg-[#003a5c] transition-colors"
             >
               Done
             </button>
@@ -710,7 +710,7 @@ function ManageBookingModal({
                   <>
                     <button
                       onClick={() => setView('modify')}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#162e82] transition-all active:scale-[0.98]"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#003a5c] transition-all active:scale-[0.98]"
                     >
                       <span>Modify Booking</span>
                       <Edit3 className="w-4 h-4" />
@@ -742,7 +742,7 @@ function ManageBookingModal({
                         onClose();
                         router.push(`/property/${booking.id}`);
                       }}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#162e82] transition-all"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#003a5c] transition-all"
                     >
                       <span>Book Again</span>
                       <ArrowRight className="w-4 h-4" />
@@ -765,7 +765,7 @@ function ManageBookingModal({
                       onClose();
                       router.push(`/property/${booking.id}`);
                     }}
-                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#162e82] transition-all"
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#003a5c] transition-all"
                   >
                     <span>Book Again</span>
                     <ArrowRight className="w-4 h-4" />
@@ -911,7 +911,7 @@ function ManageBookingModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#162e82] active:scale-[0.99] transition-all shadow-sm"
+              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#003a5c] active:scale-[0.99] transition-all shadow-sm"
             >
               {saving ? 'Saving...' : 'Save Changes'}
             </button>
@@ -1075,7 +1075,7 @@ function BookingCard({
 
           <button
             onClick={onManage}
-            className="self-start mt-4 bg-[#004772] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#162e82] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
+            className="self-start mt-4 bg-[#004772] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#003a5c] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Manage Booking
           </button>
@@ -1159,7 +1159,7 @@ function SignedOutState() {
         </p>
         <button
           onClick={() => router.push('/signin?redirect=/my-memories')}
-          className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+          className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#003a5c] transition-all shadow-sm"
         >
           Sign in
         </button>
@@ -1186,7 +1186,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
         {cta && (
           <button
             onClick={() => router.push('/')}
-            className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+            className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#003a5c] transition-all shadow-sm"
           >
             {cta}
           </button>

@@ -107,7 +107,7 @@ function SignInContent() {
           <span className="text-white font-bold text-[16px]">H</span>
         </div>
         <span className="font-black text-white text-[16px] tracking-wider uppercase drop-shadow">
-          HOSTI<span className="text-sky-300">GO</span>
+          HOSTI<span className="text-figma-accent">GO</span>
         </span>
       </div>
 
@@ -167,7 +167,7 @@ function SignInContent() {
         <button
           onClick={handleSendOTP}
           disabled={sending}
-          className="w-full py-3.5 bg-[#004772] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
         >
           {sending ? 'Sending...' : 'Send OTP'}
         </button>

@@ -99,7 +99,7 @@ function AuthCallbackContent() {
           <p className="text-red-500 mb-4">{error}</p>
           <button
             onClick={() => router.push('/signin')}
-            className="px-6 py-2.5 bg-[#004772] text-white rounded-xl font-medium hover:bg-[#162e82] transition-colors"
+            className="px-6 py-2.5 bg-[#004772] text-white rounded-xl font-medium hover:bg-[#003a5c] transition-colors"
           >
             Back to sign in
           </button>

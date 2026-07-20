@@ -90,7 +90,7 @@ function ConfirmModal({
         <div className="flex items-center gap-3">
           <button
             onClick={onConfirm}
-            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] active:scale-[0.98] transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] active:scale-[0.98] transition-all"
           >
             Yes
           </button>
@@ -156,7 +156,7 @@ function CreateListModal({
           <button
             onClick={() => name.trim() && onConfirm(name.trim())}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Create
           </button>
@@ -221,7 +221,7 @@ function RenameModal({
           <button
             onClick={() => name.trim() && onConfirm(name.trim())}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Save
           </button>
@@ -717,7 +717,7 @@ export default function WishlistPage() {
             {editMode ? (
               <button
                 onClick={() => setEditMode(false)}
-                className="px-5 py-2 bg-[#004772] text-white text-[13px] font-bold rounded-full hover:bg-[#162e82] transition-all shadow-sm"
+                className="px-5 py-2 bg-[#004772] text-white text-[13px] font-bold rounded-full hover:bg-[#003a5c] transition-all shadow-sm"
               >
                 Done
               </button>
@@ -745,7 +745,7 @@ export default function WishlistPage() {
             </p>
             <button
               onClick={() => router.push('/signin?redirect=/wishlist')}
-              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
+              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#003a5c] transition-colors shadow-sm"
             >
               Sign in
             </button>
@@ -815,7 +815,7 @@ export default function WishlistPage() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
+              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#003a5c] transition-colors shadow-sm"
             >
               Explore stays
             </button>
