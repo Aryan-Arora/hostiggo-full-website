@@ -39,11 +39,11 @@ export default function PropertyCard({ property }: PropertyCardProps) {
 
   return (
     <div
-      className="card-base cursor-pointer group"
+      className="bg-white rounded-2xl overflow-hidden border border-figma-border cursor-pointer group transition-shadow duration-200 hover:shadow-card-hover"
       onClick={() => router.push(`/property/${property.id}`)}
     >
       {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: 170 }}>
+      <div className="relative overflow-hidden" style={{ height: 190 }}>
         <img
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
@@ -62,25 +62,25 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           <Heart className={cn("w-3.5 h-3.5", liked && "fill-white")} />
         </button>
         {property.isNew && (
-          <span className="absolute top-2.5 left-2.5 bg-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">NEW</span>
+          <span className="absolute top-2.5 left-2.5 bg-figma-success text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">NEW</span>
         )}
         <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/20 to-transparent" />
       </div>
 
       {/* Details */}
-      <div className="p-3">
-        <h3 className="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-1 mb-0.5">{property.propertyName}</h3>
-        <p className="text-[11px] text-gray-400 mb-2 line-clamp-1">{property.city}, {property.state}</p>
-        <div className="flex items-center gap-1 mb-2">
+      <div className="p-3.5">
+        <h3 className="text-[13.5px] font-semibold text-figma-ink leading-snug line-clamp-1 mb-0.5">{property.propertyName}</h3>
+        <p className="text-[11.5px] text-figma-muted mb-2 line-clamp-1">{property.city}, {property.state}</p>
+        <div className="flex items-center gap-1 mb-3">
           <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />
-          <span className="text-[11px] font-bold text-gray-700">{property.rating > 0 ? property.rating.toFixed(2) : 'New'}</span>
-          <span className="text-[11px] text-gray-400">· {property.reviewCount} reviews</span>
+          <span className="text-[11.5px] font-bold text-figma-ink">{property.rating > 0 ? property.rating.toFixed(2) : 'New'}</span>
+          <span className="text-[11.5px] text-figma-muted-light">· {property.reviewCount} reviews</span>
         </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-[15px] font-extrabold text-gray-900">₹{property.price.toLocaleString("en-IN")}</span>
-          <span className="text-[11px] text-gray-400 font-medium">/night</span>
+        <div className="flex items-baseline gap-1.5 pt-2.5 border-t border-figma-border">
+          <span className="text-[16px] font-extrabold text-figma-ink">₹{property.price.toLocaleString("en-IN")}</span>
+          <span className="text-[11.5px] text-figma-muted font-medium border-l border-figma-border pl-1.5">/night</span>
         </div>
-        <p className="text-[10.5px] text-gray-400 mt-0.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
+        <p className="text-[10.5px] text-figma-muted-light mt-0.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
       </div>
     </div>
   );
