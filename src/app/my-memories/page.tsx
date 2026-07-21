@@ -465,8 +465,8 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
             >
               <div
                 className={cn(
-                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300',
-                  guests.pets ? 'left-5.5 translate-x-0.5' : 'left-0.5',
+                  'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300',
+                  guests.pets ? 'translate-x-5' : 'translate-x-0',
                 )}
               />
             </button>
