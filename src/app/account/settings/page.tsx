@@ -60,13 +60,13 @@ function Toggle({
       aria-pressed={on}
       className={cn(
         'relative w-12 h-7 rounded-full transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed',
-        on ? 'bg-blue-600' : 'bg-gray-300',
+        on ? 'bg-figma-navy' : 'bg-gray-300',
       )}
     >
       <span
         className={cn(
-          'absolute top-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform',
-          on ? 'translate-x-5' : 'translate-x-0.5',
+          'absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform',
+          on ? 'translate-x-5' : 'translate-x-0',
         )}
       />
     </button>
@@ -113,7 +113,7 @@ export default function GuestSettingsPage() {
   const rows = tab === 'notifications' || tab === 'privacy' ? ROWS[tab] : null;
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       <Navbar />
       <main className="container-main py-10">
         <div className="mb-8">
@@ -132,7 +132,7 @@ export default function GuestSettingsPage() {
             <p className="text-sm text-gray-500 mb-6">Manage your preferences once you&apos;re signed in.</p>
             <Link
               href="/signin?redirect=/account/settings"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+              className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
             >
               Sign in
             </Link>
@@ -151,7 +151,7 @@ export default function GuestSettingsPage() {
                       onClick={() => setTab(n.id as typeof tab)}
                       className={cn(
                         'flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm',
-                        on ? 'bg-blue-600 text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
+                        on ? 'bg-figma-navy text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
                       )}
                     >
                       <Icon className="w-4 h-4" />

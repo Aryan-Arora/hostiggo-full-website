@@ -11,12 +11,12 @@ export default function CTABanner() {
         style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)" }}
       >
         {/* Decorative blobs */}
-        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-blue-500 opacity-[0.07] blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 left-1/4 w-48 h-48 rounded-full bg-indigo-400 opacity-[0.07] blur-3xl pointer-events-none" />
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-figma-navy opacity-[0.07] blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 left-1/4 w-48 h-48 rounded-full bg-figma-accent opacity-[0.07] blur-3xl pointer-events-none" />
 
         {/* ── Left: Copy ── */}
         <div className="relative z-10 flex-1 max-w-sm">
-          <p className="text-blue-400 text-xs font-bold uppercase tracking-widest mb-2">
+          <p className="text-figma-accent text-xs font-bold uppercase tracking-widest mb-2">
             For property owners
           </p>
           <h2 className="text-white text-xl md:text-[22px] font-extrabold leading-snug mb-3">
@@ -28,7 +28,7 @@ export default function CTABanner() {
 
           <Link
             href="/host/list/property-type"
-            className="mt-6 inline-flex items-center gap-2 bg-blue-600 hover:bg-blue-500 active:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-blue-900/30 group"
+            className="mt-6 inline-flex items-center gap-2 bg-figma-navy hover:bg-figma-navy active:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-figma-navy/30 group"
           >
             Get started
             <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />

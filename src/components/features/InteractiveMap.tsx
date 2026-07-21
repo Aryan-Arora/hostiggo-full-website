@@ -59,7 +59,7 @@ export default function InteractiveMap({
         html: `<div style="
           width: 32px;
           height: 32px;
-          background-color: #2563eb;
+          background-color: #004772;
           border: 3px solid white;
           border-radius: 50%;
           box-shadow: 0 2px 6px rgba(0,0,0,0.3);
@@ -146,7 +146,7 @@ export default function InteractiveMap({
     if (!L) return null;
 
     const price = `₹${Math.round(property.price / 1000)}k`;
-    const bgColor = isActive ? '#1d4ed8' : '#2563eb';
+    const bgColor = isActive ? '#003a5c' : '#004772';
     const borderColor = isActive ? 'white' : 'rgba(255,255,255,0.6)';
     const borderWidth = isActive ? 2.5 : 2;
 
@@ -257,10 +257,10 @@ export default function InteractiveMap({
 
       {/* Loading overlay */}
       {!mapLoaded && (
-        <div className="absolute inset-0 bg-blue-50 rounded-2xl flex items-center justify-center">
+        <div className="absolute inset-0 bg-figma-navy/5 rounded-2xl flex items-center justify-center">
           <div className="text-center">
-            <div className="w-10 h-10 border-3 border-blue-600 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm font-semibold text-blue-600">Loading map…</p>
+            <div className="w-10 h-10 border-3 border-figma-navy border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm font-semibold text-figma-navy">Loading map…</p>
           </div>
         </div>
       )}
@@ -303,7 +303,7 @@ export default function InteractiveMap({
           <div className="p-3">
             <div className="flex items-start justify-between gap-2 mb-1.5">
               <div>
-                <span className="text-[10px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+                <span className="text-[10px] font-bold text-figma-navy bg-figma-navy/5 px-1.5 py-0.5 rounded-full">
                   {selectedProperty.propertyType}
                 </span>
                 <h4 className="text-[13px] font-bold text-gray-800 leading-snug mt-0.5 line-clamp-1">
@@ -319,7 +319,7 @@ export default function InteractiveMap({
                     ₹{selectedProperty.originalPrice.toLocaleString('en-IN')}
                   </p>
                 )}
-                <p className="text-[16px] font-extrabold text-blue-700 leading-none">
+                <p className="text-[16px] font-extrabold text-figma-navy/90 leading-none">
                   ₹{selectedProperty.price.toLocaleString('en-IN')}
                 </p>
                 <p className="text-[9px] text-gray-400 font-medium">
@@ -359,7 +359,7 @@ export default function InteractiveMap({
 
             <button
               onClick={() => router.push(`/property/${selectedProperty.id}`)}
-              className="w-full bg-blue-600 hover:bg-blue-700 text-white py-2 rounded-xl text-[12px] font-semibold transition-colors"
+              className="w-full bg-figma-navy hover:bg-figma-navy/90 text-white py-2 rounded-xl text-[12px] font-semibold transition-colors"
             >
               View Details
             </button>
@@ -399,7 +399,7 @@ export default function InteractiveMap({
           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
           title="Use current location"
         >
-          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+          <Navigation className="w-3.5 h-3.5 text-figma-navy" />
           Current location
         </button>
       )}

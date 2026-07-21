@@ -134,7 +134,7 @@ export default function ManageListingPage() {
   };
 
   const handleSave = async () => {
-    if (!formData || !listingId) {
+    if (!formData || !listingId || !userId) {
       toast.error('Listing data missing');
       return;
     }
@@ -146,6 +146,7 @@ export default function ManageListingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listingId: parseInt(listingId),
+          userId,
           title: formData.title,
           description: formData.description,
           price_weekday: formData.price_weekday,
@@ -177,13 +178,13 @@ export default function ManageListingPage() {
   };
 
   const handleTogglePause = async () => {
-    if (!listingId || !formData) return;
+    if (!listingId || !formData || !userId) return;
     setPausing(true);
     try {
       const res = await fetch('/api/host/listings/toggle', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ listingId: parseInt(listingId), isActive: !formData.is_active }),
+        body: JSON.stringify({ listingId: parseInt(listingId), isActive: !formData.is_active, userId }),
       });
       if (!res.ok) throw new Error('Failed to update listing status');
       const { data } = await res.json();

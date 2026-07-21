@@ -50,7 +50,6 @@ export default function SearchPageContent() {
   useEffect(() => {
     const dest = searchParams?.get('destination');
     if (dest && !location.query) {
-      console.log('[SearchPage] Setting initial location from URL:', dest);
       setLocation({ query: dest });
     }
     const view = searchParams?.get('view');
@@ -84,7 +83,7 @@ export default function SearchPageContent() {
       <Navbar />
 
       {/* Search bar strip */}
-      <div className="bg-[#005a9c] flex-shrink-0 py-3.5 px-4 sm:px-6 lg:px-8 shadow-md z-40">
+      <div className="bg-[#004772] flex-shrink-0 py-3.5 px-4 sm:px-6 lg:px-8 shadow-md z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
           <div className="flex-1">
             <CompactSearchBar />
@@ -303,7 +302,7 @@ function ListResults({
         </p>
         <button
           onClick={resetFilters}
-          className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-blue-700 active:scale-95"
+          className="bg-figma-navy text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-figma-navy/90 active:scale-95"
         >
           Clear all filters
         </button>
@@ -346,15 +345,15 @@ function ListResults({
             <div className="flex items-center justify-center gap-3">
               <div className="flex gap-1.5">
                 <div
-                  className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-figma-navy animate-bounce"
                   style={{ animationDelay: '0ms' }}
                 />
                 <div
-                  className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-figma-navy animate-bounce"
                   style={{ animationDelay: '150ms' }}
                 />
                 <div
-                  className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-figma-navy animate-bounce"
                   style={{ animationDelay: '300ms' }}
                 />
               </div>

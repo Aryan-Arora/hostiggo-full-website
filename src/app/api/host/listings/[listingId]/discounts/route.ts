@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as discountService from '@/lib/services/discounts';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function GET(
   request: NextRequest,
@@ -33,7 +35,12 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { discount_type, percent } = body;
+    const { discount_type, percent, userId } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, String(userId));
 
     if (!discount_type || percent === undefined) {
       return NextResponse.json(
@@ -52,7 +59,7 @@ export async function POST(
   } catch (error) {
     console.error('[api/discounts] POST error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to create discount' },
+      { error: errorMessage(error, 'Failed to create discount') },
       { status: 500 }
     );
   }

@@ -106,7 +106,7 @@ export default function HeroSection() {
                           >
                             <div className={cn(
                               "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors",
-                              checked ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300 bg-white"
+                              checked ? "bg-figma-navy border-figma-navy text-white" : "border-gray-300 bg-white"
                             )}>
                               {checked && <svg className="w-2.5 h-2.5" viewBox="0 0 14 14" fill="none"><path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
                             </div>

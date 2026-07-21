@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import type { HouseRule, HouseRulesInput } from '@/lib/services/house-rules';
 import { Loader2 } from 'lucide-react';
 
@@ -18,6 +19,7 @@ const TOGGLES: { key: keyof HouseRulesInput; label: string }[] = [
 ];
 
 export default function HouseRulesForm({ listingId, onSave }: HouseRulesFormProps) {
+  const { userId } = useAuth();
   const [rules, setRules] = useState<HouseRulesInput>({});
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -58,7 +60,7 @@ export default function HouseRulesForm({ listingId, onSave }: HouseRulesFormProp
       const response = await fetch(`/api/host/listings/${listingId}/house-rules`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(next),
+        body: JSON.stringify({ ...next, userId }),
       });
       if (!response.ok) throw new Error('Failed to save house rules');
       onSave?.();

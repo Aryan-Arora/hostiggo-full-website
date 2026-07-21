@@ -107,7 +107,7 @@ function SignInContent() {
           <span className="text-white font-bold text-[16px]">H</span>
         </div>
         <span className="font-black text-white text-[16px] tracking-wider uppercase drop-shadow">
-          HOSTI<span className="text-sky-300">GO</span>
+          HOSTI<span className="text-figma-accent">GO</span>
         </span>
       </div>
 
@@ -132,7 +132,7 @@ function SignInContent() {
 
         {/* Phone input */}
         {mode === 'phone' && (
-          <div className="flex items-center gap-0 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+          <div className="flex items-center gap-0 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
             <div className="flex items-center gap-1 px-3 py-3 bg-gray-50 border-r border-gray-200 text-[14px] font-medium text-gray-700 cursor-pointer select-none">
               <span>+91</span>
               <ChevronDown className="w-3.5 h-3.5 text-gray-400" />
@@ -151,7 +151,7 @@ function SignInContent() {
 
         {/* Email input */}
         {mode === 'email' && (
-          <div className="flex items-center gap-2 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-blue-500 focus-within:ring-2 focus-within:ring-blue-500/10 transition-all">
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
             <Mail className="w-4 h-4 text-gray-400 ml-4 flex-shrink-0" />
             <input
               type="email"
@@ -167,7 +167,7 @@ function SignInContent() {
         <button
           onClick={handleSendOTP}
           disabled={sending}
-          className="w-full py-3.5 bg-[#1B3FA0] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#1B3FA0] disabled:active:scale-100"
+          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
         >
           {sending ? 'Sending...' : 'Send OTP'}
         </button>
@@ -206,7 +206,7 @@ function SignInContent() {
                 onClick={() => setMode('phone')}
                 className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
               >
-                <Phone className="w-5 h-5 text-blue-600" />
+                <Phone className="w-5 h-5 text-figma-navy" />
               </button>
               {/* Apple */}
               <button
@@ -225,7 +225,7 @@ function SignInContent() {
           <p className="text-center text-[13px] text-gray-500 mb-4">
             <button
               onClick={() => setMode('email')}
-              className="text-blue-600 hover:underline font-medium"
+              className="text-figma-navy hover:underline font-medium"
             >
               Sign in with email instead
             </button>
@@ -244,11 +244,11 @@ function SignInContent() {
         {/* Terms */}
         <p className="text-center text-[11px] text-gray-400 leading-relaxed">
           By continuing, you agree to Hostiggo&apos;s{' '}
-          <a href="/terms" className="text-blue-500 hover:underline">
+          <a href="/terms" className="text-figma-navy hover:underline">
             Terms and Conditions
           </a>{' '}
           and{' '}
-          <a href="/privacy" className="text-blue-500 hover:underline">
+          <a href="/privacy" className="text-figma-navy hover:underline">
             Privacy Policy
           </a>
         </p>

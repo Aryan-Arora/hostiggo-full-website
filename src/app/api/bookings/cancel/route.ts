@@ -5,11 +5,11 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { bookingId, reason } = (await req.json()) ?? {};
-    if (!bookingId) {
-      return NextResponse.json({ error: "bookingId is required" }, { status: 400 });
+    const { bookingId, reason, userId } = (await req.json()) ?? {};
+    if (!bookingId || !userId) {
+      return NextResponse.json({ error: "bookingId and userId are required" }, { status: 400 });
     }
-    const data = await cancelBooking(Number(bookingId), reason ?? null);
+    const data = await cancelBooking(Number(bookingId), reason ?? null, String(userId));
     return NextResponse.json({ data });
   } catch (err: any) {
     console.error("[/api/bookings/cancel] error:", err?.message, err?.code);

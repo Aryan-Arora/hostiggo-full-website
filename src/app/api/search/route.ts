@@ -7,10 +7,12 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { filters, page = 0, pageSize = 10 } = body;
-    console.log("[/api/search] Received filters:", JSON.stringify(filters, null, 2));
+    const { filters } = body;
+    // Clamp pagination -- these feed the search_listings RPC's limit/offset
+    // directly, so an unchecked pageSize could pull the whole table per hit.
+    const page = Math.max(0, Math.floor(Number(body.page) || 0));
+    const pageSize = Math.min(50, Math.max(1, Math.floor(Number(body.pageSize) || 10)));
     let data = await HotelServiceApi.filterHotels(filters, page, pageSize);
-    console.log("[/api/search] Result count:", data?.length ?? 0);
 
     // Property type filter: the RPC's p_roomtypes doesn't reliably match the
     // real property_type_name values, so filter here against the RPC's own

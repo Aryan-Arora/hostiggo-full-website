@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 
 export const dynamic = "force-dynamic";
 
@@ -10,10 +11,10 @@ export const dynamic = "force-dynamic";
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    console.log("[PATCH /api/host/listings/update] Request body:", body);
 
     const {
       listingId,
+      userId,
       title,
       description,
       price_weekday,
@@ -28,8 +29,18 @@ export async function PATCH(req: NextRequest) {
       landmark,
     } = body;
 
-    if (!listingId) {
-      return NextResponse.json({ error: "listingId is required" }, { status: 400 });
+    if (!listingId || !userId) {
+      return NextResponse.json({ error: "listingId and userId are required" }, { status: 400 });
+    }
+    await assertListingOwnedBy(Number(listingId), String(userId));
+
+    for (const [label, value] of [
+      ["price_weekday", price_weekday],
+      ["price_weekend", price_weekend],
+    ] as const) {
+      if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10000000)) {
+        return NextResponse.json({ error: `${label} out of range` }, { status: 400 });
+      }
     }
 
     // Build update object with only provided fields
@@ -50,8 +61,6 @@ export async function PATCH(req: NextRequest) {
     // Always update the updated_at timestamp
     updateData.updated_at = new Date().toISOString();
 
-    console.log("[PATCH /api/host/listings/update] Update data:", updateData);
-    console.log("[PATCH /api/host/listings/update] Listing ID:", listingId);
 
     // Update listing
     const { data, error } = await supabaseAdmin
@@ -75,7 +84,6 @@ export async function PATCH(req: NextRequest) {
       return NextResponse.json({ error: "Listing not found or update failed" }, { status: 404 });
     }
 
-    console.log("[PATCH /api/host/listings/update] Success:", data[0]);
 
     return NextResponse.json({
       data: {

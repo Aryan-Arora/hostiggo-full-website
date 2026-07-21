@@ -325,8 +325,10 @@ export const api = {
     request<any[]>(`/api/host/reviews?userId=${encodeURIComponent(userId)}`),
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
-  bookingDetail: (id: string) =>
-    request<any>(`/api/bookings/details?id=${encodeURIComponent(id)}`),
+  bookingDetail: (id: string, userId: string) =>
+    request<any>(
+      `/api/bookings/details?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userId)}`,
+    ),
   hostCalendar: (listingId: string | number, start: string, end: string) =>
     request<{ entries: any[]; bookings: any[] }>(
       `/api/host/calendar?listingId=${encodeURIComponent(String(listingId))}&start=${start}&end=${end}`,
@@ -336,6 +338,7 @@ export const api = {
     date: string;
     price?: number;
     isAvailable?: boolean;
+    userId: string;
   }) =>
     request<any>(`/api/host/calendar`, {
       method: "PATCH",
@@ -375,10 +378,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
-  cancelBooking: (bookingId: string | number, reason?: string) =>
+  cancelBooking: (bookingId: string | number, userId: string, reason?: string) =>
     request<any>(`/api/bookings/cancel`, {
       method: "POST",
-      body: JSON.stringify({ bookingId, reason }),
+      body: JSON.stringify({ bookingId, userId, reason }),
     }),
   createReview: (payload: {
     listingId: string | number;
@@ -452,12 +455,10 @@ export const api = {
         longitude: extra?.longitude ?? null,
       },
     };
-    console.log("[api.search] Request payload:", payload);
     const result = await request<any[]>("/api/search", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    console.log("[api.search] Response rows:", result?.length);
     return result;
   },
   sendOtp: (phone: string) =>
@@ -508,15 +509,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action: "create-category", user_id: userId, name }),
     }),
-  renameWishlistCategory: (categoryId: string, name: string) =>
+  renameWishlistCategory: (categoryId: string, name: string, userId: string) =>
     request<any>("/api/wishlist", {
       method: "PATCH",
-      body: JSON.stringify({ categoryId, name }),
+      body: JSON.stringify({ categoryId, name, userId }),
     }),
-  deleteWishlistCategory: (categoryId: string) =>
+  deleteWishlistCategory: (categoryId: string, userId: string) =>
     request<boolean>("/api/wishlist", {
       method: "DELETE",
-      body: JSON.stringify({ categoryId }),
+      body: JSON.stringify({ categoryId, userId }),
     }),
   removeWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<boolean>("/api/wishlist", {
@@ -574,11 +575,13 @@ export const api = {
       body: JSON.stringify({ bookingId, userId, reason }),
     }),
   // iCal integration
-  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>
+  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate"; userId: string }) =>
     request<any>("/api/host/calendar/register", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  getICalStatus: (listingId: string | number) =>
-    request<any>(`/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}`),
+  getICalStatus: (listingId: string | number, userId: string) =>
+    request<any>(
+      `/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}&userId=${encodeURIComponent(userId)}`,
+    ),
 };

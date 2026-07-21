@@ -124,10 +124,10 @@ export default function CalendarPage() {
 
   // Load iCal sync status for the current listing
   const loadICalStatus = useCallback(async () => {
-    if (!listingId) return;
+    if (!listingId || !userId) return;
     setIcalLoading(true);
     try {
-      const data = await api.getICalStatus(listingId);
+      const data = await api.getICalStatus(listingId, userId);
       setIcalStatus(data);
       if (data.icalUrl) setIcalUrl(data.icalUrl);
     } catch (err) {
@@ -136,11 +136,11 @@ export default function CalendarPage() {
     } finally {
       setIcalLoading(false);
     }
-  }, [listingId]);
+  }, [listingId, userId]);
 
   // Register a new iCal feed
   const handleRegisterICAL = async () => {
-    if (!listingId || !icalUrl.trim()) {
+    if (!listingId || !icalUrl.trim() || !userId) {
       toast.error('Please enter a valid iCal URL');
       return;
     }
@@ -152,6 +152,7 @@ export default function CalendarPage() {
         listingId,
         icalUrl: icalUrl.trim(),
         action,
+        userId,
       });
       toast.success(
         action === 'add'
@@ -170,7 +171,7 @@ export default function CalendarPage() {
 
   // Deactivate iCal feed
   const handleDeactivateICAL = async () => {
-    if (!listingId) return;
+    if (!listingId || !userId) return;
     if (!window.confirm('Are you sure you want to remove the iCal feed?')) return;
 
     setRegistering(true);
@@ -179,6 +180,7 @@ export default function CalendarPage() {
         listingId,
         icalUrl: '',
         action: 'deactivate',
+        userId,
       });
       toast.success('iCal feed removed.');
       setIcalUrl('');
@@ -250,7 +252,7 @@ export default function CalendarPage() {
   }, [selectedDay]);
 
   const handleSaveDay = async () => {
-    if (!selected || !listingId) return;
+    if (!selected || !listingId || !userId) return;
     const day = selected.dateStr;
     setSaving(true);
     try {
@@ -259,6 +261,7 @@ export default function CalendarPage() {
         date: day,
         price: priceInput.trim() ? Number(priceInput) : undefined,
         isAvailable: availInput,
+        userId,
       });
       toast.success('Calendar updated');
       await loadCalendar();

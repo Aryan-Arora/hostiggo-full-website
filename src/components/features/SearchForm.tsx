@@ -59,7 +59,7 @@ export function CompactSearchBar() {
           className={cn(
             'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
             activePanel === 'destination'
-              ? 'border-blue-400'
+              ? 'border-figma-navy/40'
               : 'border-transparent',
           )}
         >
@@ -118,7 +118,7 @@ export function CompactSearchBar() {
           onClick={() => toggle('date')}
           className={cn(
             'w-full h-[52px] flex items-center gap-4 px-5 rounded-full bg-white transition-all text-left border-2',
-            activePanel === 'date' ? 'border-blue-400' : 'border-transparent',
+            activePanel === 'date' ? 'border-figma-navy/40' : 'border-transparent',
           )}
         >
           <Calendar
@@ -178,7 +178,16 @@ export function CompactSearchBar() {
           </div>
         </button>
         {activePanel === 'date' && (
-          <div className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-50">
+          // DateRangePicker's own root is `position: absolute` (the shared
+          // `.dropdown-panel` class), so it's out-of-flow relative to this
+          // wrapper -- without an explicit width here the wrapper
+          // shrink-to-fits around an out-of-flow child and collapses to 0,
+          // making the calendar render at 0x0 (invisible, not just
+          // mispositioned). Same fix as the property page's date picker.
+          <div
+            className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-50"
+            style={{ width: 'min(600px, 95vw)' }}
+          >
             <DateRangePicker
               checkIn={dates.checkIn}
               checkOut={dates.checkOut}
@@ -196,7 +205,7 @@ export function CompactSearchBar() {
           className={cn(
             'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
             activePanel === 'guests'
-              ? 'border-blue-400'
+              ? 'border-figma-navy/40'
               : 'border-transparent',
           )}
         >
@@ -220,7 +229,12 @@ export function CompactSearchBar() {
           />
         </button>
         {activePanel === 'guests' && (
-          <div className="absolute top-[calc(100%+12px)] right-0 z-50">
+          // Width must match GuestDropdown's own w-[320px]: the panel is
+          // itself position:absolute (.dropdown-panel), so without a sized
+          // wrapper it would extend 320px RIGHTWARD from this right-edge
+          // anchor -- off the viewport (same bug family as the invisible
+          // date picker).
+          <div className="absolute top-[calc(100%+12px)] right-0 z-50 w-[320px] max-w-[92vw]">
             <GuestDropdown
               guests={guests}
               onChange={setGuests}
@@ -291,7 +305,7 @@ export default function SearchForm() {
             className={cn(
               'w-full flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all text-left bg-white',
               activePanel === 'destination'
-                ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
+                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
                 : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
             )}
           >
@@ -335,7 +349,7 @@ export default function SearchForm() {
               className={cn(
                 'w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left bg-white',
                 activePanel === 'date'
-                  ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
+                  ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
                   : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
               )}
             >
@@ -372,7 +386,7 @@ export default function SearchForm() {
               className={cn(
                 'w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left bg-white',
                 activePanel === 'date'
-                  ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
+                  ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
                   : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
               )}
             >
@@ -424,7 +438,7 @@ export default function SearchForm() {
             className={cn(
               'w-full flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all text-left bg-white',
               activePanel === 'guests'
-                ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
+                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
                 : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
             )}
           >
@@ -491,7 +505,7 @@ export default function SearchForm() {
           )}
         >
           <div className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm flex-shrink-0">
-            <MapPin className="w-6 h-6 text-blue-500" strokeWidth={1.5} />
+            <MapPin className="w-6 h-6 text-figma-navy" strokeWidth={1.5} />
           </div>
           <div>
             <h3 className="text-[16px] font-semibold text-gray-900">Search on Map</h3>

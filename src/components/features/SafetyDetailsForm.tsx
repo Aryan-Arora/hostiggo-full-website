@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import { SafetyFeature, ListingSafetyDetail } from '@/lib/services/safety-details';
 import { Loader2, Check } from 'lucide-react';
 
@@ -24,6 +25,7 @@ const SAFETY_ICONS: Record<string, string> = {
 };
 
 export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFormProps) {
+  const { userId } = useAuth();
   const [allFeatures, setAllFeatures] = useState<SafetyFeature[]>([]);
   const [selectedDetails, setSelectedDetails] = useState<ListingSafetyDetail[]>([]);
   const [loading, setLoading] = useState(true);
@@ -60,7 +62,7 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
       const response = await fetch(`/api/host/listings/${listingId}/safety-details`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ feature_id: featureId }),
+        body: JSON.stringify({ feature_id: featureId, userId }),
       });
 
       if (!response.ok) throw new Error('Failed to add safety feature');
@@ -78,9 +80,10 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
   const removeSafetyFeature = async (detailId: number) => {
     try {
       setSaving(true);
-      const response = await fetch(`/api/host/listings/${listingId}/safety-details/${detailId}`, {
-        method: 'DELETE',
-      });
+      const response = await fetch(
+        `/api/host/listings/${listingId}/safety-details/${detailId}?userId=${encodeURIComponent(userId ?? '')}`,
+        { method: 'DELETE' },
+      );
 
       if (!response.ok) throw new Error('Failed to remove safety feature');
       toast.success('Safety feature removed');

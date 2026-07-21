@@ -13,12 +13,26 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    if (String(description).length > 5000) {
+      return NextResponse.json(
+        { error: "description must be 5000 characters or fewer" },
+        { status: 400 },
+      );
+    }
+    const numericRating =
+      rating === undefined || rating === null ? null : Number(rating);
+    if (numericRating !== null && (!Number.isInteger(numericRating) || numericRating < 1 || numericRating > 5)) {
+      return NextResponse.json(
+        { error: "rating must be a whole number between 1 and 5" },
+        { status: 400 },
+      );
+    }
     const data = await createFeedback({
       userId: userId ?? null,
       type: String(type),
       description: String(description),
       category: category ?? null,
-      rating: rating === undefined || rating === null ? null : Number(rating),
+      rating: numericRating,
       comment: comment ?? null,
     });
     return NextResponse.json({ data });

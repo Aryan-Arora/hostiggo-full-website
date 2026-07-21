@@ -10,7 +10,7 @@ export default function SearchPageSkeleton() {
       <Navbar />
 
       {/* Search bar strip */}
-      <div className="bg-[#005a9c] flex-shrink-0 py-3.5 px-4 sm:px-6 lg:px-8 shadow-md z-40">
+      <div className="bg-[#004772] flex-shrink-0 py-3.5 px-4 sm:px-6 lg:px-8 shadow-md z-40">
         <div className="max-w-7xl mx-auto">
           <div className="h-12 bg-white/20 rounded-full animate-pulse" />
         </div>

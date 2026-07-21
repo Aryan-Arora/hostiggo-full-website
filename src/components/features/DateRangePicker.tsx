@@ -198,7 +198,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
             className={cn(
               "flex-1 border rounded-xl p-3 text-left transition-all",
               selecting === panel
-                ? "border-blue-500 bg-blue-50 shadow-sm"
+                ? "border-figma-navy bg-figma-navy/5 shadow-sm"
                 : "border-gray-200 hover:border-gray-300"
             )}
           >
@@ -257,7 +257,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
         </button>
         <button
           onClick={onClose}
-          className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm"
         >
           Done
         </button>

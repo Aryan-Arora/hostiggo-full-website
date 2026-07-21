@@ -57,7 +57,7 @@ function OnboardingContent() {
   if (authLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
-        <div className="w-10 h-10 border-4 border-[#1B3FA0] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-4 border-[#004772] border-t-transparent rounded-full animate-spin" />
       </div>
     );
   }
@@ -113,7 +113,7 @@ function OnboardingContent() {
             <span className="text-white font-bold text-[16px]">H</span>
           </div>
           <span className="font-black text-gray-800 text-[16px] tracking-wider uppercase">
-            HOSTI<span className="text-sky-300">GO</span>
+            HOSTI<span className="text-figma-accent">GO</span>
           </span>
         </div>
 
@@ -130,7 +130,7 @@ function OnboardingContent() {
               <img
                 src={photoUrl || DEFAULT_AVATAR}
                 alt="Profile"
-                className="w-full h-full rounded-full object-cover border-4 border-blue-100 shadow-lg"
+                className="w-full h-full rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
               />
               <input
                 ref={fileInputRef}
@@ -144,7 +144,7 @@ function OnboardingContent() {
                 onClick={() => fileInputRef.current?.click()}
                 disabled={uploadingPhoto}
                 title="Add photo"
-                className="absolute bottom-0 right-0 bg-blue-600 hover:bg-blue-700 text-white p-1.5 rounded-full shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
+                className="absolute bottom-0 right-0 bg-figma-navy hover:bg-figma-navy/90 text-white p-1.5 rounded-full shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
               >
                 {uploadingPhoto ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -165,7 +165,7 @@ function OnboardingContent() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               autoFocus
-              className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+              className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-figma-navy focus:ring-2 focus:ring-figma-navy/10 placeholder:text-gray-400"
             />
           </div>
 
@@ -179,7 +179,7 @@ function OnboardingContent() {
                 placeholder="Enter your email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+                className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-figma-navy focus:ring-2 focus:ring-figma-navy/10 placeholder:text-gray-400"
               />
             </div>
           )}
@@ -194,7 +194,7 @@ function OnboardingContent() {
                 placeholder="Enter your phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+                className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-figma-navy focus:ring-2 focus:ring-figma-navy/10 placeholder:text-gray-400"
               />
             </div>
           )}
@@ -208,7 +208,7 @@ function OnboardingContent() {
               placeholder="Enter your age"
               value={age}
               onChange={(e) => setAge(e.target.value)}
-              className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+              className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-figma-navy focus:ring-2 focus:ring-figma-navy/10 placeholder:text-gray-400"
             />
           </div>
 
@@ -221,14 +221,14 @@ function OnboardingContent() {
               placeholder="Enter emergency contact"
               value={emergencyContact}
               onChange={(e) => setEmergencyContact(e.target.value)}
-              className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-500/10 placeholder:text-gray-400"
+              className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-figma-navy focus:ring-2 focus:ring-figma-navy/10 placeholder:text-gray-400"
             />
           </div>
 
           <button
             type="submit"
             disabled={saving || !name.trim() || (needsEmail && !email.includes('@'))}
-            className="w-full py-3.5 bg-[#1B3FA0] hover:bg-[#162e82] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Get Started'}
           </button>
@@ -240,7 +240,7 @@ function OnboardingContent() {
 
 export default function OnboardingPage() {
   return (
-    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-[#1B3FA0] border-t-transparent rounded-full animate-spin" /></div>}>
+    <Suspense fallback={<div className="min-h-screen flex items-center justify-center"><div className="w-10 h-10 border-4 border-[#004772] border-t-transparent rounded-full animate-spin" /></div>}>
       <OnboardingContent />
     </Suspense>
   );

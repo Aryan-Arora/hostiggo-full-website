@@ -124,7 +124,7 @@ export default function DestinationDropdown({
       {/* Input */}
       <div className="p-3 border-b border-gray-50">
         <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
-          <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <MapPin className="w-4 h-4 text-figma-navy flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -152,13 +152,13 @@ export default function DestinationDropdown({
         <button
           onClick={handleUseCurrentLocation}
           disabled={locating}
-          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group disabled:opacity-60"
+          className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group disabled:opacity-60"
         >
-          <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
+          <div className="w-9 h-9 bg-figma-navy/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-figma-navy/20 transition-colors">
             {locating ? (
-              <Loader2 className="w-4 h-4 text-blue-600 animate-spin" />
+              <Loader2 className="w-4 h-4 text-figma-navy animate-spin" />
             ) : (
-              <Navigation className="w-4 h-4 text-blue-600" />
+              <Navigation className="w-4 h-4 text-figma-navy" />
             )}
           </div>
           <div>
@@ -218,12 +218,12 @@ export default function DestinationDropdown({
                 key={dest.location_id}
                 onClick={() => handleSelect(displayName)}
                 className={cn(
-                  'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group',
-                  value === displayName && 'bg-blue-50',
+                  'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group',
+                  value === displayName && 'bg-figma-navy/5',
                 )}
               >
-                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                  <MapPin className="w-5 h-5 text-gray-500 group-hover:text-blue-600 transition-colors" />
+                <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-figma-navy/20 transition-colors">
+                  <MapPin className="w-5 h-5 text-gray-500 group-hover:text-figma-navy transition-colors" />
                 </div>
                 <div className="min-w-0 flex-1">
                   <p className="text-[13px] font-semibold text-gray-800 truncate">
@@ -234,7 +234,7 @@ export default function DestinationDropdown({
                   </p>
                 </div>
                 {value === displayName && (
-                  <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                  <div className="w-2 h-2 rounded-full bg-figma-navy flex-shrink-0" />
                 )}
               </button>
             );

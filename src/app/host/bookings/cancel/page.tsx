@@ -24,7 +24,7 @@ function CancelInner() {
   const router = useRouter();
   const params = useSearchParams();
   const id = params.get('id');
-  useAuth(); // ensures host area is gated
+  const { userId } = useAuth();
 
   const [step, setStep] = useState<1 | 2>(1);
   const [reason, setReason] = useState<string | null>(null);
@@ -34,23 +34,23 @@ function CancelInner() {
   const detailsHref = id ? `/host/bookings/details?id=${id}` : '/host/bookings';
 
   const load = useCallback(async () => {
-    if (!id) return;
+    if (!id || !userId) return;
     try {
-      setBooking(await api.bookingDetail(id));
+      setBooking(await api.bookingDetail(id, userId));
     } catch (err) {
       console.error('[cancel] load failed:', err);
     }
-  }, [id]);
+  }, [id, userId]);
 
   useEffect(() => {
     load();
   }, [load]);
 
   const handleConfirm = async () => {
-    if (!id) return;
+    if (!id || !userId) return;
     setCancelling(true);
     try {
-      await api.cancelBooking(id, reasonLabel);
+      await api.cancelBooking(id, userId, reasonLabel);
       toast.success('Reservation cancelled.');
       router.push('/host/bookings');
     } catch (err) {

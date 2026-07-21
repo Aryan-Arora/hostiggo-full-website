@@ -99,7 +99,7 @@ function AuthCallbackContent() {
           <p className="text-red-500 mb-4">{error}</p>
           <button
             onClick={() => router.push('/signin')}
-            className="px-6 py-2.5 bg-[#1B3FA0] text-white rounded-xl font-medium hover:bg-[#162e82] transition-colors"
+            className="px-6 py-2.5 bg-[#004772] text-white rounded-xl font-medium hover:bg-[#003a5c] transition-colors"
           >
             Back to sign in
           </button>
@@ -111,7 +111,7 @@ function AuthCallbackContent() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50">
       <div className="bg-white p-8 rounded-2xl shadow-lg max-w-sm w-full mx-4 text-center">
-        <div className="w-10 h-10 border-4 border-[#1B3FA0] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+        <div className="w-10 h-10 border-4 border-[#004772] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
         <p className="text-gray-600 font-medium">Signing you in...</p>
       </div>
     </div>
@@ -123,7 +123,7 @@ export default function AuthCallback() {
     <Suspense fallback={
       <div className="min-h-screen flex items-center justify-center bg-gray-50">
         <div className="bg-white p-8 rounded-2xl shadow-lg max-w-sm w-full mx-4 text-center">
-          <div className="w-10 h-10 border-4 border-[#1B3FA0] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
+          <div className="w-10 h-10 border-4 border-[#004772] border-t-transparent rounded-full animate-spin mx-auto mb-4" />
           <p className="text-gray-600 font-medium">Signing you in...</p>
         </div>
       </div>

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import { Addon, ListingAddon, groupAddonsByCategory } from '@/lib/services/addons';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Loader2, Trash2 } from 'lucide-react';
@@ -12,6 +13,7 @@ interface AddonsFormProps {
 }
 
 export default function AddonsForm({ listingId, onSave }: AddonsFormProps) {
+  const { userId } = useAuth();
   const [allAddons, setAllAddons] = useState<Addon[]>([]);
   const [selectedAddons, setSelectedAddons] = useState<ListingAddon[]>([]);
   const [loading, setLoading] = useState(true);
@@ -105,6 +107,7 @@ export default function AddonsForm({ listingId, onSave }: AddonsFormProps) {
           timing_to: data.timing_to || null,
           another_details: data.another_details || null,
           additional_notes: data.additional_notes || '',
+          userId,
         }),
       });
 
@@ -129,7 +132,7 @@ export default function AddonsForm({ listingId, onSave }: AddonsFormProps) {
     try {
       setSaving(true);
       const response = await fetch(
-        `/api/host/listings/${listingId}/addons/${addonListingId}`,
+        `/api/host/listings/${listingId}/addons/${addonListingId}?userId=${encodeURIComponent(userId ?? '')}`,
         { method: 'DELETE' }
       );
 

@@ -373,10 +373,10 @@ function PropertyMap({ property }: { property: Property }) {
       >
         <div ref={mapRef} className="w-full h-full" />
         {!loaded && (
-          <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-figma-navy/5 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-[12px] text-blue-500 font-medium">
+              <div className="w-7 h-7 border-2 border-figma-navy/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-[12px] text-figma-navy font-medium">
                 Loading map…
               </p>
             </div>
@@ -387,7 +387,7 @@ function PropertyMap({ property }: { property: Property }) {
         href={`https://www.openstreetmap.org/?mlat=${center.lat}&mlon=${center.lng}&zoom=14`}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-[12px] text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+        className="inline-flex items-center gap-1.5 text-[12px] text-figma-navy hover:text-figma-navy/90 font-semibold transition-colors"
       >
         <ExternalLink className="w-3.5 h-3.5" />
         View on OpenStreetMap
@@ -440,7 +440,7 @@ function ReviewCard({ review }: { review: Review }) {
       {isLong && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-[12px] text-gray-800 font-bold underline mt-1 hover:text-blue-600 transition-colors"
+          className="text-[12px] text-gray-800 font-bold underline mt-1 hover:text-figma-navy transition-colors"
         >
           {expanded ? 'Show less' : 'Read more'}
         </button>
@@ -464,7 +464,7 @@ function WriteReview({ listingId }: { listingId: string }) {
         <p className="text-[13px] text-gray-500">
           <button
             onClick={() => router.push(`/signin?redirect=/property/${listingId}`)}
-            className="text-blue-600 font-bold hover:underline"
+            className="text-figma-navy font-bold hover:underline"
           >
             Sign in
           </button>{' '}
@@ -531,13 +531,13 @@ function WriteReview({ listingId }: { listingId: string }) {
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         placeholder="Share a few words about your stay (optional)…"
-        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-[13px] resize-none"
+        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-[13px] resize-none"
       />
       <div className="flex justify-end mt-2">
         <button
           onClick={submit}
           disabled={submitting}
-          className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-[13px] hover:bg-blue-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 bg-figma-navy text-white rounded-xl font-bold text-[13px] hover:bg-figma-navy/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {submitting ? 'Submitting…' : 'Submit review'}
         </button>
@@ -635,7 +635,7 @@ function HostCard({ host }: { host: Host }) {
           {host.responseTime && (
             <div className="bg-gray-50 rounded-xl p-3">
               <div className="flex items-center gap-1.5 mb-0.5">
-                <Clock className="w-3.5 h-3.5 text-blue-600" />
+                <Clock className="w-3.5 h-3.5 text-figma-navy" />
                 <span className="text-[11px] font-bold text-gray-600">
                   Response time
                 </span>
@@ -748,7 +748,7 @@ function SuggestedStays({ current }: { current: Property }) {
               )}
             </div>
             <div className="p-2.5">
-              <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+              <span className="text-[9px] font-bold text-figma-navy bg-figma-navy/5 px-1.5 py-0.5 rounded-full">
                 {p.propertyType}
               </span>
               <p className="text-[11px] font-bold text-gray-800 mt-1 line-clamp-1">
@@ -765,7 +765,7 @@ function SuggestedStays({ current }: { current: Property }) {
                   </span>
                 </div>
                 <div>
-                  <span className="text-[12px] font-extrabold text-blue-700">
+                  <span className="text-[12px] font-extrabold text-figma-navy/90">
                     ₹{Math.round(p.price / 1000)}k
                   </span>
                   <span className="text-[9px] text-gray-400">/night</span>
@@ -986,7 +986,7 @@ function BookingWidget({
             ₹{property.originalPrice.toLocaleString('en-IN')}
           </span>
         )}
-        <span className="text-[24px] font-extrabold text-blue-700">
+        <span className="text-[24px] font-extrabold text-figma-navy/90">
           ₹{property.price.toLocaleString('en-IN')}
         </span>
         <span className="text-[12px] text-gray-400">/night</span>
@@ -1012,7 +1012,7 @@ function BookingWidget({
           was making the calendar render detached/misplaced). */}
       <div className="relative">
       <div
-        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-blue-400 transition-colors"
+        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-figma-navy/40 transition-colors"
         onClick={() => setShowPicker((v) => !v)}
       >
         <div className="grid grid-cols-2 divide-x divide-gray-200">
@@ -1128,7 +1128,7 @@ function BookingWidget({
           )}
           <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
             <span>Total</span>
-            <span className="text-blue-700">₹{total.toLocaleString('en-IN')}</span>
+            <span className="text-figma-navy/90">₹{total.toLocaleString('en-IN')}</span>
           </div>
         </div>
       )}
@@ -1142,7 +1142,7 @@ function BookingWidget({
         <button
           onClick={book}
           disabled={status === 'booking'}
-          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
           {status === 'booking' ? 'Booking…' : `Book for ${nights} Night${nights > 1 ? 's' : ''}`}
@@ -1151,7 +1151,7 @@ function BookingWidget({
         <button
           onClick={checkIn && checkOut ? checkAvailability : () => setShowPicker(true)}
           disabled={status === 'checking'}
-          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
           {status === 'checking' ? 'Checking…' : checkIn && checkOut ? 'Check Availability' : 'Select Dates'}
@@ -1165,7 +1165,7 @@ function BookingWidget({
           </p>
         )}
         {property.isInstantBook && (
-          <p className="text-center text-[11px] text-blue-500 font-medium flex items-center justify-center gap-1">
+          <p className="text-center text-[11px] text-figma-navy font-medium flex items-center justify-center gap-1">
             <Zap className="w-3 h-3" /> Instant confirmation
           </p>
         )}
@@ -1262,7 +1262,7 @@ function ReviewsModal({
               className={cn(
                 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-all',
                 filterOpen
-                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  ? 'border-figma-navy/40 bg-figma-navy/5 text-figma-navy/90'
                   : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
               )}
             >
@@ -1289,7 +1289,7 @@ function ReviewsModal({
                     className={cn(
                       'w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center gap-2',
                       starFilter === f.value
-                        ? 'text-blue-600 font-semibold bg-blue-50'
+                        ? 'text-figma-navy font-semibold bg-figma-navy/5'
                         : 'text-gray-700 hover:bg-gray-50',
                     )}
                   >
@@ -1339,7 +1339,7 @@ function ReviewsModal({
               </p>
               <button
                 onClick={() => setStarFilter(0)}
-                className="mt-3 text-[13px] text-blue-600 font-semibold underline"
+                className="mt-3 text-[13px] text-figma-navy font-semibold underline"
               >
                 Show all reviews
               </button>
@@ -1425,7 +1425,7 @@ function StickyBookingBar({
         {/* Reserve button */}
         <button
           onClick={onReserve}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
+          className="bg-figma-navy hover:bg-figma-navy/90 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
         >
           Reserve
         </button>
@@ -1454,7 +1454,7 @@ function StickyBookingBar({
             onClick={() => {
               navigator.clipboard?.writeText(window.location.href);
             }}
-            className="w-8 h-8 rounded-full border border-gray-200 hover:border-gray-300 bg-white flex items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
+            className="w-8 h-8 rounded-full border border-gray-200 hover:border-gray-300 bg-white flex items-center justify-center text-gray-500 hover:text-figma-navy transition-colors"
             title="Share"
           >
             <Share2 className="w-3.5 h-3.5" />
@@ -1560,7 +1560,7 @@ export default function PropertyDetailsPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f0f2f5]">
+      <div className="min-h-screen bg-figma-cream">
         <Navbar />
         <div className="container-main py-6 max-w-6xl mx-auto px-4 sm:px-6">
           <div className="h-[440px] rounded-2xl bg-white animate-pulse mb-6" />
@@ -1574,7 +1574,7 @@ export default function PropertyDetailsPage() {
 
   if (!property) {
     return (
-      <div className="min-h-screen bg-[#f0f2f5]">
+      <div className="min-h-screen bg-figma-cream">
         <Navbar />
         <div className="container-main py-20 text-center">
           <div className="text-6xl mb-4">🏨</div>
@@ -1583,7 +1583,7 @@ export default function PropertyDetailsPage() {
           </h1>
           <button
             onClick={() => router.back()}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+            className="bg-figma-navy text-white px-6 py-3 rounded-xl font-semibold hover:bg-figma-navy/90 transition-colors"
           >
             Go back
           </button>
@@ -1604,7 +1604,7 @@ export default function PropertyDetailsPage() {
   const descIsLong = (property.description?.length ?? 0) > 200;
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       {/* Sticky booking summary bar */}
       <StickyBookingBar
         property={property}
@@ -1634,7 +1634,7 @@ export default function PropertyDetailsPage() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors group"
+            className="flex items-center gap-2 text-gray-600 hover:text-figma-navy font-medium text-sm transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             Back to results
@@ -1645,7 +1645,7 @@ export default function PropertyDetailsPage() {
                 navigator.clipboard?.writeText(window.location.href);
                 alert('Link copied!');
               }}
-              className="flex items-center gap-1.5 text-[12px] text-gray-600 hover:text-blue-600 font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 text-[12px] text-gray-600 hover:text-figma-navy font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
             >
               <Share2 className="w-3.5 h-3.5" /> Share
             </button>
@@ -1691,7 +1691,7 @@ export default function PropertyDetailsPage() {
             >
               {/* Badges */}
               <div className="flex items-center gap-2 flex-wrap mb-2">
-                <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                <span className="text-[11px] font-bold text-figma-navy bg-figma-navy/5 px-2.5 py-0.5 rounded-full">
                   {property.propertyType}
                 </span>
                 {property.isInstantBook && (
@@ -1712,7 +1712,7 @@ export default function PropertyDetailsPage() {
                 {property.propertyName}
               </h1>
               <p className="text-[13px] text-gray-500 flex items-center gap-1 mb-3">
-                <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-figma-navy flex-shrink-0" />
                 {property.city}, {property.state}
               </p>
 
@@ -1772,7 +1772,7 @@ export default function PropertyDetailsPage() {
                 {descIsLong && (
                   <button
                     onClick={() => setDescExpanded((v) => !v)}
-                    className="flex items-center gap-1 text-[13px] font-bold text-gray-800 underline mt-2 hover:text-blue-600 transition-colors"
+                    className="flex items-center gap-1 text-[13px] font-bold text-gray-800 underline mt-2 hover:text-figma-navy transition-colors"
                   >
                     {descExpanded ? 'Show less' : 'Read more'}
                     <ChevronDown
@@ -1794,6 +1794,11 @@ export default function PropertyDetailsPage() {
               <h2 className="text-[15px] font-bold text-gray-800 mb-4">
                 Facilities
               </h2>
+              {visibleAmenities.length === 0 && (
+                <p className="text-[13px] text-gray-400">
+                  The host hasn&apos;t listed any facilities yet.
+                </p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {visibleAmenities.map((am, i) => (
                   <div
@@ -1809,7 +1814,7 @@ export default function PropertyDetailsPage() {
                       className={cn(
                         'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
                         am.available
-                          ? 'bg-blue-100 text-blue-600'
+                          ? 'bg-figma-navy/10 text-figma-navy'
                           : 'bg-gray-100 text-gray-400',
                       )}
                     >
@@ -1836,7 +1841,7 @@ export default function PropertyDetailsPage() {
               {amenities.length > 8 && (
                 <button
                   onClick={() => setShowAllAmenities((v) => !v)}
-                  className="mt-3 text-[13px] font-bold text-gray-800 underline hover:text-blue-600 transition-colors flex items-center gap-1"
+                  className="mt-3 text-[13px] font-bold text-gray-800 underline hover:text-figma-navy transition-colors flex items-center gap-1"
                 >
                   {showAllAmenities
                     ? 'Show less'
@@ -1870,14 +1875,14 @@ export default function PropertyDetailsPage() {
                         onClick={() => toggleAddon(addon.addonId)}
                         className={cn(
                           'w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors',
-                          checked ? 'bg-blue-50 border-blue-300' : 'bg-gray-50 border-gray-100 hover:border-gray-200',
+                          checked ? 'bg-figma-navy/5 border-figma-navy/30' : 'bg-gray-50 border-gray-100 hover:border-gray-200',
                         )}
                       >
                         <div className="flex items-start gap-3 min-w-0">
                           <span
                             className={cn(
                               'mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0',
-                              checked ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white',
+                              checked ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
                             )}
                           >
                             {checked && (
@@ -1898,7 +1903,7 @@ export default function PropertyDetailsPage() {
                             )}
                           </div>
                         </div>
-                        <span className="text-[13px] font-bold text-blue-700 flex-shrink-0">
+                        <span className="text-[13px] font-bold text-figma-navy/90 flex-shrink-0">
                           +₹{addon.price.toLocaleString('en-IN')}
                         </span>
                       </button>
@@ -1956,9 +1961,9 @@ export default function PropertyDetailsPage() {
                   </div>
                 </div>
               ) : property.cancellationPolicy === 'flexible' ? (
-                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
-                  <p className="text-[13.5px] font-semibold text-blue-800">Flexible policy</p>
-                  <p className="text-[12.5px] text-blue-700 mt-1 leading-snug">
+                <div className="bg-figma-navy/5 border border-figma-navy/20 rounded-xl p-4">
+                  <p className="text-[13.5px] font-semibold text-figma-navy">Flexible policy</p>
+                  <p className="text-[12.5px] text-figma-navy/90 mt-1 leading-snug">
                     Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours
                     before check-in. No refund after that.
                   </p>
@@ -2007,7 +2012,7 @@ export default function PropertyDetailsPage() {
               </h2>
               <PropertyMap property={property} />
               <p className="text-[12px] text-gray-400 mt-2 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-blue-500" />
+                <MapPin className="w-3 h-3 text-figma-navy" />
                 {property.city}, {property.state}
               </p>
             </div>
@@ -2111,7 +2116,7 @@ export default function PropertyDetailsPage() {
                         </p>
                         <button
                           onClick={() => setReviewsModalOpen(true)}
-                          className="text-[12px] font-bold text-gray-700 underline underline-offset-2 hover:text-blue-600 transition-colors text-left"
+                          className="text-[12px] font-bold text-gray-700 underline underline-offset-2 hover:text-figma-navy transition-colors text-left"
                         >
                           Read more
                         </button>
@@ -2124,7 +2129,7 @@ export default function PropertyDetailsPage() {
                     {reviews.length > 3 && (
                       <button
                         onClick={() => setReviewsModalOpen(true)}
-                        className="flex items-center gap-2 border border-gray-300 hover:border-blue-400 hover:text-blue-600 text-gray-700 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
+                        className="flex items-center gap-2 border border-gray-300 hover:border-figma-navy/40 hover:text-figma-navy text-gray-700 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                       >
                         View all {reviews.length} reviews
                         <ChevronRight className="w-4 h-4" />
@@ -2163,7 +2168,7 @@ export default function PropertyDetailsPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[18px] font-extrabold text-blue-700">
+              <span className="text-[18px] font-extrabold text-figma-navy/90">
                 ₹{property.price.toLocaleString('en-IN')}
               </span>
               <span className="text-[12px] text-gray-400 ml-1">/night</span>
@@ -2181,7 +2186,7 @@ export default function PropertyDetailsPage() {
             </div>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200"
+              className="bg-figma-navy hover:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20"
             >
               Reserve
             </button>

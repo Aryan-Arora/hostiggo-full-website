@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { MapPin } from 'lucide-react';
+import { MapPin, X } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import HeroSection from '@/components/features/HeroSection';
@@ -167,24 +167,39 @@ export default function HomePage() {
   }, [reloadToken]);
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       <Navbar />
       <HeroSection />
       <div className="container-main py-8 space-y-10">
         {geoState === 'idle' && (
-          <div className="bg-blue-50 border border-blue-100 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
+          <div className="bg-figma-navy/5 border border-figma-navy/10 rounded-2xl p-4 flex items-center justify-between gap-4 flex-wrap">
             <div className="flex items-center gap-3">
-              <MapPin className="w-5 h-5 text-blue-600 flex-shrink-0" />
-              <p className="text-[13.5px] text-blue-800 font-medium">
+              <MapPin className="w-5 h-5 text-figma-navy flex-shrink-0" />
+              <p className="text-[13.5px] text-figma-navy font-medium">
                 Share your location to see homestays near you first.
               </p>
             </div>
-            <button
-              onClick={requestNearbyStays}
-              className="bg-blue-600 hover:bg-blue-700 text-white text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors flex-shrink-0"
-            >
-              Use my location
-            </button>
+            <div className="flex items-center gap-2 flex-shrink-0">
+              <button
+                onClick={requestNearbyStays}
+                className="bg-figma-navy hover:bg-figma-navy/90 text-white text-[13px] font-semibold px-4 py-2 rounded-xl transition-colors"
+              >
+                Use my location
+              </button>
+              <button
+                onClick={() => {
+                  // Explicit opt-out without triggering the browser prompt --
+                  // previously the only way to make this banner go away was
+                  // clicking "Use my location" and denying the prompt.
+                  localStorage.setItem(GEO_CHOICE_KEY, 'denied');
+                  setGeoState('denied');
+                }}
+                aria-label="Dismiss location prompt"
+                className="p-2 rounded-xl text-figma-navy/60 hover:text-figma-navy hover:bg-figma-navy/10 transition-colors"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
           </div>
         )}
 

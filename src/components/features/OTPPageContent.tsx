@@ -178,7 +178,7 @@ export default function OTPPageContent() {
           <span className="text-white font-bold text-[16px]">H</span>
         </div>
         <span className="font-black text-white text-[16px] tracking-wider uppercase drop-shadow">
-          HOSTI<span className="text-sky-300">GO</span>
+          HOSTI<span className="text-figma-accent">GO</span>
         </span>
       </div>
 
@@ -221,8 +221,8 @@ export default function OTPPageContent() {
               className={cn(
                 'w-10 h-10 sm:w-11 sm:h-11 text-center text-base sm:text-[18px] font-bold rounded-full border-2 transition-all outline-none caret-transparent',
                 digit
-                  ? 'border-[#1B3FA0] bg-[#1B3FA0]/5 text-[#1B3FA0]'
-                  : 'border-gray-200 bg-gray-50 text-gray-900 focus:border-[#1B3FA0] focus:bg-white',
+                  ? 'border-[#004772] bg-[#004772]/5 text-[#004772]'
+                  : 'border-gray-200 bg-gray-50 text-gray-900 focus:border-[#004772] focus:bg-white',
               )}
             />
           ))}
@@ -233,7 +233,7 @@ export default function OTPPageContent() {
           {canResend ? (
             <button
               onClick={handleResend}
-              className="text-[13px] font-semibold text-blue-600 hover:underline"
+              className="text-[13px] font-semibold text-figma-navy hover:underline"
             >
               Resend Code
             </button>
@@ -254,7 +254,7 @@ export default function OTPPageContent() {
           className={cn(
             'w-full py-3.5 font-semibold rounded-xl transition-all text-[15px] shadow-sm',
             otp.join('').length === OTP_LENGTH
-              ? 'bg-[#1B3FA0] hover:bg-[#162e82] active:scale-[0.98] text-white'
+              ? 'bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white'
               : 'bg-gray-100 text-gray-400 cursor-not-allowed',
           )}
         >

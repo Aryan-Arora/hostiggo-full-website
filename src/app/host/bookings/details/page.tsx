@@ -54,7 +54,7 @@ function DetailsInner() {
     setLoading(true);
     setError('none');
     try {
-      const data = await api.bookingDetail(id);
+      const data = await api.bookingDetail(id, userId!);
       setBooking(data);
     } catch (err) {
       console.error('[host/bookings/details] load failed:', err);

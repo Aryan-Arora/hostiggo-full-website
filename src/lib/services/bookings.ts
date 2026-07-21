@@ -149,7 +149,7 @@ export const bookingsAPI = {
 
   // Single booking for the host detail view. There is no FK from bookings to
   // users in the schema cache, so the guest profile is fetched separately.
-  async getBookingDetail(bookingId: string | number) {
+  async getBookingDetail(bookingId: string | number, requestingUserId: string) {
     const { data: booking, error } = await supabase
       .from("bookings")
       .select(
@@ -176,6 +176,20 @@ export const bookingsAPI = {
 
     if (error) throw error;
     if (!booking) return null;
+
+    // This payload includes the guest's name and phone -- only the booking's
+    // guest or the host of the booked listing may see it.
+    if (booking.user_id !== requestingUserId) {
+      const { data: hostRow, error: hostErr } = await supabase
+        .from("host")
+        .select("user_id")
+        .eq("host_uuid", booking.host_uuid ?? "")
+        .maybeSingle();
+      if (hostErr) throw hostErr;
+      if (hostRow?.user_id !== requestingUserId) {
+        throw new Error("You don't have permission to view this booking.");
+      }
+    }
 
     let guest = null;
     if (booking.user_id) {

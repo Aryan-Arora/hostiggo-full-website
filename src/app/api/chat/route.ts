@@ -5,11 +5,14 @@ import {
   postMessageFallback,
   resolveHostInfo,
 } from "@/lib/services/chat";
+import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
-const jsonError = (err: unknown, status = 500) =>
-  NextResponse.json({ error: err instanceof Error ? err.message : "Request failed" }, { status });
+const jsonError = (err: unknown, status = 500) => {
+  console.error("[/api/chat] error:", err);
+  return NextResponse.json({ error: errorMessage(err, "Request failed") }, { status });
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -39,8 +42,18 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
+    const trimmed = String(text).trim();
+    if (!trimmed) {
+      return NextResponse.json({ error: "Message cannot be empty" }, { status: 400 });
+    }
+    if (trimmed.length > 4000) {
+      return NextResponse.json(
+        { error: "Message must be 4000 characters or fewer" },
+        { status: 400 },
+      );
+    }
 
-    const data = await postMessageFallback(senderId, recipientId, text, senderType);
+    const data = await postMessageFallback(senderId, recipientId, trimmed, senderType);
     return NextResponse.json({ data });
   } catch (err) {
     return jsonError(err);
