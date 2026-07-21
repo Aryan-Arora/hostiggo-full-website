@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as addonService from '@/lib/services/addons';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function GET(
   request: NextRequest,
@@ -81,7 +82,7 @@ export async function POST(
   } catch (error) {
     console.error('[api/addons] POST error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to add addon' },
+      { error: errorMessage(error, 'Failed to add addon') },
       { status: 500 }
     );
   }

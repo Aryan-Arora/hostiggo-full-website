@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as safetyDetailsService from '@/lib/services/safety-details';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function PATCH(
   request: NextRequest,
@@ -33,7 +34,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[api/safety-details/id] PATCH error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update safety detail' },
+      { error: errorMessage(error, 'Failed to update safety detail') },
       { status: 500 }
     );
   }

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as discountService from '@/lib/services/discounts';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function PATCH(
   request: NextRequest,
@@ -32,7 +33,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[api/discounts/id] PATCH error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to update discount' },
+      { error: errorMessage(error, 'Failed to update discount') },
       { status: 500 }
     );
   }

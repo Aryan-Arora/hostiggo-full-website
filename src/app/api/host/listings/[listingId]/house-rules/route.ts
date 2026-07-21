@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as houseRulesService from '@/lib/services/house-rules';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function GET(
   request: NextRequest,
@@ -55,7 +56,7 @@ export async function PATCH(
   } catch (error) {
     console.error('[api/house-rules] PATCH error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to save house rules' },
+      { error: errorMessage(error, 'Failed to save house rules') },
       { status: 500 }
     );
   }

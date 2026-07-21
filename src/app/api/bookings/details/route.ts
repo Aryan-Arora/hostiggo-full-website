@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bookingsAPI } from "@/lib/services/bookings";
+import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -15,8 +16,9 @@ export async function GET(req: NextRequest) {
     if (!data) return NextResponse.json({ error: "Booking not found" }, { status: 404 });
     return NextResponse.json({ data });
   } catch (err) {
+    console.error("[/api/bookings/details] error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Request failed" },
+      { error: errorMessage(err, "Request failed") },
       { status: 500 },
     );
   }

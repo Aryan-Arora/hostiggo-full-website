@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
 import { updateUserProfile } from "@/lib/services/admin-writes";
+import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
-const jsonError = (err: unknown, status = 500) =>
-  NextResponse.json({ error: err instanceof Error ? err.message : "Request failed" }, { status });
+const jsonError = (err: unknown, status = 500) => {
+  console.error("[/api/users] error:", err);
+  return NextResponse.json({ error: errorMessage(err, "Request failed") }, { status });
+};
 
 export async function GET(req: NextRequest) {
   try {

@@ -5,11 +5,14 @@ import {
   postMessageFallback,
   resolveHostInfo,
 } from "@/lib/services/chat";
+import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
-const jsonError = (err: unknown, status = 500) =>
-  NextResponse.json({ error: err instanceof Error ? err.message : "Request failed" }, { status });
+const jsonError = (err: unknown, status = 500) => {
+  console.error("[/api/chat] error:", err);
+  return NextResponse.json({ error: errorMessage(err, "Request failed") }, { status });
+};
 
 export async function GET(req: NextRequest) {
   try {

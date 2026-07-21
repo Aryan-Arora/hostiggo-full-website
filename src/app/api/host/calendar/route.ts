@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { calendarServiceAPI } from "@/lib/services/calendar";
 import { upsertCalendarDay } from "@/lib/services/admin-writes";
+import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
@@ -25,8 +26,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: { entries, bookings } });
   } catch (err) {
+    console.error("[/api/host/calendar GET] error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Request failed" },
+      { error: errorMessage(err, "Request failed") },
       { status: 500 },
     );
   }
@@ -55,8 +57,9 @@ export async function PATCH(req: NextRequest) {
     });
     return NextResponse.json({ data });
   } catch (err) {
+    console.error("[/api/host/calendar PATCH] error:", err);
     return NextResponse.json(
-      { error: err instanceof Error ? err.message : "Request failed" },
+      { error: errorMessage(err, "Request failed") },
       { status: 500 },
     );
   }
