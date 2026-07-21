@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { registerListing, deactivateListing } from "@/lib/services/ical";
+import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 
 export const dynamic = "force-dynamic";
 
@@ -12,12 +13,13 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId, icalUrl, action } = body ?? {};
+    const { listingId, icalUrl, action, userId } = body ?? {};
 
     // Validate input
-    if (!listingId) {
-      return NextResponse.json({ error: "listingId is required" }, { status: 400 });
+    if (!listingId || !userId) {
+      return NextResponse.json({ error: "listingId and userId are required" }, { status: 400 });
     }
+    await assertListingOwnedBy(Number(listingId), String(userId));
 
     if (!["add", "update", "deactivate"].includes(action)) {
       return NextResponse.json(

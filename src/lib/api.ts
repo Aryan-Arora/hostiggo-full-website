@@ -575,11 +575,13 @@ export const api = {
       body: JSON.stringify({ bookingId, userId, reason }),
     }),
   // iCal integration
-  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>
+  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate"; userId: string }) =>
     request<any>("/api/host/calendar/register", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  getICalStatus: (listingId: string | number) =>
-    request<any>(`/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}`),
+  getICalStatus: (listingId: string | number, userId: string) =>
+    request<any>(
+      `/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}&userId=${encodeURIComponent(userId)}`,
+    ),
 };
