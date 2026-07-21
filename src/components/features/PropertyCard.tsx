@@ -93,15 +93,11 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             · {property.reviewCount} reviews
           </span>
         </div>
-        <div className="flex items-stretch gap-0 border border-figma-navy rounded-r-[24px] w-fit">
-          <div className="flex items-baseline gap-1 pr-3 py-1.5">
-            <span className="font-semibold text-figma-ink" style={{ fontSize: 25 }}>
-              ₹{property.price.toLocaleString("en-IN")}
-            </span>
-          </div>
-          <div className="flex items-center border-l border-figma-navy px-3">
-            <span className="font-medium text-figma-ink" style={{ fontSize: 16 }}>/night</span>
-          </div>
+        <div className="flex items-baseline gap-1.5 w-fit">
+          <span className="font-semibold text-figma-ink" style={{ fontSize: 25 }}>
+            ₹{property.price.toLocaleString("en-IN")}
+          </span>
+          <span className="font-medium text-figma-ink" style={{ fontSize: 16 }}>/night</span>
         </div>
         <p className="text-[11px] text-figma-ink/50 mt-1.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
       </div>
