@@ -38,6 +38,7 @@ export type ListingDraft = {
   landmark?: string;
   latitude?: number;
   longitude?: number;
+  locationId?: number;
 };
 
 const STORAGE_KEY = 'hostiggo:listing-draft';
