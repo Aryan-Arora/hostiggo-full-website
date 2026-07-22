@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
 const sections = [
   {
@@ -91,23 +93,24 @@ export const metadata = {
 
 export default function PrivacyPage() {
   return (
-    <main className="bg-white">
-      <div className="container-main py-10 md:py-14">
+    <div className="min-h-screen bg-figma-cream">
+      <Navbar />
+      <main className="container-main py-10 md:py-14">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-figma-navy mb-6"
+          className="inline-flex items-center gap-1 text-sm text-figma-ink/60 hover:text-figma-navy mb-6"
         >
           <ChevronLeft className="w-4 h-4" /> Back to home
         </Link>
 
         <header className="mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl md:text-4xl font-bold text-figma-ink mb-3">
             Privacy Policy
           </h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-figma-ink/60 mb-6">
             Last updated: December 1, 2025
           </p>
-          <p className="text-[15px] leading-7 text-gray-700 max-w-3xl">
+          <p className="text-[15px] leading-7 text-figma-ink/80 max-w-3xl">
             Hostiggo (&ldquo;we&rdquo;, &ldquo;our&rdquo;, or &ldquo;us&rdquo;)
             is committed to protecting the privacy and personal data of all
             users (&ldquo;you&rdquo;, &ldquo;user&rdquo;, &ldquo;host&rdquo;,
@@ -123,7 +126,7 @@ export default function PrivacyPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
           <aside className="hidden lg:block">
             <nav className="sticky top-24">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-figma-ink/60 mb-3">
                 On this page
               </p>
               <ul className="space-y-2">
@@ -131,7 +134,7 @@ export default function PrivacyPage() {
                   <li key={s.id}>
                     <a
                       href={`#${s.id}`}
-                      className="text-sm text-gray-600 hover:text-figma-navy transition-colors"
+                      className="text-sm text-figma-ink/70 hover:text-figma-navy transition-colors"
                     >
                       {s.title}
                     </a>
@@ -141,23 +144,23 @@ export default function PrivacyPage() {
             </nav>
           </aside>
 
-          <article className="max-w-3xl">
+          <article className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10">
             {sections.map((s) => (
               <section
                 key={s.id}
                 id={s.id}
                 className="mb-8 scroll-mt-24"
               >
-                <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3">
+                <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
                   {s.title}
                 </h2>
-                <p className="text-[15px] leading-7 text-gray-700 whitespace-pre-line">
+                <p className="text-[15px] leading-7 text-figma-ink/80 whitespace-pre-line">
                   {s.body}
                 </p>
               </section>
             ))}
 
-            <div className="mt-12 pt-6 border-t border-gray-100 text-sm text-gray-500">
+            <div className="mt-12 pt-6 border-t border-figma-border text-sm text-figma-ink/60">
               Questions about your data? Contact us at{" "}
               <a
                 href="mailto:support@hostiggo.com"
@@ -169,7 +172,8 @@ export default function PrivacyPage() {
             </div>
           </article>
         </div>
-      </div>
-    </main>
+      </main>
+      <Footer />
+    </div>
   );
 }
