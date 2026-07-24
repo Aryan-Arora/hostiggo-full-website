@@ -891,9 +891,9 @@ function BookingWidget({
   // exactly what was charged instead of a flat "₹weekdayPrice × N nights"
   // that goes wrong (looks like a pricing bug) the moment a Fri/Sat night
   // is in the stay and bills at the weekend rate.
-  const { subtotal, weekdayNights, weekendNights } = (() => {
+  const { subtotal, weekdayNights, weekendNights, checkInNightPrice } = (() => {
     if (!checkIn || !checkOut || nights === 0) {
-      return { subtotal: property.price, weekdayNights: 0, weekendNights: 0 };
+      return { subtotal: property.price, weekdayNights: 0, weekendNights: 0, checkInNightPrice: property.price };
     }
     const priceWeekend = property.priceWeekend ?? property.price;
     let sum = 0;
@@ -907,14 +907,18 @@ function BookingWidget({
       if (isWeekend) weekend++; else weekday++;
       cur.setDate(cur.getDate() + 1);
     }
-    return { subtotal: sum, weekdayNights: weekday, weekendNights: weekend };
+    const checkInDow = checkIn.getDay();
+    const checkInNightPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : property.price;
+    return { subtotal: sum, weekdayNights: weekday, weekendNights: weekend, checkInNightPrice };
   })();
   // Real GST/service-fee invoice from src/lib/billing/invoice.ts, replacing
   // the old flat 8%/12% estimate. `subtotal` (the weekend-aware sum across
-  // every night of the stay) is passed as the invoice's "property price" --
-  // GST applies to the whole stay's property charge, not per-night.
+  // every night of the stay) is the amount actually taxed, but which GST
+  // slab applies is decided by the check-in night's own rate (declared
+  // tariff), not by the summed total -- see calculateBookingInvoice.
   const invoice = calculateBookingInvoice({
     basePropertyPrice: subtotal,
+    gstRateBasisPrice: checkInNightPrice,
     breakfastPrice: breakfastAddonsTotal,
     otherServicesPrice: otherAddonsTotal,
   });

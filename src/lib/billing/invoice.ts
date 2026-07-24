@@ -29,8 +29,14 @@ export function calculateBookingInvoice(input: BookingInvoiceInput): BookingInvo
   const breakfastPricePaise = rupeesToPaise(input.breakfastPrice ?? 0);
   const otherServicesPricePaise = rupeesToPaise(input.otherServicesPrice ?? 0);
 
+  // GST slab is decided by a single night's declared tariff -- the
+  // check-in night's rate -- never by the summed multi-night total.
+  // Without this, a cheap multi-night stay (e.g. 7 nights x ₹5,000) whose
+  // total happens to cross ₹7,500 would get bumped to the 18% slab even
+  // though every individual night was priced under the threshold.
+  const gstRateBasisPrice = input.gstRateBasisPrice ?? input.basePropertyPrice;
   const propertyGstRate =
-    input.basePropertyPrice > GST_RATES.propertyThresholdRupees
+    gstRateBasisPrice > GST_RATES.propertyThresholdRupees
       ? GST_RATES.propertyHigh
       : GST_RATES.propertyLow;
   const gstOnPropertyPaise = percentOf(propertyPricePaise, propertyGstRate);
