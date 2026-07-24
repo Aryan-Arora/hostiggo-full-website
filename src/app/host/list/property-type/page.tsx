@@ -82,7 +82,7 @@ export default function PropertyTypePage() {
                 <div
                   className={cn(
                     'w-12 h-12 rounded-xl flex items-center justify-center transition-colors',
-                    active ? 'bg-blue-600 text-white' : 'bg-gray-100 text-blue-600',
+                    active ? 'bg-figma-navy text-white' : 'bg-gray-100 text-figma-navy',
                   )}
                 >
                   <Icon className="w-6 h-6" />
@@ -120,7 +120,7 @@ export default function PropertyTypePage() {
                 <Icon
                   className={cn(
                     'w-7 h-7',
-                    active ? 'text-blue-600' : 'text-gray-500',
+                    active ? 'text-figma-navy' : 'text-gray-500',
                   )}
                 />
                 <span className="text-sm font-medium text-gray-700">

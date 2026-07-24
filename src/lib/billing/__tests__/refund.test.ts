@@ -8,6 +8,16 @@ const CHECK_IN = new Date("2026-08-15T00:00:00Z");
 const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
+// Taxes and Hostiggo's own fees are never refundable -- only the
+// property-price portion (excluding its GST) is ever eligible.
+const refundableBasePaise =
+  invoice.grandTotalPaise -
+  (invoice.gstOnPropertyPaise +
+    invoice.hostiggoServiceFeePaise +
+    invoice.gstOnHostiggoServiceFeePaise +
+    invoice.breakfastGstPaise +
+    invoice.otherServicesGstPaise);
+
 function cancelAt(msBeforeCheckIn: number): Date {
   return new Date(CHECK_IN.getTime() - msBeforeCheckIn);
 }
@@ -22,8 +32,7 @@ describe("calculateRefund -- Flexible policy (48h boundary)", () => {
       cancellationTime: cancelAt(48 * HOUR_MS),
       policyConfig,
     });
-    expect(result.refundPercent).toBe(1);
-    expect(result.refundAmountPaise).toBe(invoice.grandTotalPaise);
+    expect(result.refundAmountPaise).toBe(refundableBasePaise);
   });
 
   it("full refund just outside the window (48h 1min before)", () => {
@@ -33,7 +42,7 @@ describe("calculateRefund -- Flexible policy (48h boundary)", () => {
       cancellationTime: cancelAt(48 * HOUR_MS + 60_000),
       policyConfig,
     });
-    expect(result.refundPercent).toBe(1);
+    expect(result.refundAmountPaise).toBe(refundableBasePaise);
   });
 
   it("no refund just inside the window (47h 59min before)", () => {
@@ -58,18 +67,17 @@ describe("calculateRefund -- Moderate policy (5 day boundary)", () => {
       cancellationTime: cancelAt(5 * DAY_MS),
       policyConfig,
     });
-    expect(result.refundAmountPaise).toBe(invoice.grandTotalPaise);
+    expect(result.refundAmountPaise).toBe(refundableBasePaise);
   });
 
-  it("partial refund (grandTotal minus Hostiggo service fee) just inside 5 days", () => {
+  it("partial refund (still excludes taxes and Hostiggo fees) just inside 5 days", () => {
     const result = calculateRefund({
       invoice,
       checkIn: CHECK_IN,
       cancellationTime: cancelAt(5 * DAY_MS - 60_000),
       policyConfig,
     });
-    const expected = invoice.grandTotalPaise - invoice.hostiggoServiceFeePaise;
-    expect(result.refundAmountPaise).toBe(expected);
+    expect(result.refundAmountPaise).toBe(refundableBasePaise);
     expect(result.refundAmountPaise).toBeLessThan(invoice.grandTotalPaise);
   });
 
@@ -80,7 +88,7 @@ describe("calculateRefund -- Moderate policy (5 day boundary)", () => {
       cancellationTime: cancelAt(1 * DAY_MS),
       policyConfig: { ...policyConfig, nonRefundableChargesRupees: 500 },
     });
-    const expected = invoice.grandTotalPaise - invoice.hostiggoServiceFeePaise - 50_000;
+    const expected = refundableBasePaise - 50_000;
     expect(result.refundAmountPaise).toBe(expected);
   });
 });
@@ -96,7 +104,7 @@ describe("calculateRefund -- Strict policy (7 day boundary)", () => {
       policyConfig,
     });
     expect(result.refundPercent).toBe(0.5);
-    expect(result.refundAmountPaise).toBe(Math.round(invoice.grandTotalPaise * 0.5));
+    expect(result.refundAmountPaise).toBe(Math.round(refundableBasePaise * 0.5));
   });
 
   it("respects a configured strictPartialRefundPercent override", () => {

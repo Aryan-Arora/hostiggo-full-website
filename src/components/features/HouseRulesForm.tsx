@@ -75,7 +75,7 @@ export default function HouseRulesForm({ listingId, onSave }: HouseRulesFormProp
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-figma-navy" />
       </div>
     );
   }
@@ -114,12 +114,12 @@ export default function HouseRulesForm({ listingId, onSave }: HouseRulesFormProp
             key={t.key}
             onClick={() => save({ [t.key]: !rules[t.key] })}
             disabled={saving}
-            className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-blue-300 transition-colors text-left disabled:opacity-50"
+            className="w-full flex items-center justify-between p-3 border border-gray-200 rounded-lg hover:border-figma-navy/40 transition-colors text-left disabled:opacity-50"
           >
             <span className="text-sm text-gray-800">{t.label}</span>
             <span
               className={`w-5 h-5 rounded-md border flex items-center justify-center ${
-                rules[t.key] ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white'
+                rules[t.key] ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white'
               }`}
             >
               {rules[t.key] && (

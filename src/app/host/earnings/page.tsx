@@ -320,7 +320,7 @@ export default function EarningsPage() {
           <p className="text-sm text-gray-500 mb-6">Please try again.</p>
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
@@ -330,7 +330,7 @@ export default function EarningsPage() {
           {/* Total earnings */}
           <div className="col-span-12 lg:col-span-4 bg-white rounded-2xl p-6 border border-gray-200 shadow-card relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
-              <span className="p-3 bg-blue-50 text-blue-600 rounded-xl inline-flex">
+              <span className="p-3 bg-figma-navy/5 text-figma-navy rounded-xl inline-flex">
                 <Wallet className="w-6 h-6" />
               </span>
               {stats.momPct !== null && (
@@ -348,14 +348,14 @@ export default function EarningsPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  <span className="w-2 h-2 rounded-full bg-figma-navy" />
                   <span className="text-sm text-gray-500">Confirmed revenue</span>
                 </div>
                 <span className="text-sm font-bold text-gray-800">{inr(stats.confirmedRevenue)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-sky-400" />
+                  <span className="w-2 h-2 rounded-full bg-figma-accent" />
                   <span className="text-sm text-gray-500">Pending revenue</span>
                 </div>
                 <span className="text-sm font-bold text-gray-800">{inr(stats.pendingRevenue)}</span>
@@ -389,9 +389,9 @@ export default function EarningsPage() {
                 stats.upcoming.map((u) => (
                   <div
                     key={u.id}
-                    className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-4 hover:border-blue-200 transition-colors"
+                    className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-4 hover:border-figma-navy/30 transition-colors"
                   >
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-figma-navy shadow-sm">
                       {u.confirmed ? <Clock className="w-5 h-5" /> : <ReceiptText className="w-5 h-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -399,11 +399,11 @@ export default function EarningsPage() {
                       <p className="text-xs text-gray-500">Check-in {fmtDate(u.start)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-blue-600">{inr(u.amount)}</p>
+                      <p className="text-sm font-bold text-figma-navy">{inr(u.amount)}</p>
                       <span
                         className={cn(
                           'text-[10px] px-2 py-0.5 rounded-full uppercase font-bold',
-                          u.confirmed ? 'bg-blue-50 text-blue-600' : 'bg-sky-50 text-sky-600',
+                          u.confirmed ? 'bg-figma-navy/5 text-figma-navy' : 'bg-figma-accent/10 text-figma-accent',
                         )}
                       >
                         {u.confirmed ? 'Confirmed' : 'Pending'}
@@ -426,8 +426,8 @@ export default function EarningsPage() {
               </p>
               {stats.topProp && (
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-50 rounded-full">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                  <div className="p-3 bg-figma-navy/5 rounded-full">
+                    <TrendingUp className="w-5 h-5 text-figma-navy" />
                   </div>
                   <div>
                     <p className="font-bold text-gray-800">

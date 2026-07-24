@@ -40,6 +40,18 @@ export function calculateRefund(input: RefundCalculationInput): RefundCalculatio
     policyConfig.strictPartialRefundPercent ?? DEFAULTS.strictPartialRefundPercent;
   const nonRefundableChargesPaise = rupeesToPaise(policyConfig.nonRefundableChargesRupees ?? 0);
 
+  // Taxes and Hostiggo's own fees are never refundable, no matter which
+  // policy tier applies or how much of the booking price itself comes
+  // back -- only the underlying property-price portion (minus GST) is
+  // ever eligible for refund.
+  const taxesAndFeesPaise =
+    invoice.gstOnPropertyPaise +
+    invoice.hostiggoServiceFeePaise +
+    invoice.gstOnHostiggoServiceFeePaise +
+    invoice.breakfastGstPaise +
+    invoice.otherServicesGstPaise;
+  const refundableBasePaise = Math.max(0, invoice.grandTotalPaise - taxesAndFeesPaise);
+
   let refundAmountPaise = 0;
   let refundPercent = 0;
   let reason = "";
@@ -47,9 +59,9 @@ export function calculateRefund(input: RefundCalculationInput): RefundCalculatio
   switch (policyConfig.policy) {
     case "flexible": {
       if (hoursUntilCheckIn >= flexibleFullRefundHours) {
-        refundAmountPaise = invoice.grandTotalPaise;
-        refundPercent = 1;
-        reason = `Flexible policy: cancelled ${hoursUntilCheckIn.toFixed(1)}h before check-in (>= ${flexibleFullRefundHours}h) -- full refund.`;
+        refundAmountPaise = refundableBasePaise;
+        refundPercent = invoice.grandTotalPaise > 0 ? refundAmountPaise / invoice.grandTotalPaise : 0;
+        reason = `Flexible policy: cancelled ${hoursUntilCheckIn.toFixed(1)}h before check-in (>= ${flexibleFullRefundHours}h) -- full refund excluding taxes and Hostiggo fees.`;
       } else {
         refundAmountPaise = 0;
         refundPercent = 0;
@@ -59,26 +71,21 @@ export function calculateRefund(input: RefundCalculationInput): RefundCalculatio
     }
     case "moderate": {
       if (daysUntilCheckIn >= moderateFullRefundDays) {
-        refundAmountPaise = invoice.grandTotalPaise;
-        refundPercent = 1;
-        reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (>= ${moderateFullRefundDays}d) -- full refund.`;
-      } else {
-        refundAmountPaise = roundPaise(
-          Math.max(
-            0,
-            invoice.grandTotalPaise - invoice.hostiggoServiceFeePaise - nonRefundableChargesPaise,
-          ),
-        );
+        refundAmountPaise = refundableBasePaise;
         refundPercent = invoice.grandTotalPaise > 0 ? refundAmountPaise / invoice.grandTotalPaise : 0;
-        reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (< ${moderateFullRefundDays}d) -- partial refund excluding Hostiggo service fee and non-refundable charges.`;
+        reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (>= ${moderateFullRefundDays}d) -- full refund excluding taxes and Hostiggo fees.`;
+      } else {
+        refundAmountPaise = roundPaise(Math.max(0, refundableBasePaise - nonRefundableChargesPaise));
+        refundPercent = invoice.grandTotalPaise > 0 ? refundAmountPaise / invoice.grandTotalPaise : 0;
+        reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (< ${moderateFullRefundDays}d) -- partial refund excluding taxes, Hostiggo fees, and non-refundable charges.`;
       }
       break;
     }
     case "strict": {
       if (daysUntilCheckIn >= strictPartialRefundDays) {
-        refundAmountPaise = roundPaise(invoice.grandTotalPaise * strictPartialRefundPercent);
+        refundAmountPaise = roundPaise(refundableBasePaise * strictPartialRefundPercent);
         refundPercent = strictPartialRefundPercent;
-        reason = `Strict policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (>= ${strictPartialRefundDays}d) -- ${(strictPartialRefundPercent * 100).toFixed(0)}% partial refund.`;
+        reason = `Strict policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (>= ${strictPartialRefundDays}d) -- ${(strictPartialRefundPercent * 100).toFixed(0)}% partial refund excluding taxes and Hostiggo fees.`;
       } else {
         refundAmountPaise = 0;
         refundPercent = 0;

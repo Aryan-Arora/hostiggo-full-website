@@ -52,8 +52,8 @@ export default function CapacityPage() {
               }}
             />
             <div className="absolute bottom-4 left-4 px-4 py-2 rounded-full flex items-center gap-2 bg-white/80 backdrop-blur-md">
-              <Sparkles className="w-4 h-4 text-blue-600" />
-              <span className="text-xs font-semibold text-blue-700">
+              <Sparkles className="w-4 h-4 text-figma-navy" />
+              <span className="text-xs font-semibold text-figma-navy">
                 High-visibility listing tips
               </span>
             </div>
@@ -82,7 +82,7 @@ export default function CapacityPage() {
                   <div className="flex items-center gap-4">
                     <button
                       onClick={() => set(row.key, -1, row.min)}
-                      className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-blue-600 disabled:opacity-40"
+                      className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-figma-navy disabled:opacity-40"
                       disabled={counts[row.key] <= row.min}
                       aria-label={`Decrease ${row.label}`}
                     >
@@ -93,7 +93,7 @@ export default function CapacityPage() {
                     </span>
                     <button
                       onClick={() => set(row.key, 1, row.min)}
-                      className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-blue-600"
+                      className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-figma-navy"
                       aria-label={`Increase ${row.label}`}
                     >
                       <Plus className="w-5 h-5" />

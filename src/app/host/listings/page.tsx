@@ -161,7 +161,7 @@ export default function MyListingsPage() {
         actions={
           <Link
             href="/host/list/property-type"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all"
+            className="flex items-center gap-2 bg-figma-navy text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-all"
           >
             <Plus className="w-5 h-5" />
             New listing
@@ -182,7 +182,7 @@ export default function MyListingsPage() {
           <p className="text-sm text-gray-500 mb-6">Something went wrong. Please try again.</p>
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-all"
           >
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
@@ -196,7 +196,7 @@ export default function MyListingsPage() {
           </p>
           <Link
             href="/host/list/property-type"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-all"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-all"
           >
             <Plus className="w-4 h-4" /> Create a listing
           </Link>
@@ -237,10 +237,10 @@ export default function MyListingsPage() {
                       {l.active ? 'Live' : 'Paused'}
                     </span>
                   </div>
-                  <div className="absolute inset-0 bg-blue-900/20 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                  <div className="absolute inset-0 bg-figma-navy/20 flex flex-col items-center justify-center gap-3 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <Link
                       href={`/host/listings/manage?id=${l.id}`}
-                      className="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg translate-y-4 group-hover:translate-y-0 transition-transform duration-300 flex items-center gap-2"
+                      className="bg-white text-figma-navy px-6 py-3 rounded-xl font-bold shadow-lg translate-y-4 group-hover:translate-y-0 transition-transform duration-300 flex items-center gap-2"
                     >
                       <Pencil className="w-5 h-5" />
                       Edit
@@ -270,7 +270,7 @@ export default function MyListingsPage() {
                 <div className="p-6">
                   <div className="flex justify-between items-start mb-2 gap-3">
                     <h3 className="text-lg font-bold text-gray-800 truncate">{l.name}</h3>
-                    <span className="text-lg font-bold text-blue-600 whitespace-nowrap">
+                    <span className="text-lg font-bold text-figma-navy whitespace-nowrap">
                       {inr(l.price)}
                       <span className="text-sm text-gray-400 font-normal">/nt</span>
                     </span>

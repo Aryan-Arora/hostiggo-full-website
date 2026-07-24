@@ -59,7 +59,7 @@ export default function HostAccountPage() {
     return (
       <HostDashboardShell active="settings">
         <div className="py-16 flex justify-center">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-figma-navy" />
         </div>
       </HostDashboardShell>
     );
@@ -98,13 +98,13 @@ export default function HostAccountPage() {
                 alt={profile.name}
                 className="w-full h-full rounded-3xl object-cover ring-4 ring-gray-100 shadow"
               />
-              <button className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform" disabled title="Photo upload coming soon">
+              <button className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform" disabled title="Photo upload coming soon">
                 <Pencil className="w-4 h-4" />
               </button>
             </div>
             <h2 className="text-xl font-bold text-gray-800">{profile.name}</h2>
             {profile.isVerified && (
-              <div className="flex items-center gap-1 text-sm font-bold text-blue-600 mb-6">
+              <div className="flex items-center gap-1 text-sm font-bold text-figma-navy mb-6">
                 <Star className="w-4 h-4 fill-amber-400 text-amber-400" /> Verified Host
               </div>
             )}
@@ -162,7 +162,7 @@ export default function HostAccountPage() {
                   className="flex items-center justify-between px-4 py-4 rounded-2xl hover:bg-gray-50 transition-colors"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-blue-600">
+                    <div className="w-10 h-10 rounded-xl bg-figma-navy/5 flex items-center justify-center text-figma-navy">
                       <Icon className="w-5 h-5" />
                     </div>
                     <span className="text-sm font-semibold text-gray-800">{q.label}</span>

@@ -116,7 +116,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-figma-navy" />
       </div>
     );
   }
@@ -134,7 +134,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
         </p>
       </div>
 
-      <Link href="/support" className="text-xs font-medium text-blue-600 flex items-center gap-1 hover:underline w-fit">
+      <Link href="/support" className="text-xs font-medium text-figma-navy flex items-center gap-1 hover:underline w-fit">
         <HelpCircle className="w-4 h-4" />
         How discounts work?
       </Link>
@@ -160,7 +160,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
                   onClick={() => handleToggle(discount.id, !enabled)}
                   className={cn(
                     'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                    enabled ? 'bg-blue-600' : 'bg-gray-300'
+                    enabled ? 'bg-figma-navy' : 'bg-gray-300'
                   )}
                 >
                   <span
@@ -196,7 +196,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-3 bg-figma-navy text-white font-semibold rounded-lg hover:bg-figma-navy/90 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" />}
           Save Changes

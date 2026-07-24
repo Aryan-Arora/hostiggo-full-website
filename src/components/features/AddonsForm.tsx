@@ -151,7 +151,7 @@ export default function AddonsForm({ listingId, onSave }: AddonsFormProps) {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-figma-navy" />
       </div>
     );
   }
@@ -305,7 +305,7 @@ export default function AddonsForm({ listingId, onSave }: AddonsFormProps) {
                               <button
                                 onClick={() => addAddon(addon.addon_id)}
                                 disabled={saving}
-                                className="flex-1 py-2 bg-blue-600 text-white text-sm font-semibold rounded hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+                                className="flex-1 py-2 bg-figma-navy text-white text-sm font-semibold rounded hover:bg-figma-navy/90 disabled:opacity-50 flex items-center justify-center gap-2"
                               >
                                 {saving && <Loader2 className="w-3 h-3 animate-spin" />}
                                 Add Addon

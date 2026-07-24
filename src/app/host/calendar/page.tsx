@@ -48,7 +48,7 @@ const inr = (n: number, currency: string) =>
 const STATUS_META: Record<DayStatus, { label: string; dot: string; cell: string; text: string }> = {
   available: { label: 'Available', dot: 'bg-green-500', cell: 'hover:bg-gray-50', text: 'text-green-600' },
   blocked: { label: 'Blocked', dot: 'bg-gray-400', cell: 'bg-gray-50', text: 'text-gray-400' },
-  booked: { label: 'Booked', dot: 'bg-blue-500', cell: 'bg-blue-50', text: 'text-blue-600' },
+  booked: { label: 'Booked', dot: 'bg-figma-accent', cell: 'bg-figma-navy/5', text: 'text-figma-navy' },
   none: { label: 'No rate set', dot: 'bg-gray-200', cell: 'hover:bg-gray-50', text: 'text-gray-300' },
 };
 
@@ -303,7 +303,7 @@ export default function CalendarPage() {
                 value={listingId}
                 onChange={(e) => setListingId(e.target.value)}
                 disabled={loadingListings || !listings.length}
-                className="max-w-[220px] px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="max-w-[220px] px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none"
                 aria-label="Select listing"
               >
                 {loadingListings ? (
@@ -335,7 +335,7 @@ export default function CalendarPage() {
                 {icalLoading ? 'Loading...' : 'Import iCal'}
               </button>
               <div className="flex bg-gray-100 rounded-lg p-1">
-                <button className="p-2 bg-white shadow-sm rounded-md text-blue-600" aria-label="Grid view">
+                <button className="p-2 bg-white shadow-sm rounded-md text-figma-navy" aria-label="Grid view">
                   <LayoutGrid className="w-5 h-5" />
                 </button>
                 <button disabled title="Coming soon" className={cn('p-2 text-gray-400', disabledBtn)} aria-label="List view">
@@ -379,7 +379,7 @@ export default function CalendarPage() {
                 <p className="text-sm text-gray-500 mb-4">Couldn&apos;t load the calendar.</p>
                 <button
                   onClick={loadCalendar}
-                  className="inline-flex items-center gap-2 bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-blue-700"
+                  className="inline-flex items-center gap-2 bg-figma-navy text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-figma-navy/90"
                 >
                   <RotateCcw className="w-4 h-4" /> Try again
                 </button>
@@ -408,7 +408,7 @@ export default function CalendarPage() {
                       className={cn(
                         'aspect-square p-3 border-r border-b border-gray-100 flex flex-col text-left transition-colors relative',
                         meta.cell,
-                        isSel && 'ring-2 ring-blue-500 ring-inset z-10',
+                        isSel && 'ring-2 ring-figma-navy ring-inset z-10',
                       )}
                     >
                       <span className="flex items-center justify-between">
@@ -442,7 +442,7 @@ export default function CalendarPage() {
                 <>
                   <div className="mb-6 p-4 bg-gray-50 rounded-xl border border-gray-200">
                     <div className="flex items-center gap-3 mb-1">
-                      <CalendarDays className="w-5 h-5 text-blue-600" />
+                      <CalendarDays className="w-5 h-5 text-figma-navy" />
                       <span className="text-sm font-bold text-gray-800">{fmtLong(selected.dateStr)}</span>
                     </div>
                     <p className="text-xs text-gray-500 ml-8 flex items-center gap-1.5">
@@ -464,7 +464,7 @@ export default function CalendarPage() {
                         </div>
                         <div className="flex justify-between items-center py-2">
                           <span className="text-sm text-gray-500">Status</span>
-                          <span className="text-sm font-bold text-blue-600 flex items-center gap-1.5">
+                          <span className="text-sm font-bold text-figma-navy flex items-center gap-1.5">
                             <BedDouble className="w-4 h-4" /> Booked
                           </span>
                         </div>
@@ -486,7 +486,7 @@ export default function CalendarPage() {
                             value={priceInput}
                             onChange={(e) => setPriceInput(e.target.value)}
                             placeholder="0"
-                            className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                            className="w-full pl-8 pr-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none"
                           />
                         </div>
                       </div>
@@ -525,7 +525,7 @@ export default function CalendarPage() {
                       <button
                         onClick={handleSaveDay}
                         disabled={saving}
-                        className="w-full py-4 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                        className="w-full py-4 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center justify-center gap-2"
                       >
                         {saving ? <Loader2 className="w-5 h-5 animate-spin" /> : null}
                         {saving ? 'Saving…' : 'Save changes'}
@@ -542,7 +542,7 @@ export default function CalendarPage() {
 
             <div className="bg-white p-6 rounded-2xl border border-gray-200 shadow-card">
               <div className="flex items-center gap-3 mb-4">
-                <Info className="w-5 h-5 text-blue-600" />
+                <Info className="w-5 h-5 text-figma-navy" />
                 <h4 className="font-bold text-gray-800">Tips for Hosts</h4>
               </div>
               <ul className="space-y-3 text-sm text-gray-500 list-disc pl-5">
@@ -593,7 +593,7 @@ export default function CalendarPage() {
                   value={icalUrl}
                   onChange={(e) => setIcalUrl(e.target.value)}
                   disabled={registering}
-                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none disabled:opacity-50"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-lg focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none disabled:opacity-50"
                 />
                 <p className="text-xs text-gray-500 mt-2">
                   Paste your iCal (ICS) URL. We&apos;ll sync availability automatically every 15 minutes.
@@ -604,7 +604,7 @@ export default function CalendarPage() {
                 <button
                   onClick={handleRegisterICAL}
                   disabled={registering || !icalUrl.trim()}
-                  className="flex-1 flex items-center justify-center gap-2 bg-blue-600 text-white font-semibold py-3 rounded-lg hover:bg-blue-700 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex-1 flex items-center justify-center gap-2 bg-figma-navy text-white font-semibold py-3 rounded-lg hover:bg-figma-navy/90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {registering ? (
                     <Loader2 className="w-4 h-4 animate-spin" />

@@ -118,8 +118,8 @@ export default function BookingsPage() {
             className={cn(
               'px-6 py-4 text-sm border-b-2 -mb-px transition-all',
               tab === t.key
-                ? 'font-bold text-blue-600 border-blue-600'
-                : 'font-medium text-gray-500 border-transparent hover:text-blue-600',
+                ? 'font-bold text-figma-navy border-figma-navy'
+                : 'font-medium text-gray-500 border-transparent hover:text-figma-navy',
             )}
           >
             {t.label}
@@ -150,7 +150,7 @@ export default function BookingsPage() {
           <p className="text-sm text-gray-500 mb-6">Please try again.</p>
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
@@ -177,8 +177,8 @@ export default function BookingsPage() {
               className="bg-white rounded-2xl p-5 border border-gray-100 shadow-card hover:shadow-card-hover transition-all flex flex-col h-full"
             >
               <div className="flex items-start gap-3 mb-4">
-                <div className="w-11 h-11 rounded-xl bg-blue-50 flex items-center justify-center shrink-0">
-                  <MapPin className="w-5 h-5 text-blue-600" />
+                <div className="w-11 h-11 rounded-xl bg-figma-navy/5 flex items-center justify-center shrink-0">
+                  <MapPin className="w-5 h-5 text-figma-navy" />
                 </div>
                 <div className="min-w-0">
                   <h4 className="text-sm font-bold text-gray-800 truncate">{b.title}</h4>
@@ -203,7 +203,7 @@ export default function BookingsPage() {
               </div>
               <Link
                 href={`/host/bookings/details?id=${b.id}`}
-                className="w-full py-2.5 bg-blue-600 text-white font-bold rounded-xl text-sm text-center transition-all hover:bg-blue-700 active:scale-[0.98]"
+                className="w-full py-2.5 bg-figma-navy text-white font-bold rounded-xl text-sm text-center transition-all hover:bg-figma-navy/90 active:scale-[0.98]"
               >
                 View Details
               </Link>
