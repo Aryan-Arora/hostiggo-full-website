@@ -146,15 +146,20 @@ export default function CancellationPage() {
               </section>
             ))}
 
-            <div className="mt-12 pt-6 border-t border-figma-border text-sm text-figma-ink/60">
-              Questions about cancellations or refunds? Contact us at{" "}
-              <a
-                href="mailto:support@hostiggo.com"
-                className="text-figma-navy hover:underline"
-              >
-                support@hostiggo.com
-              </a>
-              .
+            <div className="mt-12 rounded-2xl bg-figma-navy px-6 py-8 text-center">
+              <h3 className="text-lg md:text-xl font-bold text-white mb-2">
+                Questions about cancellations or refunds?
+              </h3>
+              <p className="text-sm text-white/80">
+                Contact us at{" "}
+                <a
+                  href="mailto:support@hostiggo.com"
+                  className="text-white underline hover:text-white/90"
+                >
+                  support@hostiggo.com
+                </a>
+                .
+              </p>
             </div>
           </article>
         </div>
