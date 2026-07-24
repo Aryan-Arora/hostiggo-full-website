@@ -251,6 +251,9 @@ export function mapBooking(item: any) {
       rooms: 1,
       pets: false,
     },
+    amount: item.amount != null ? Number(item.amount) : null,
+    priceWeekday: item.priceWeekday != null ? Number(item.priceWeekday) : null,
+    priceWeekend: item.priceWeekend != null ? Number(item.priceWeekend) : null,
   };
 }
 
