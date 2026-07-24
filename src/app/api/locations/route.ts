@@ -9,6 +9,13 @@ const jsonError = (err: unknown, status = 500) => {
   return NextResponse.json({ error: errorMessage(err, "Request failed") }, { status });
 };
 
+// Popular-locations and the default sample are both derived from active
+// listing counts, which shift slowly -- safe to CDN-cache briefly. Free-text
+// search (?q=) is NOT cached: unbounded query-string space, and staleness
+// there would mean showing a destination that no longer matches as the
+// user types.
+const CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
+
 export async function GET(req: NextRequest) {
   try {
     const query = req.nextUrl.searchParams.get("q");
@@ -21,7 +28,8 @@ export async function GET(req: NextRequest) {
         ? await HotelServiceApi.getPopularLocations(limit)
         : await HotelServiceApi.getLocationSample(limit);
 
-    return NextResponse.json({ data });
+    const headers = query ? undefined : { "Cache-Control": CACHE_HEADER };
+    return NextResponse.json({ data }, { headers });
   } catch (err) {
     return jsonError(err);
   }
