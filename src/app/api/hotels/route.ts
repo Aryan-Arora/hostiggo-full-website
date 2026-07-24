@@ -1,11 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HotelServiceApi } from "@/lib/services/hotel";
 
-export const dynamic = "force-dynamic";
-
 // Used for the homepage's "Popular stays in <city>" teaser rows -- a short
 // cache is fine here (unlike search results with real dates/availability,
 // this is just a handful of representative listings per location).
+//
+// NOTE: deliberately NOT `force-dynamic` -- that directive makes
+// Next/Vercel override any manually-set Cache-Control with a hard
+// no-cache, which silently defeated this exact header when it was present.
 const CACHE_HEADER = "public, s-maxage=30, stale-while-revalidate=120";
 
 export async function GET(req: NextRequest) {
