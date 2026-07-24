@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import DateRangePicker from '@/components/features/DateRangePicker';
 import {
   Star,
@@ -214,11 +215,13 @@ function ImageGallery({
             className="row-span-2 relative overflow-hidden cursor-pointer group"
             onClick={() => open(0)}
           >
-            <img
+            <Image
               src={imgs[0]}
               alt={`${propertyName} main`}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="eager"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
           </div>
@@ -234,11 +237,12 @@ function ImageGallery({
                 )}
                 onClick={() => open(i + 1)}
               >
-                <img
+                <Image
                   src={src}
                   alt={`${propertyName} ${i + 2}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
+                  fill
+                  sizes="25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                 {/* "Show all" on last tile */}
@@ -731,11 +735,12 @@ function SuggestedStays({ current }: { current: Property }) {
             }}
           >
             <div className="relative h-28 overflow-hidden">
-              <img
+              <Image
                 src={p.images[0] || FALLBACK}
                 alt={p.propertyName}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
-                loading="lazy"
+                fill
+                sizes="200px"
+                className="object-cover group-hover:scale-105 transition-transform duration-400"
               />
               {p.originalPrice && (
                 <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
