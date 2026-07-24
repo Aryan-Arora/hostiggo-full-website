@@ -1,3 +1,4 @@
+import Image from "next/image";
 import SearchForm from "@/components/features/SearchForm";
 
 import { cn } from "@/lib/utils";
@@ -80,7 +81,14 @@ export default function HeroSection() {
               className="relative w-full lg:w-[480px] xl:w-[500px] flex-shrink-0 rounded-[2rem] overflow-hidden select-none"
               style={{ minHeight: 400 }}
             >
-              <img src={heroBg} alt="Lush green forest" className="absolute inset-0 w-full h-full object-cover" />
+              <Image
+                src={heroBg}
+                alt="Lush green forest"
+                fill
+                priority
+                sizes="(max-width: 1024px) 100vw, 500px"
+                className="object-cover"
+              />
               <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
               <div className="relative z-10 p-7 sm:p-9 flex flex-col h-full" style={{ minHeight: 400 }}>
                 <p className="text-white/90 text-sm font-medium tracking-wide mb-1">Discover your next</p>

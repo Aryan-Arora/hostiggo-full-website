@@ -132,7 +132,11 @@ export default function HomePage() {
           popularLocations.map(async (location: any) => {
             const cityName =
               location.district || location.lower_division_name || location.state || 'India';
-            const rows = await api.search(NO_FILTERS, cityName, 0, 4);
+            // Fetching a known location_id's listings is a plain indexed
+            // query -- much cheaper than routing through the full
+            // search_listings ranking RPC (api.search) just to grab the
+            // top 4 for a homepage teaser section.
+            const rows = await api.hotelsByLocation(location.location_id, 4);
             return {
               id: String(location.location_id),
               title: `Popular stays in ${cityName}`,

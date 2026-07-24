@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Image from "next/image";
 import { Heart, Star, Wifi, Car, Coffee } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
@@ -75,12 +76,13 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
     >
       {/* Image — Figma uses a square (299x299 at an 855-wide card, ~35%) */}
       <div className="relative flex-shrink-0 w-full sm:w-[35%] aspect-square rounded-[35px] overflow-hidden">
-        <img
+        <Image
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
           onError={() => setImgErr(true)}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          fill
+          sizes="(max-width: 640px) 100vw, 35vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-700"
         />
         {/* Heart button */}
         <button

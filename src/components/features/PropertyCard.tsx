@@ -1,4 +1,5 @@
 import { useState } from "react";
+import Image from "next/image";
 import { Heart, Star } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
@@ -45,12 +46,13 @@ export default function PropertyCard({ property }: PropertyCardProps) {
     >
       {/* Image -- Figma: rounded-tl/tr-[35px] matching the card radius */}
       <div className="relative overflow-hidden rounded-t-[35px]" style={{ height: 190 }}>
-        <img
+        <Image
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
           onError={() => setImgErr(true)}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+          fill
+          sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
+          className="object-cover group-hover:scale-110 transition-transform duration-500"
         />
         <button
           onClick={handleToggleLike}
