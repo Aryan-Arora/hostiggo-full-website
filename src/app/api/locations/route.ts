@@ -2,8 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { HotelServiceApi } from "@/lib/services/hotel";
 import { errorMessage } from "@/lib/api-error";
 
-export const dynamic = "force-dynamic";
-
 const jsonError = (err: unknown, status = 500) => {
   console.error("[/api/locations] error:", err);
   return NextResponse.json({ error: errorMessage(err, "Request failed") }, { status });
@@ -14,6 +12,10 @@ const jsonError = (err: unknown, status = 500) => {
 // search (?q=) is NOT cached: unbounded query-string space, and staleness
 // there would mean showing a destination that no longer matches as the
 // user types.
+//
+// NOTE: deliberately NOT `force-dynamic` -- that directive makes
+// Next/Vercel override any manually-set Cache-Control with a hard
+// no-cache, which silently defeated this exact header when it was present.
 const CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
 
 export async function GET(req: NextRequest) {
