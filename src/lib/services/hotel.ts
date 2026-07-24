@@ -268,6 +268,7 @@ export const HotelServiceApi = {
       `,
       )
       .eq('listing_id', listingId)
+      .eq('is_active', true)
       .single();
 
     if (error || !data) {
