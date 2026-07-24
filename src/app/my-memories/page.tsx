@@ -120,7 +120,11 @@ function computeBookingInvoice(booking: Booking) {
     if (isWeekend) weekendNights++; else weekdayNights++;
     cur.setDate(cur.getDate() + 1);
   }
-  const invoice = calculateBookingInvoice({ basePropertyPrice: subtotal });
+  // Which GST slab applies is decided by the check-in night's own rate,
+  // not the summed multi-night total -- see gstRateBasisPrice.
+  const checkInDow = booking.checkIn.getDay();
+  const gstRateBasisPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : booking.priceWeekday;
+  const invoice = calculateBookingInvoice({ basePropertyPrice: subtotal, gstRateBasisPrice });
   return { invoice, nights, weekdayNights, weekendNights, priceWeekend };
 }
 

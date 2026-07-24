@@ -3,6 +3,17 @@ export type CancellationPolicyType = "flexible" | "moderate" | "strict";
 export interface BookingInvoiceInput {
   /** Host-entered nightly/stay price for the property portion of this booking, in rupees. */
   basePropertyPrice: number;
+  /**
+   * Which single night's rate decides the 5%/18% GST slab -- per the
+   * declared-tariff GST rule, this is the check-in night's price, NOT the
+   * summed multi-night total. Defaults to `basePropertyPrice` when omitted,
+   * so single-night callers (property cards, the ₹X/night preview on
+   * search results, etc.) are unaffected. Multi-night bookings MUST pass
+   * this explicitly -- otherwise a cheap multi-night stay that only adds
+   * up to a large total gets bumped into the 18% slab even though every
+   * individual night was priced well under the ₹7,500 threshold.
+   */
+  gstRateBasisPrice?: number;
   /** Optional selected breakfast add-on price, in rupees. */
   breakfastPrice?: number;
   /** Optional selected other-services (airport pickup, decorations, etc.) price, in rupees. */

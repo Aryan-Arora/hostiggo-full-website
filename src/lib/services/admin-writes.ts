@@ -235,6 +235,13 @@ export async function createBooking(input: {
     const isWeekend = dow === 5 || dow === 6; // Friday or Saturday night
     return sum + (isWeekend ? priceWeekend : priceWeekday);
   }, 0);
+  // Which GST slab applies (5%/18%) is decided by the check-in night's own
+  // declared-tariff rate, not by the summed multi-night total -- see
+  // calculateBookingInvoice's gstRateBasisPrice.
+  const checkInDow = stayNights.length
+    ? new Date(stayNights[0] + "T00:00:00Z").getUTCDay()
+    : 0;
+  const gstRateBasisPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : priceWeekday;
 
   let resolvedAddons: { name: string; price: number; type: string | null }[] = [];
   if (input.addonIds?.length) {
@@ -259,6 +266,7 @@ export async function createBooking(input: {
 
   const invoice = calculateBookingInvoice({
     basePropertyPrice: subtotal,
+    gstRateBasisPrice: gstRateBasisPrice,
     breakfastPrice: breakfastTotal,
     otherServicesPrice: otherServicesTotal,
   });
