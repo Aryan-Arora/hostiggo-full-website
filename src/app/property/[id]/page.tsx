@@ -881,18 +881,28 @@ function BookingWidget({
 
   // Mirrors the server-side calc in createBooking() — weekend nights
   // (Fri/Sat) bill at priceWeekend, everything else at the weekday price,
-  // so this preview matches what actually gets charged.
-  const subtotal = (() => {
-    if (!checkIn || !checkOut || nights === 0) return property.price;
+  // so this preview matches what actually gets charged. Also tracks how
+  // many nights fell at each rate so the breakdown label below can say
+  // exactly what was charged instead of a flat "₹weekdayPrice × N nights"
+  // that goes wrong (looks like a pricing bug) the moment a Fri/Sat night
+  // is in the stay and bills at the weekend rate.
+  const { subtotal, weekdayNights, weekendNights } = (() => {
+    if (!checkIn || !checkOut || nights === 0) {
+      return { subtotal: property.price, weekdayNights: 0, weekendNights: 0 };
+    }
     const priceWeekend = property.priceWeekend ?? property.price;
     let sum = 0;
+    let weekday = 0;
+    let weekend = 0;
     const cur = new Date(checkIn);
     for (let i = 0; i < nights; i++) {
       const dow = cur.getDay();
-      sum += dow === 5 || dow === 6 ? priceWeekend : property.price;
+      const isWeekend = dow === 5 || dow === 6;
+      sum += isWeekend ? priceWeekend : property.price;
+      if (isWeekend) weekend++; else weekday++;
       cur.setDate(cur.getDate() + 1);
     }
-    return sum;
+    return { subtotal: sum, weekdayNights: weekday, weekendNights: weekend };
   })();
   // Real GST/service-fee invoice from src/lib/billing/invoice.ts, replacing
   // the old flat 8%/12% estimate. `subtotal` (the weekend-aware sum across
@@ -1093,7 +1103,17 @@ function BookingWidget({
       {nights > 0 && (status === 'available' || status === 'confirmed' || status === 'booking') && (
         <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
           <div className="flex justify-between text-gray-600">
-            <span>₹{property.price.toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}</span>
+            <span>
+              {weekendNights === 0 || weekdayNights === 0 ? (
+                <>
+                  ₹{(weekendNights > 0 ? (property.priceWeekend ?? property.price) : property.price).toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}
+                </>
+              ) : (
+                <>
+                  ₹{property.price.toLocaleString('en-IN')} × {weekdayNights} night{weekdayNights > 1 ? 's' : ''} + ₹{(property.priceWeekend ?? property.price).toLocaleString('en-IN')} × {weekendNights} night{weekendNights > 1 ? 's' : ''}
+                </>
+              )}
+            </span>
             <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
           </div>
           {selectedAddons.map((a) => (
@@ -2172,7 +2192,7 @@ export default function PropertyDetailsPage() {
                 ₹{property.price.toLocaleString('en-IN')}
               </span>
               <span className="text-[12px] text-gray-400 ml-1">/night</span>
-              {property.rating && (
+              {property.rating > 0 && (
                 <div className="flex items-center gap-1 mt-0.5">
                   <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                   <span className="text-[11px] font-bold text-gray-600">
