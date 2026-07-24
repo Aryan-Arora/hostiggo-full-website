@@ -7,7 +7,7 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
   {
     title: "Hosting",
     links: [
-      { label: "Become a host", href: "/host/list/property-type" },
+      { label: "Become a host", href: "/become-a-host" },
       { label: "Host dashboard", href: "/host/listings" },
       { label: "Refer & earn", href: "/refer" },
       { label: "Reviews", href: "/host/reviews" },
