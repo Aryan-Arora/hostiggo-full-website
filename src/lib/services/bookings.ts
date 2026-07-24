@@ -63,19 +63,22 @@ export const bookingsAPI = {
     const rows = data || [];
     if (!rows.length) return rows;
 
-    // user_bookings_detailed has no listing_id/coordinates/location at all,
-    // so the guest-facing "Location" button had no real place to point to
-    // and silently defaulted to the geographic center of India. Fetch the
-    // real listing_id + coordinates + district/state for these bookings
-    // and merge them in.
+    // user_bookings_detailed has no listing_id/coordinates/location/price at
+    // all, so the guest-facing "Location" button had no real place to point
+    // to (defaulted to the geographic center of India), and there was no way
+    // to show a price breakdown without a second round trip. Fetch the real
+    // listing_id + coordinates + district/state + per-night prices + the
+    // actual charged amount for these bookings and merge them in.
     const bookingIds = rows.map((r: any) => r.booking_id);
     const { data: withListing } = await supabase
       .from("bookings")
       .select(
         `
         booking_id,
+        amount,
         listings (
           latitude, longitude,
+          price_weekday, price_weekend,
           locations (district, state)
         )
       `,
@@ -83,13 +86,17 @@ export const bookingsAPI = {
       .in("booking_id", bookingIds);
 
     const byId = new Map(
-      (withListing ?? []).map((r: any) => [r.booking_id, r.listings]),
+      (withListing ?? []).map((r: any) => [r.booking_id, r]),
     );
 
     return rows.map((r: any) => {
-      const listing = byId.get(r.booking_id);
+      const extra = byId.get(r.booking_id);
+      const listing = extra?.listings;
       return {
         ...r,
+        amount: extra?.amount ?? null,
+        priceWeekday: listing?.price_weekday ?? null,
+        priceWeekend: listing?.price_weekend ?? null,
         latitude: listing?.latitude ?? null,
         longitude: listing?.longitude ?? null,
         district: listing?.locations?.district ?? null,

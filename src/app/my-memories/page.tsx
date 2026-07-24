@@ -24,6 +24,8 @@ import {
   Dog,
   Star,
   Edit3,
+  ChevronDown,
+  Receipt,
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -31,6 +33,7 @@ const memoriesIllustration = '/memories-illustration.png';
 import { cn } from '@/lib/utils';
 import { api, getStoredUserId, mapBooking } from '@/lib/api';
 import { toast } from 'sonner';
+import { calculateBookingInvoice } from '@/lib/billing/invoice';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -56,6 +59,14 @@ interface Booking {
   status: TabKey;
   coordinates: { lat: number; lng: number } | null;
   guests: GuestCounts;
+  // The actual amount charged for this booking (as stored at the time it
+  // was made) plus the listing's current per-night rates -- together these
+  // let the price-breakdown dropdown reconstruct the same itemized GST/fee
+  // lines shown at checkout (see calculateBookingInvoice), instead of only
+  // ever showing that breakdown once, live, and never again.
+  amount: number | null;
+  priceWeekday: number | null;
+  priceWeekend: number | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -87,6 +98,99 @@ function getDaysLeft(checkIn: Date): number {
 
 function getNights(checkIn: Date, checkOut: Date): number {
   return Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000);
+}
+
+// Mirrors the weekend-aware subtotal calc used at checkout
+// (src/app/property/[id]/page.tsx) and server-side in createBooking() --
+// Fri/Sat nights bill at priceWeekend, everything else at priceWeekday --
+// so a booking's price-breakdown dropdown always matches what was actually
+// charged instead of assuming every night was priced the same.
+function computeBookingInvoice(booking: Booking) {
+  if (booking.priceWeekday == null) return null;
+  const priceWeekend = booking.priceWeekend ?? booking.priceWeekday;
+  const nights = getNights(booking.checkIn, booking.checkOut);
+  let subtotal = 0;
+  let weekdayNights = 0;
+  let weekendNights = 0;
+  const cur = new Date(booking.checkIn);
+  for (let i = 0; i < nights; i++) {
+    const dow = cur.getDay();
+    const isWeekend = dow === 5 || dow === 6;
+    subtotal += isWeekend ? priceWeekend : booking.priceWeekday;
+    if (isWeekend) weekendNights++; else weekdayNights++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  const invoice = calculateBookingInvoice({ basePropertyPrice: subtotal });
+  return { invoice, nights, weekdayNights, weekendNights, priceWeekend };
+}
+
+function PriceBreakdown({ booking }: { booking: Booking }) {
+  const [open, setOpen] = useState(false);
+  const computed = computeBookingInvoice(booking);
+  if (!computed) return null;
+  const { invoice, weekdayNights, weekendNights, priceWeekend } = computed;
+
+  return (
+    <div className="rounded-2xl border border-gray-100 mb-5 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-[13px] font-bold text-gray-800">
+          <Receipt className="w-3.5 h-3.5 text-gray-400" />
+          Price breakdown
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[13px] font-bold text-gray-800">
+            ₹{(booking.amount ?? invoice.grandTotalRupees).toLocaleString('en-IN')}
+          </span>
+          <ChevronDown
+            className={cn('w-4 h-4 text-gray-400 transition-transform', open && 'rotate-180')}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2 text-[12px] bg-gray-50/50">
+          <div className="flex justify-between text-gray-600 pt-1">
+            <span>
+              {weekendNights === 0 || weekdayNights === 0 ? (
+                <>
+                  ₹{(weekendNights > 0 ? priceWeekend : booking.priceWeekday!).toLocaleString('en-IN')} × {weekdayNights + weekendNights} night{weekdayNights + weekendNights > 1 ? 's' : ''}
+                </>
+              ) : (
+                <>
+                  ₹{booking.priceWeekday!.toLocaleString('en-IN')} × {weekdayNights} night{weekdayNights > 1 ? 's' : ''} + ₹{priceWeekend.toLocaleString('en-IN')} × {weekendNights} night{weekendNights > 1 ? 's' : ''}
+                </>
+              )}
+            </span>
+            <span className="font-semibold">₹{(invoice.propertyPricePaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>GST on property ({(invoice.propertyGstRate * 100).toFixed(0)}%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>Hostiggo service fee ({(invoice.hostiggoServiceFeeRate * 100).toFixed(0)}%)</span>
+            <span className="font-semibold">₹{(invoice.hostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>GST on service fee (18%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-200">
+            <span>Total</span>
+            <span>₹{(booking.amount ?? invoice.grandTotalRupees).toLocaleString('en-IN')}</span>
+          </div>
+          {booking.amount != null && (
+            <p className="text-[10px] text-gray-400 pt-1">
+              Recomputed from the listing&apos;s current per-night rates against the actual charged total -- the total above is the exact amount charged at booking.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function guestLabel(g: GuestCounts): string {
@@ -703,6 +807,8 @@ function ManageBookingModal({
                   </p>
                 </div>
               </div>
+
+              <PriceBreakdown booking={booking} />
 
               {/* Actions */}
               <div className="flex flex-col gap-2.5">
