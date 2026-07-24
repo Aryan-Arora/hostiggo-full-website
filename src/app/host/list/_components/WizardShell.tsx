@@ -1,10 +1,21 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { HelpCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useListingDraft } from '@/context/ListingDraftContext';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 // Ordered list of the listing-creation wizard steps.
 export const WIZARD_STEPS = [
@@ -43,6 +54,7 @@ export default function WizardShell({
   const prev = WIZARD_STEPS[idx - 1];
   const next = WIZARD_STEPS[idx + 1];
   const progress = Math.round((step / WIZARD_TOTAL) * 100);
+  const [showExitConfirm, setShowExitConfirm] = useState(false);
 
   return (
     <div className="min-h-screen flex flex-col bg-[#f0f2f5] text-gray-800">
@@ -106,7 +118,9 @@ export default function WizardShell({
       <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-12 py-4 bg-white border-t border-gray-200">
         <button
           type="button"
-          onClick={() => (prev ? router.push(`/host/list/${prev.slug}`) : router.back())}
+          onClick={() =>
+            prev ? router.push(`/host/list/${prev.slug}`) : setShowExitConfirm(true)
+          }
           className="px-6 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
         >
           Back
@@ -138,6 +152,26 @@ export default function WizardShell({
           </button>
         </div>
       </footer>
+
+      <AlertDialog open={showExitConfirm} onOpenChange={setShowExitConfirm}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Leave without saving?</AlertDialogTitle>
+            <AlertDialogDescription>
+              You&apos;ll lose your progress on this listing. This can&apos;t be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Keep editing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => router.push('/host/listings')}
+              className="bg-figma-navy hover:bg-figma-navy/90"
+            >
+              Yes, leave
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }
