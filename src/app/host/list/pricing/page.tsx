@@ -13,7 +13,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         'relative w-12 h-7 rounded-full transition-colors shrink-0',
-        on ? 'bg-blue-600' : 'bg-gray-300',
+        on ? 'bg-figma-navy' : 'bg-gray-300',
       )}
       aria-pressed={on}
     >
@@ -74,7 +74,7 @@ export default function PricingPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Left: price */}
           <div className="md:col-span-7 space-y-6">
-            <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 transition-all hover:border-blue-200">
+            <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 transition-all hover:border-figma-navy/30">
               <label className="block text-sm text-gray-500 mb-4">
                 Price per night
               </label>
@@ -97,16 +97,16 @@ export default function PricingPage() {
                   <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
-                  <span className="text-sm font-bold text-blue-600">You earn</span>
-                  <span className="text-xl font-bold text-blue-600">{fmt(earn)}</span>
+                  <span className="text-sm font-bold text-figma-navy">You earn</span>
+                  <span className="text-xl font-bold text-figma-navy">{fmt(earn)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-6 flex gap-4 items-start">
-              <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            <div className="bg-figma-navy/6 border border-figma-navy/20 rounded-2xl p-6 flex gap-4 items-start">
+              <Lightbulb className="w-5 h-5 text-figma-navy mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <h4 className="text-sm font-bold text-blue-700">Tip: Stay competitive</h4>
+                <h4 className="text-sm font-bold text-figma-navy">Tip: Stay competitive</h4>
                 <p className="text-sm text-gray-600">
                   Check what similar homestays nearby are charging before you finalize
                   your price -- you can always adjust it later.
@@ -119,7 +119,7 @@ export default function PricingPage() {
           <div className="md:col-span-5">
             <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 h-full">
               <div className="flex items-center gap-2 mb-6">
-                <Percent className="w-5 h-5 text-blue-600" />
+                <Percent className="w-5 h-5 text-figma-navy" />
                 <h3 className="text-lg font-bold text-gray-800">Add discounts</h3>
               </div>
               <p className="text-sm text-gray-500 mb-8">
@@ -146,7 +146,7 @@ export default function PricingPage() {
                         max={100}
                         value={weeklyPercent}
                         onChange={(e) => setWeeklyPercent(Number(e.target.value) || 0)}
-                        className="w-16 border border-gray-200 rounded-lg p-1 text-center text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        className="w-16 border border-gray-200 rounded-lg p-1 text-center text-sm outline-none focus:ring-2 focus:ring-figma-navy"
                       />
                       <span className="text-sm text-gray-600">%</span>
                     </div>
@@ -172,7 +172,7 @@ export default function PricingPage() {
             alt=""
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-blue-900/80 to-blue-900/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-figma-navy/80 to-figma-navy/20" />
           <div className="absolute inset-0 flex items-center justify-center text-center px-6">
             <div>
               <h3 className="text-xl font-bold text-white">Trust and Security</h3>

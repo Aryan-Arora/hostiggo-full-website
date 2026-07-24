@@ -68,7 +68,7 @@ function CancelInner() {
     <div className="max-w-4xl mx-auto">
       <div className="mb-8">
         <div className="flex items-center gap-2 mb-4">
-          <Link href={detailsHref} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-all text-blue-600">
+          <Link href={detailsHref} className="p-2 -ml-2 hover:bg-gray-100 rounded-full transition-all text-figma-navy">
             <ArrowLeft className="w-5 h-5" />
           </Link>
           <span className="text-sm text-gray-400">{id ? `Booking #${id}` : 'No booking selected'}</span>
@@ -82,7 +82,7 @@ function CancelInner() {
       {!id ? (
         <div className="bg-white rounded-2xl border border-gray-200 shadow-card py-16 text-center">
           <p className="text-sm text-gray-500 mb-4">Open a reservation to cancel it.</p>
-          <Link href="/host/bookings" className="text-blue-600 font-bold hover:underline">Back to bookings</Link>
+          <Link href="/host/bookings" className="text-figma-navy font-bold hover:underline">Back to bookings</Link>
         </div>
       ) : step === 1 ? (
         <section>
@@ -97,17 +97,17 @@ function CancelInner() {
                 className={cn(
                   'text-left flex items-start p-5 border rounded-xl transition-all',
                   reason === r.id
-                    ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/40'
-                    : 'border-gray-200 hover:border-blue-300 hover:bg-gray-50',
+                    ? 'border-figma-navy ring-1 ring-figma-navy bg-figma-navy/4'
+                    : 'border-gray-200 hover:border-figma-navy/40 hover:bg-gray-50',
                 )}
               >
                 <span
                   className={cn(
                     'mt-1 w-5 h-5 rounded-full border-2 flex items-center justify-center shrink-0',
-                    reason === r.id ? 'border-blue-600' : 'border-gray-300',
+                    reason === r.id ? 'border-figma-navy' : 'border-gray-300',
                   )}
                 >
-                  {reason === r.id && <span className="w-2.5 h-2.5 rounded-full bg-blue-600" />}
+                  {reason === r.id && <span className="w-2.5 h-2.5 rounded-full bg-figma-navy" />}
                 </span>
                 <div className="ml-4">
                   <span className="block text-sm font-bold text-gray-800">{r.title}</span>
@@ -117,13 +117,13 @@ function CancelInner() {
             ))}
           </div>
           <div className="mt-8 flex flex-col md:flex-row gap-4 items-center justify-between border-t border-gray-200 pt-8">
-            <Link href={detailsHref} className="text-blue-600 font-bold hover:underline">Keep Booking</Link>
+            <Link href={detailsHref} className="text-figma-navy font-bold hover:underline">Keep Booking</Link>
             <button
               disabled={!reason}
               onClick={() => setStep(2)}
               className={cn(
                 'w-full md:w-auto px-10 py-4 rounded-xl font-bold text-white shadow-md transition-all',
-                reason ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300 cursor-not-allowed',
+                reason ? 'bg-figma-navy hover:bg-figma-navy/90' : 'bg-gray-300 cursor-not-allowed',
               )}
             >
               Review Details
@@ -147,7 +147,7 @@ function CancelInner() {
               <div className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
                 <h4 className="text-xs text-gray-500 uppercase mb-4">Reservation Summary</h4>
                 <div className="flex items-center gap-4 pb-4 border-b border-gray-100">
-                  <div className="w-16 h-16 rounded-lg bg-blue-50 flex items-center justify-center shrink-0 text-blue-600 font-bold">
+                  <div className="w-16 h-16 rounded-lg bg-figma-navy/5 flex items-center justify-center shrink-0 text-figma-navy font-bold">
                     #{id}
                   </div>
                   <div>
@@ -178,19 +178,19 @@ function CancelInner() {
 
             <div className="space-y-4">
               <div className="bg-white p-6 rounded-2xl space-y-4 border border-gray-200 shadow-card">
-                <div className="flex items-center gap-3 text-blue-600">
+                <div className="flex items-center gap-3 text-figma-navy">
                   <Info className="w-5 h-5" />
                   <span className="text-sm font-bold">What happens next?</span>
                 </div>
                 <ul className="space-y-3 text-sm text-gray-500 leading-relaxed">
-                  <li className="flex gap-2"><span className="text-blue-600">•</span> The booking is marked cancelled.</li>
-                  <li className="flex gap-2"><span className="text-blue-600">•</span> These dates free up on your calendar.</li>
+                  <li className="flex gap-2"><span className="text-figma-navy">•</span> The booking is marked cancelled.</li>
+                  <li className="flex gap-2"><span className="text-figma-navy">•</span> These dates free up on your calendar.</li>
                 </ul>
               </div>
               <div className="bg-gray-100 p-6 rounded-2xl">
                 <p className="text-xs text-gray-500">
                   Need help?{' '}
-                  <Link href="/support" className="text-blue-600 underline">Contact Host Support</Link>
+                  <Link href="/support" className="text-figma-navy underline">Contact Host Support</Link>
                 </p>
               </div>
             </div>

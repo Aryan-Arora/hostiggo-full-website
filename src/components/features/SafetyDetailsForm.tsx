@@ -100,7 +100,7 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-figma-navy" />
       </div>
     );
   }
@@ -125,7 +125,7 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
             return (
               <div
                 key={feature.feature_id}
-                className="p-4 border border-gray-200 rounded-lg bg-white hover:border-blue-200 transition-colors"
+                className="p-4 border border-gray-200 rounded-lg bg-white hover:border-figma-navy/30 transition-colors"
               >
                 <div className="flex items-start gap-4">
                   <button
@@ -140,8 +140,8 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
                     <div
                       className={`w-6 h-6 rounded border-2 flex items-center justify-center transition-all ${
                         selected
-                          ? 'bg-blue-600 border-blue-600'
-                          : 'border-gray-300 hover:border-blue-400'
+                          ? 'bg-figma-navy border-figma-navy'
+                          : 'border-gray-300 hover:border-figma-navy/60'
                       }`}
                     >
                       {selected && <Check className="w-4 h-4 text-white" />}
@@ -169,8 +169,8 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
       </div>
 
       {selectedDetails.length > 0 && (
-        <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-          <p className="text-sm text-blue-900 font-semibold mb-2">
+        <div className="p-4 bg-figma-navy/5 rounded-lg border border-figma-navy/30">
+          <p className="text-sm text-figma-navy font-semibold mb-2">
             Selected Safety Features ({selectedDetails.length})
           </p>
           <div className="flex flex-wrap gap-2">
@@ -179,7 +179,7 @@ export default function SafetyDetailsForm({ listingId, onSave }: SafetyDetailsFo
               return feature ? (
                 <span
                   key={detail.id}
-                  className="inline-flex items-center gap-1 px-3 py-1 bg-blue-100 text-blue-700 rounded-full text-sm font-medium"
+                  className="inline-flex items-center gap-1 px-3 py-1 bg-figma-navy/10 text-figma-navy rounded-full text-sm font-medium"
                 >
                   ✓ {feature.name}
                 </span>

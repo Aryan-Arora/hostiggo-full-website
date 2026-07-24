@@ -17,7 +17,7 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
       </div>
     );
   }
@@ -26,7 +26,7 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center px-4">
         <div className="bg-white rounded-3xl shadow-card border border-gray-200 max-w-md w-full p-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-5">
+          <div className="w-14 h-14 rounded-2xl bg-figma-navy/5 text-figma-navy flex items-center justify-center mx-auto mb-5">
             <Building2 className="w-7 h-7" />
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">
@@ -37,7 +37,7 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
           </p>
           <Link
             href="/signin"
-            className="block w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-all"
+            className="block w-full bg-figma-navy text-white font-semibold py-3 rounded-xl hover:bg-figma-navy/90 transition-all"
           >
             Sign in
           </Link>

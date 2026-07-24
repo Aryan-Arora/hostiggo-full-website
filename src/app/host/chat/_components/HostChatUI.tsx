@@ -181,7 +181,7 @@ export default function HostChatUI() {
               placeholder="Search guests..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm"
+              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-figma-navy focus:ring-1 focus:ring-figma-navy text-sm"
             />
           </div>
         </div>
@@ -191,7 +191,7 @@ export default function HostChatUI() {
           {loading ? (
             <div className="flex items-center justify-center h-full">
               <div className="text-center">
-                <div className="w-8 h-8 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <div className="w-8 h-8 border-2 border-figma-navy/60 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                 <p className="text-sm text-gray-500">Loading conversations...</p>
               </div>
             </div>
@@ -209,7 +209,7 @@ export default function HostChatUI() {
                   onClick={() => setSelectedConversationId(conv.id)}
                   className={`w-full text-left p-3 rounded-lg transition-all ${
                     selectedConversationId === conv.id
-                      ? 'bg-blue-100 border border-blue-300'
+                      ? 'bg-figma-navy/10 border border-figma-navy/40'
                       : 'hover:bg-gray-100 border border-transparent'
                   }`}
                 >
@@ -236,7 +236,7 @@ export default function HostChatUI() {
                       </p>
                     </div>
                     {conv.unreadCount > 0 && (
-                      <span className="inline-flex items-center justify-center w-5 h-5 bg-blue-600 text-white text-xs font-bold rounded-full flex-shrink-0">
+                      <span className="inline-flex items-center justify-center w-5 h-5 bg-figma-navy text-white text-xs font-bold rounded-full flex-shrink-0">
                         {conv.unreadCount}
                       </span>
                     )}
@@ -287,14 +287,14 @@ export default function HostChatUI() {
                     <div
                       className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
                         msg.isFromMe
-                          ? 'bg-blue-600 text-white rounded-br-none'
+                          ? 'bg-figma-navy text-white rounded-br-none'
                           : 'bg-gray-200 text-gray-900 rounded-bl-none'
                       }`}
                     >
                       <p className="text-sm break-words">{msg.text}</p>
                       <p
                         className={`text-xs mt-1 ${
-                          msg.isFromMe ? 'text-blue-100' : 'text-gray-600'
+                          msg.isFromMe ? 'text-white/90' : 'text-gray-600'
                         }`}
                       >
                         {msg.timestamp}
@@ -317,12 +317,12 @@ export default function HostChatUI() {
                 onChange={(e) => setMessageText(e.target.value)}
                 placeholder="Type your message..."
                 disabled={sending}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-figma-navy focus:ring-1 focus:ring-figma-navy text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
               />
               <button
                 type="submit"
                 disabled={sending || !messageText.trim()}
-                className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                className="p-2 bg-figma-navy text-white rounded-lg hover:bg-figma-navy/90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
               >
                 <Send className="w-5 h-5" />
               </button>

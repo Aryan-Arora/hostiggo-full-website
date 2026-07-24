@@ -64,7 +64,7 @@ function SidebarContent({
             height={32}
           />
           <span className="text-lg font-extrabold text-gray-900">
-            HOSTI<span className="text-blue-600">GGO</span>
+            HOSTI<span className="text-figma-navy">GGO</span>
           </span>
         </Link>
         <div className="ml-11">
@@ -83,7 +83,7 @@ function SidebarContent({
               aria-current={on ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium',
-                on ? 'bg-blue-600 text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
+                on ? 'bg-figma-navy text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
               )}
             >
               <Icon className="w-5 h-5" />
@@ -96,7 +96,7 @@ function SidebarContent({
         <Link
           href="/"
           onClick={onNavigate}
-          className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 border border-blue-200 rounded-xl mb-3 hover:bg-blue-50 transition-all text-sm font-medium"
+          className="w-full flex items-center gap-3 px-4 py-3 text-figma-navy border border-figma-navy/30 rounded-xl mb-3 hover:bg-figma-navy/5 transition-all text-sm font-medium"
         >
           <ArrowLeftRight className="w-5 h-5" />
           Switch to Guest
@@ -184,7 +184,7 @@ export default function HostDashboardShell({
               height={24}
             />
             <span className="text-lg font-extrabold text-gray-900">
-              HOSTI<span className="text-blue-600">GGO</span>
+              HOSTI<span className="text-figma-navy">GGO</span>
             </span>
           </Link>
         </div>
@@ -192,7 +192,7 @@ export default function HostDashboardShell({
         <div className="flex items-center gap-2 md:gap-3">
           <Link
             href="/host/list/property-type"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-700 transition-all active:scale-[0.99]"
+            className="flex items-center gap-2 bg-figma-navy text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-figma-navy/90 transition-all active:scale-[0.99]"
           >
             <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Create Listing</span>

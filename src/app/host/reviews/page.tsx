@@ -153,7 +153,7 @@ export default function ReviewsPage() {
                     <span className="text-sm text-gray-800 w-12 text-right">{d.label}</span>
                     <div className="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
                       <div
-                        className="h-full bg-blue-600 rounded-full"
+                        className="h-full bg-figma-navy rounded-full"
                         style={{ width: `${d.pct}%` }}
                       />
                     </div>
@@ -174,7 +174,7 @@ export default function ReviewsPage() {
                   className={cn(
                     'px-5 py-2 rounded-xl text-sm whitespace-nowrap transition-all',
                     tab === t
-                      ? 'bg-white shadow-sm font-bold text-blue-600'
+                      ? 'bg-white shadow-sm font-bold text-figma-navy'
                       : 'font-medium text-gray-500 hover:bg-gray-200',
                   )}
                 >
@@ -189,7 +189,7 @@ export default function ReviewsPage() {
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 placeholder="Search by name or content"
-                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full pl-12 pr-4 py-3 bg-white border border-gray-200 rounded-2xl text-sm focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none"
               />
             </div>
           </div>
@@ -223,7 +223,7 @@ export default function ReviewsPage() {
                           <h3 className="text-lg font-bold text-gray-800">{r.reviewerName}</h3>
                           <p className="text-sm text-gray-500">
                             Reviewed {fmtDate(r.reviewedAt)} •{' '}
-                            <span className="font-semibold text-blue-600">{r.listingTitle}</span>
+                            <span className="font-semibold text-figma-navy">{r.listingTitle}</span>
                           </p>
                         </div>
                         <div className="flex flex-col items-end">

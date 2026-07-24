@@ -85,29 +85,29 @@ export default function PhotosPage() {
           }}
           className={cn(
             'border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center bg-white transition-all cursor-pointer min-h-[280px] mb-8 group',
-            dragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30',
+            dragOver ? 'border-figma-navy bg-figma-navy/5' : 'border-gray-300 hover:border-figma-navy/60 hover:bg-figma-navy/3',
             uploading && 'pointer-events-none opacity-70',
           )}
         >
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div className="w-16 h-16 bg-figma-navy/5 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             {uploading ? (
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
             ) : (
-              <ImagePlus className="w-8 h-8 text-blue-600" />
+              <ImagePlus className="w-8 h-8 text-figma-navy" />
             )}
           </div>
           <p className="text-xl font-bold text-gray-800 mb-1">
             {uploading ? 'Uploading…' : 'Drag and drop up to 10 photos'}
           </p>
           <p className="text-sm text-gray-500 mb-6">or click to browse your files</p>
-          <span className="bg-blue-600 text-white px-8 py-3 rounded-full text-sm font-semibold">
+          <span className="bg-figma-navy text-white px-8 py-3 rounded-full text-sm font-semibold">
             Upload from gallery
           </span>
         </div>
 
         {/* Quick links */}
         <div className="flex items-center justify-between mb-6">
-          <span className="flex items-center gap-2 text-blue-600 text-sm font-medium">
+          <span className="flex items-center gap-2 text-figma-navy text-sm font-medium">
             <Lightbulb className="w-5 h-5" />
             Bright, landscape photos work best
           </span>
@@ -132,7 +132,7 @@ export default function PhotosPage() {
                 <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
                 {i === 0 && (
                   <div className="absolute top-3 left-3 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full">
-                    <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Cover</span>
+                    <span className="text-[11px] font-bold text-figma-navy uppercase tracking-wider">Cover</span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">

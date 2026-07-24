@@ -126,7 +126,7 @@ export default function AmenitiesPage() {
             return (
               <section key={cat.title}>
                 <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <CatIcon className="w-5 h-5 text-blue-600" />
+                  <CatIcon className="w-5 h-5 text-figma-navy" />
                   {cat.title}
                 </h2>
                 <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
@@ -140,14 +140,14 @@ export default function AmenitiesPage() {
                         className={cn(
                           'flex flex-col items-center justify-center p-6 bg-white border rounded-xl h-full text-center transition-all hover:-translate-y-0.5',
                           active
-                            ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/40'
+                            ? 'border-figma-navy ring-1 ring-figma-navy bg-figma-navy/4'
                             : 'border-gray-200 hover:border-gray-300',
                         )}
                       >
                         <Icon
                           className={cn(
                             'w-7 h-7 mb-3',
-                            active ? 'text-blue-600' : 'text-gray-500',
+                            active ? 'text-figma-navy' : 'text-gray-500',
                           )}
                         />
                         <span className="text-sm font-medium text-gray-700">
@@ -200,7 +200,7 @@ export default function AmenitiesPage() {
                     [...selected].map((id) => (
                       <span
                         key={id}
-                        className="bg-blue-50 text-blue-700 px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
+                        className="bg-figma-navy/5 text-figma-navy px-3 py-1 rounded-full text-xs font-semibold flex items-center gap-1"
                       >
                         <Check className="w-3 h-3" />
                         {LABELS[id]}
@@ -211,7 +211,7 @@ export default function AmenitiesPage() {
               </div>
               <div className="mt-8 p-4 bg-gray-50 rounded-xl">
                 <div className="flex items-center gap-3">
-                  <Lightbulb className="w-5 h-5 text-blue-600 shrink-0" />
+                  <Lightbulb className="w-5 h-5 text-figma-navy shrink-0" />
                   <p className="text-sm text-gray-700">
                     Guests often search for WiFi, Kitchen, and Free Parking.
                   </p>

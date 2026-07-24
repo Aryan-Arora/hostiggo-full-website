@@ -64,7 +64,7 @@ export default function AddressSearch({
 
   return (
     <div className="relative w-full">
-      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-card transition-all hover:border-blue-300">
+      <div className="bg-white p-4 rounded-2xl border border-gray-200 shadow-card transition-all hover:border-figma-navy/40">
         <label
           htmlFor="address-search"
           className="text-xs font-semibold text-gray-500 block mb-2 px-1 uppercase tracking-wider"
@@ -80,7 +80,7 @@ export default function AddressSearch({
             onChange={(e) => setQuery(e.target.value)}
             onFocus={() => suggestions.length > 0 && setShowSuggestions(true)}
             placeholder={placeholder}
-            className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+            className="w-full pl-10 pr-10 py-3 bg-white border border-gray-200 rounded-xl text-sm focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none"
           />
           {query && (
             <button
@@ -123,7 +123,7 @@ export default function AddressSearch({
       {/* Loading state */}
       {loading && query.length >= 3 && (
         <div className="absolute top-full left-0 right-0 mt-2 bg-white border border-gray-200 rounded-xl shadow-lg z-50 px-4 py-3 flex items-center gap-2">
-          <Loader2 className="w-4 h-4 text-blue-500 animate-spin" />
+          <Loader2 className="w-4 h-4 text-figma-accent animate-spin" />
           <span className="text-sm text-gray-500">Searching addresses...</span>
         </div>
       )}

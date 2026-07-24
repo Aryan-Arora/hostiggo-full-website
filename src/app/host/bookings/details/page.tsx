@@ -177,14 +177,14 @@ function DetailsInner() {
         {error === 'missing' ? (
           <Link
             href="/host/bookings"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             Back to bookings
           </Link>
         ) : (
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
@@ -199,7 +199,7 @@ function DetailsInner() {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <nav className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-            <Link href="/host/bookings" className="hover:text-blue-600">
+            <Link href="/host/bookings" className="hover:text-figma-navy">
               Reservations
             </Link>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -250,7 +250,7 @@ function DetailsInner() {
                   className="w-32 h-32 rounded-3xl object-cover shadow ring-4 ring-gray-100"
                 />
                 {view.guestVerified && (
-                  <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-full border-4 border-white">
+                  <div className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-1.5 rounded-full border-4 border-white">
                     <BadgeCheck className="w-4 h-4" />
                   </div>
                 )}
@@ -266,7 +266,7 @@ function DetailsInner() {
                     </div>
                   </div>
                   {view.guestVerified && (
-                    <span className="px-3 py-1 bg-gray-100 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                    <span className="px-3 py-1 bg-gray-100 text-figma-navy rounded-full text-xs font-bold uppercase tracking-wider">
                       ID Verified
                     </span>
                   )}
@@ -275,7 +275,7 @@ function DetailsInner() {
                   <button
                     disabled
                     title="Messaging coming soon"
-                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600/60 text-white rounded-xl font-bold cursor-not-allowed"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-figma-navy/60 text-white rounded-xl font-bold cursor-not-allowed"
                   >
                     <MessageSquare className="w-5 h-5" /> Contact Guest
                   </button>
@@ -286,7 +286,7 @@ function DetailsInner() {
 
           {/* Timeline */}
           <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-            <h3 className="text-lg font-bold text-blue-600 mb-8">Booking Timeline</h3>
+            <h3 className="text-lg font-bold text-figma-navy mb-8">Booking Timeline</h3>
             <div className="relative flex flex-col md:flex-row justify-between gap-8">
               <div className="hidden md:block absolute top-4 left-0 w-full h-0.5 bg-gray-200 z-0" />
               {view.timeline.map((t) => {
@@ -302,7 +302,7 @@ function DetailsInner() {
                     <div
                       className={cn(
                         'w-8 h-8 rounded-full flex items-center justify-center shadow-md',
-                        t.state === 'future' ? 'bg-gray-200 text-gray-500' : 'bg-blue-600 text-white',
+                        t.state === 'future' ? 'bg-gray-200 text-gray-500' : 'bg-figma-navy text-white',
                         t.state === 'active' && 'animate-pulse',
                       )}
                     >
@@ -312,7 +312,7 @@ function DetailsInner() {
                       <p
                         className={cn(
                           'text-sm font-bold',
-                          t.state === 'active' ? 'text-blue-600' : 'text-gray-800',
+                          t.state === 'active' ? 'text-figma-navy' : 'text-gray-800',
                         )}
                       >
                         {t.label}
@@ -329,7 +329,7 @@ function DetailsInner() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
               <div className="flex items-center gap-3 mb-6">
-                <CalendarDays className="w-5 h-5 text-blue-600" />
+                <CalendarDays className="w-5 h-5 text-figma-navy" />
                 <h3 className="text-base font-bold text-gray-800">Stay Details</h3>
               </div>
               <div className="space-y-1">
@@ -355,7 +355,7 @@ function DetailsInner() {
 
             <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
               <div className="flex items-center gap-3 mb-6">
-                <Building2 className="w-5 h-5 text-blue-600" />
+                <Building2 className="w-5 h-5 text-figma-navy" />
                 <h3 className="text-base font-bold text-gray-800">Property</h3>
               </div>
               <div className="flex gap-4 items-center mb-6">
@@ -385,8 +385,8 @@ function DetailsInner() {
                 href="/host/listings/manage"
                 className="bg-gray-50 p-4 rounded-xl flex items-center justify-between hover:bg-gray-100 transition-colors"
               >
-                <span className="text-xs font-bold text-blue-600">MANAGE LISTING</span>
-                <ExternalLink className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-figma-navy">MANAGE LISTING</span>
+                <ExternalLink className="w-4 h-4 text-figma-navy" />
               </Link>
             </section>
           </div>
@@ -395,7 +395,7 @@ function DetailsInner() {
         {/* Right: payment summary */}
         <aside className="lg:col-span-4">
           <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-            <h3 className="text-lg font-bold text-blue-600 mb-6">Payment Summary</h3>
+            <h3 className="text-lg font-bold text-figma-navy mb-6">Payment Summary</h3>
             <div className="space-y-4 mb-6">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">
@@ -406,7 +406,7 @@ function DetailsInner() {
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-gray-200 mb-6">
               <span className="font-bold text-gray-800">Total payout</span>
-              <span className="text-xl font-bold text-blue-600">{inr(view.payoutAmount)}</span>
+              <span className="text-xl font-bold text-figma-navy">{inr(view.payoutAmount)}</span>
             </div>
             {!view.cancelled && (
               <Link

@@ -87,7 +87,7 @@ export default function AddonsPage() {
             {Object.entries(grouped).map(([category, items]) => (
               <section key={category}>
                 <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Sparkles className="w-5 h-5 text-blue-600" />
+                  <Sparkles className="w-5 h-5 text-figma-navy" />
                   {category}
                 </h2>
                 <div className="space-y-3">
@@ -99,7 +99,7 @@ export default function AddonsPage() {
                         className={cn(
                           'bg-white border rounded-xl p-4 transition-all',
                           active
-                            ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/40'
+                            ? 'border-figma-navy ring-1 ring-figma-navy bg-figma-navy/4'
                             : 'border-gray-200',
                         )}
                       >
@@ -115,7 +115,7 @@ export default function AddonsPage() {
                             className={cn(
                               'w-6 h-6 rounded-full border flex items-center justify-center transition-colors shrink-0',
                               active
-                                ? 'bg-blue-600 border-blue-600 text-white'
+                                ? 'bg-figma-navy border-figma-navy text-white'
                                 : 'border-gray-300',
                             )}
                           >

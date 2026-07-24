@@ -20,11 +20,11 @@ export default function VerificationPage() {
       {/* Trust chips */}
       <div className="flex flex-wrap gap-4 mb-10 justify-center">
         <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-          <ShieldCheck className="w-5 h-5 text-blue-600" />
+          <ShieldCheck className="w-5 h-5 text-figma-navy" />
           <span className="text-sm font-medium text-gray-800">Identity Secured</span>
         </div>
         <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-          <Eye className="w-5 h-5 text-blue-600" />
+          <Eye className="w-5 h-5 text-figma-navy" />
           <span className="text-sm font-medium text-gray-800">Property Verified</span>
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function VerificationPage() {
             <div className="space-y-8">
               {STEPS.map((s) => (
                 <div key={s.n} className="flex gap-6 group">
-                  <span className="shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <span className="shrink-0 w-10 h-10 rounded-full bg-figma-navy text-white font-bold flex items-center justify-center group-hover:scale-110 transition-transform">
                     {s.n}
                   </span>
                   <div>
@@ -76,9 +76,9 @@ export default function VerificationPage() {
               }}
             />
             <div className="relative z-10 space-y-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm inline-block border-4 border-blue-50">
+              <div className="bg-white p-6 rounded-3xl shadow-sm inline-block border-4 border-figma-navy/10">
                 <div className="w-44 h-44 flex items-center justify-center bg-gray-100 rounded-lg">
-                  <QrCode className="w-28 h-28 text-blue-600" strokeWidth={1.5} />
+                  <QrCode className="w-28 h-28 text-figma-navy" strokeWidth={1.5} />
                 </div>
               </div>
               <div className="space-y-2">

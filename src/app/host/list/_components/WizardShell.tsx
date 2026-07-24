@@ -52,7 +52,7 @@ export default function WizardShell({
           href="/"
           className="text-xl font-extrabold tracking-tight text-gray-900"
         >
-          HOSTI<span className="text-blue-600">GGO</span>
+          HOSTI<span className="text-figma-navy">GGO</span>
         </Link>
         <div className="flex items-center gap-3">
           <Link
@@ -63,7 +63,7 @@ export default function WizardShell({
           </Link>
           <Link
             href="/support"
-            className="text-blue-600 hover:bg-blue-50 transition-colors p-2 rounded-full"
+            className="text-figma-navy hover:bg-figma-navy/5 transition-colors p-2 rounded-full"
             aria-label="Help"
           >
             <HelpCircle className="w-5 h-5" />
@@ -74,7 +74,7 @@ export default function WizardShell({
       {/* Progress bar */}
       <div className="fixed top-20 left-0 w-full h-1 bg-gray-200 z-40">
         <div
-          className="h-full bg-blue-600 transition-all duration-500"
+          className="h-full bg-figma-navy transition-all duration-500"
           style={{ width: `${progress}%` }}
         />
         <span className="sr-only">
@@ -86,7 +86,7 @@ export default function WizardShell({
       <main className="flex-grow pt-32 pb-32 px-4 md:px-12 w-full">
         <div className="max-w-5xl mx-auto">
           <div className="mb-8">
-            <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-2">
+            <p className="text-xs font-semibold uppercase tracking-wider text-figma-navy mb-2">
               Step {step} of {WIZARD_TOTAL}
             </p>
             <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-2">
@@ -130,7 +130,7 @@ export default function WizardShell({
               'rounded-xl px-10 py-3 text-sm font-bold text-white transition-all active:scale-95 shadow-md flex items-center gap-2',
               nextDisabled || submitting
                 ? 'bg-gray-300 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700',
+                : 'bg-figma-navy hover:bg-figma-navy/90',
             )}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
@@ -161,7 +161,7 @@ export function OptionCard({
       className={cn(
         'text-left bg-white border rounded-2xl p-5 transition-all shadow-card hover:-translate-y-0.5',
         selected
-          ? 'border-blue-600 ring-1 ring-blue-600 bg-blue-50/40'
+          ? 'border-figma-navy ring-1 ring-figma-navy bg-figma-navy/4'
           : 'border-gray-200 hover:border-gray-300',
         className,
       )}

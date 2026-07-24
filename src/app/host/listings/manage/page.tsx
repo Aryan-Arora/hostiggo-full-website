@@ -231,7 +231,7 @@ export default function ManageListingPage() {
     return (
       <HostDashboardShell active="listings">
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-figma-navy" />
         </div>
       </HostDashboardShell>
     );
@@ -242,7 +242,7 @@ export default function ManageListingPage() {
       <HostDashboardShell active="listings">
         <div className="text-center py-20">
           <p className="text-gray-500 mb-4">Listing not found</p>
-          <Link href="/host/listings" className="text-blue-600 hover:underline">
+          <Link href="/host/listings" className="text-figma-navy hover:underline">
             Back to Listings
           </Link>
         </div>
@@ -281,7 +281,7 @@ export default function ManageListingPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-6 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2"
+              className="px-6 py-2.5 bg-figma-navy text-white rounded-lg font-semibold hover:bg-figma-navy/90 disabled:opacity-60 flex items-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {saving ? 'Saving...' : 'Save'}
@@ -316,13 +316,13 @@ export default function ManageListingPage() {
                 <div className="flex items-center justify-between pt-2 border-t border-gray-200">
                   <div>
                     <p className="text-xs text-gray-600">Base Price</p>
-                    <p className="text-base font-bold text-blue-600">
+                    <p className="text-base font-bold text-figma-navy">
                       ₹{formData?.price_weekday?.toLocaleString()}
                     </p>
                   </div>
                   <div>
                     <p className="text-xs text-gray-600">Weekend</p>
-                    <p className="text-base font-bold text-blue-600">
+                    <p className="text-base font-bold text-figma-navy">
                       ₹{formData?.price_weekend?.toLocaleString()}
                     </p>
                   </div>
@@ -339,18 +339,18 @@ export default function ManageListingPage() {
                   className={cn(
                     'w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-left',
                     activeSection === section.id
-                      ? 'bg-blue-100 text-blue-900'
+                      ? 'bg-figma-navy/10 text-figma-navy'
                       : 'text-gray-700 hover:bg-gray-100'
                   )}
                 >
                   <div className="flex items-center gap-3 flex-1">
-                    <span className={activeSection === section.id ? 'text-blue-600' : 'text-gray-500'}>
+                    <span className={activeSection === section.id ? 'text-figma-navy' : 'text-gray-500'}>
                       {section.icon}
                     </span>
                     <span className="font-medium text-sm">{section.label}</span>
                   </div>
                   {activeSection === section.id && (
-                    <ChevronRight className="w-4 h-4 text-blue-600" />
+                    <ChevronRight className="w-4 h-4 text-figma-navy" />
                   )}
                 </button>
               ))}
@@ -423,7 +423,7 @@ function SectionRenderer({
   selectedLocation: any;
   listingId: number;
 }) {
-  const inputClasses = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-base';
+  const inputClasses = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-figma-navy outline-none text-base';
   const labelClasses = 'block text-sm font-semibold text-gray-700 mb-2';
 
   const sectionConfig: Record<SectionType, { title: string; description: string }> = {
@@ -590,9 +590,9 @@ function SectionRenderer({
 
             {selectedLocation && (
               <>
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-semibold text-blue-900 mb-2">📍 Selected Location</p>
-                  <div className="space-y-1 text-sm text-blue-800">
+                <div className="p-4 bg-figma-navy/5 rounded-lg border border-figma-navy/30">
+                  <p className="text-sm font-semibold text-figma-navy mb-2">📍 Selected Location</p>
+                  <div className="space-y-1 text-sm text-figma-navy">
                     <p><strong>State:</strong> {selectedLocation.state}</p>
                     <p><strong>District:</strong> {selectedLocation.district}</p>
                     <p><strong>Area:</strong> {selectedLocation.lower_division_name}</p>
