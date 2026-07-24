@@ -1,8 +1,8 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { calculateBookingInvoice } from "./invoice";
 import { calculateRefund } from "./refund";
 import { createRazorpayRefund } from "./razorpay";
+import { reconstructInvoice } from "./reconstructInvoice";
 import type { CancellationPolicyConfig, CancellationPolicyType } from "./types";
 
 const CONFIRMED_STATUS_ID = 2;
@@ -60,14 +60,14 @@ export async function previewCancellationRefund(params: {
 
   const { data: bookingRaw, error: bookingErr } = await supabaseAdmin
     .from("bookings")
-    .select("booking_id, listing_id, user_id, start_date, status_id")
+    .select("booking_id, listing_id, user_id, start_date, end_date, status_id")
     .eq("booking_id", bookingId)
     .maybeSingle();
   if (bookingErr) throw bookingErr;
   if (!bookingRaw) throw new CancellationValidationError("Booking not found.");
   const booking = bookingRaw as unknown as Pick<
     BookingRow,
-    "booking_id" | "listing_id" | "user_id" | "start_date" | "status_id"
+    "booking_id" | "listing_id" | "user_id" | "start_date" | "end_date" | "status_id"
   >;
   if (booking.user_id !== requestingUserId) {
     throw new CancellationValidationError("You don't have permission to view this booking.");
@@ -78,14 +78,16 @@ export async function previewCancellationRefund(params: {
 
   const { data: listing, error: listingErr } = await supabaseAdmin
     .from("listings")
-    .select("price_weekday, cancellation_policy")
+    .select("price_weekday, price_weekend, cancellation_policy")
     .eq("listing_id", booking.listing_id)
     .maybeSingle();
   if (listingErr) throw listingErr;
   if (!listing) throw new CancellationValidationError("Listing not found.");
 
   const policy = (listing.cancellation_policy ?? "moderate") as CancellationPolicyType;
-  const invoice = calculateBookingInvoice({ basePropertyPrice: Number(listing.price_weekday ?? 0) });
+  const priceWeekday = Number(listing.price_weekday ?? 0);
+  const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
+  const { invoice } = reconstructInvoice(booking.start_date, booking.end_date, priceWeekday, priceWeekend);
   const refundCalc = calculateRefund({
     invoice,
     checkIn: new Date(booking.start_date + "T00:00:00Z"),
@@ -172,15 +174,21 @@ export async function cancelBookingWithRefund(params: {
     if (!listing) throw new CancellationValidationError("Listing not found.");
 
     const policy = (listing.cancellation_policy ?? "moderate") as CancellationPolicyType;
+    const priceWeekday = Number(listing.price_weekday ?? 0);
+    const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
 
-    // Rebuild the invoice from the booking's stored amount context. This
-    // assumes `amount` was originally computed via calculateBookingInvoice
-    // (or an equivalent), and recomputes the same breakdown from the
-    // listing's base price so the refund calc has real GST/service-fee
-    // line items to exclude for Moderate partial refunds -- add-ons are
-    // intentionally not itemized here per spec 4.3 (single final amount,
-    // no per-line-item cancellation).
-    const invoice = calculateBookingInvoice({ basePropertyPrice: Number(listing.price_weekday ?? 0) });
+    // Rebuild the invoice the same way createBooking() did at booking time
+    // -- weekend nights at price_weekend, the check-in night's own rate
+    // deciding the GST slab -- so the refund calc has the real subtotal and
+    // real GST/service-fee line items to exclude, not a flat-rate stand-in.
+    // Add-ons are intentionally not itemized here per spec 4.3 (single
+    // final amount, no per-line-item cancellation).
+    const { nights, invoice } = reconstructInvoice(
+      booking.start_date,
+      booking.end_date,
+      priceWeekday,
+      priceWeekend,
+    );
 
     const policyConfig: CancellationPolicyConfig = { policy };
     const refundCalc = calculateRefund({
@@ -272,13 +280,6 @@ export async function cancelBookingWithRefund(params: {
     if (updateErr) throw updateErr;
 
     // Free the calendar nights this booking held.
-    const nights: string[] = [];
-    const cur = new Date(booking.start_date + "T00:00:00Z");
-    const end = new Date(booking.end_date + "T00:00:00Z");
-    while (cur < end) {
-      nights.push(cur.toISOString().slice(0, 10));
-      cur.setUTCDate(cur.getUTCDate() + 1);
-    }
     if (nights.length) {
       await supabaseAdmin
         .from("listing_calendar")
