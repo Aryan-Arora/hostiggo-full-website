@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HotelServiceApi } from "@/lib/services/hotel";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { SCHEMA } from "@/lib/schema.constants";
+
+const DB_SCHEMA = SCHEMA.testingSchema;
 
 export const dynamic = "force-dynamic";
 
@@ -39,6 +42,7 @@ export async function POST(req: NextRequest) {
 
       // Listings with at least one blocked calendar day in the range.
       const { data: blockedRows, error: blockedErr } = await supabaseAdmin
+        .schema(DB_SCHEMA)
         .from("listing_calendar")
         .select("listing_id")
         .in("listing_id", listingIds)
@@ -49,6 +53,7 @@ export async function POST(req: NextRequest) {
 
       // Listings with a confirmed booking that overlaps the range.
       const { data: bookedRows, error: bookedErr } = await supabaseAdmin
+        .schema(DB_SCHEMA)
         .from("bookings")
         .select("listing_id")
         .in("listing_id", listingIds)

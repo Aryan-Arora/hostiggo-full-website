@@ -1,4 +1,7 @@
 import { supabaseAdmin } from "../supabase-admin";
+import { SCHEMA } from "../schema.constants";
+
+const DB_SCHEMA = SCHEMA.testingSchema;
 
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
@@ -163,6 +166,7 @@ export async function createBooking(input: {
 
   // Check A: blocked calendar days in the requested range.
   const { data: blocked, error: blockedErr } = await supabaseAdmin
+    .schema(DB_SCHEMA)
     .from("listing_calendar")
     .select("date")
     .eq("listing_id", input.listingId)
@@ -175,6 +179,7 @@ export async function createBooking(input: {
 
   // Check B: overlapping confirmed bookings for the same listing.
   const { data: conflicts, error: conflictsErr } = await supabaseAdmin
+    .schema(DB_SCHEMA)
     .from("bookings")
     .select("booking_id")
     .eq("listing_id", input.listingId)

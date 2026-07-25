@@ -376,22 +376,58 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action: "send", phone: normalizePhone(phone) }),
     }),
-  sendEmailOtp: (email: string) =>
-    request<any>("/api/auth/otp", {
-      method: "POST",
-      body: JSON.stringify({ action: "send", email: normalizeEmail(email) }),
-    }),
-  verifyOtp: (params: { phone?: string; email?: string; token: string }) =>
-    request<any>("/api/auth/otp", {
+  sendEmailOtp: async (email: string) => {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email: normalizeEmail(email),
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo:
+          typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+      },
+    });
+    if (error) throw error;
+    return data;
+  },
+  verifyOtp: async (params: { phone?: string; email?: string; token: string }) => {
+    if (params.email) {
+      const email = normalizeEmail(params.email);
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: params.token,
+        type: "email",
+      });
+      if (error) throw error;
+
+      const user = data.user;
+      if (!user) return data;
+
+      const profile = await request<CurrentUser>("/api/users", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || "",
+          email: user.email || user.user_metadata?.email || email,
+          phone: user.phone || null,
+          age: user.user_metadata?.age || null,
+          emergency_contact: user.user_metadata?.emergency_contact || null,
+          is_verified: true,
+          is_active: true,
+        }),
+      });
+
+      return { user, session: data.session, profile };
+    }
+
+    return request<any>("/api/auth/otp", {
       method: "POST",
       body: JSON.stringify({
         action: "verify",
         ...(params.phone ? { phone: normalizePhone(params.phone) } : {}),
-        ...(params.email ? { email: normalizeEmail(params.email) } : {}),
         token: params.token,
-        type: params.email ? "email" : "sms",
+        type: "sms",
       }),
-    }),
+    });
+  },
   addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<any>("/api/wishlist", {
       method: "POST",
