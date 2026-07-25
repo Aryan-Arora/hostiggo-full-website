@@ -1712,7 +1712,7 @@ export default function PropertyDetailsPage() {
         {/* ── Main grid ── */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* ══ LEFT COLUMN ══ */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 w-full space-y-4">
             {/* ── 2. PROPERTY OVERVIEW ── */}
             <div
               className="bg-white rounded-2xl p-5"
