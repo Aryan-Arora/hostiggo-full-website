@@ -972,7 +972,7 @@ function BookingWidget({
     }
     setStatus('booking');
     try {
-      await api.createBooking({
+      const created = await api.createBooking({
         listingId: property.id,
         userId,
         startDate: toISODate(checkIn)!,
@@ -982,7 +982,10 @@ function BookingWidget({
         addonIds: selectedAddonIds,
       });
       setStatus('confirmed');
-      toast.success('Booking confirmed! See it in your bookings.');
+      toast.success('Booking confirmed!');
+      if (created?.booking_id) {
+        router.push(`/booking-confirmation/${created.booking_id}`);
+      }
     } catch (err) {
       console.error('[property] booking failed:', err);
       toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');

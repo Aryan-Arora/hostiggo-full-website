@@ -166,6 +166,7 @@ export const bookingsAPI = {
           listing_id,
           title,
           price_weekday,
+          price_weekend,
           currency,
           num_bedrooms,
           num_beds,
