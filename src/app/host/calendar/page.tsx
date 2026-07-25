@@ -297,13 +297,13 @@ export default function CalendarPage() {
               </h2>
               <p className="text-sm text-gray-500">Availability and nightly rates.</p>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               {/* Listing picker */}
               <select
                 value={listingId}
                 onChange={(e) => setListingId(e.target.value)}
                 disabled={loadingListings || !listings.length}
-                className="max-w-[220px] px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none"
+                className="max-w-[220px] w-full sm:w-auto px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none"
                 aria-label="Select listing"
               >
                 {loadingListings ? (

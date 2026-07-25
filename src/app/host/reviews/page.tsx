@@ -166,7 +166,7 @@ export default function ReviewsPage() {
 
           {/* Controls */}
           <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 border-b border-gray-200 pb-4 mb-6">
-            <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl w-fit overflow-x-auto">
+            <div className="flex gap-2 p-1 bg-gray-100 rounded-2xl w-full lg:w-fit overflow-x-auto scrollbar-hide">
               {TABS.map((t) => (
                 <button
                   key={t}

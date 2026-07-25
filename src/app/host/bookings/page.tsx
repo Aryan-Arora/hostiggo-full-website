@@ -110,13 +110,13 @@ export default function BookingsPage() {
       />
 
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-8">
+      <div className="flex border-b border-gray-200 mb-8 overflow-x-auto scrollbar-hide">
         {TABS.map((t) => (
           <button
             key={t.key}
             onClick={() => setTab(t.key)}
             className={cn(
-              'px-6 py-4 text-sm border-b-2 -mb-px transition-all',
+              'flex-shrink-0 px-6 py-4 text-sm border-b-2 -mb-px transition-all',
               tab === t.key
                 ? 'font-bold text-figma-navy border-figma-navy'
                 : 'font-medium text-gray-500 border-transparent hover:text-figma-navy',

@@ -71,7 +71,7 @@ export default function HeroSection() {
 
   return (
     <section className="bg-gray-50/50 pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
-      <div className="container-main">
+      <div className="container-main w-full min-w-0">
         {/* Main white wrapper matching the screenshot's unified container */}
         <div className="bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-2 sm:p-3 lg:p-4">
           <div className="flex flex-col lg:flex-row gap-8 lg:gap-14 items-center">
