@@ -51,9 +51,9 @@ export function CompactSearchBar() {
   };
 
   return (
-    <div ref={wrapRef} className="flex items-center gap-3 w-full">
+    <div ref={wrapRef} className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
       {/* Destination Pill */}
-      <div className="relative flex-[1.2] min-w-0">
+      <div className="relative w-full sm:flex-[1.2] min-w-0">
         <button
           onClick={() => toggle('destination')}
           className={cn(
@@ -113,7 +113,7 @@ export function CompactSearchBar() {
       </div>
 
       {/* Date Pill */}
-      <div className="relative flex-[1.5] min-w-0">
+      <div className="relative w-full sm:flex-[1.5] min-w-0">
         <button
           onClick={() => toggle('date')}
           className={cn(
@@ -199,7 +199,7 @@ export function CompactSearchBar() {
       </div>
 
       {/* Guests Pill */}
-      <div className="relative flex-[1.3] min-w-0">
+      <div className="relative w-full sm:flex-[1.3] min-w-0">
         <button
           onClick={() => toggle('guests')}
           className={cn(
@@ -247,7 +247,7 @@ export function CompactSearchBar() {
       {/* Search Button */}
       <button
         onClick={handleSearch}
-        className="h-[52px] px-8 bg-primary-gradient border-2 border-white/20 text-white font-bold text-[15px] rounded-full transition-all shadow-md active:scale-95 flex-shrink-0"
+        className="h-[52px] px-8 w-full sm:w-auto bg-primary-gradient border-2 border-white/20 text-white font-bold text-[15px] rounded-full transition-all shadow-md active:scale-95 sm:flex-shrink-0"
       >
         Search
       </button>
