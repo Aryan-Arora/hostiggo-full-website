@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import Image from 'next/image';
 import DateRangePicker from '@/components/features/DateRangePicker';
 import {
   Star,
@@ -32,6 +33,7 @@ import {
   ExternalLink,
   Grid3x3,
   Filter,
+  AlertTriangle,
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -39,7 +41,10 @@ import { cn, toISODate } from '@/lib/utils';
 import type { Property, AmenityItem, Review, Host } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
+import { useWishlist } from '@/hooks/useWishlist';
 import { toast } from 'sonner';
+import { calculateBookingInvoice } from '@/lib/billing/invoice';
+import { CANCELLATION_POLICY_DEFAULTS } from '@/lib/billing/refund';
 
 const FALLBACK =
   'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
@@ -210,11 +215,13 @@ function ImageGallery({
             className="row-span-2 relative overflow-hidden cursor-pointer group"
             onClick={() => open(0)}
           >
-            <img
+            <Image
               src={imgs[0]}
               alt={`${propertyName} main`}
-              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-              loading="eager"
+              fill
+              sizes="(max-width: 768px) 100vw, 50vw"
+              priority
+              className="object-cover group-hover:scale-105 transition-transform duration-500"
             />
             <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
           </div>
@@ -230,11 +237,12 @@ function ImageGallery({
                 )}
                 onClick={() => open(i + 1)}
               >
-                <img
+                <Image
                   src={src}
                   alt={`${propertyName} ${i + 2}`}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                  loading="lazy"
+                  fill
+                  sizes="25vw"
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
                 />
                 <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
                 {/* "Show all" on last tile */}
@@ -369,10 +377,10 @@ function PropertyMap({ property }: { property: Property }) {
       >
         <div ref={mapRef} className="w-full h-full" />
         {!loaded && (
-          <div className="absolute inset-0 bg-blue-50 flex items-center justify-center">
+          <div className="absolute inset-0 bg-figma-navy/5 flex items-center justify-center">
             <div className="text-center">
-              <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-              <p className="text-[12px] text-blue-500 font-medium">
+              <div className="w-7 h-7 border-2 border-figma-navy/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+              <p className="text-[12px] text-figma-navy font-medium">
                 Loading map…
               </p>
             </div>
@@ -383,7 +391,7 @@ function PropertyMap({ property }: { property: Property }) {
         href={`https://www.openstreetmap.org/?mlat=${center.lat}&mlon=${center.lng}&zoom=14`}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1.5 text-[12px] text-blue-600 hover:text-blue-700 font-semibold transition-colors"
+        className="inline-flex items-center gap-1.5 text-[12px] text-figma-navy hover:text-figma-navy/90 font-semibold transition-colors"
       >
         <ExternalLink className="w-3.5 h-3.5" />
         View on OpenStreetMap
@@ -436,7 +444,7 @@ function ReviewCard({ review }: { review: Review }) {
       {isLong && (
         <button
           onClick={() => setExpanded((v) => !v)}
-          className="text-[12px] text-gray-800 font-bold underline mt-1 hover:text-blue-600 transition-colors"
+          className="text-[12px] text-gray-800 font-bold underline mt-1 hover:text-figma-navy transition-colors"
         >
           {expanded ? 'Show less' : 'Read more'}
         </button>
@@ -460,7 +468,7 @@ function WriteReview({ listingId }: { listingId: string }) {
         <p className="text-[13px] text-gray-500">
           <button
             onClick={() => router.push(`/signin?redirect=/property/${listingId}`)}
-            className="text-blue-600 font-bold hover:underline"
+            className="text-figma-navy font-bold hover:underline"
           >
             Sign in
           </button>{' '}
@@ -527,13 +535,13 @@ function WriteReview({ listingId }: { listingId: string }) {
         value={comment}
         onChange={(e) => setComment(e.target.value)}
         placeholder="Share a few words about your stay (optional)…"
-        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-[13px] resize-none"
+        className="w-full p-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-[13px] resize-none"
       />
       <div className="flex justify-end mt-2">
         <button
           onClick={submit}
           disabled={submitting}
-          className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold text-[13px] hover:bg-blue-700 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+          className="px-6 py-2.5 bg-figma-navy text-white rounded-xl font-bold text-[13px] hover:bg-figma-navy/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
           {submitting ? 'Submitting…' : 'Submit review'}
         </button>
@@ -613,30 +621,36 @@ function HostCard({ host }: { host: Host }) {
         </p>
       )}
 
-      <div className="grid grid-cols-2 gap-3 mt-4">
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Shield className="w-3.5 h-3.5 text-emerald-600" />
-            <span className="text-[11px] font-bold text-gray-600">
-              Response rate
-            </span>
-          </div>
-          <p className="text-[14px] font-extrabold text-gray-800">
-            {host.responseRate}%
-          </p>
+      {(host.responseRate != null || host.responseTime) && (
+        <div className="grid grid-cols-2 gap-3 mt-4">
+          {host.responseRate != null && (
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Shield className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="text-[11px] font-bold text-gray-600">
+                  Response rate
+                </span>
+              </div>
+              <p className="text-[14px] font-extrabold text-gray-800">
+                {host.responseRate}%
+              </p>
+            </div>
+          )}
+          {host.responseTime && (
+            <div className="bg-gray-50 rounded-xl p-3">
+              <div className="flex items-center gap-1.5 mb-0.5">
+                <Clock className="w-3.5 h-3.5 text-figma-navy" />
+                <span className="text-[11px] font-bold text-gray-600">
+                  Response time
+                </span>
+              </div>
+              <p className="text-[13px] font-bold text-gray-800 capitalize">
+                {host.responseTime}
+              </p>
+            </div>
+          )}
         </div>
-        <div className="bg-gray-50 rounded-xl p-3">
-          <div className="flex items-center gap-1.5 mb-0.5">
-            <Clock className="w-3.5 h-3.5 text-blue-600" />
-            <span className="text-[11px] font-bold text-gray-600">
-              Response time
-            </span>
-          </div>
-          <p className="text-[13px] font-bold text-gray-800 capitalize">
-            {host.responseTime}
-          </p>
-        </div>
-      </div>
+      )}
 
       <div className="flex gap-2 mt-4">
         <button
@@ -647,8 +661,9 @@ function HostCard({ host }: { host: Host }) {
           Message Host
         </button>
         <button
-          onClick={() => alert('Host profile coming soon!')}
-          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-800 hover:bg-gray-900 text-white py-2.5 rounded-xl text-[13px] font-bold transition-colors"
+          disabled
+          title="Coming soon"
+          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-200 text-gray-400 py-2.5 rounded-xl text-[13px] font-bold cursor-not-allowed"
         >
           <ExternalLink className="w-4 h-4" />
           View Profile
@@ -720,11 +735,12 @@ function SuggestedStays({ current }: { current: Property }) {
             }}
           >
             <div className="relative h-28 overflow-hidden">
-              <img
+              <Image
                 src={p.images[0] || FALLBACK}
                 alt={p.propertyName}
-                className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-400"
-                loading="lazy"
+                fill
+                sizes="200px"
+                className="object-cover group-hover:scale-105 transition-transform duration-400"
               />
               {p.originalPrice && (
                 <span className="absolute top-2 left-2 bg-red-500 text-white text-[9px] font-bold px-1.5 py-0.5 rounded-full">
@@ -737,7 +753,7 @@ function SuggestedStays({ current }: { current: Property }) {
               )}
             </div>
             <div className="p-2.5">
-              <span className="text-[9px] font-bold text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded-full">
+              <span className="text-[9px] font-bold text-figma-navy bg-figma-navy/5 px-1.5 py-0.5 rounded-full">
                 {p.propertyType}
               </span>
               <p className="text-[11px] font-bold text-gray-800 mt-1 line-clamp-1">
@@ -754,7 +770,7 @@ function SuggestedStays({ current }: { current: Property }) {
                   </span>
                 </div>
                 <div>
-                  <span className="text-[12px] font-extrabold text-blue-700">
+                  <span className="text-[12px] font-extrabold text-figma-navy/90">
                     ₹{Math.round(p.price / 1000)}k
                   </span>
                   <span className="text-[9px] text-gray-400">/night</span>
@@ -773,10 +789,12 @@ function BookingWidget({
   property,
   onNightsChange,
   onGuestsChange,
+  selectedAddonIds,
 }: {
   property: Property;
   onNightsChange?: (n: number) => void;
   onGuestsChange?: (g: number) => void;
+  selectedAddonIds: number[];
 }) {
   const searchParams = useSearchParams();
   const { isAuthenticated, userId } = useAuth();
@@ -791,12 +809,73 @@ function BookingWidget({
   const [checkOut, setCheckOut] = useState<Date | null>(toDate(paramCheckOut));
   const [guests, setGuests] = useState(1);
   const [showPicker, setShowPicker] = useState(false);
+  const pickerRef = useRef<HTMLDivElement>(null);
+  const [blockedDates, setBlockedDates] = useState<Set<string>>(new Set());
+
+  // Fetch booked/unavailable dates so the calendar can grey them out up
+  // front, instead of only telling the guest after they pick a range and
+  // hit "Reserve".
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const start = new Date();
+      const end = new Date();
+      end.setMonth(end.getMonth() + 12);
+      try {
+        const res = await fetch(
+          `/api/calendar?listingId=${property.id}&startDate=${toISODate(start)}&endDate=${toISODate(end)}`
+        );
+        const json = await res.json();
+        if (cancelled || !res.ok) return;
+        const blocked = new Set<string>();
+        for (const entry of json.data?.entries ?? []) {
+          if (entry.is_available === false) blocked.add(entry.date);
+        }
+        for (const b of json.data?.bookings ?? []) {
+          if (b.status_id !== 2) continue;
+          const cur = new Date(b.start_date + 'T00:00:00');
+          const bookingEnd = new Date(b.end_date + 'T00:00:00');
+          while (cur < bookingEnd) {
+            blocked.add(toISODate(cur)!);
+            cur.setDate(cur.getDate() + 1);
+          }
+        }
+        setBlockedDates(blocked);
+      } catch {
+        /* non-critical: calendar just won't grey out booked dates */
+      }
+    };
+    load();
+    return () => { cancelled = true; };
+  }, [property.id]);
+
+  // The booking card is `sticky`, so it only sits near the top of the
+  // viewport once the page has been scrolled. Opened before that (e.g.
+  // right after landing on the page), the calendar renders in the card's
+  // natural, far-down document position - off-screen below the fold, with
+  // nothing prompting the guest to scroll for it. Scroll it into view
+  // whenever it opens so it's never invisible.
+  useEffect(() => {
+    if (showPicker) {
+      pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  }, [showPicker]);
 
   // 'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'
   const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'>(
     paramCheckIn && paramCheckOut ? 'available' : 'idle'
   );
   const [unavailableReason, setUnavailableReason] = useState('');
+  const selectedAddons = (property.addons ?? []).filter((a) => selectedAddonIds.includes(a.addonId));
+  // Breakfast gets 5% GST, everything else selected gets 18% -- split the
+  // selection by category so calculateBookingInvoice applies the right rate.
+  const breakfastAddonsTotal = selectedAddons
+    .filter((a) => a.category?.toLowerCase().includes('breakfast'))
+    .reduce((sum, a) => sum + a.price, 0);
+  const otherAddonsTotal = selectedAddons
+    .filter((a) => !a.category?.toLowerCase().includes('breakfast'))
+    .reduce((sum, a) => sum + a.price, 0);
+  const addonsTotal = breakfastAddonsTotal + otherAddonsTotal;
 
   const nights = checkIn && checkOut
     ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
@@ -805,10 +884,46 @@ function BookingWidget({
   useEffect(() => { onNightsChange?.(nights); }, [nights]);
   useEffect(() => { onGuestsChange?.(guests); }, [guests]);
 
-  const subtotal = property.price * (nights || 1);
-  const serviceFee = Math.round(subtotal * 0.08);
-  const taxes = Math.round(subtotal * 0.12);
-  const total = subtotal + serviceFee + taxes;
+  // Mirrors the server-side calc in createBooking() — weekend nights
+  // (Fri/Sat) bill at priceWeekend, everything else at the weekday price,
+  // so this preview matches what actually gets charged. Also tracks how
+  // many nights fell at each rate so the breakdown label below can say
+  // exactly what was charged instead of a flat "₹weekdayPrice × N nights"
+  // that goes wrong (looks like a pricing bug) the moment a Fri/Sat night
+  // is in the stay and bills at the weekend rate.
+  const { subtotal, weekdayNights, weekendNights, checkInNightPrice } = (() => {
+    if (!checkIn || !checkOut || nights === 0) {
+      return { subtotal: property.price, weekdayNights: 0, weekendNights: 0, checkInNightPrice: property.price };
+    }
+    const priceWeekend = property.priceWeekend ?? property.price;
+    let sum = 0;
+    let weekday = 0;
+    let weekend = 0;
+    const cur = new Date(checkIn);
+    for (let i = 0; i < nights; i++) {
+      const dow = cur.getDay();
+      const isWeekend = dow === 5 || dow === 6;
+      sum += isWeekend ? priceWeekend : property.price;
+      if (isWeekend) weekend++; else weekday++;
+      cur.setDate(cur.getDate() + 1);
+    }
+    const checkInDow = checkIn.getDay();
+    const checkInNightPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : property.price;
+    return { subtotal: sum, weekdayNights: weekday, weekendNights: weekend, checkInNightPrice };
+  })();
+  // Real GST/service-fee invoice from src/lib/billing/invoice.ts, replacing
+  // the old flat 8%/12% estimate. `subtotal` (the weekend-aware sum across
+  // every night of the stay) is the amount actually taxed, but which GST
+  // slab applies is decided by the check-in night's own rate (declared
+  // tariff), not by the summed total -- see calculateBookingInvoice.
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: subtotal,
+    gstRateBasisPrice: checkInNightPrice,
+    breakfastPrice: breakfastAddonsTotal,
+    otherServicesPrice: otherAddonsTotal,
+  });
+  const serviceFee = invoice.hostiggoServiceFeePaise / 100;
+  const total = invoice.grandTotalRupees;
 
   const handleDatesChange = (ci: Date | null, co: Date | null) => {
     setCheckIn(ci);
@@ -857,17 +972,20 @@ function BookingWidget({
     }
     setStatus('booking');
     try {
-      await api.createBooking({
+      const created = await api.createBooking({
         listingId: property.id,
         userId,
         startDate: toISODate(checkIn)!,
         endDate: toISODate(checkOut)!,
         numAdults: guests,
         numChildren: 0,
-        amount: total,
+        addonIds: selectedAddonIds,
       });
       setStatus('confirmed');
-      toast.success('Booking confirmed! See it in your bookings.');
+      toast.success('Booking confirmed!');
+      if (created?.booking_id) {
+        router.push(`/booking-confirmation/${created.booking_id}`);
+      }
     } catch (err) {
       console.error('[property] booking failed:', err);
       toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');
@@ -884,13 +1002,13 @@ function BookingWidget({
       style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
     >
       {/* Price header */}
-      <div className="flex items-baseline gap-2 mb-4">
+      <div className="flex items-baseline gap-2 mb-1">
         {property.originalPrice && (
           <span className="text-[13px] text-gray-400 line-through">
             ₹{property.originalPrice.toLocaleString('en-IN')}
           </span>
         )}
-        <span className="text-[24px] font-extrabold text-blue-700">
+        <span className="text-[24px] font-extrabold text-figma-navy/90">
           ₹{property.price.toLocaleString('en-IN')}
         </span>
         <span className="text-[12px] text-gray-400">/night</span>
@@ -900,10 +1018,23 @@ function BookingWidget({
           </span>
         )}
       </div>
+      {/* Discount badge — informational only. The booking price calc below
+          doesn't apply this discount yet (that's a separate pricing-logic
+          change), so it's shown honestly as a host-offered discount rather
+          than baked into the displayed/charged price. */}
+      <p className="text-[11px] font-bold text-emerald-600 mb-4 min-h-[14px]">
+        {property.activeDiscount &&
+          `🏷️ ${property.activeDiscount.percent}% off: ${property.activeDiscount.type.replace(/_/g, ' ')}`}
+      </p>
 
-      {/* Date selector — displays selected dates, opens picker on click */}
+      {/* Date selector — displays selected dates, opens picker on click.
+          Wrapped in `relative` so the absolutely-positioned dropdown-panel
+          below anchors to this row instead of the sticky booking widget
+          container (sticky also establishes a positioning context, which
+          was making the calendar render detached/misplaced). */}
+      <div className="relative">
       <div
-        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-blue-400 transition-colors"
+        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-figma-navy/40 transition-colors"
         onClick={() => setShowPicker((v) => !v)}
       >
         <div className="grid grid-cols-2 divide-x divide-gray-200">
@@ -946,17 +1077,32 @@ function BookingWidget({
         </div>
       </div>
 
-      {/* DateRangePicker dropdown */}
+      {/* DateRangePicker dropdown — anchored to the *right* edge of this
+          narrow sidebar card. DateRangePicker renders itself at a fixed
+          min(600px, 95vw) width (sized for the wide, centered SearchForm
+          bar), much wider than this sidebar. `right-0` alone doesn't work
+          here: since DateRangePicker's own root is itself `position:
+          absolute` (the shared `.dropdown-panel` class), this wrapper's
+          only child is out-of-flow, so the wrapper's shrink-to-fit width
+          collapses to 0 and `right-0` just anchors a single point instead
+          of pushing the 600px box leftward. Giving the wrapper the same
+          explicit width fixes that, so it actually stays on-screen. */}
       {showPicker && (
-        <div className="mb-3">
+        <div
+          className="absolute top-[calc(100%+8px)] right-0 z-50"
+          style={{ width: 'min(600px, 95vw)', scrollMarginTop: '90px' }}
+          ref={pickerRef}
+        >
           <DateRangePicker
             checkIn={checkIn}
             checkOut={checkOut}
             onChange={handleDatesChange}
             onClose={() => setShowPicker(false)}
+            blockedDates={blockedDates}
           />
         </div>
       )}
+      </div>
 
       {/* Unavailable message */}
       {status === 'unavailable' && (
@@ -969,20 +1115,52 @@ function BookingWidget({
       {nights > 0 && (status === 'available' || status === 'confirmed' || status === 'booking') && (
         <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
           <div className="flex justify-between text-gray-600">
-            <span>₹{property.price.toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}</span>
+            <span>
+              {weekendNights === 0 || weekdayNights === 0 ? (
+                <>
+                  ₹{(weekendNights > 0 ? (property.priceWeekend ?? property.price) : property.price).toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}
+                </>
+              ) : (
+                <>
+                  ₹{property.price.toLocaleString('en-IN')} × {weekdayNights} night{weekdayNights > 1 ? 's' : ''} + ₹{(property.priceWeekend ?? property.price).toLocaleString('en-IN')} × {weekendNights} night{weekendNights > 1 ? 's' : ''}
+                </>
+              )}
+            </span>
             <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
           </div>
+          {selectedAddons.map((a) => (
+            <div key={a.addonId} className="flex justify-between text-gray-600">
+              <span>{a.name}</span>
+              <span className="font-semibold">₹{a.price.toLocaleString('en-IN')}</span>
+            </div>
+          ))}
           <div className="flex justify-between text-gray-600">
-            <span>Service fee (8%)</span>
+            <span>GST on property ({(invoice.propertyGstRate * 100).toFixed(0)}%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>Hostiggo service fee (13%)</span>
             <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
-            <span>Taxes (12%)</span>
-            <span className="font-semibold">₹{taxes.toLocaleString('en-IN')}</span>
+            <span>GST on service fee (18%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
           </div>
+          {invoice.breakfastGstPaise > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>GST on breakfast (5%)</span>
+              <span className="font-semibold">₹{(invoice.breakfastGstPaise / 100).toLocaleString('en-IN')}</span>
+            </div>
+          )}
+          {invoice.otherServicesGstPaise > 0 && (
+            <div className="flex justify-between text-gray-600">
+              <span>GST on other services (18%)</span>
+              <span className="font-semibold">₹{(invoice.otherServicesGstPaise / 100).toLocaleString('en-IN')}</span>
+            </div>
+          )}
           <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
             <span>Total</span>
-            <span className="text-blue-700">₹{total.toLocaleString('en-IN')}</span>
+            <span className="text-figma-navy/90">₹{total.toLocaleString('en-IN')}</span>
           </div>
         </div>
       )}
@@ -996,7 +1174,7 @@ function BookingWidget({
         <button
           onClick={book}
           disabled={status === 'booking'}
-          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
           {status === 'booking' ? 'Booking…' : `Book for ${nights} Night${nights > 1 ? 's' : ''}`}
@@ -1005,7 +1183,7 @@ function BookingWidget({
         <button
           onClick={checkIn && checkOut ? checkAvailability : () => setShowPicker(true)}
           disabled={status === 'checking'}
-          className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
           {status === 'checking' ? 'Checking…' : checkIn && checkOut ? 'Check Availability' : 'Select Dates'}
@@ -1019,13 +1197,13 @@ function BookingWidget({
           </p>
         )}
         {property.isInstantBook && (
-          <p className="text-center text-[11px] text-blue-500 font-medium flex items-center justify-center gap-1">
+          <p className="text-center text-[11px] text-figma-navy font-medium flex items-center justify-center gap-1">
             <Zap className="w-3 h-3" /> Instant confirmation
           </p>
         )}
       </div>
       <p className="text-center text-[10px] text-gray-400 mt-2">
-        You won't be charged yet
+        You won&apos;t be charged yet
       </p>
     </div>
   );
@@ -1116,7 +1294,7 @@ function ReviewsModal({
               className={cn(
                 'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-all',
                 filterOpen
-                  ? 'border-blue-400 bg-blue-50 text-blue-700'
+                  ? 'border-figma-navy/40 bg-figma-navy/5 text-figma-navy/90'
                   : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
               )}
             >
@@ -1143,7 +1321,7 @@ function ReviewsModal({
                     className={cn(
                       'w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center gap-2',
                       starFilter === f.value
-                        ? 'text-blue-600 font-semibold bg-blue-50'
+                        ? 'text-figma-navy font-semibold bg-figma-navy/5'
                         : 'text-gray-700 hover:bg-gray-50',
                     )}
                   >
@@ -1193,7 +1371,7 @@ function ReviewsModal({
               </p>
               <button
                 onClick={() => setStarFilter(0)}
-                className="mt-3 text-[13px] text-blue-600 font-semibold underline"
+                className="mt-3 text-[13px] text-figma-navy font-semibold underline"
               >
                 Show all reviews
               </button>
@@ -1254,12 +1432,16 @@ function StickyBookingBar({
   guests,
   onReserve,
   show,
+  liked,
+  onToggleSave,
 }: {
   property: Property;
   nights: number;
   guests: number;
   onReserve: () => void;
   show: boolean;
+  liked: boolean;
+  onToggleSave: () => void;
 }) {
   return (
     <div
@@ -1275,7 +1457,7 @@ function StickyBookingBar({
         {/* Reserve button */}
         <button
           onClick={onReserve}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
+          className="bg-figma-navy hover:bg-figma-navy/90 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
         >
           Reserve
         </button>
@@ -1304,16 +1486,22 @@ function StickyBookingBar({
             onClick={() => {
               navigator.clipboard?.writeText(window.location.href);
             }}
-            className="w-8 h-8 rounded-full border border-gray-200 hover:border-gray-300 bg-white flex items-center justify-center text-gray-500 hover:text-blue-600 transition-colors"
+            className="w-8 h-8 rounded-full border border-gray-200 hover:border-gray-300 bg-white flex items-center justify-center text-gray-500 hover:text-figma-navy transition-colors"
             title="Share"
           >
             <Share2 className="w-3.5 h-3.5" />
           </button>
           <button
-            className="w-8 h-8 rounded-full border border-gray-200 hover:border-rose-300 bg-white flex items-center justify-center text-gray-400 hover:text-rose-500 transition-colors"
+            onClick={onToggleSave}
+            className={cn(
+              'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
+              liked
+                ? 'border-rose-300 text-rose-500'
+                : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+            )}
             title="Save"
           >
-            <Heart className="w-3.5 h-3.5" />
+            <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
           </button>
         </div>
       </div>
@@ -1326,13 +1514,19 @@ export default function PropertyDetailsPage() {
   const params = useParams<{ id: string }>();
   const id = params?.id;
   const router = useRouter();
-  const { userId, isAuthenticated } = useAuth();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
-
-  const [liked, setLiked] = useState(!!property?.isFavorite);
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle: toggleWishlist } = useWishlist(userId);
+  const liked = property ? isSaved(property.id) : false;
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
+  const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([]);
+  const toggleAddon = (addonId: number) => {
+    setSelectedAddonIds((prev) =>
+      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId],
+    );
+  };
   const [descExpanded, setDescExpanded] = useState(false);
   const [stickyBar, setStickyBar] = useState(false);
   const [barNights, setBarNights] = useState(0);
@@ -1354,7 +1548,6 @@ export default function PropertyDetailsPage() {
         if (!mounted) return;
         const mapped = row ? mapListingToProperty(row) : null;
         setProperty(mapped);
-        setLiked(Boolean(mapped?.isFavorite));
       } catch (error) {
         console.error('[property] failed to load detail:', error);
         if (mounted) setProperty(null);
@@ -1370,6 +1563,16 @@ export default function PropertyDetailsPage() {
     };
   }, [id]);
 
+  // Next.js client-side navigation doesn't scroll to a URL hash the way a
+  // full page load does, so a link like /property/74#write-review lands at
+  // the top instead of the review form -- scroll to it manually once the
+  // page (and therefore the target element) has actually rendered.
+  useEffect(() => {
+    if (loading || !property || typeof window === 'undefined' || !window.location.hash) return;
+    const el = document.getElementById(window.location.hash.slice(1));
+    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }, [loading, property]);
+
   // Show sticky bar after scrolling past gallery
   useEffect(() => {
     const handleScroll = () => {
@@ -1383,12 +1586,13 @@ export default function PropertyDetailsPage() {
   }, []);
 
   useEffect(() => {
+    if (window.location.hash) return;
     window.scrollTo(0, 0);
   }, [id]);
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#f0f2f5]">
+      <div className="min-h-screen bg-figma-cream">
         <Navbar />
         <div className="container-main py-6 max-w-6xl mx-auto px-4 sm:px-6">
           <div className="h-[440px] rounded-2xl bg-white animate-pulse mb-6" />
@@ -1402,7 +1606,7 @@ export default function PropertyDetailsPage() {
 
   if (!property) {
     return (
-      <div className="min-h-screen bg-[#f0f2f5]">
+      <div className="min-h-screen bg-figma-cream">
         <Navbar />
         <div className="container-main py-20 text-center">
           <div className="text-6xl mb-4">🏨</div>
@@ -1411,7 +1615,7 @@ export default function PropertyDetailsPage() {
           </h1>
           <button
             onClick={() => router.back()}
-            className="bg-blue-600 text-white px-6 py-3 rounded-xl font-semibold hover:bg-blue-700 transition-colors"
+            className="bg-figma-navy text-white px-6 py-3 rounded-xl font-semibold hover:bg-figma-navy/90 transition-colors"
           >
             Go back
           </button>
@@ -1432,7 +1636,7 @@ export default function PropertyDetailsPage() {
   const descIsLong = (property.description?.length ?? 0) > 200;
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       {/* Sticky booking summary bar */}
       <StickyBookingBar
         property={property}
@@ -1440,6 +1644,19 @@ export default function PropertyDetailsPage() {
         guests={barGuests}
         onReserve={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         show={stickyBar}
+        liked={liked}
+        onToggleSave={async () => {
+          if (!isAuthenticated || !userId) {
+            router.push('/signin');
+            return;
+          }
+          try {
+            await toggleWishlist(property.id);
+          } catch (err) {
+            console.error('[property] wishlist toggle failed:', err);
+            toast.error('Could not update your wishlist. Please try again.');
+          }
+        }}
       />
 
       <Navbar />
@@ -1449,7 +1666,7 @@ export default function PropertyDetailsPage() {
         <div className="flex items-center justify-between mb-4">
           <button
             onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-blue-600 font-medium text-sm transition-colors group"
+            className="flex items-center gap-2 text-gray-600 hover:text-figma-navy font-medium text-sm transition-colors group"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
             Back to results
@@ -1460,7 +1677,7 @@ export default function PropertyDetailsPage() {
                 navigator.clipboard?.writeText(window.location.href);
                 alert('Link copied!');
               }}
-              className="flex items-center gap-1.5 text-[12px] text-gray-600 hover:text-blue-600 font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+              className="flex items-center gap-1.5 text-[12px] text-gray-600 hover:text-figma-navy font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
             >
               <Share2 className="w-3.5 h-3.5" /> Share
             </button>
@@ -1470,17 +1687,11 @@ export default function PropertyDetailsPage() {
                   router.push('/signin');
                   return;
                 }
-                const next = !liked;
-                setLiked(next);
                 try {
-                  if (next) {
-                    await api.addWishlistItem(userId, String(property.id));
-                  } else {
-                    await api.removeWishlistItem(userId, String(property.id));
-                  }
+                  await toggleWishlist(property.id);
                 } catch (err) {
                   console.error('[property] wishlist toggle failed:', err);
-                  setLiked(!next);
+                  toast.error('Could not update your wishlist. Please try again.');
                 }
               }}
               className={cn(
@@ -1504,7 +1715,7 @@ export default function PropertyDetailsPage() {
         {/* ── Main grid ── */}
         <div className="flex flex-col lg:flex-row gap-6 items-start">
           {/* ══ LEFT COLUMN ══ */}
-          <div className="flex-1 min-w-0 space-y-4">
+          <div className="flex-1 min-w-0 w-full space-y-4">
             {/* ── 2. PROPERTY OVERVIEW ── */}
             <div
               className="bg-white rounded-2xl p-5"
@@ -1512,7 +1723,7 @@ export default function PropertyDetailsPage() {
             >
               {/* Badges */}
               <div className="flex items-center gap-2 flex-wrap mb-2">
-                <span className="text-[11px] font-bold text-blue-600 bg-blue-50 px-2.5 py-0.5 rounded-full">
+                <span className="text-[11px] font-bold text-figma-navy bg-figma-navy/5 px-2.5 py-0.5 rounded-full">
                   {property.propertyType}
                 </span>
                 {property.isInstantBook && (
@@ -1533,7 +1744,7 @@ export default function PropertyDetailsPage() {
                 {property.propertyName}
               </h1>
               <p className="text-[13px] text-gray-500 flex items-center gap-1 mb-3">
-                <MapPin className="w-3.5 h-3.5 text-blue-500 flex-shrink-0" />
+                <MapPin className="w-3.5 h-3.5 text-figma-navy flex-shrink-0" />
                 {property.city}, {property.state}
               </p>
 
@@ -1593,7 +1804,7 @@ export default function PropertyDetailsPage() {
                 {descIsLong && (
                   <button
                     onClick={() => setDescExpanded((v) => !v)}
-                    className="flex items-center gap-1 text-[13px] font-bold text-gray-800 underline mt-2 hover:text-blue-600 transition-colors"
+                    className="flex items-center gap-1 text-[13px] font-bold text-gray-800 underline mt-2 hover:text-figma-navy transition-colors"
                   >
                     {descExpanded ? 'Show less' : 'Read more'}
                     <ChevronDown
@@ -1615,6 +1826,11 @@ export default function PropertyDetailsPage() {
               <h2 className="text-[15px] font-bold text-gray-800 mb-4">
                 Facilities
               </h2>
+              {visibleAmenities.length === 0 && (
+                <p className="text-[13px] text-gray-400">
+                  The host hasn&apos;t listed any facilities yet.
+                </p>
+              )}
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
                 {visibleAmenities.map((am, i) => (
                   <div
@@ -1630,7 +1846,7 @@ export default function PropertyDetailsPage() {
                       className={cn(
                         'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
                         am.available
-                          ? 'bg-blue-100 text-blue-600'
+                          ? 'bg-figma-navy/10 text-figma-navy'
                           : 'bg-gray-100 text-gray-400',
                       )}
                     >
@@ -1657,7 +1873,7 @@ export default function PropertyDetailsPage() {
               {amenities.length > 8 && (
                 <button
                   onClick={() => setShowAllAmenities((v) => !v)}
-                  className="mt-3 text-[13px] font-bold text-gray-800 underline hover:text-blue-600 transition-colors flex items-center gap-1"
+                  className="mt-3 text-[13px] font-bold text-gray-800 underline hover:text-figma-navy transition-colors flex items-center gap-1"
                 >
                   {showAllAmenities
                     ? 'Show less'
@@ -1672,6 +1888,152 @@ export default function PropertyDetailsPage() {
               )}
             </div>
 
+            {/* ── 3b. ADD-ONS ── */}
+            {property.addons && property.addons.length > 0 && (
+              <div
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+              >
+                <h2 className="text-[15px] font-bold text-gray-800 mb-4">
+                  Available add-ons
+                </h2>
+                <div className="space-y-2.5">
+                  {property.addons.map((addon) => {
+                    const checked = selectedAddonIds.includes(addon.addonId);
+                    return (
+                      <button
+                        key={addon.addonId}
+                        type="button"
+                        onClick={() => toggleAddon(addon.addonId)}
+                        className={cn(
+                          'w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors',
+                          checked ? 'bg-figma-navy/5 border-figma-navy/30' : 'bg-gray-50 border-gray-100 hover:border-gray-200',
+                        )}
+                      >
+                        <div className="flex items-start gap-3 min-w-0">
+                          <span
+                            className={cn(
+                              'mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0',
+                              checked ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
+                            )}
+                          >
+                            {checked && (
+                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
+                                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                              </svg>
+                            )}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[13px] font-bold text-gray-800">{addon.name}</p>
+                            {addon.includes && (
+                              <p className="text-[11px] text-gray-500 mt-0.5">{addon.includes}</p>
+                            )}
+                            {addon.timingFrom && addon.timingTo && (
+                              <p className="text-[11px] text-gray-400 mt-0.5">
+                                {addon.timingFrom.slice(0, 5)} – {addon.timingTo.slice(0, 5)}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <span className="text-[13px] font-bold text-figma-navy/90 flex-shrink-0">
+                          +₹{addon.price.toLocaleString('en-IN')}
+                        </span>
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[11px] text-gray-400 mt-3">
+                  Selected add-ons are added to your total at checkout.
+                </p>
+              </div>
+            )}
+
+            {/* ── 3c. HOUSE RULES ── */}
+            {property.houseRules && property.houseRules.length > 0 && (
+              <div
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+              >
+                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Clock className="w-4 h-4 text-gray-500" /> House rules
+                </h2>
+                <ul className="space-y-2">
+                  {property.houseRules.map((rule, i) => (
+                    <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2">
+                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
+                      {rule}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* ── 3c-2. CANCELLATION POLICY ── */}
+            <div
+              className="bg-white rounded-2xl p-5"
+              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+            >
+              <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
+                <Shield className="w-4 h-4 text-gray-500" /> Cancellation policy
+              </h2>
+
+              {property.cancellationPolicy === 'strict' ? (
+                <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
+                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[14px] font-bold text-red-700">
+                      Strict policy: only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
+                    </p>
+                    <p className="text-[12.5px] text-red-600 mt-1 leading-snug">
+                      Cancel {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays}+ days before check-in and get back
+                      only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% of what you paid. Cancel
+                      within {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days of check-in and you get{' '}
+                      <span className="font-bold">no refund at all</span>.
+                    </p>
+                  </div>
+                </div>
+              ) : property.cancellationPolicy === 'flexible' ? (
+                <div className="bg-figma-navy/5 border border-figma-navy/20 rounded-xl p-4">
+                  <p className="text-[13.5px] font-semibold text-figma-navy">Flexible policy</p>
+                  <p className="text-[12.5px] text-figma-navy/90 mt-1 leading-snug">
+                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours
+                    before check-in. No refund after that.
+                  </p>
+                </div>
+              ) : (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <p className="text-[13.5px] font-semibold text-gray-800">Moderate policy</p>
+                  <p className="text-[12.5px] text-gray-600 mt-1 leading-snug">
+                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays} days
+                    before check-in. After that, you&apos;re refunded everything except the Hostiggo service fee.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* ── 3d. SAFETY & PROPERTY ── */}
+            {property.safetyFeatures && property.safetyFeatures.length > 0 && (
+              <div
+                className="bg-white rounded-2xl p-5"
+                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+              >
+                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Shield className="w-4 h-4 text-gray-500" /> Safety & property
+                </h2>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                  {property.safetyFeatures.map((f, i) => (
+                    <div
+                      key={i}
+                      className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 border border-gray-100"
+                    >
+                      <span className="text-[16px] flex-shrink-0">{f.icon || '🛡️'}</span>
+                      <span className="text-[12px] font-semibold text-gray-700">{f.name}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* ── 5. MAP LOCATION ── */}
             <div
               className="bg-white rounded-2xl p-5"
@@ -1682,13 +2044,14 @@ export default function PropertyDetailsPage() {
               </h2>
               <PropertyMap property={property} />
               <p className="text-[12px] text-gray-400 mt-2 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-blue-500" />
+                <MapPin className="w-3 h-3 text-figma-navy" />
                 {property.city}, {property.state}
               </p>
             </div>
 
             {/* ── 6. RATINGS & REVIEWS ── */}
             <div
+              id="write-review"
               className="bg-white rounded-2xl p-5"
               style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
             >
@@ -1785,7 +2148,7 @@ export default function PropertyDetailsPage() {
                         </p>
                         <button
                           onClick={() => setReviewsModalOpen(true)}
-                          className="text-[12px] font-bold text-gray-700 underline underline-offset-2 hover:text-blue-600 transition-colors text-left"
+                          className="text-[12px] font-bold text-gray-700 underline underline-offset-2 hover:text-figma-navy transition-colors text-left"
                         >
                           Read more
                         </button>
@@ -1798,7 +2161,7 @@ export default function PropertyDetailsPage() {
                     {reviews.length > 3 && (
                       <button
                         onClick={() => setReviewsModalOpen(true)}
-                        className="flex items-center gap-2 border border-gray-300 hover:border-blue-400 hover:text-blue-600 text-gray-700 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
+                        className="flex items-center gap-2 border border-gray-300 hover:border-figma-navy/40 hover:text-figma-navy text-gray-700 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
                       >
                         View all {reviews.length} reviews
                         <ChevronRight className="w-4 h-4" />
@@ -1825,6 +2188,7 @@ export default function PropertyDetailsPage() {
               property={property}
               onNightsChange={setBarNights}
               onGuestsChange={setBarGuests}
+              selectedAddonIds={selectedAddonIds}
             />
           </div>
         </div>
@@ -1836,11 +2200,11 @@ export default function PropertyDetailsPage() {
         >
           <div className="flex items-center justify-between">
             <div>
-              <span className="text-[18px] font-extrabold text-blue-700">
+              <span className="text-[18px] font-extrabold text-figma-navy/90">
                 ₹{property.price.toLocaleString('en-IN')}
               </span>
               <span className="text-[12px] text-gray-400 ml-1">/night</span>
-              {property.rating && (
+              {property.rating > 0 && (
                 <div className="flex items-center gap-1 mt-0.5">
                   <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                   <span className="text-[11px] font-bold text-gray-600">
@@ -1854,7 +2218,7 @@ export default function PropertyDetailsPage() {
             </div>
             <button
               onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-blue-200"
+              className="bg-figma-navy hover:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20"
             >
               Reserve
             </button>

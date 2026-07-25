@@ -1,5 +1,36 @@
 import { supabase } from "../supabase";
 
+// None of updateBookingStatus/updateBookingDates/updateBookingGuests ever
+// checked that the caller actually owns the booking they're modifying —
+// only bookingId was required, so any guest could edit or cancel any other
+// guest's booking just by knowing (or guessing) its id. Confirmed live:
+// a demo guest was able to overwrite booking #46 (belonging to a different
+// user) to 99 guests with a plain PATCH request. This throws unless the
+// requesting user is the booking's actual owner.
+async function assertOwnsBooking(bookingId: string | number, requestingUserId: string) {
+  const { data, error } = await supabase
+    .from("bookings")
+    .select("user_id")
+    .eq("booking_id", Number(bookingId))
+    .maybeSingle();
+  if (error) throw error;
+  if (!data) throw new Error("Booking not found.");
+  if (data.user_id !== requestingUserId) {
+    throw new Error("You don't have permission to modify this booking.");
+  }
+}
+
+function eachDateInRange(startDate: string, endDate: string): string[] {
+  const dates: string[] = [];
+  const cur = new Date(startDate);
+  const end = new Date(endDate);
+  while (cur < end) {
+    dates.push(cur.toISOString().slice(0, 10));
+    cur.setUTCDate(cur.getUTCDate() + 1);
+  }
+  return dates;
+}
+
 export const bookingsAPI = {
   async fetchGuestBookings(
     userId: string,
@@ -29,7 +60,49 @@ export const bookingsAPI = {
       .order("start_date", { ascending: bookingLabel === "upcoming" });
 
     if (error) throw error;
-    return data || [];
+    const rows = data || [];
+    if (!rows.length) return rows;
+
+    // user_bookings_detailed has no listing_id/coordinates/location/price at
+    // all, so the guest-facing "Location" button had no real place to point
+    // to (defaulted to the geographic center of India), and there was no way
+    // to show a price breakdown without a second round trip. Fetch the real
+    // listing_id + coordinates + district/state + per-night prices + the
+    // actual charged amount for these bookings and merge them in.
+    const bookingIds = rows.map((r: any) => r.booking_id);
+    const { data: withListing } = await supabase
+      .from("bookings")
+      .select(
+        `
+        booking_id,
+        amount,
+        listings (
+          latitude, longitude,
+          price_weekday, price_weekend,
+          locations (district, state)
+        )
+      `,
+      )
+      .in("booking_id", bookingIds);
+
+    const byId = new Map(
+      (withListing ?? []).map((r: any) => [r.booking_id, r]),
+    );
+
+    return rows.map((r: any) => {
+      const extra = byId.get(r.booking_id);
+      const listing = extra?.listings;
+      return {
+        ...r,
+        amount: extra?.amount ?? null,
+        priceWeekday: listing?.price_weekday ?? null,
+        priceWeekend: listing?.price_weekend ?? null,
+        latitude: listing?.latitude ?? null,
+        longitude: listing?.longitude ?? null,
+        district: listing?.locations?.district ?? null,
+        state: listing?.locations?.state ?? null,
+      };
+    });
   },
 
   async fetchGuestBookingDetail(bookingId: string | number) {
@@ -83,7 +156,7 @@ export const bookingsAPI = {
 
   // Single booking for the host detail view. There is no FK from bookings to
   // users in the schema cache, so the guest profile is fetched separately.
-  async getBookingDetail(bookingId: string | number) {
+  async getBookingDetail(bookingId: string | number, requestingUserId: string) {
     const { data: booking, error } = await supabase
       .from("bookings")
       .select(
@@ -93,6 +166,7 @@ export const bookingsAPI = {
           listing_id,
           title,
           price_weekday,
+          price_weekend,
           currency,
           num_bedrooms,
           num_beds,
@@ -110,6 +184,20 @@ export const bookingsAPI = {
 
     if (error) throw error;
     if (!booking) return null;
+
+    // This payload includes the guest's name and phone -- only the booking's
+    // guest or the host of the booked listing may see it.
+    if (booking.user_id !== requestingUserId) {
+      const { data: hostRow, error: hostErr } = await supabase
+        .from("host")
+        .select("user_id")
+        .eq("host_uuid", booking.host_uuid ?? "")
+        .maybeSingle();
+      if (hostErr) throw hostErr;
+      if (hostRow?.user_id !== requestingUserId) {
+        throw new Error("You don't have permission to view this booking.");
+      }
+    }
 
     let guest = null;
     if (booking.user_id) {
@@ -129,7 +217,10 @@ export const bookingsAPI = {
     status: string,
     _cancelledBy: "host" | "user" = "user",
     _reason?: string,
+    requestingUserId?: string,
   ) {
+    if (!requestingUserId) throw new Error("requestingUserId is required.");
+    await assertOwnsBooking(bookingId, requestingUserId);
     const updateData: any = {};
 
     if (status.toLowerCase() === "cancelled") {
@@ -145,16 +236,76 @@ export const bookingsAPI = {
       .from("bookings")
       .update(updateData)
       .eq("booking_id", Number(bookingId))
-      .select()
+      .select("booking_id, status_id, listing_id, start_date, end_date")
       .single();
 
     if (error) throw error;
+
+    // Release the calendar nights this booking had blocked — otherwise a
+    // guest cancelling from "My Trips" (a different code path than the
+    // host-side cancelBooking) leaves those dates unavailable forever.
+    if (
+      status.toLowerCase() === "cancelled" &&
+      data?.listing_id &&
+      data.start_date &&
+      data.end_date
+    ) {
+      const nights = eachDateInRange(data.start_date, data.end_date);
+      if (nights.length) {
+        await supabase
+          .from("listing_calendar")
+          .update({ is_available: true, updated_at: new Date().toISOString() })
+          .eq("listing_id", data.listing_id)
+          .in("date", nights);
+      }
+    }
+
     return data;
   },
 
-  async updateBookingDates(bookingId: string | number, checkIn: string, checkOut: string) {
+  async updateBookingDates(
+    bookingId: string | number,
+    checkIn: string,
+    checkOut: string,
+    requestingUserId: string,
+  ) {
+    await assertOwnsBooking(bookingId, requestingUserId);
     const formattedCheckIn = checkIn.split("T")[0];
     const formattedCheckOut = checkOut.split("T")[0];
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from("bookings")
+      .select("listing_id, start_date, end_date")
+      .eq("booking_id", Number(bookingId))
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    // Same conflict checks createBooking runs — otherwise "modify dates"
+    // can move a booking onto already-blocked or already-booked nights.
+    const { data: blocked, error: blockedErr } = await supabase
+      .from("listing_calendar")
+      .select("date")
+      .eq("listing_id", existing.listing_id)
+      .gte("date", formattedCheckIn)
+      .lt("date", formattedCheckOut)
+      .eq("is_available", false);
+    if (blockedErr) throw blockedErr;
+    if (blocked && blocked.length > 0) {
+      throw new Error("Some of the selected dates are not available.");
+    }
+
+    const { data: conflicts, error: conflictsErr } = await supabase
+      .from("bookings")
+      .select("booking_id")
+      .eq("listing_id", existing.listing_id)
+      .eq("status_id", 2)
+      .neq("booking_id", Number(bookingId))
+      .lt("start_date", formattedCheckOut)
+      .gt("end_date", formattedCheckIn);
+    if (conflictsErr) throw conflictsErr;
+    if (conflicts && conflicts.length > 0) {
+      throw new Error("These dates are already booked.");
+    }
 
     const { data, error } = await supabase
       .from("bookings")
@@ -164,6 +315,47 @@ export const bookingsAPI = {
       .single();
 
     if (error) throw error;
+
+    // Release the old nights and block the new ones so the calendar stays
+    // in sync with the booking's actual dates.
+    const now = new Date().toISOString();
+    const oldNights = eachDateInRange(existing.start_date, existing.end_date);
+    if (oldNights.length) {
+      await supabase
+        .from("listing_calendar")
+        .update({ is_available: true, updated_at: now })
+        .eq("listing_id", existing.listing_id)
+        .in("date", oldNights);
+    }
+    const newNights = eachDateInRange(formattedCheckIn, formattedCheckOut);
+    if (newNights.length) {
+      const { data: existingRows } = await supabase
+        .from("listing_calendar")
+        .select("date")
+        .eq("listing_id", existing.listing_id)
+        .in("date", newNights);
+      const existingDates = new Set((existingRows ?? []).map((r: any) => r.date));
+      if (existingRows?.length) {
+        await supabase
+          .from("listing_calendar")
+          .update({ is_available: false, updated_at: now })
+          .eq("listing_id", existing.listing_id)
+          .in("date", newNights);
+      }
+      const missing = newNights.filter((d) => !existingDates.has(d));
+      if (missing.length) {
+        await supabase.from("listing_calendar").insert(
+          missing.map((date) => ({
+            listing_id: existing.listing_id,
+            date,
+            is_available: false,
+            price: 0,
+            currency: "INR",
+          })),
+        );
+      }
+    }
+
     return data;
   },
 
@@ -172,7 +364,23 @@ export const bookingsAPI = {
     adults: number,
     children: number,
     _pets: number = 0,
+    requestingUserId?: string,
   ) {
+    if (!requestingUserId) throw new Error("requestingUserId is required.");
+    await assertOwnsBooking(bookingId, requestingUserId);
+
+    const { data: existing, error: fetchErr } = await supabase
+      .from("bookings")
+      .select("listing_id, listings(num_guests)")
+      .eq("booking_id", Number(bookingId))
+      .single();
+    if (fetchErr) throw fetchErr;
+
+    const maxGuests = Number((existing as any)?.listings?.num_guests ?? 1);
+    if (adults + children > maxGuests) {
+      throw new Error(`This listing only accommodates up to ${maxGuests} guests.`);
+    }
+
     const { data, error } = await supabase
       .from("bookings")
       .update({

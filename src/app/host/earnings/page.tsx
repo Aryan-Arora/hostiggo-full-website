@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import { jsPDF } from 'jspdf';
 import {
   Download,
   Wallet,
@@ -14,8 +15,10 @@ import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboa
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { calculateHostPayout } from '@/lib/billing/payout';
 
-// status_id: 1 = pending, 2 = confirmed, 3 = cancelled (see bookings service)
+// Bookings are instant-confirmed on creation — status_id is only ever
+// 2 (confirmed) or 3 (cancelled), there is no pending/approval step.
 const STATUS_CANCELLED = 3;
 const STATUS_CONFIRMED = 2;
 
@@ -31,21 +34,31 @@ type Earn = {
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
-const mapEarn = (row: any): Earn => ({
-  id: String(row.booking_id),
-  title: row.property?.title?.trim() || 'Booked stay',
-  start: row.start_date ? new Date(row.start_date) : null,
-  end: row.end_date ? new Date(row.end_date) : null,
-  amount: Number(row.amount ?? 0),
-  cancelled: Number(row.status_id) === STATUS_CANCELLED,
-  confirmed: Number(row.status_id) === STATUS_CONFIRMED,
-});
+// Host earnings must show the NET payout (after Hostiggo's 5% commission,
+// 1% TCS, 1% TDS) -- never the raw guest-paid `bookings.amount`, which is
+// the grand total including GST and the Hostiggo service fee. Recomputed
+// from the listing's property price rather than stored on the booking,
+// same simplification previewCancellationRefund() already uses (add-on
+// price isn't tracked per-booking yet).
+const mapEarn = (row: any): Earn => {
+  const propertyPrice = Number(row.property?.price_weekday ?? 0);
+  const payout = calculateHostPayout({ propertyPrice });
+  return {
+    id: String(row.booking_id),
+    title: row.property?.title?.trim() || 'Booked stay',
+    start: row.start_date ? new Date(row.start_date) : null,
+    end: row.end_date ? new Date(row.end_date) : null,
+    amount: payout.netHostPayoutRupees,
+    cancelled: Number(row.status_id) === STATUS_CANCELLED,
+    confirmed: Number(row.status_id) === STATUS_CONFIRMED,
+  };
+};
 
 const inr = (n: number) =>
   `₹${Math.round(n).toLocaleString('en-IN')}`;
 
 const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
@@ -171,29 +184,118 @@ export default function EarningsPage() {
     };
   }, [rows]);
 
+  const exportStatement = useCallback(() => {
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginX = 14;
+    let y = 20;
+
+    const newPageIfNeeded = (needed = 10) => {
+      if (y + needed > pageHeight - 15) {
+        doc.addPage();
+        y = 20;
+      }
+    };
+
+    doc.setFontSize(18);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Hostiggo: Earnings Statement', marginX, y);
+    y += 8;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    doc.setTextColor(120);
+    doc.text(`Generated ${new Date().toLocaleDateString('en-IN', { day: 'numeric', month: 'long', year: 'numeric' })}`, marginX, y);
+    doc.setTextColor(0);
+    y += 12;
+
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Summary', marginX, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    [
+      ['Total earnings', inr(stats.total)],
+      ['Confirmed revenue', inr(stats.confirmedRevenue)],
+      ['Pending revenue', inr(stats.pendingRevenue)],
+    ].forEach(([label, value]) => {
+      doc.text(label, marginX, y);
+      doc.text(value, pageWidth - marginX, y, { align: 'right' });
+      y += 6;
+    });
+    y += 6;
+
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Monthly revenue (last 12 months)', marginX, y);
+    y += 7;
+    doc.setFontSize(10);
+    doc.setFont('helvetica', 'normal');
+    stats.labels.forEach((label, i) => {
+      newPageIfNeeded();
+      doc.text(label, marginX, y);
+      doc.text(inr(stats.series[i] ?? 0), pageWidth - marginX, y, { align: 'right' });
+      y += 6;
+    });
+    y += 6;
+
+    const earningRows = rows.filter((r) => !r.cancelled);
+    newPageIfNeeded(14);
+    doc.setFontSize(13);
+    doc.setFont('helvetica', 'bold');
+    doc.text('All bookings', marginX, y);
+    y += 8;
+
+    doc.setFontSize(9);
+    doc.setFont('helvetica', 'bold');
+    doc.text('Booking', marginX, y);
+    doc.text('Check-in', marginX + 28, y);
+    doc.text('Checkout', marginX + 58, y);
+    doc.text('Property', marginX + 88, y);
+    doc.text('Status', pageWidth - marginX - 24, y);
+    doc.text('Amount', pageWidth - marginX, y, { align: 'right' });
+    y += 2;
+    doc.setDrawColor(200);
+    doc.line(marginX, y, pageWidth - marginX, y);
+    y += 5;
+
+    doc.setFont('helvetica', 'normal');
+    if (earningRows.length === 0) {
+      doc.text('No bookings yet.', marginX, y);
+      y += 6;
+    }
+    earningRows
+      .slice()
+      .sort((a, b) => (b.start?.getTime() ?? 0) - (a.start?.getTime() ?? 0))
+      .forEach((r) => {
+        newPageIfNeeded();
+        doc.text(`#${r.id}`, marginX, y);
+        doc.text(fmtDate(r.start), marginX + 28, y);
+        doc.text(fmtDate(r.end), marginX + 58, y);
+        doc.text(r.title.slice(0, 26), marginX + 88, y);
+        doc.text(r.confirmed ? 'Confirmed' : 'Pending', pageWidth - marginX - 24, y);
+        doc.text(inr(r.amount), pageWidth - marginX, y, { align: 'right' });
+        y += 6;
+      });
+
+    doc.save(`hostiggo-earnings-statement-${new Date().toISOString().slice(0, 10)}.pdf`);
+  }, [stats, rows]);
+
   return (
     <HostDashboardShell active="earnings">
       <DashboardHeading
         title="Financial Overview"
         subtitle="Track your revenue and payouts across all properties."
         actions={
-          <>
-            <button
-              disabled
-              title="Coming soon"
-              className="px-4 py-2 border border-gray-200 rounded-full text-sm font-medium flex items-center gap-2 text-gray-400 cursor-not-allowed"
-            >
-              <Download className="w-4 h-4" />
-              Export Statement
-            </button>
-            <button
-              disabled
-              title="Coming soon"
-              className="px-6 py-2 bg-blue-600/60 text-white rounded-full text-sm font-semibold cursor-not-allowed"
-            >
-              Withdraw Funds
-            </button>
-          </>
+          <button
+            onClick={exportStatement}
+            disabled={loading || rows.length === 0}
+            className="px-4 py-2 border border-gray-200 rounded-full text-sm font-medium flex items-center gap-2 text-gray-700 hover:bg-gray-50 transition-colors disabled:text-gray-300 disabled:cursor-not-allowed disabled:hover:bg-transparent"
+          >
+            <Download className="w-4 h-4" />
+            Export Statement
+          </button>
         }
       />
 
@@ -218,7 +320,7 @@ export default function EarningsPage() {
           <p className="text-sm text-gray-500 mb-6">Please try again.</p>
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
@@ -228,7 +330,7 @@ export default function EarningsPage() {
           {/* Total earnings */}
           <div className="col-span-12 lg:col-span-4 bg-white rounded-2xl p-6 border border-gray-200 shadow-card relative overflow-hidden">
             <div className="flex justify-between items-start mb-6">
-              <span className="p-3 bg-blue-50 text-blue-600 rounded-xl inline-flex">
+              <span className="p-3 bg-figma-navy/5 text-figma-navy rounded-xl inline-flex">
                 <Wallet className="w-6 h-6" />
               </span>
               {stats.momPct !== null && (
@@ -246,14 +348,14 @@ export default function EarningsPage() {
             <div className="space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-blue-600" />
+                  <span className="w-2 h-2 rounded-full bg-figma-navy" />
                   <span className="text-sm text-gray-500">Confirmed revenue</span>
                 </div>
                 <span className="text-sm font-bold text-gray-800">{inr(stats.confirmedRevenue)}</span>
               </div>
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-sky-400" />
+                  <span className="w-2 h-2 rounded-full bg-figma-accent" />
                   <span className="text-sm text-gray-500">Pending revenue</span>
                 </div>
                 <span className="text-sm font-bold text-gray-800">{inr(stats.pendingRevenue)}</span>
@@ -287,9 +389,9 @@ export default function EarningsPage() {
                 stats.upcoming.map((u) => (
                   <div
                     key={u.id}
-                    className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-4 hover:border-blue-200 transition-colors"
+                    className="p-4 rounded-2xl bg-gray-50 border border-gray-100 flex items-center gap-4 hover:border-figma-navy/30 transition-colors"
                   >
-                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-blue-600 shadow-sm">
+                    <div className="w-12 h-12 bg-white rounded-xl flex items-center justify-center text-figma-navy shadow-sm">
                       {u.confirmed ? <Clock className="w-5 h-5" /> : <ReceiptText className="w-5 h-5" />}
                     </div>
                     <div className="flex-1 min-w-0">
@@ -297,11 +399,11 @@ export default function EarningsPage() {
                       <p className="text-xs text-gray-500">Check-in {fmtDate(u.start)}</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-sm font-bold text-blue-600">{inr(u.amount)}</p>
+                      <p className="text-sm font-bold text-figma-navy">{inr(u.amount)}</p>
                       <span
                         className={cn(
                           'text-[10px] px-2 py-0.5 rounded-full uppercase font-bold',
-                          u.confirmed ? 'bg-blue-50 text-blue-600' : 'bg-sky-50 text-sky-600',
+                          u.confirmed ? 'bg-figma-navy/5 text-figma-navy' : 'bg-figma-accent/10 text-figma-accent',
                         )}
                       >
                         {u.confirmed ? 'Confirmed' : 'Pending'}
@@ -324,8 +426,8 @@ export default function EarningsPage() {
               </p>
               {stats.topProp && (
                 <div className="flex items-center gap-4">
-                  <div className="p-3 bg-blue-50 rounded-full">
-                    <TrendingUp className="w-5 h-5 text-blue-600" />
+                  <div className="p-3 bg-figma-navy/5 rounded-full">
+                    <TrendingUp className="w-5 h-5 text-figma-navy" />
                   </div>
                   <div>
                     <p className="font-bold text-gray-800">

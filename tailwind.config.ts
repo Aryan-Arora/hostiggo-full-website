@@ -6,9 +6,13 @@ export default {
   theme: {
     extend: {
       fontFamily: {
-        sans: ['Inter', 'system-ui', 'sans-serif'],
+        sans: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
       colors: {
+        // Design tokens pulled from Figma "Website Guest UI/UX" (file
+        // PkxxdQZz9FfGkmUWhnrMOW). Old `primary`/`brand` scales kept
+        // temporarily so unmigrated pages don't break -- remove once every
+        // page has been reskinned off them.
         primary: {
           DEFAULT: '#2563eb',
           50: '#eff6ff',
@@ -21,6 +25,20 @@ export default {
         brand: {
           blue: '#1a6ff4',
           dark: '#0f172a',
+        },
+        figma: {
+          navy: '#004772', // primary brand color -- logo mark, headings, primary buttons
+          accent: '#0086d8', // secondary blue -- links, gradient end, highlights
+          indigo: '#3d50df', // rare accent (selected states)
+          ink: '#1a1a1a', // primary body text
+          'ink-soft': '#1b1b1b',
+          cream: '#fffef9', // page background
+          surface: '#f8f8f8', // card/section background
+          border: '#e0e0e0',
+          muted: '#5f5f5f', // secondary text
+          'muted-light': '#a6a6a6', // tertiary text/placeholders
+          success: '#00ad28', // ratings/positive badges
+          footer: '#172934', // footer background
         },
       },
       borderRadius: {

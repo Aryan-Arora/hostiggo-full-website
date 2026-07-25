@@ -91,7 +91,18 @@ export const wishlistAPI = {
     return data;
   },
 
-  async deleteWishlistCategory(categoryId: string): Promise<void> {
+  async deleteWishlistCategory(categoryId: string, userId: string): Promise<void> {
+    // Ownership check -- without it, any client could delete any user's
+    // category (and all its saved items) just by guessing a category id.
+    const { data: category, error: ownerError } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("id", categoryId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (ownerError) throw ownerError;
+    if (!category) throw new Error("Category not found");
+
     const { error: itemsError } = await supabase
       .from("wishlists")
       .delete()
@@ -113,15 +124,19 @@ export const wishlistAPI = {
   async renameWishlistCategory(
     categoryId: string,
     newName: string,
+    userId: string,
   ): Promise<WishlistCategoryDTO> {
+    // Scoped by user_id so a client can only rename its own categories.
     const { data, error } = await supabase
       .from("categories")
       .update({ name: newName })
       .eq("id", categoryId)
+      .eq("user_id", userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw new Error("Category not found");
     return data;
   },
 

@@ -8,7 +8,6 @@ import {
   Printer,
   BadgeCheck,
   MessageSquare,
-  Phone,
   Check,
   Hourglass,
   CalendarX,
@@ -22,17 +21,19 @@ import HostDashboardShell from '../../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
+import { calculateHostPayout } from '@/lib/billing/payout';
 
 const FALLBACK_PROPERTY =
   'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=200&h=200&fit=crop&q=80';
 
-// status_id: 1 = pending, 2 = confirmed, 3 = cancelled
-const STATUS_LABEL: Record<number, string> = { 1: 'Pending', 2: 'Confirmed', 3: 'Cancelled' };
+// Bookings are instant-confirmed on creation — booking_status only ever
+// defines 2 (CONFIRMED) and 3 (CANCELLED), there is no pending/approval step.
+const STATUS_LABEL: Record<number, string> = { 2: 'Confirmed', 3: 'Cancelled' };
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const inr = (n: number) => `₹${Math.round(n).toLocaleString('en-IN')}`;
 const fmtDate = (d: Date | null) =>
-  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : '—';
+  d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) : 'N/A';
 const fmtTime = (t?: string | null) => (t ? t.slice(0, 5) : '');
 
 function DetailsInner() {
@@ -53,7 +54,7 @@ function DetailsInner() {
     setLoading(true);
     setError('none');
     try {
-      const data = await api.bookingDetail(id);
+      const data = await api.bookingDetail(id, userId!);
       setBooking(data);
     } catch (err) {
       console.error('[host/bookings/details] load failed:', err);
@@ -76,6 +77,12 @@ function DetailsInner() {
     const nights =
       start && end ? Math.max(1, Math.round((end.getTime() - start.getTime()) / 86400000)) : 1;
     const amount = Number(booking.amount ?? 0);
+    // "Total payout" is the host's NET take (after Hostiggo's 5% commission,
+    // 1% TCS, 1% TDS) -- distinct from `amount`, which is the guest-paid
+    // grand total including GST and the Hostiggo service fee.
+    const payoutAmount = calculateHostPayout({
+      propertyPrice: Number(prop.price_weekday ?? 0),
+    }).netHostPayoutRupees;
     const guests =
       Number(booking.nom_guests ?? (booking.num_adults ?? 0) + (booking.num_children ?? 0)) || 1;
     const media = Array.isArray(prop.listing_media) ? prop.listing_media : [];
@@ -93,7 +100,7 @@ function DetailsInner() {
     const timeline = [
       {
         label: 'Booked',
-        date: booking.booked_at ? fmtDate(new Date(booking.booked_at)) : '—',
+        date: booking.booked_at ? fmtDate(new Date(booking.booked_at)) : 'N/A',
         icon: Check,
         state: 'done' as const,
       },
@@ -130,6 +137,7 @@ function DetailsInner() {
       nights,
       guests,
       amount,
+      payoutAmount,
       perNight: nights > 0 ? amount / nights : amount,
       title: prop.title?.trim() || 'Property',
       location: [loc.district, loc.state].filter(Boolean).join(', ') || 'Location pending',
@@ -169,14 +177,14 @@ function DetailsInner() {
         {error === 'missing' ? (
           <Link
             href="/host/bookings"
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             Back to bookings
           </Link>
         ) : (
           <button
             onClick={load}
-            className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+            className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
           >
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
@@ -191,7 +199,7 @@ function DetailsInner() {
       <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <nav className="flex items-center gap-2 text-sm text-gray-400 mb-2">
-            <Link href="/host/bookings" className="hover:text-blue-600">
+            <Link href="/host/bookings" className="hover:text-figma-navy">
               Reservations
             </Link>
             <ChevronRight className="w-3.5 h-3.5" />
@@ -242,7 +250,7 @@ function DetailsInner() {
                   className="w-32 h-32 rounded-3xl object-cover shadow ring-4 ring-gray-100"
                 />
                 {view.guestVerified && (
-                  <div className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-1.5 rounded-full border-4 border-white">
+                  <div className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-1.5 rounded-full border-4 border-white">
                     <BadgeCheck className="w-4 h-4" />
                   </div>
                 )}
@@ -258,7 +266,7 @@ function DetailsInner() {
                     </div>
                   </div>
                   {view.guestVerified && (
-                    <span className="px-3 py-1 bg-gray-100 text-blue-600 rounded-full text-xs font-bold uppercase tracking-wider">
+                    <span className="px-3 py-1 bg-gray-100 text-figma-navy rounded-full text-xs font-bold uppercase tracking-wider">
                       ID Verified
                     </span>
                   )}
@@ -267,18 +275,10 @@ function DetailsInner() {
                   <button
                     disabled
                     title="Messaging coming soon"
-                    className="flex items-center gap-2 px-5 py-2.5 bg-blue-600/60 text-white rounded-xl font-bold cursor-not-allowed"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-figma-navy/60 text-white rounded-xl font-bold cursor-not-allowed"
                   >
                     <MessageSquare className="w-5 h-5" /> Contact Guest
                   </button>
-                  {view.guestPhone && (
-                    <a
-                      href={`tel:${view.guestPhone}`}
-                      className="flex items-center gap-2 px-5 py-2.5 border border-gray-200 text-gray-600 rounded-xl font-bold hover:bg-gray-50 transition-all"
-                    >
-                      <Phone className="w-5 h-5" /> Call {view.guestFirst}
-                    </a>
-                  )}
                 </div>
               </div>
             </div>
@@ -286,7 +286,7 @@ function DetailsInner() {
 
           {/* Timeline */}
           <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-            <h3 className="text-lg font-bold text-blue-600 mb-8">Booking Timeline</h3>
+            <h3 className="text-lg font-bold text-figma-navy mb-8">Booking Timeline</h3>
             <div className="relative flex flex-col md:flex-row justify-between gap-8">
               <div className="hidden md:block absolute top-4 left-0 w-full h-0.5 bg-gray-200 z-0" />
               {view.timeline.map((t) => {
@@ -302,7 +302,7 @@ function DetailsInner() {
                     <div
                       className={cn(
                         'w-8 h-8 rounded-full flex items-center justify-center shadow-md',
-                        t.state === 'future' ? 'bg-gray-200 text-gray-500' : 'bg-blue-600 text-white',
+                        t.state === 'future' ? 'bg-gray-200 text-gray-500' : 'bg-figma-navy text-white',
                         t.state === 'active' && 'animate-pulse',
                       )}
                     >
@@ -312,7 +312,7 @@ function DetailsInner() {
                       <p
                         className={cn(
                           'text-sm font-bold',
-                          t.state === 'active' ? 'text-blue-600' : 'text-gray-800',
+                          t.state === 'active' ? 'text-figma-navy' : 'text-gray-800',
                         )}
                       >
                         {t.label}
@@ -329,7 +329,7 @@ function DetailsInner() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
               <div className="flex items-center gap-3 mb-6">
-                <CalendarDays className="w-5 h-5 text-blue-600" />
+                <CalendarDays className="w-5 h-5 text-figma-navy" />
                 <h3 className="text-base font-bold text-gray-800">Stay Details</h3>
               </div>
               <div className="space-y-1">
@@ -355,7 +355,7 @@ function DetailsInner() {
 
             <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
               <div className="flex items-center gap-3 mb-6">
-                <Building2 className="w-5 h-5 text-blue-600" />
+                <Building2 className="w-5 h-5 text-figma-navy" />
                 <h3 className="text-base font-bold text-gray-800">Property</h3>
               </div>
               <div className="flex gap-4 items-center mb-6">
@@ -385,8 +385,8 @@ function DetailsInner() {
                 href="/host/listings/manage"
                 className="bg-gray-50 p-4 rounded-xl flex items-center justify-between hover:bg-gray-100 transition-colors"
               >
-                <span className="text-xs font-bold text-blue-600">MANAGE LISTING</span>
-                <ExternalLink className="w-4 h-4 text-blue-600" />
+                <span className="text-xs font-bold text-figma-navy">MANAGE LISTING</span>
+                <ExternalLink className="w-4 h-4 text-figma-navy" />
               </Link>
             </section>
           </div>
@@ -395,7 +395,7 @@ function DetailsInner() {
         {/* Right: payment summary */}
         <aside className="lg:col-span-4">
           <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-            <h3 className="text-lg font-bold text-blue-600 mb-6">Payment Summary</h3>
+            <h3 className="text-lg font-bold text-figma-navy mb-6">Payment Summary</h3>
             <div className="space-y-4 mb-6">
               <div className="flex justify-between text-sm">
                 <span className="text-gray-500">
@@ -406,7 +406,7 @@ function DetailsInner() {
             </div>
             <div className="flex justify-between items-center pt-4 border-t border-gray-200 mb-6">
               <span className="font-bold text-gray-800">Total payout</span>
-              <span className="text-xl font-bold text-blue-600">{inr(view.amount)}</span>
+              <span className="text-xl font-bold text-figma-navy">{inr(view.payoutAmount)}</span>
             </div>
             {!view.cancelled && (
               <Link

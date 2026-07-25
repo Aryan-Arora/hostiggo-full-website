@@ -66,7 +66,8 @@ export async function createDiscount(
 export async function updateDiscount(
   id: number,
   percent?: number,
-  enabled?: boolean
+  enabled?: boolean,
+  listingId?: number
 ): Promise<ListingDiscount> {
   try {
     if (percent !== undefined && (percent <= 0 || percent > 100)) {
@@ -77,10 +78,12 @@ export async function updateDiscount(
     if (percent !== undefined) updateData.percent = percent;
     if (enabled !== undefined) updateData.enabled = enabled;
 
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from('listing_discounts')
       .update(updateData)
-      .eq('id', id)
+      .eq('id', id);
+    if (listingId !== undefined) updateQuery = updateQuery.eq('listing_id', listingId);
+    const { data, error } = await updateQuery
       .select()
       .single();
 
@@ -95,12 +98,14 @@ export async function updateDiscount(
 /**
  * Delete a discount
  */
-export async function deleteDiscount(id: number): Promise<void> {
+export async function deleteDiscount(id: number, listingId?: number): Promise<void> {
   try {
-    const { error } = await supabase
+    let deleteQuery = supabase
       .from('listing_discounts')
       .delete()
       .eq('id', id);
+    if (listingId !== undefined) deleteQuery = deleteQuery.eq('listing_id', listingId);
+    const { error } = await deleteQuery;
 
     if (error) throw error;
   } catch (error) {

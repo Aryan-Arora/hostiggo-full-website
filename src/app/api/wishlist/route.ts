@@ -3,8 +3,14 @@ import { wishlistAPI } from "@/lib/services/wishlist";
 
 export const dynamic = "force-dynamic";
 
-const jsonError = (err: unknown, status = 500) =>
-  NextResponse.json({ error: err instanceof Error ? err.message : "Request failed" }, { status });
+const jsonError = (err: unknown, status = 500) => {
+  console.error("[/api/wishlist] error:", err);
+  const message =
+    err instanceof Error
+      ? err.message
+      : (err as any)?.message || (err as any)?.hint || "Request failed";
+  return NextResponse.json({ error: message }, { status });
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -34,12 +40,17 @@ export async function POST(req: NextRequest) {
     const action = body.action ?? "add";
 
     if (action === "add") {
-      const data = await wishlistAPI.addToWishlist(body);
+      // Only pass the real wishlists columns through — the raw body also
+      // carries `action`, which isn't a column and made every insert fail
+      // with "Could not find the 'action' column of 'wishlists'".
+      const { user_id, listing_id, category_id } = body;
+      const data = await wishlistAPI.addToWishlist({ user_id, listing_id, category_id });
       return NextResponse.json({ data });
     }
 
     if (action === "create-category") {
-      const data = await wishlistAPI.addWishlistCategories(body);
+      const { user_id, name } = body;
+      const data = await wishlistAPI.addWishlistCategories({ user_id, name });
       return NextResponse.json({ data });
     }
 
@@ -51,12 +62,21 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { categoryId, name } = await req.json();
-    if (!categoryId || !name) {
-      return NextResponse.json({ error: "categoryId and name are required" }, { status: 400 });
+    const { categoryId, name, userId } = await req.json();
+    if (!categoryId || !name || !userId) {
+      return NextResponse.json(
+        { error: "categoryId, name and userId are required" },
+        { status: 400 },
+      );
+    }
+    if (String(name).trim().length === 0 || String(name).length > 100) {
+      return NextResponse.json(
+        { error: "name must be 1-100 characters" },
+        { status: 400 },
+      );
     }
 
-    const data = await wishlistAPI.renameWishlistCategory(categoryId, name);
+    const data = await wishlistAPI.renameWishlistCategory(categoryId, String(name).trim(), String(userId));
     return NextResponse.json({ data });
   } catch (err) {
     return jsonError(err);
@@ -68,7 +88,10 @@ export async function DELETE(req: NextRequest) {
     const { userId, listingId, categoryId } = await req.json();
 
     if (categoryId && !listingId) {
-      await wishlistAPI.deleteWishlistCategory(categoryId);
+      if (!userId) {
+        return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      }
+      await wishlistAPI.deleteWishlistCategory(categoryId, String(userId));
       return NextResponse.json({ data: true });
     }
 

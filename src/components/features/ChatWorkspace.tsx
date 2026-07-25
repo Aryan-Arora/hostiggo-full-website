@@ -108,7 +108,7 @@ function FilterDropdown({
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => onOpenChange(!open)}
-        className="inline-flex h-8 items-center gap-1 rounded-full border border-blue-600 bg-blue-50 px-4 text-sm font-medium text-blue-700"
+        className="inline-flex h-8 items-center gap-1 rounded-full border border-figma-navy bg-figma-navy/5 px-4 text-sm font-medium text-figma-navy/90"
       >
         {filter === 'primary' ? primaryLabel : FILTER_LABELS[filter]}
         <ChevronDown className="h-3.5 w-3.5" />
@@ -190,7 +190,7 @@ function ConversationRow({
           <span
             className={cn(
               'flex-shrink-0 text-[9px] leading-tight',
-              conversation.date === 'Today' ? 'text-blue-600' : 'text-gray-500',
+              conversation.date === 'Today' ? 'text-figma-navy' : 'text-gray-500',
             )}
           >
             {conversation.date}
@@ -201,7 +201,7 @@ function ConversationRow({
             {conversation.preview}
           </p>
           {conversation.unread && (
-            <span className="ml-auto flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-blue-600 text-[9px] font-bold text-white">
+            <span className="ml-auto flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-figma-navy text-[9px] font-bold text-white">
               {conversation.unread}
             </span>
           )}
@@ -216,7 +216,7 @@ function EmptyList() {
     <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
       <CircleSlash className="mb-5 h-9 w-9 text-gray-500" strokeWidth={1.8} />
       <p className="max-w-[190px] text-[13px] font-semibold leading-5 text-gray-500">
-        You don't have any chat for this moment
+        You don&apos;t have any chat for this moment
       </p>
     </div>
   );
@@ -311,7 +311,7 @@ function MessageBubble({
           className={cn(
             'px-4 py-3 text-[13px] leading-5',
             mine
-              ? 'rounded-2xl rounded-br-md bg-blue-600 text-white shadow-[0_2px_9px_rgba(15,23,42,0.12)]'
+              ? 'rounded-2xl rounded-br-md bg-figma-navy text-white shadow-[0_2px_9px_rgba(15,23,42,0.12)]'
               : 'rounded-2xl rounded-bl-md bg-gray-100 text-gray-900',
           )}
         >
@@ -358,7 +358,7 @@ function ConversationPanel({
 
   if (!conversation) {
     return (
-      <section className="h-[70vh] min-w-0 rounded-[2rem] border border-gray-300 bg-white md:h-[calc(100vh-220px)] md:min-h-[520px]">
+      <section className="h-[70dvh] min-w-0 rounded-[2rem] border border-gray-300 bg-white md:h-[calc(100dvh-220px)] md:min-h-[520px]">
         <EmptyThread />
       </section>
     );
@@ -424,7 +424,7 @@ function ConversationPanel({
   };
 
   return (
-    <section className="relative flex h-[70vh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100vh-220px)] md:min-h-[520px]">
+    <section className="relative flex h-[70dvh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100dvh-220px)] md:min-h-[520px]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -499,7 +499,7 @@ function ConversationPanel({
           disabled={!draft.trim() || sending}
           className={cn(
             'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors',
-            draft.trim() && !sending ? 'bg-blue-600 hover:bg-blue-700' : 'bg-gray-300',
+            draft.trim() && !sending ? 'bg-figma-navy hover:bg-figma-navy/90' : 'bg-gray-300',
           )}
         >
           <Send className="h-5 w-5 fill-current" />
@@ -593,7 +593,7 @@ export default function ChatWorkspace({
         'postgres_changes',
         {
           event: 'INSERT',
-          schema: 'public',
+          schema: 'hostiggo_testing_schema',
           table: 'chat_messages',
           filter: `or(user_id.eq.${userId},host_id.eq.${userId})`,
         },
@@ -695,9 +695,9 @@ export default function ChatWorkspace({
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
           <aside
             className={cn(
-              'h-[70vh] min-w-0 flex-col rounded-[2rem] border bg-white px-6 py-6 transition-colors md:flex md:h-[calc(100vh-220px)] md:min-h-[520px]',
+              'h-[70dvh] min-w-0 flex-col rounded-[2rem] border bg-white px-6 py-6 transition-colors md:flex md:h-[calc(100dvh-220px)] md:min-h-[520px]',
               selectedId ? 'hidden' : 'flex',
-              selectedId || filtered.length === 0 ? 'border-blue-600' : 'border-gray-300',
+              selectedId || filtered.length === 0 ? 'border-figma-navy' : 'border-gray-300',
             )}
           >
             <h1 className="text-[30px] font-semibold tracking-tight text-gray-950">Chats</h1>
@@ -715,7 +715,7 @@ export default function ChatWorkspace({
                 className={cn(
                   'h-8 rounded-full border px-4 text-sm font-medium transition-colors',
                   unreadOnly
-                    ? 'border-blue-600 bg-blue-50 text-blue-700'
+                    ? 'border-figma-navy bg-figma-navy/5 text-figma-navy/90'
                     : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
                 )}
               >
@@ -744,8 +744,8 @@ export default function ChatWorkspace({
             <div className="reviews-scroll mt-5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-2">
               {loading ? (
                 <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-                  <div className="w-7 h-7 border-2 border-blue-400 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-[12px] text-blue-500 font-medium">
+                  <div className="w-7 h-7 border-2 border-figma-navy/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-[12px] text-figma-navy font-medium">
                     Loading conversations…
                   </p>
                 </div>
@@ -799,7 +799,7 @@ export default function ChatWorkspace({
                   setUnreadOnly(false);
                   setQuery('');
                 }}
-                className="mx-auto mt-3 h-7 rounded-md border border-[#004772] px-4 text-[11px] font-semibold text-[#004772] hover:bg-blue-50"
+                className="mx-auto mt-3 h-7 rounded-md border border-[#004772] px-4 text-[11px] font-semibold text-[#004772] hover:bg-figma-navy/5"
               >
                 Clear filters
               </button>

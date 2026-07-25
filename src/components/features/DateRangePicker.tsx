@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -7,6 +7,7 @@ interface DateRangePickerProps {
   checkOut: Date | null;
   onChange: (checkIn: Date | null, checkOut: Date | null) => void;
   onClose: () => void;
+  blockedDates?: Set<string>;
 }
 
 const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
@@ -20,6 +21,12 @@ function firstDayOf(y: number, m: number) { return new Date(y, m, 1).getDay(); }
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
+function isoDate(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
 
 interface CalendarMonthProps {
   year: number;
@@ -28,11 +35,13 @@ interface CalendarMonthProps {
   checkOut: Date | null;
   hoverDate: Date | null;
   selecting: "checkin" | "checkout";
+  blockedDates: Set<string>;
   onDayClick: (d: Date) => void;
   onDayHover: (d: Date | null) => void;
+  onDayMouseDown: (d: Date) => void;
 }
 
-function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, onDayClick, onDayHover }: CalendarMonthProps) {
+function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, blockedDates, onDayClick, onDayHover, onDayMouseDown }: CalendarMonthProps) {
   const today = new Date(); today.setHours(0,0,0,0);
   const totalDays = daysInMonth(year, month);
   const startOffset = firstDayOf(year, month);
@@ -46,6 +55,8 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
     const date = new Date(year, month, day);
     date.setHours(0,0,0,0);
     const isPast = date < today;
+    const isBooked = blockedDates.has(isoDate(date));
+    const isDisabled = isPast || isBooked;
     const isStart = checkIn ? sameDay(date, checkIn) : false;
     const isEnd   = checkOut ? sameDay(date, checkOut) : false;
     const isHoverEnd = !checkOut && selecting === "checkout" && hoverDate ? sameDay(date, hoverDate) : false;
@@ -55,13 +66,16 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
     cells.push(
       <button
         key={day}
-        disabled={isPast}
-        onClick={() => !isPast && onDayClick(date)}
-        onMouseEnter={() => !isPast && onDayHover(date)}
+        disabled={isDisabled}
+        title={isBooked && !isPast ? "Already booked" : undefined}
+        onClick={() => !isDisabled && onDayClick(date)}
+        onMouseDown={() => !isDisabled && onDayMouseDown(date)}
+        onMouseEnter={() => !isDisabled && onDayHover(date)}
         onMouseLeave={() => onDayHover(null)}
         className={cn(
           "calendar-day",
-          isPast && "disabled",
+          isDisabled && "disabled",
+          isBooked && !isPast && "line-through text-gray-300",
           isStart && "selected range-start",
           isEnd && "selected range-end",
           isHoverEnd && !isEnd && "selected range-end",
@@ -89,17 +103,50 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, o
   );
 }
 
+const EMPTY_BLOCKED = new Set<string>();
+
 function fmtDate(d: Date | null) {
-  if (!d) return "—";
+  if (!d) return "N/A";
   return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
 }
 
-export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }: DateRangePickerProps) {
+export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, blockedDates = EMPTY_BLOCKED }: DateRangePickerProps) {
   const today = new Date();
   const [baseYear, setBaseYear] = useState(today.getFullYear());
   const [baseMonth, setBaseMonth] = useState(today.getMonth());
   const [selecting, setSelecting] = useState<"checkin"|"checkout">(checkIn ? "checkout" : "checkin");
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
+
+  // Click-and-drag range selection: mousedown on a day starts a drag: holding
+  // and moving across days previews the range (via the existing hover
+  // highlighting below), and releasing on a later day commits check-in and
+  // check-out together in one gesture, instead of requiring two separate
+  // taps. A plain click (mousedown+mouseup on the same day, no movement)
+  // still falls through to the original tap-to-tap flow via handleDayClick.
+  const dragStartRef = useRef<Date | null>(null);
+  const justDraggedRef = useRef(false);
+
+  const handleDayMouseDown = (date: Date) => {
+    // Clear any stale flag from a previous drag so it can't accidentally
+    // suppress a later, unrelated click.
+    justDraggedRef.current = false;
+    if (selecting === "checkin") dragStartRef.current = date;
+  };
+
+  useEffect(() => {
+    const handleMouseUp = () => {
+      const start = dragStartRef.current;
+      dragStartRef.current = null;
+      if (!start || !hoverDate || sameDay(start, hoverDate) || hoverDate <= start) return;
+      justDraggedRef.current = true;
+      onChange(start, hoverDate);
+      setSelecting("checkin");
+      onClose();
+    };
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => window.removeEventListener("mouseup", handleMouseUp);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hoverDate]);
 
   const nextYear  = baseMonth === 11 ? baseYear + 1 : baseYear;
   const nextMonth = baseMonth === 11 ? 0 : baseMonth + 1;
@@ -114,6 +161,12 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
   };
 
   const handleDayClick = (date: Date) => {
+    if (justDraggedRef.current) {
+      // A drag just committed the range and closed the picker on mouseup;
+      // suppress the click event that fires right after on the same day.
+      justDraggedRef.current = false;
+      return;
+    }
     if (selecting === "checkin") {
       onChange(date, null);
       setSelecting("checkout");
@@ -130,7 +183,9 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
   };
 
   return (
-    <div className="dropdown-panel animate-fade-in-down p-5" style={{ width: "min(600px, 95vw)" }}>
+    <div
+      className="dropdown-panel animate-fade-in-down p-5 w-full max-h-[min(75vh,600px)] overflow-y-auto"
+    >
       {/* Date selection header */}
       <div className="flex gap-3 mb-5">
         {[
@@ -143,7 +198,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
             className={cn(
               "flex-1 border rounded-xl p-3 text-left transition-all",
               selecting === panel
-                ? "border-blue-500 bg-blue-50 shadow-sm"
+                ? "border-figma-navy bg-figma-navy/5 shadow-sm"
                 : "border-gray-200 hover:border-gray-300"
             )}
           >
@@ -177,14 +232,18 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
           year={baseYear} month={baseMonth}
           checkIn={checkIn} checkOut={checkOut}
           hoverDate={hoverDate} selecting={selecting}
+          blockedDates={blockedDates}
           onDayClick={handleDayClick} onDayHover={setHoverDate}
+          onDayMouseDown={handleDayMouseDown}
         />
         <div className="w-px bg-gray-100 flex-shrink-0 self-stretch" />
         <CalendarMonth
           year={nextYear} month={nextMonth}
           checkIn={checkIn} checkOut={checkOut}
           hoverDate={hoverDate} selecting={selecting}
+          blockedDates={blockedDates}
           onDayClick={handleDayClick} onDayHover={setHoverDate}
+          onDayMouseDown={handleDayMouseDown}
         />
       </div>
 
@@ -198,7 +257,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose }
         </button>
         <button
           onClick={onClose}
-          className="bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+          className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm"
         >
           Done
         </button>

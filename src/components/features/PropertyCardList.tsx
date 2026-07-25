@@ -1,11 +1,14 @@
 import { useState } from "react";
-import { Heart, Star, Wifi, Car, Coffee, Zap, Droplets, UtensilsCrossed, CheckCircle, Clock } from "lucide-react";
+import Image from "next/image";
+import { Heart, Star, Wifi, Car, Coffee } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { Property } from "@/types";
 import { cn, toISODate } from "@/lib/utils";
 import { useListingState } from "@/context/ListingFilterContext";
 import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
+import { useWishlist } from "@/hooks/useWishlist";
+import { toast } from "sonner";
+import { calculateBookingInvoice } from "@/lib/billing/invoice";
 
 interface PropertyCardListProps {
   property: Property;
@@ -13,39 +16,33 @@ interface PropertyCardListProps {
 
 const FALLBACK = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&q=80";
 
-const AMENITY_ICONS: Record<string, React.ReactNode> = {
-  "WiFi": <Wifi className="w-3 h-3" />,
-  "Parking": <Car className="w-3 h-3" />,
-  "Breakfast": <Coffee className="w-3 h-3" />,
-  "AC": <Zap className="w-3 h-3" />,
-  "Pool": <Droplets className="w-3 h-3" />,
-  "Kitchen": <UtensilsCrossed className="w-3 h-3" />,
-};
-
 export default function PropertyCardList({ property }: PropertyCardListProps) {
-  const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
-  const { dates } = useListingState();
-  const { userId, isAuthenticated } = useAuth();
+  const { dates, guests } = useListingState();
 
-  const toggleLiked = async (e: React.MouseEvent) => {
+  const nights =
+    dates.checkIn && dates.checkOut
+      ? Math.max(0, Math.round((dates.checkOut.getTime() - dates.checkIn.getTime()) / 86400000))
+      : null;
+  const totalGuests = guests.adults + guests.children;
+  const invoice = calculateBookingInvoice({ basePropertyPrice: property.price });
+  const feesAndTaxes = Math.round(invoice.grandTotalPaise / 100 - property.price);
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved, toggle } = useWishlist(userId);
+  const liked = isSaved(property.id);
+
+  const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
-      router.push("/signin");
+      toast("Sign in to save properties to your wishlist.");
+      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
       return;
     }
-    const next = !liked;
-    setLiked(next);
     try {
-      if (next) {
-        await api.addWishlistItem(userId, String(property.id));
-      } else {
-        await api.removeWishlistItem(userId, String(property.id));
-      }
-    } catch (err) {
-      console.error("[PropertyCardList] wishlist toggle failed:", err);
-      setLiked(!next);
+      await toggle(property.id);
+    } catch {
+      toast.error("Could not update your wishlist. Please try again.");
     }
   };
 
@@ -63,24 +60,33 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
     ? Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)
     : null;
 
+  const amenityTags = [
+    property.breakfast && { label: "Breakfast", icon: <Coffee className="w-3 h-3" /> },
+    property.wifi && { label: "Wifi", icon: <Wifi className="w-3 h-3" /> },
+    property.parking && { label: "Parking", icon: <Car className="w-3 h-3" /> },
+  ].filter(Boolean) as { label: string; icon: React.ReactNode }[];
+
   return (
+    // Figma node 3122:18947 -- rounded-[45px], border #d9d9d9, shadow
+    // 0px 4px 75.4px rgba(0,0,0,0.08), image ~35% of card width (square).
     <div
-      className="bg-white rounded-[2rem] p-3 flex flex-col sm:flex-row gap-4 sm:gap-6 cursor-pointer group transition-all duration-200 border border-gray-100 hover:shadow-md"
+      className="bg-white rounded-[45px] p-4 flex flex-col sm:flex-row gap-5 sm:gap-8 cursor-pointer group transition-shadow duration-200 border border-[#d9d9d9]"
+      style={{ boxShadow: "0px 4px 75.4px 0px rgba(0,0,0,0.08)" }}
       onClick={handleNavigate}
     >
-      {/* Image Container — fixed height so every card is the same size
-          regardless of each photo's own aspect ratio */}
-      <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] rounded-[1.5rem] overflow-hidden">
-        <img
+      {/* Image — Figma uses a square (299x299 at an 855-wide card, ~35%) */}
+      <div className="relative flex-shrink-0 w-full sm:w-[35%] aspect-square rounded-[35px] overflow-hidden">
+        <Image
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
           onError={() => setImgErr(true)}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          fill
+          sizes="(max-width: 640px) 100vw, 35vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-700"
         />
         {/* Heart button */}
         <button
-          onClick={toggleLiked}
+          onClick={handleToggleLike}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
             liked ? "text-rose-500" : "text-gray-500 hover:text-rose-400 hover:scale-110"
@@ -96,59 +102,75 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         {/* Top Header Row */}
         <div className="flex justify-between items-start gap-4">
           <div className="min-w-0 flex-1">
-            <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-1">{property.propertyName}</h3>
-            <p className="text-[13px] text-gray-500 font-medium line-clamp-1 mb-2">
-              {property.city}, {property.state} • <button className="text-blue-600 hover:underline">View on map</button> • {property.distanceFromCenter ?? "15.8km from centre"}
-            </p>
+            <h3
+              className="font-semibold leading-[1.4] tracking-[0.075px] text-figma-ink line-clamp-1 mb-2"
+              style={{ fontSize: 25 }}
+            >
+              {property.propertyName}
+            </h3>
 
             {/* Rating Block — show an honest "New" badge instead of a fake
                 score when the listing has no real reviews yet, so this
                 doesn't contradict the guest-rating filter which correctly
                 excludes listings with no genuine rating. */}
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-2">
               {property.rating > 0 ? (
-                <div className="flex items-center gap-1.5 bg-emerald-500 rounded-md px-2 py-0.5 shadow-sm">
-                  <span className="text-[12px] font-bold text-white">{property.rating.toFixed(1)}</span>
-                  <Star className="w-3 h-3 text-white fill-white" />
+                <div className="flex items-center gap-1.5 bg-figma-navy/5 border border-figma-navy/20 rounded-md px-2 py-0.5">
+                  <span className="text-[14px] font-semibold text-figma-ink">{property.rating.toFixed(1)}</span>
+                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                 </div>
               ) : (
-                <div className="flex items-center gap-1.5 bg-gray-100 rounded-md px-2 py-0.5">
-                  <span className="text-[12px] font-bold text-gray-500">New</span>
+                <div className="flex items-center gap-1.5 bg-figma-surface rounded-md px-2 py-0.5">
+                  <span className="text-[14px] font-semibold text-figma-muted">New</span>
                 </div>
               )}
-              <span className="text-[12px] font-bold text-gray-700">{property.reviewCount} reviews</span>
+              <span className="text-[14px] text-figma-ink/70">· {property.reviewCount} reviews</span>
             </div>
+
+            {/* Location + distance row */}
+            <p className="text-[14px] text-figma-ink/60 font-medium line-clamp-1 mb-3">
+              {property.city}, {property.state}
+              {property.distanceFromCenter ? ` · ${property.distanceFromCenter} from centre` : ''}
+            </p>
 
             {/* Badges/Tags */}
             <div className="flex flex-wrap gap-2 mb-3">
               {property.freeCancellation && (
-                <span className="text-[11px] font-bold text-blue-600 bg-blue-50/50 border border-blue-100 px-2 py-1 rounded-md">
+                <span className="text-[11px] font-bold text-figma-navy bg-figma-navy/5 border border-figma-navy/20 px-2.5 py-1 rounded-md">
                   Free cancellation
                 </span>
               )}
-              {property.breakfast && (
-                <span className="text-[11px] font-medium text-gray-500 border border-gray-200 px-2 py-1 rounded-md">
-                  Crib
+              {amenityTags.map((tag) => (
+                <span
+                  key={tag.label}
+                  className="flex items-center gap-1 text-[11px] font-medium text-figma-ink/70 border border-figma-border px-2.5 py-1 rounded-md"
+                >
+                  {tag.icon}
+                  {tag.label}
                 </span>
-              )}
+              ))}
             </div>
 
             {/* Room details text */}
-            <p className="text-[11px] text-gray-500 font-medium mt-3">
-              1 bedroom <br /> 1 double bed • 1 bathroom
+            <p className="text-[11px] text-figma-ink/50 font-medium">
+              Up to {property.maxGuests} guest{property.maxGuests === 1 ? '' : 's'}
             </p>
           </div>
 
           {/* Pricing Column (Right side) */}
           <div className="flex-shrink-0 flex flex-col items-end text-right">
-            <p className="text-[12px] text-gray-500 font-medium mb-1">10 nights, 2 adults</p>
-            {property.originalPrice && (
-              <p className="text-[13px] text-gray-400 font-medium line-through mb-0.5">₹ {property.originalPrice.toLocaleString("en-IN")}</p>
+            {nights !== null && nights > 0 && (
+              <p className="text-[12px] text-figma-ink/60 font-medium mb-1">
+                {nights} night{nights === 1 ? '' : 's'}, {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+              </p>
             )}
-            <p className="text-[22px] font-extrabold text-blue-800 leading-none mb-1">
+            {property.originalPrice && (
+              <p className="text-[13px] text-figma-ink/40 font-medium line-through mb-0.5">₹ {property.originalPrice.toLocaleString("en-IN")}</p>
+            )}
+            <p className="font-semibold text-figma-ink leading-none mb-1" style={{ fontSize: 25 }}>
               ₹ {property.price.toLocaleString("en-IN")}
             </p>
-            <p className="text-[11px] text-gray-400">+₹ {Math.round(property.price * 0.12).toLocaleString("en-IN")} taxes and fees</p>
+            <p className="text-[11px] text-figma-ink/50">+₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
           </div>
         </div>
 

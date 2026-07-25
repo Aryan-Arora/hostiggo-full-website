@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { ChevronLeft } from "lucide-react";
+import Navbar from "@/components/layout/Navbar";
+import Footer from "@/components/layout/Footer";
 
 const sections = [
   {
@@ -59,28 +61,29 @@ const sections = [
 export const metadata = {
   title: "Cancellation & Refund Policy · Hostiggo",
   description:
-    "Hostiggo’s standardized cancellation and refund framework — Flexible, Moderate, and Strict policies — for hosts and guests.",
+    "Hostiggo’s standardized cancellation and refund framework: Flexible, Moderate, and Strict policies, for hosts and guests.",
 };
 
 export default function CancellationPage() {
   return (
-    <main className="bg-white">
-      <div className="container-main py-10 md:py-14">
+    <div className="min-h-screen bg-figma-cream">
+      <Navbar />
+      <main className="container-main py-10 md:py-14">
         <Link
           href="/"
-          className="inline-flex items-center gap-1 text-sm text-gray-500 hover:text-blue-600 mb-6"
+          className="inline-flex items-center gap-1 text-sm text-figma-ink/60 hover:text-figma-navy mb-6"
         >
           <ChevronLeft className="w-4 h-4" /> Back to home
         </Link>
 
         <header className="mb-10">
-          <h1 className="text-3xl md:text-4xl font-bold text-gray-900 mb-3">
+          <h1 className="text-3xl md:text-4xl font-bold text-figma-ink mb-3">
             Cancellation &amp; Refund Policy
           </h1>
-          <p className="text-sm text-gray-500 mb-6">
+          <p className="text-sm text-figma-ink/60 mb-6">
             Last updated: December 1, 2025
           </p>
-          <p className="text-[15px] leading-7 text-gray-700 max-w-3xl">
+          <p className="text-[15px] leading-7 text-figma-ink/80 max-w-3xl">
             Hostiggo follows a standardized, platform-defined cancellation
             framework to ensure transparency, fairness, and consumer
             protection. While hosts may choose from available cancellation
@@ -93,7 +96,7 @@ export default function CancellationPage() {
         <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
           <aside className="hidden lg:block">
             <nav className="sticky top-24">
-              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-figma-ink/60 mb-3">
                 On this page
               </p>
               <ul className="space-y-2">
@@ -101,7 +104,7 @@ export default function CancellationPage() {
                   <li key={s.id}>
                     <a
                       href={`#${s.id}`}
-                      className="text-sm text-gray-600 hover:text-blue-600 transition-colors"
+                      className="text-sm text-figma-ink/70 hover:text-figma-navy transition-colors"
                     >
                       {s.title}
                     </a>
@@ -111,14 +114,14 @@ export default function CancellationPage() {
             </nav>
           </aside>
 
-          <article className="max-w-3xl">
+          <article className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10">
             {sections.map((s) => (
               <section key={s.id} id={s.id} className="mb-8 scroll-mt-24">
-                <h2 className="text-xl md:text-2xl font-semibold text-gray-900 mb-3">
+                <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
                   {s.title}
                 </h2>
                 {s.body && (
-                  <p className="text-[15px] leading-7 text-gray-700 whitespace-pre-line">
+                  <p className="text-[15px] leading-7 text-figma-ink/80 whitespace-pre-line">
                     {s.body}
                   </p>
                 )}
@@ -128,12 +131,12 @@ export default function CancellationPage() {
                       <div
                         key={sub.id}
                         id={sub.id}
-                        className="scroll-mt-24 border-l-2 border-blue-100 pl-4"
+                        className="scroll-mt-24 border-l-2 border-figma-navy/10 pl-4"
                       >
-                        <h3 className="text-base md:text-lg font-semibold text-gray-900 mb-2">
+                        <h3 className="text-base md:text-lg font-semibold text-figma-ink mb-2">
                           {sub.title}
                         </h3>
-                        <p className="text-[15px] leading-7 text-gray-700">
+                        <p className="text-[15px] leading-7 text-figma-ink/80">
                           {sub.body}
                         </p>
                       </div>
@@ -143,19 +146,25 @@ export default function CancellationPage() {
               </section>
             ))}
 
-            <div className="mt-12 pt-6 border-t border-gray-100 text-sm text-gray-500">
-              Questions about cancellations or refunds? Contact us at{" "}
-              <a
-                href="mailto:support@hostiggo.com"
-                className="text-blue-600 hover:underline"
-              >
-                support@hostiggo.com
-              </a>
-              .
+            <div className="mt-12 rounded-2xl bg-figma-navy px-6 py-8 text-center">
+              <h3 className="text-lg md:text-xl font-bold text-white mb-2">
+                Questions about cancellations or refunds?
+              </h3>
+              <p className="text-sm text-white/80">
+                Contact us at{" "}
+                <a
+                  href="mailto:support@hostiggo.com"
+                  className="text-white underline hover:text-white/90"
+                >
+                  support@hostiggo.com
+                </a>
+                .
+              </p>
             </div>
           </article>
         </div>
-      </div>
-    </main>
+      </main>
+      <Footer />
+    </div>
   );
 }

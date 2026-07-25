@@ -10,7 +10,6 @@ import {
   LifeBuoy,
   Pencil,
   Plus,
-  MoreVertical,
   ShieldCheck,
   CheckCircle2,
   Loader2,
@@ -107,7 +106,7 @@ export default function HostSettingsPage() {
     return (
       <HostDashboardShell active="settings">
         <div className="flex justify-center py-16">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-figma-navy" />
         </div>
       </HostDashboardShell>
     );
@@ -135,7 +134,7 @@ export default function HostSettingsPage() {
                     className={cn(
                       'flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm',
                       on
-                        ? 'bg-blue-600 text-white font-semibold'
+                        ? 'bg-figma-navy text-white font-semibold'
                         : 'text-gray-500 hover:bg-gray-100',
                     )}
                   >
@@ -168,7 +167,7 @@ export default function HostSettingsPage() {
                     <button
                       disabled
                       title="Photo upload coming soon"
-                      className="absolute -bottom-2 -right-2 bg-blue-600/70 text-white p-2 rounded-xl shadow-md cursor-not-allowed"
+                      className="absolute -bottom-2 -right-2 bg-figma-navy/70 text-white p-2 rounded-xl shadow-md cursor-not-allowed"
                     >
                       <Pencil className="w-4 h-4" />
                     </button>
@@ -181,7 +180,7 @@ export default function HostSettingsPage() {
                         <p className="text-lg font-bold text-gray-800">
                           {typeof profile?.stats.rating === 'string'
                             ? profile.stats.rating
-                            : profile?.stats.rating?.toFixed(1) ?? '—'}
+                            : profile?.stats.rating?.toFixed(1) ?? 'N/A'}
                         </p>
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Rating</p>
                       </div>
@@ -205,7 +204,7 @@ export default function HostSettingsPage() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div className="space-y-2">
@@ -214,7 +213,7 @@ export default function HostSettingsPage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div className="space-y-2 md:col-span-2">
@@ -226,7 +225,7 @@ export default function HostSettingsPage() {
                       value={about}
                       onChange={(e) => setAbout(e.target.value)}
                       placeholder="Tell guests a bit about yourself as a host."
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-none"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm resize-none"
                     />
                   </div>
                   <div className="space-y-2">
@@ -235,7 +234,7 @@ export default function HostSettingsPage() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                 </div>
@@ -243,7 +242,7 @@ export default function HostSettingsPage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-8 py-3 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                     {saving ? 'Saving…' : 'Save Changes'}
@@ -263,33 +262,23 @@ export default function HostSettingsPage() {
                       Manage how you receive your hosting earnings.
                     </p>
                   </div>
-                  <button className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all">
+                  <button
+                    disabled
+                    title="Coming soon"
+                    className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-400 rounded-xl font-bold cursor-not-allowed"
+                  >
                     <Plus className="w-4 h-4" /> Add method
                   </button>
                 </div>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                      <Landmark className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800">Chase Bank •••• 8821</p>
-                      <p className="text-xs text-gray-500">Default Payout Method • Bank Transfer</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-[11px] rounded-full font-bold uppercase tracking-wider">
-                      Active
-                    </span>
-                    <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
-                      <MoreVertical className="w-5 h-5" />
-                    </button>
-                  </div>
+                <div className="p-8 rounded-xl border border-dashed border-gray-200 text-center">
+                  <Landmark className="w-6 h-6 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">No payout method on file yet.</p>
+                  <p className="text-xs text-gray-400 mt-1">Payout management is coming soon.</p>
                 </div>
               </div>
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                  <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                  <div className="w-14 h-14 rounded-full bg-figma-navy/5 flex items-center justify-center text-figma-navy">
                     <ShieldCheck className="w-8 h-8" />
                   </div>
                   <div>

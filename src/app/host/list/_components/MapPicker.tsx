@@ -141,8 +141,8 @@ export default function MapPicker({
 
       {/* Address display */}
       <div className="absolute bottom-6 left-6 max-w-xs px-4 py-2 rounded-lg shadow-sm flex items-start gap-2 bg-white/90 backdrop-blur-sm">
-        {loading && <Loader2 className="w-4 h-4 text-blue-500 animate-spin shrink-0 mt-0.5" />}
-        {!loading && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" />}
+        {loading && <Loader2 className="w-4 h-4 text-figma-accent animate-spin shrink-0 mt-0.5" />}
+        {!loading && <span className="w-2 h-2 rounded-full bg-figma-accent shrink-0 mt-1" />}
         <span className="text-xs font-medium text-gray-700 line-clamp-2">
           {address || 'Loading address...'}
         </span>

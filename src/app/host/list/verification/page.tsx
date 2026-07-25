@@ -12,7 +12,7 @@ const STEPS = [
 export default function VerificationPage() {
   return (
     <WizardShell
-      step={9}
+      step={10}
       title="Security starts with verification"
       subtitle="To maintain the highest level of trust on Hostiggo, we require all hosts to complete a quick mobile video verification."
       nextLabel="Verify via App"
@@ -20,11 +20,11 @@ export default function VerificationPage() {
       {/* Trust chips */}
       <div className="flex flex-wrap gap-4 mb-10 justify-center">
         <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-          <ShieldCheck className="w-5 h-5 text-blue-600" />
+          <ShieldCheck className="w-5 h-5 text-figma-navy" />
           <span className="text-sm font-medium text-gray-800">Identity Secured</span>
         </div>
         <div className="flex items-center gap-2 bg-gray-50 px-4 py-2 rounded-full">
-          <Eye className="w-5 h-5 text-blue-600" />
+          <Eye className="w-5 h-5 text-figma-navy" />
           <span className="text-sm font-medium text-gray-800">Property Verified</span>
         </div>
       </div>
@@ -44,7 +44,7 @@ export default function VerificationPage() {
             <div className="space-y-8">
               {STEPS.map((s) => (
                 <div key={s.n} className="flex gap-6 group">
-                  <span className="shrink-0 w-10 h-10 rounded-full bg-blue-600 text-white font-bold flex items-center justify-center group-hover:scale-110 transition-transform">
+                  <span className="shrink-0 w-10 h-10 rounded-full bg-figma-navy text-white font-bold flex items-center justify-center group-hover:scale-110 transition-transform">
                     {s.n}
                   </span>
                   <div>
@@ -55,7 +55,11 @@ export default function VerificationPage() {
               ))}
             </div>
             <div className="pt-6 border-t border-gray-100">
-              <button className="flex items-center gap-2 text-blue-600 font-bold hover:underline">
+              <button
+                disabled
+                title="Coming soon"
+                className="flex items-center gap-2 text-gray-400 font-bold cursor-not-allowed"
+              >
                 <MessageSquare className="w-5 h-5" />
                 Send link via SMS instead
               </button>
@@ -72,9 +76,9 @@ export default function VerificationPage() {
               }}
             />
             <div className="relative z-10 space-y-6">
-              <div className="bg-white p-6 rounded-3xl shadow-sm inline-block border-4 border-blue-50">
+              <div className="bg-white p-6 rounded-3xl shadow-sm inline-block border-4 border-figma-navy/10">
                 <div className="w-44 h-44 flex items-center justify-center bg-gray-100 rounded-lg">
-                  <QrCode className="w-28 h-28 text-blue-600" strokeWidth={1.5} />
+                  <QrCode className="w-28 h-28 text-figma-navy" strokeWidth={1.5} />
                 </div>
               </div>
               <div className="space-y-2">
@@ -84,7 +88,11 @@ export default function VerificationPage() {
                 </p>
               </div>
               <div className="flex flex-col gap-3 w-full">
-                <button className="bg-blue-600 text-white font-bold py-4 rounded-full shadow-lg hover:bg-blue-700 active:scale-[0.98] transition-all">
+                <button
+                  disabled
+                  title="Coming soon -- use the Finish button below to publish your listing"
+                  className="bg-gray-200 text-gray-400 font-bold py-4 rounded-full cursor-not-allowed"
+                >
                   Verify via App
                 </button>
                 <p className="text-xs text-gray-500">

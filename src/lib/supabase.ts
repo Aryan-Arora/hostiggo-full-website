@@ -9,9 +9,16 @@ if (!SUPABASE_ANON_KEY) {
   console.warn("[supabase] SUPABASE_ANON_KEY is missing — auth and DB calls will fail.");
 }
 
+// Next.js patches the global `fetch` in the App Router and will cache GET
+// requests -- including the ones supabase-js makes under the hood -- to its
+// on-disk Data Cache, which survives dev-server restarts. Without `cache:
+// "no-store"` here, a query result (e.g. "popular locations") can keep being
+// served stale indefinitely after the underlying rows change or get
+// deleted, even on a `force-dynamic` route. Mirrors the same fix already
+// applied to the service-role client in supabase-admin.ts.
 const customFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   try {
-    const response = await fetch(input, init);
+    const response = await fetch(input, { ...init, cache: "no-store" });
     return response;
   } catch (error: any) {
     console.error("[supabase] Fetch Error:", {

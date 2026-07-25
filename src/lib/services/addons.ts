@@ -150,7 +150,8 @@ export async function updateListingAddon(
   timingFrom?: string,
   timingTo?: string,
   details?: Record<string, any>,
-  notes?: string
+  notes?: string,
+  listingId?: number
 ): Promise<ListingAddon> {
   try {
     if (price !== undefined && price < 0) {
@@ -165,10 +166,14 @@ export async function updateListingAddon(
     if (details !== undefined) updateData.another_details = details || null;
     if (notes !== undefined) updateData.additional_notes = notes || '';
 
-    const { data, error } = await supabase
+    let updateQuery = supabase
       .from('listing_addons')
       .update(updateData)
-      .eq('id', addonListingId)
+      .eq('id', addonListingId);
+    // Scope to the listing from the URL so a row id belonging to a
+    // different listing can't be updated through this path.
+    if (listingId !== undefined) updateQuery = updateQuery.eq('listing_id', listingId);
+    const { data, error } = await updateQuery
       .select(
         `
         id,
@@ -200,12 +205,14 @@ export async function updateListingAddon(
 /**
  * Remove an addon from a listing
  */
-export async function removeAddonFromListing(addonListingId: number): Promise<void> {
+export async function removeAddonFromListing(addonListingId: number, listingId?: number): Promise<void> {
   try {
-    const { error } = await supabase
+    let deleteQuery = supabase
       .from('listing_addons')
       .delete()
       .eq('id', addonListingId);
+    if (listingId !== undefined) deleteQuery = deleteQuery.eq('listing_id', listingId);
+    const { error } = await deleteQuery;
 
     if (error) throw error;
   } catch (error) {

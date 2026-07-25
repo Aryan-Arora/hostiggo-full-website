@@ -26,8 +26,16 @@ export default function LeafletMap({
   useEffect(() => {
     if (!containerRef.current || mapRef.current) return;
 
-    // Initialize map
-    const map = L.map(containerRef.current).setView([latitude, longitude], 13);
+    // Initialize map. scrollWheelZoom is off by default so the page can
+    // scroll normally over the map instead of the map hijacking the wheel
+    // and zooming/panning while the host is trying to scroll the page;
+    // it's enabled only while the map itself has focus (click/tap on it).
+    const map = L.map(containerRef.current, { scrollWheelZoom: false }).setView(
+      [latitude, longitude],
+      13,
+    );
+    map.on('click', () => map.scrollWheelZoom.enable());
+    containerRef.current.addEventListener('mouseleave', () => map.scrollWheelZoom.disable());
 
     // Add OpenStreetMap tile layer
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {

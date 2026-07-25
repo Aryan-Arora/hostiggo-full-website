@@ -20,8 +20,8 @@ const TYPE_MAP: Record<string, string> = {
 const ACTIONS: { id: string; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
   { id: 'issue', title: 'Report an issue', desc: 'Experiencing technical difficulties? Let us know so we can fix it immediately.', icon: AlertTriangle, tint: 'bg-red-50 text-red-500' },
   { id: 'suggest', title: 'Suggest improvement', desc: 'Have an idea to make Hostiggo better? We love hearing your creative thoughts.', icon: Lightbulb, tint: 'bg-sky-50 text-sky-600' },
-  { id: 'experience', title: 'Share experience', desc: 'Tell us about your hosting journey. Your stories help us grow together.', icon: Smile, tint: 'bg-gray-100 text-blue-600' },
-  { id: 'referral', title: 'Referral', desc: 'Know another great host? Refer them and earn rewards on our platform.', icon: UserPlus, tint: 'bg-blue-50 text-blue-600' },
+  { id: 'experience', title: 'Share experience', desc: 'Tell us about your hosting journey. Your stories help us grow together.', icon: Smile, tint: 'bg-gray-100 text-figma-navy' },
+  { id: 'referral', title: 'Referral', desc: 'Know another great host? Refer them and earn rewards on our platform.', icon: UserPlus, tint: 'bg-figma-navy/5 text-figma-navy' },
 ];
 
 const FAQ = [
@@ -61,7 +61,7 @@ export default function SupportPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       <Navbar />
       <main className="container-main py-12">
         <section className="mb-10">
@@ -82,7 +82,7 @@ export default function SupportPage() {
                 onClick={() => setActive(a.id)}
                 className={cn(
                   'text-left p-6 rounded-2xl bg-white border shadow-card hover:shadow-card-hover transition-all flex flex-col items-start gap-4 h-full',
-                  active === a.id ? 'border-blue-600 ring-1 ring-blue-600' : 'border-gray-200',
+                  active === a.id ? 'border-figma-navy ring-1 ring-figma-navy' : 'border-gray-200',
                 )}
               >
                 <div className={cn('w-12 h-12 rounded-xl flex items-center justify-center', a.tint)}>
@@ -101,7 +101,7 @@ export default function SupportPage() {
           <div className="max-w-3xl mx-auto mb-16">
             <div className="bg-white p-8 rounded-3xl shadow-card border border-gray-200">
               <div className="flex justify-between items-center mb-6">
-                <h2 className="text-xl font-bold text-blue-600">
+                <h2 className="text-xl font-bold text-figma-navy">
                   {ACTIONS.find((a) => a.id === active)?.title}
                 </h2>
                 <button
@@ -124,7 +124,7 @@ export default function SupportPage() {
                       value={text}
                       onChange={(e) => setText(e.target.value)}
                       placeholder="Tell us more details here..."
-                      className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none resize-none"
+                      className="w-full p-4 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none resize-none"
                     />
                     <div className="absolute bottom-3 right-4 text-xs text-gray-400 font-medium">
                       {text.length}/1000
@@ -139,7 +139,7 @@ export default function SupportPage() {
                   <button
                     onClick={handleSubmit}
                     disabled={submitting}
-                    className="w-full sm:w-auto px-10 py-4 bg-blue-600 text-white font-bold rounded-2xl shadow-md hover:bg-blue-700 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
+                    className="w-full sm:w-auto px-10 py-4 bg-figma-navy text-white font-bold rounded-2xl shadow-md hover:bg-figma-navy/90 hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
                   >
                     {submitting ? 'Submitting…' : 'Submit Feedback'}
                   </button>
@@ -171,7 +171,7 @@ export default function SupportPage() {
                   >
                     {f.q}
                     <ChevronDown
-                      className={cn('w-5 h-5 transition-transform', open === i && 'rotate-180 text-blue-600')}
+                      className={cn('w-5 h-5 transition-transform', open === i && 'rotate-180 text-figma-navy')}
                     />
                   </button>
                   {open === i && (

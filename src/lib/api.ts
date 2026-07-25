@@ -82,6 +82,10 @@ const buildReviews = (row: any): Review[] => {
   }));
 };
 
+// The `host` table has no response_rate/response_time/superhost columns at
+// all -- those were previously hardcoded (99%, "Within a day", true for
+// every host) and displayed as if real. Left undefined here instead so the
+// UI can honestly omit them; only is_verified reflects a real column.
 const buildHost = (row: any): Host => ({
   id: String(row?.host_uuid ?? row?.host?.id ?? ""),
   name: row?.host?.name ?? "Host",
@@ -89,9 +93,9 @@ const buildHost = (row: any): Host => ({
   rating: Number(row?.host?.rating ?? 0),
   tripsHosted: Number(row?.host?.tripsHosted ?? 0),
   joinDate: row?.host?.joinDate ?? "",
-  responseRate: Number(row?.host?.responseRate ?? 99),
-  responseTime: row?.host?.responseTime ?? "Within a day",
-  isSuperhost: true,
+  responseRate: row?.host?.responseRate != null ? Number(row.host.responseRate) : undefined,
+  responseTime: row?.host?.responseTime ?? undefined,
+  isSuperhost: Boolean(row?.host?.is_verified),
 });
 
 export function mapListingToProperty(input: any): Property {
@@ -100,7 +104,13 @@ export function mapListingToProperty(input: any): Property {
   const images = mediaUrls(row);
   const amenities = amenityNames(row);
   const reviews = buildReviews(row);
-  const rating = Number(row.avg_rating ?? row.rating ?? 0);
+  // Prefer the live joined reviews over listings.avg_rating/review_count,
+  // which are separately materialized columns that createReview never updates
+  // and so go stale as soon as a new review is submitted.
+  const rating =
+    reviews.length > 0
+      ? reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length
+      : Number(row.avg_rating ?? row.rating ?? 0);
 
   return {
     id: String(row.listing_id ?? row.id ?? ""),
@@ -108,8 +118,9 @@ export function mapListingToProperty(input: any): Property {
     city: row.district ?? location.district ?? row.city ?? "Unknown",
     state: row.state ?? location.state ?? row.state_name ?? "",
     price: Number(row.price_weekday ?? row.price ?? 0),
+    priceWeekend: Number(row.price_weekend ?? row.price_weekday ?? row.price ?? 0),
     rating,
-    reviewCount: Number(row.review_count ?? reviews.length ?? 0),
+    reviewCount: reviews.length > 0 ? reviews.length : Number(row.review_count ?? 0),
     amenities,
     amenityDetails: buildAmenityDetails(amenities),
     propertyType: row.property_type ?? row.propertyType ?? "Homestay",
@@ -121,6 +132,7 @@ export function mapListingToProperty(input: any): Property {
       typeof input?.distance === "number" ? `${(input.distance / 1000).toFixed(1)} km` : row.distance,
     isInstantBook: row.booking_mode === "auto" || Boolean(row.isInstantBook),
     freeCancellation: Boolean(row.freeCancellation),
+    cancellationPolicy: (row.cancellation_policy ?? "moderate") as Property["cancellationPolicy"],
     breakfast: boolFromAmenity(amenities, "breakfast"),
     parking: boolFromAmenity(amenities, "parking"),
     wifi: boolFromAmenity(amenities, "wifi"),
@@ -140,6 +152,54 @@ export function mapListingToProperty(input: any): Property {
     // No per-category (cleanliness/accuracy/communication/location/checkIn/
     // value) rating exists anywhere in the schema — only a single overall
     // `rating` per review — so no ratingBreakdown is fabricated here.
+    houseRules: (() => {
+      // listing_house_rules is one structured row per listing (booleans +
+      // times), not a list of free-text rules — build readable strings
+      // from it. Supabase may return it as an object or a 1-item array
+      // depending on the relationship hint, so handle both.
+      const hr = Array.isArray(row.listing_house_rules)
+        ? row.listing_house_rules[0]
+        : row.listing_house_rules;
+      if (!hr) return undefined;
+      const rules: string[] = [];
+      rules.push(hr.smoking_allowed ? 'Smoking allowed' : 'No smoking');
+      rules.push(hr.pets_allowed ? 'Pets allowed' : 'No pets');
+      rules.push(hr.parties_allowed ? 'Parties or events allowed' : 'No parties or events');
+      if (hr.quiet_hours) rules.push('Quiet hours enforced (10 PM – 8 AM)');
+      if (hr.check_in_time) rules.push(`Check-in from ${String(hr.check_in_time).slice(0, 5)}`);
+      if (hr.check_out_time) rules.push(`Check-out before ${String(hr.check_out_time).slice(0, 5)}`);
+      return rules;
+    })(),
+    safetyFeatures: Array.isArray(row.listing_safety_details)
+      ? row.listing_safety_details
+          .filter((d: any) => d.enabled && d.safety_features)
+          .map((d: any) => ({
+            name: d.safety_features.name,
+            icon: d.safety_features.icon,
+            description: d.safety_features.description,
+          }))
+      : undefined,
+    activeDiscount: (() => {
+      const active = Array.isArray(row.listing_discounts)
+        ? row.listing_discounts.find((d: any) => d.enabled)
+        : null;
+      return active ? { type: active.discount_type, percent: Number(active.percent ?? 0) } : null;
+    })(),
+    addons: Array.isArray(row.listing_addons)
+      ? row.listing_addons
+          .filter((a: any) => a.addons)
+          .map((a: any) => ({
+            addonId: a.addons.addon_id,
+            name: a.addons.name,
+            icon: a.addons.icon,
+            category: a.addons.category,
+            price: Number(a.price ?? 0),
+            includes: a.includes ?? "",
+            timingFrom: a.timing_from ?? null,
+            timingTo: a.timing_to ?? null,
+            notes: a.additional_notes ?? null,
+          }))
+      : undefined,
   };
 }
 
@@ -164,31 +224,36 @@ export function mapBooking(item: any) {
   const checkOut = new Date(item.end_date);
   const status = String(item.booking_label ?? "upcoming").toLowerCase();
 
+  // Only build real coordinates when the listing actually has them — the
+  // guest-facing "Location" button previously defaulted to 22.5937,78.9629
+  // (the geographic center of India) whenever they were missing, silently
+  // sending guests to the wrong place instead of telling them it's unknown.
+  const hasCoords = item.latitude != null && item.longitude != null;
+
   return {
     id: String(item.booking_id),
     title: item.listing_title ?? "Booked stay",
     image: item.cover_photo_url || FALLBACK_IMAGE,
-    location: item.location ?? "",
-    distanceText: item.distanceText ?? "Location available after booking",
+    location: item.location ?? [item.district, item.state].filter(Boolean).join(", "),
+    distanceText:
+      item.distanceText ||
+      [item.district, item.state].filter(Boolean).join(", ") ||
+      "Location unavailable",
     checkIn,
     checkOut,
     status: status === "completed" || status === "cancelled" ? status : "upcoming",
-    coordinates: {
-      lat: Number(item.latitude ?? 22.5937),
-      lng: Number(item.longitude ?? 78.9629),
-    },
+    coordinates: hasCoords
+      ? { lat: Number(item.latitude), lng: Number(item.longitude) }
+      : null,
     guests: {
       adults: Number(item.num_adults ?? 1),
       children: Number(item.num_children ?? 0),
       rooms: 1,
       pets: false,
     },
-    addons: [
-      { id: "breakfast", label: "Breakfast", emoji: "🍳", price: 500, selected: false },
-      { id: "airport", label: "Airport Pickup", emoji: "🚗", price: 1200, selected: false },
-      { id: "extrabed", label: "Extra Bed", emoji: "🛏️", price: 800, selected: false },
-      { id: "earlycheckin", label: "Early Check-in", emoji: "⏰", price: 600, selected: false },
-    ],
+    amount: item.amount != null ? Number(item.amount) : null,
+    priceWeekday: item.priceWeekday != null ? Number(item.priceWeekday) : null,
+    priceWeekend: item.priceWeekend != null ? Number(item.priceWeekend) : null,
   };
 }
 
@@ -218,6 +283,13 @@ export type CurrentUser = {
   emergency_contact: string | null;
   created_at: string | null;
   updated_at: string | null;
+  email_notifications: boolean | null;
+  sms_alerts: boolean | null;
+  promo_notifications: boolean | null;
+  host_message_notifications: boolean | null;
+  show_profile_to_hosts: boolean | null;
+  include_in_search: boolean | null;
+  activity_status: boolean | null;
 };
 
 export const normalizePhone = (phone: string) => {
@@ -256,8 +328,10 @@ export const api = {
     request<any[]>(`/api/host/reviews?userId=${encodeURIComponent(userId)}`),
   hostBookings: (userId: string) =>
     request<any[]>(`/api/bookings?role=host&userId=${encodeURIComponent(userId)}`),
-  bookingDetail: (id: string) =>
-    request<any>(`/api/bookings/details?id=${encodeURIComponent(id)}`),
+  bookingDetail: (id: string, userId: string) =>
+    request<any>(
+      `/api/bookings/details?id=${encodeURIComponent(id)}&userId=${encodeURIComponent(userId)}`,
+    ),
   hostCalendar: (listingId: string | number, start: string, end: string) =>
     request<{ entries: any[]; bookings: any[] }>(
       `/api/host/calendar?listingId=${encodeURIComponent(String(listingId))}&start=${start}&end=${end}`,
@@ -267,6 +341,7 @@ export const api = {
     date: string;
     price?: number;
     isAvailable?: boolean;
+    userId: string;
   }) =>
     request<any>(`/api/host/calendar`, {
       method: "PATCH",
@@ -279,7 +354,10 @@ export const api = {
     endDate: string;
     numAdults?: number;
     numChildren?: number;
-    amount?: number;
+    addonIds?: number[];
+    // amount is intentionally not accepted here — the server recomputes the
+    // real charge from the listing's own prices, see createBooking() in
+    // src/lib/services/admin-writes.ts
   }) =>
     request<any>(`/api/bookings/reserve`, {
       method: "POST",
@@ -303,10 +381,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
-  cancelBooking: (bookingId: string | number, reason?: string) =>
+  cancelBooking: (bookingId: string | number, userId: string, reason?: string) =>
     request<any>(`/api/bookings/cancel`, {
       method: "POST",
-      body: JSON.stringify({ bookingId, reason }),
+      body: JSON.stringify({ bookingId, userId, reason }),
     }),
   createReview: (payload: {
     listingId: string | number;
@@ -329,7 +407,24 @@ export const api = {
     const { data } = await response.json();
     return data.url;
   },
-  locations: (limit = 40, q?: string) => request<any[]>(`/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}`),
+  uploadProfilePhoto: async (file: File): Promise<string> => {
+    const formData = new FormData();
+    formData.append("file", file);
+    const response = await fetch("/api/account/upload-photo", {
+      method: "POST",
+      body: formData,
+    });
+    if (!response.ok) {
+      const error = await response.json();
+      throw new Error(error.error || "Upload failed");
+    }
+    const { data } = await response.json();
+    return data.url;
+  },
+  locations: (limit = 40, q?: string, popular = false) =>
+    request<any[]>(
+      `/api/locations?limit=${limit}${q ? `&q=${encodeURIComponent(q)}` : ""}${popular ? "&popular=1" : ""}`,
+    ),
   propertyDetail: (id: string) => request<any>(`/api/hotels/${id}`),
   amenities: () => request<{ amenity_id: number; name: string }[]>("/api/amenities"),
   search: async (
@@ -363,12 +458,10 @@ export const api = {
         longitude: extra?.longitude ?? null,
       },
     };
-    console.log("[api.search] Request payload:", payload);
     const result = await request<any[]>("/api/search", {
       method: "POST",
       body: JSON.stringify(payload),
     });
-    console.log("[api.search] Response rows:", result?.length);
     return result;
   },
   sendOtp: (phone: string) =>
@@ -434,12 +527,10 @@ export const api = {
       body: JSON.stringify({
         action: "add",
         user_id: userId,
-        listing_id: listingId,
-        ...(categoryId ? { category_id: categoryId } : {}),
+        listing_id: String(listingId),
+        ...(isUuid(categoryId) ? { category_id: categoryId } : {}),
       }),
     }),
-  wishlistCategories: (userId: string) =>
-    request<any[]>(`/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`),
   wishlistListings: (userId: string, categoryId?: string) =>
     request<any[]>(
       `/api/wishlist?resource=listings&userId=${encodeURIComponent(userId)}${
@@ -451,15 +542,15 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ action: "create-category", user_id: userId, name }),
     }),
-  renameWishlistCategory: (categoryId: string, name: string) =>
+  renameWishlistCategory: (categoryId: string, name: string, userId: string) =>
     request<any>("/api/wishlist", {
       method: "PATCH",
-      body: JSON.stringify({ categoryId, name }),
+      body: JSON.stringify({ categoryId, name, userId }),
     }),
-  deleteWishlistCategory: (categoryId: string) =>
+  deleteWishlistCategory: (categoryId: string, userId: string) =>
     request<boolean>("/api/wishlist", {
       method: "DELETE",
-      body: JSON.stringify({ categoryId }),
+      body: JSON.stringify({ categoryId, userId }),
     }),
   removeWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<boolean>("/api/wishlist", {
@@ -470,38 +561,60 @@ export const api = {
     request<any[]>(
       `/api/bookings?role=guest&userId=${encodeURIComponent(userId)}&label=${label}&limit=50`,
     ),
-  updateBookingDates: (bookingId: string, checkIn: Date, checkOut: Date) =>
+  updateBookingDates: (bookingId: string, checkIn: Date, checkOut: Date, userId: string) =>
     request<any>("/api/bookings", {
       method: "PATCH",
       body: JSON.stringify({
         action: "dates",
         bookingId,
+        userId,
         checkIn: toISODate(checkIn),
         checkOut: toISODate(checkOut),
       }),
     }),
-  updateBookingGuests: (bookingId: string, guests: { adults: number; children: number; pets?: number }) =>
+  updateBookingGuests: (
+    bookingId: string,
+    guests: { adults: number; children: number; pets?: number },
+    userId: string,
+  ) =>
     request<any>("/api/bookings", {
       method: "PATCH",
       body: JSON.stringify({
         action: "guests",
         bookingId,
+        userId,
         adults: guests.adults,
         children: guests.children,
         pets: guests.pets ?? 0,
       }),
     }),
-  updateBookingStatus: (bookingId: string, status: "pending" | "confirmed" | "cancelled", reason?: string) =>
+  updateBookingStatus: (
+    bookingId: string,
+    status: "pending" | "confirmed" | "cancelled",
+    reason: string | undefined,
+    userId: string,
+  ) =>
     request<any>("/api/bookings", {
       method: "PATCH",
-      body: JSON.stringify({ action: "status", bookingId, status, reason }),
+      body: JSON.stringify({ action: "status", bookingId, status, reason, userId }),
+    }),
+  getRefundPreview: (bookingId: string | number, userId: string) =>
+    request<any>(
+      `/api/bookings/refund-preview?bookingId=${encodeURIComponent(String(bookingId))}&userId=${encodeURIComponent(userId)}`,
+    ),
+  cancelBookingWithRefund: (bookingId: string | number, userId: string, reason?: string) =>
+    request<any>("/api/bookings/cancel-with-refund", {
+      method: "POST",
+      body: JSON.stringify({ bookingId, userId, reason }),
     }),
   // iCal integration
-  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate" }) =>
+  registerICalFeed: (payload: { listingId: string | number; icalUrl: string; action: "add" | "update" | "deactivate"; userId: string }) =>
     request<any>("/api/host/calendar/register", {
       method: "POST",
       body: JSON.stringify(payload),
     }),
-  getICalStatus: (listingId: string | number) =>
-    request<any>(`/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}`),
+  getICalStatus: (listingId: string | number, userId: string) =>
+    request<any>(
+      `/api/host/calendar/status?listingId=${encodeURIComponent(String(listingId))}&userId=${encodeURIComponent(userId)}`,
+    ),
 };

@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { ChevronRight, Camera, ShieldCheck, Mail, Phone, Loader2 } from 'lucide-react';
@@ -17,6 +17,8 @@ export default function GuestProfilePage() {
   const [age, setAge] = useState('');
   const [emergencyContact, setEmergencyContact] = useState('');
   const [saving, setSaving] = useState(false);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Seed the form from the real user once it loads.
   useEffect(() => {
@@ -52,14 +54,32 @@ export default function GuestProfilePage() {
 
   const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/200?img=45';
 
+  const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file || !userId) return;
+    setUploadingPhoto(true);
+    try {
+      const url = await api.uploadProfilePhoto(file);
+      await api.updateProfile(userId, { profile_pic_url: url });
+      await refresh();
+      toast.success('Profile photo updated.');
+    } catch (err) {
+      console.error('[account/profile] photo upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not upload photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
+
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-figma-cream">
       <Navbar />
       <main className="container-main py-8">
         <nav className="flex items-center gap-2 py-4 text-gray-500 text-sm">
           <span>Account</span>
           <ChevronRight className="w-4 h-4" />
-          <span className="text-blue-600 font-bold">Profile</span>
+          <span className="text-figma-navy font-bold">Profile</span>
         </nav>
 
         {loading ? (
@@ -73,7 +93,7 @@ export default function GuestProfilePage() {
             <p className="text-sm text-gray-500 mb-6">Manage your personal details once you&apos;re signed in.</p>
             <Link
               href="/signin?redirect=/account/profile"
-              className="inline-flex items-center gap-2 bg-blue-600 text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700"
+              className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
             >
               Sign in
             </Link>
@@ -88,14 +108,26 @@ export default function GuestProfilePage() {
                     <img
                       src={avatar}
                       alt={name || 'Profile'}
-                      className="w-full h-full rounded-full object-cover border-4 border-blue-100 shadow-lg"
+                      className="w-full h-full rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
+                    />
+                    <input
+                      ref={fileInputRef}
+                      type="file"
+                      accept="image/jpeg,image/png,image/webp"
+                      onChange={handlePhotoChange}
+                      className="hidden"
                     />
                     <button
-                      disabled
-                      title="Photo upload coming soon"
-                      className="absolute bottom-1 right-1 bg-blue-600/70 text-white p-2 rounded-full shadow-lg cursor-not-allowed"
+                      onClick={() => fileInputRef.current?.click()}
+                      disabled={uploadingPhoto}
+                      title="Change photo"
+                      className="absolute bottom-1 right-1 bg-figma-navy hover:bg-figma-navy/90 text-white p-2 rounded-full shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                     >
-                      <Camera className="w-5 h-5" />
+                      {uploadingPhoto ? (
+                        <Loader2 className="w-5 h-5 animate-spin" />
+                      ) : (
+                        <Camera className="w-5 h-5" />
+                      )}
                     </button>
                   </div>
                   <h1 className="text-xl font-bold text-gray-900 mb-1">{name || 'Your name'}</h1>
@@ -105,7 +137,7 @@ export default function GuestProfilePage() {
 
               {user?.is_verified && (
                 <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
+                  <div className="w-12 h-12 rounded-full bg-figma-navy/5 flex items-center justify-center text-figma-navy">
                     <ShieldCheck className="w-6 h-6" />
                   </div>
                   <div>
@@ -127,7 +159,7 @@ export default function GuestProfilePage() {
                       type="text"
                       value={name}
                       onChange={(e) => setName(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div className="space-y-2">
@@ -136,7 +168,7 @@ export default function GuestProfilePage() {
                       type="email"
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div className="space-y-2">
@@ -145,7 +177,7 @@ export default function GuestProfilePage() {
                       type="tel"
                       value={phone}
                       onChange={(e) => setPhone(e.target.value)}
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div className="space-y-2">
@@ -157,7 +189,7 @@ export default function GuestProfilePage() {
                       value={age}
                       onChange={(e) => setAge(e.target.value)}
                       placeholder="Optional"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                   <div className="md:col-span-2 space-y-2">
@@ -167,7 +199,7 @@ export default function GuestProfilePage() {
                       value={emergencyContact}
                       onChange={(e) => setEmergencyContact(e.target.value)}
                       placeholder="Name and phone number (optional)"
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
                   </div>
                 </div>
@@ -175,7 +207,7 @@ export default function GuestProfilePage() {
                   <button
                     onClick={handleSave}
                     disabled={saving}
-                    className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                    className="px-8 py-3 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                   >
                     {saving && <Loader2 className="w-4 h-4 animate-spin" />}
                     {saving ? 'Saving…' : 'Save Changes'}
@@ -197,13 +229,13 @@ export default function GuestProfilePage() {
                         className="flex items-center justify-between p-4 rounded-xl border border-gray-200"
                       >
                         <div className="flex items-center gap-4">
-                          <Icon className="w-5 h-5 text-blue-600" />
+                          <Icon className="w-5 h-5 text-figma-navy" />
                           <div>
                             <p className="text-sm font-bold text-gray-800">{p.label}</p>
                             <p className="text-xs text-gray-500">{p.desc}</p>
                           </div>
                         </div>
-                        <Link href="/account/settings" className="text-sm text-blue-600 font-bold hover:underline">
+                        <Link href="/account/settings" className="text-sm text-figma-navy font-bold hover:underline">
                           Manage
                         </Link>
                       </div>

@@ -7,6 +7,27 @@ import { useState, useEffect } from 'react';
 import AddressSearch from '../_components/AddressSearch';
 import MapPicker from '../_components/MapPicker';
 import { reverseGeocode } from '@/lib/services/geocoding';
+import { api } from '@/lib/api';
+
+// Matches the geocoded city/district against the platform's curated
+// locations table (the same lookup the destination search bar uses) so the
+// listing gets tagged with a real location_id instead of silently staying
+// unset. Best-effort: many towns genuinely aren't in that curated list yet,
+// so no match just means no location_id (shows as "Location pending"),
+// which is honest -- not a case to fake a wrong location for.
+async function resolveLocationId(city?: string, county?: string): Promise<number | undefined> {
+  for (const candidate of [city, county]) {
+    if (!candidate) continue;
+    try {
+      const results = await api.locations(1, candidate);
+      if (results?.[0]?.location_id) return results[0].location_id;
+    } catch {
+      // Non-fatal -- listing creation shouldn't fail because location
+      // lookup failed.
+    }
+  }
+  return undefined;
+}
 
 export default function LocationPage() {
   const { draft, update } = useListingDraft();
@@ -25,9 +46,40 @@ export default function LocationPage() {
           setAddress(result.displayName);
         }
       }
+      // A draft can already have coordinates (e.g. resumed from
+      // localStorage, saved before this lookup existed) without a
+      // locationId -- backfill it instead of leaving it stuck unset.
+      if (draft.latitude && draft.longitude && !draft.locationId) {
+        const result = await reverseGeocode(draft.latitude, draft.longitude);
+        const locationId = await resolveLocationId(result?.address.city, result?.address.county);
+        if (locationId) update({ locationId });
+      }
     };
     loadInitialAddress();
-  }, [draft]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [draft.latitude, draft.longitude]);
+
+  // Auto-detect the host's location on first visit to this step, instead of
+  // silently defaulting to Delhi and making them find the pin and their
+  // actual address manually. Only runs once, and only when no location has
+  // been set yet (so it never overrides an address the host already picked).
+  useEffect(() => {
+    if (draft.latitude || draft.longitude || !navigator.geolocation) return;
+
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const { latitude: lat, longitude: lng } = position.coords;
+        const result = await reverseGeocode(lat, lng);
+        handleLocationSelect(lat, lng, result?.displayName ?? '');
+      },
+      () => {
+        // Permission denied or unavailable - keep the Delhi default and let
+        // the host search/pick manually instead of interrupting them.
+      },
+      { timeout: 10000 },
+    );
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleAddressChange = (newAddress: string) => {
     setAddress(newAddress);
@@ -43,6 +95,19 @@ export default function LocationPage() {
       latitude: lat,
       longitude: lng,
       addressLine1: addr,
+      // Clear any locationId resolved for a previous pin immediately -- a
+      // stale locationId from an earlier address is worse than none, since
+      // it silently mislabels the listing under the wrong destination.
+      locationId: undefined,
+    });
+
+    // Resolve which curated location this pin falls under, so the listing
+    // isn't left with no location_id (see resolveLocationId above).
+    reverseGeocode(lat, lng).then((result) => {
+      if (!result) return;
+      resolveLocationId(result.address.city, result.address.county).then((locationId) => {
+        if (locationId) update({ locationId });
+      });
     });
   };
 
@@ -65,11 +130,11 @@ export default function LocationPage() {
           {displayAddress && (
             <div className="bg-gray-50 p-5 rounded-2xl border border-gray-200 space-y-4">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-full bg-blue-600 flex items-center justify-center shrink-0">
+                <div className="w-10 h-10 rounded-full bg-figma-navy flex items-center justify-center shrink-0">
                   <Pin className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-blue-600">Pin picked</h3>
+                  <h3 className="text-sm font-semibold text-figma-navy">Pin picked</h3>
                   <p className="text-sm font-medium text-gray-800 line-clamp-2">
                     {displayAddress}
                   </p>

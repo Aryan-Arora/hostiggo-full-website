@@ -24,6 +24,8 @@ import {
   Dog,
   Star,
   Edit3,
+  ChevronDown,
+  Receipt,
 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
@@ -31,6 +33,7 @@ const memoriesIllustration = '/memories-illustration.png';
 import { cn } from '@/lib/utils';
 import { api, getStoredUserId, mapBooking } from '@/lib/api';
 import { toast } from 'sonner';
+import { calculateBookingInvoice } from '@/lib/billing/invoice';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -45,14 +48,6 @@ interface GuestCounts {
   pets: boolean;
 }
 
-interface AddOn {
-  id: string;
-  label: string;
-  emoji: string;
-  price: number;
-  selected: boolean;
-}
-
 interface Booking {
   id: string;
   title: string;
@@ -62,9 +57,16 @@ interface Booking {
   checkIn: Date;
   checkOut: Date;
   status: TabKey;
-  coordinates: { lat: number; lng: number };
+  coordinates: { lat: number; lng: number } | null;
   guests: GuestCounts;
-  addons: AddOn[];
+  // The actual amount charged for this booking (as stored at the time it
+  // was made) plus the listing's current per-night rates -- together these
+  // let the price-breakdown dropdown reconstruct the same itemized GST/fee
+  // lines shown at checkout (see calculateBookingInvoice), instead of only
+  // ever showing that breakdown once, live, and never again.
+  amount: number | null;
+  priceWeekday: number | null;
+  priceWeekend: number | null;
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -96,6 +98,103 @@ function getDaysLeft(checkIn: Date): number {
 
 function getNights(checkIn: Date, checkOut: Date): number {
   return Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000);
+}
+
+// Mirrors the weekend-aware subtotal calc used at checkout
+// (src/app/property/[id]/page.tsx) and server-side in createBooking() --
+// Fri/Sat nights bill at priceWeekend, everything else at priceWeekday --
+// so a booking's price-breakdown dropdown always matches what was actually
+// charged instead of assuming every night was priced the same.
+function computeBookingInvoice(booking: Booking) {
+  if (booking.priceWeekday == null) return null;
+  const priceWeekend = booking.priceWeekend ?? booking.priceWeekday;
+  const nights = getNights(booking.checkIn, booking.checkOut);
+  let subtotal = 0;
+  let weekdayNights = 0;
+  let weekendNights = 0;
+  const cur = new Date(booking.checkIn);
+  for (let i = 0; i < nights; i++) {
+    const dow = cur.getDay();
+    const isWeekend = dow === 5 || dow === 6;
+    subtotal += isWeekend ? priceWeekend : booking.priceWeekday;
+    if (isWeekend) weekendNights++; else weekdayNights++;
+    cur.setDate(cur.getDate() + 1);
+  }
+  // Which GST slab applies is decided by the check-in night's own rate,
+  // not the summed multi-night total -- see gstRateBasisPrice.
+  const checkInDow = booking.checkIn.getDay();
+  const gstRateBasisPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : booking.priceWeekday;
+  const invoice = calculateBookingInvoice({ basePropertyPrice: subtotal, gstRateBasisPrice });
+  return { invoice, nights, weekdayNights, weekendNights, priceWeekend };
+}
+
+function PriceBreakdown({ booking }: { booking: Booking }) {
+  const [open, setOpen] = useState(false);
+  const computed = computeBookingInvoice(booking);
+  if (!computed) return null;
+  const { invoice, weekdayNights, weekendNights, priceWeekend } = computed;
+
+  return (
+    <div className="rounded-2xl border border-gray-100 mb-5 overflow-hidden">
+      <button
+        onClick={() => setOpen((o) => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+      >
+        <span className="flex items-center gap-2 text-[13px] font-bold text-gray-800">
+          <Receipt className="w-3.5 h-3.5 text-gray-400" />
+          Price breakdown
+        </span>
+        <span className="flex items-center gap-2">
+          <span className="text-[13px] font-bold text-gray-800">
+            ₹{(booking.amount ?? invoice.grandTotalRupees).toLocaleString('en-IN')}
+          </span>
+          <ChevronDown
+            className={cn('w-4 h-4 text-gray-400 transition-transform', open && 'rotate-180')}
+          />
+        </span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 space-y-2 text-[12px] bg-gray-50/50">
+          <div className="flex justify-between text-gray-600 pt-1">
+            <span>
+              {weekendNights === 0 || weekdayNights === 0 ? (
+                <>
+                  ₹{(weekendNights > 0 ? priceWeekend : booking.priceWeekday!).toLocaleString('en-IN')} × {weekdayNights + weekendNights} night{weekdayNights + weekendNights > 1 ? 's' : ''}
+                </>
+              ) : (
+                <>
+                  ₹{booking.priceWeekday!.toLocaleString('en-IN')} × {weekdayNights} night{weekdayNights > 1 ? 's' : ''} + ₹{priceWeekend.toLocaleString('en-IN')} × {weekendNights} night{weekendNights > 1 ? 's' : ''}
+                </>
+              )}
+            </span>
+            <span className="font-semibold">₹{(invoice.propertyPricePaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>GST on property ({(invoice.propertyGstRate * 100).toFixed(0)}%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>Hostiggo service fee ({(invoice.hostiggoServiceFeeRate * 100).toFixed(0)}%)</span>
+            <span className="font-semibold">₹{(invoice.hostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between text-gray-600">
+            <span>GST on service fee (18%)</span>
+            <span className="font-semibold">₹{(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
+          </div>
+          <div className="flex justify-between font-bold text-gray-900 pt-2 border-t border-gray-200">
+            <span>Total</span>
+            <span>₹{(booking.amount ?? invoice.grandTotalRupees).toLocaleString('en-IN')}</span>
+          </div>
+          {booking.amount != null && (
+            <p className="text-[10px] text-gray-400 pt-1">
+              Recomputed from the listing&apos;s current per-night rates against the actual charged total -- the total above is the exact amount charged at booking.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  );
 }
 
 function guestLabel(g: GuestCounts): string {
@@ -178,11 +277,11 @@ function CalendarPicker({
     if (isPast)
       return cn(base, 'text-gray-300 cursor-not-allowed pointer-events-none');
     if (checkIn && isSameDay(d, checkIn))
-      return cn(base, 'bg-[#1B3FA0] text-white font-bold');
+      return cn(base, 'bg-[#004772] text-white font-bold');
     if (checkOut && isSameDay(d, checkOut))
-      return cn(base, 'bg-[#1B3FA0] text-white font-bold');
+      return cn(base, 'bg-[#004772] text-white font-bold');
     if (isSameDay(d, today))
-      return cn(base, 'text-[#1B3FA0] font-bold hover:bg-blue-50');
+      return cn(base, 'text-[#004772] font-bold hover:bg-figma-navy/5');
 
     const rangeEnd = checkOut ?? hovered;
     if (
@@ -194,7 +293,7 @@ function CalendarPicker({
         checkIn < rangeEnd ? rangeEnd : checkIn,
       )
     ) {
-      return cn(base, 'bg-blue-50 text-[#1B3FA0] rounded-none');
+      return cn(base, 'bg-figma-navy/5 text-[#004772] rounded-none');
     }
     return cn(base, 'text-gray-700 hover:bg-gray-100');
   };
@@ -205,9 +304,9 @@ function CalendarPicker({
     if (!checkIn || !rangeEnd) return '';
     const lo = checkIn < rangeEnd ? checkIn : rangeEnd;
     const hi = checkIn < rangeEnd ? rangeEnd : checkIn;
-    if (isSameDay(d, lo)) return 'bg-blue-50 rounded-l-full';
-    if (isSameDay(d, hi)) return 'bg-blue-50 rounded-r-full';
-    if (isBetween(d, lo, hi)) return 'bg-blue-50';
+    if (isSameDay(d, lo)) return 'bg-figma-navy/5 rounded-l-full';
+    if (isSameDay(d, hi)) return 'bg-figma-navy/5 rounded-r-full';
+    if (isBetween(d, lo, hi)) return 'bg-figma-navy/5';
     return '';
   };
 
@@ -257,7 +356,7 @@ function CalendarPicker({
           className={cn(
             'flex-1 border-2 rounded-2xl px-4 py-3 transition-all duration-200',
             !checkIn
-              ? 'border-[#1B3FA0] bg-blue-50/40'
+              ? 'border-[#004772] bg-figma-navy/5'
               : 'border-gray-200 bg-white',
           )}
         >
@@ -270,14 +369,14 @@ function CalendarPicker({
               checkIn ? 'text-gray-900' : 'text-gray-300',
             )}
           >
-            {checkIn ? fmtShort(checkIn) : '—'}
+            {checkIn ? fmtShort(checkIn) : 'N/A'}
           </p>
         </div>
         <div
           className={cn(
             'flex-1 border-2 rounded-2xl px-4 py-3 transition-all duration-200',
             checkIn && !checkOut
-              ? 'border-[#1B3FA0] bg-blue-50/40'
+              ? 'border-[#004772] bg-figma-navy/5'
               : 'border-gray-200 bg-white',
           )}
         >
@@ -290,7 +389,7 @@ function CalendarPicker({
               checkOut ? 'text-gray-900' : 'text-gray-300',
             )}
           >
-            {checkOut ? fmtShort(checkOut) : '—'}
+            {checkOut ? fmtShort(checkOut) : 'N/A'}
           </p>
         </div>
       </div>
@@ -329,7 +428,7 @@ function CalendarPicker({
         <button
           onClick={onDone}
           disabled={!checkIn || !checkOut}
-          className="bg-[#1B3FA0] text-white text-[14px] font-bold px-8 py-2.5 rounded-2xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+          className="bg-[#004772] text-white text-[14px] font-bold px-8 py-2.5 rounded-2xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
           Done
         </button>
@@ -360,7 +459,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
   ) => (
     <div className="flex items-center justify-between py-4 border-b border-gray-100 last:border-0">
       <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-blue-50 rounded-full flex items-center justify-center text-[#1B3FA0]">
+        <div className="w-9 h-9 bg-figma-navy/5 rounded-full flex items-center justify-center text-[#004772]">
           {icon}
         </div>
         <div>
@@ -404,7 +503,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
         className={cn(
           'w-full flex items-center gap-3 border-2 rounded-2xl px-4 py-3 transition-all duration-200 text-left',
           open
-            ? 'border-[#1B3FA0] bg-blue-50/30'
+            ? 'border-[#004772] bg-figma-navy/5'
             : 'border-gray-200 hover:border-gray-300',
         )}
       >
@@ -469,13 +568,13 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
               onClick={() => onChange({ ...guests, pets: !guests.pets })}
               className={cn(
                 'relative w-11 h-6 rounded-full transition-all duration-300',
-                guests.pets ? 'bg-[#1B3FA0]' : 'bg-gray-200',
+                guests.pets ? 'bg-[#004772]' : 'bg-gray-200',
               )}
             >
               <div
                 className={cn(
-                  'absolute top-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300',
-                  guests.pets ? 'left-5.5 translate-x-0.5' : 'left-0.5',
+                  'absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full shadow-sm transition-all duration-300',
+                  guests.pets ? 'translate-x-5' : 'translate-x-0',
                 )}
               />
             </button>
@@ -484,7 +583,7 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
           <div className="px-5 pb-5">
             <button
               onClick={() => setOpen(false)}
-              className="w-full bg-[#1B3FA0] text-white text-[14px] font-bold py-3 rounded-2xl hover:bg-[#162e82] transition-colors"
+              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3 rounded-2xl hover:bg-[#003a5c] transition-colors"
             >
               Done
             </button>
@@ -496,72 +595,27 @@ function GuestSelector({ guests, onChange }: GuestSelectorProps) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Add-Ons Selector
-// ─────────────────────────────────────────────────────────────────────────────
-
-function AddOnsSelector({
-  addons,
-  onChange,
-}: {
-  addons: AddOn[];
-  onChange: (a: AddOn[]) => void;
-}) {
-  const toggle = (id: string) => {
-    onChange(
-      addons.map((a) => (a.id === id ? { ...a, selected: !a.selected } : a)),
-    );
-  };
-
-  return (
-    <div className="grid grid-cols-2 gap-3">
-      {addons.map((addon) => (
-        <button
-          key={addon.id}
-          onClick={() => toggle(addon.id)}
-          className={cn(
-            'flex flex-col items-start gap-2 p-4 rounded-2xl border-2 text-left transition-all duration-200 active:scale-[0.97]',
-            addon.selected
-              ? 'border-[#1B3FA0] bg-blue-50/50 shadow-sm'
-              : 'border-gray-100 bg-white hover:border-gray-200 hover:shadow-sm',
-          )}
-        >
-          <span className="text-2xl">{addon.emoji}</span>
-          <div>
-            <p
-              className={cn(
-                'text-[12.5px] font-bold leading-tight',
-                addon.selected ? 'text-[#1B3FA0]' : 'text-gray-800',
-              )}
-            >
-              {addon.label}
-            </p>
-            <p className="text-[11px] text-gray-400 font-medium mt-0.5">
-              +₹{addon.price.toLocaleString('en-IN')}
-            </p>
-          </div>
-          {addon.selected && (
-            <div className="absolute top-2 right-2 w-4 h-4 bg-[#1B3FA0] rounded-full flex items-center justify-center">
-              <CheckCircle className="w-2.5 h-2.5 text-white" />
-            </div>
-          )}
-        </button>
-      ))}
-    </div>
-  );
-}
-
-// ─────────────────────────────────────────────────────────────────────────────
 // Manage Booking Modal
 // ─────────────────────────────────────────────────────────────────────────────
 
-type ModalView = 'overview' | 'modify';
+type ModalView = 'overview' | 'modify' | 'cancel';
+
+interface RefundPreview {
+  policy: 'flexible' | 'moderate' | 'strict';
+  grandTotalRupees: number;
+  refundAmountRupees: number;
+  refundPercent: number;
+  reason: string;
+}
 
 function ManageBookingModal({
   booking,
+  userId,
   onClose,
   onUpdate,
 }: {
   booking: Booking;
+  userId: string;
   onClose: () => void;
   onUpdate: (b: Partial<Booking>) => void;
 }) {
@@ -575,14 +629,11 @@ function ManageBookingModal({
   const [tempGuests, setTempGuests] = useState<GuestCounts>({
     ...booking.guests,
   });
-  const [tempAddons, setTempAddons] = useState<AddOn[]>(
-    booking.addons.map((a) => ({ ...a })),
-  );
   const [saving, setSaving] = useState(false);
+  const [refundPreview, setRefundPreview] = useState<RefundPreview | null>(null);
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewError, setPreviewError] = useState<string | null>(null);
 
-  const addonsTotal = tempAddons
-    .filter((a) => a.selected)
-    .reduce((s, a) => s + a.price, 0);
   const nights =
     tempCheckIn && tempCheckOut ? getNights(tempCheckIn, tempCheckOut) : 0;
 
@@ -604,18 +655,21 @@ function ManageBookingModal({
     setSaving(true);
     try {
       await Promise.all([
-        api.updateBookingDates(booking.id, nextCheckIn, nextCheckOut),
-        api.updateBookingGuests(booking.id, {
-          adults: tempGuests.adults,
-          children: tempGuests.children,
-          pets: tempGuests.pets ? 1 : 0,
-        }),
+        api.updateBookingDates(booking.id, nextCheckIn, nextCheckOut, userId),
+        api.updateBookingGuests(
+          booking.id,
+          {
+            adults: tempGuests.adults,
+            children: tempGuests.children,
+            pets: tempGuests.pets ? 1 : 0,
+          },
+          userId,
+        ),
       ]);
       onUpdate({
         checkIn: nextCheckIn,
         checkOut: nextCheckOut,
         guests: tempGuests,
-        addons: tempAddons,
       });
       onClose();
     } catch (error) {
@@ -627,16 +681,33 @@ function ManageBookingModal({
     }
   };
 
+  const openCancelConfirm = async () => {
+    setView('cancel');
+    setPreviewLoading(true);
+    setPreviewError(null);
+    try {
+      const preview = await api.getRefundPreview(booking.id, userId);
+      setRefundPreview(preview);
+    } catch (error) {
+      setPreviewError(
+        error instanceof Error ? error.message : 'Could not calculate your refund.',
+      );
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const handleCancel = async () => {
     setSaving(true);
     try {
-      await api.updateBookingStatus(
-        booking.id,
-        'cancelled',
-        'Cancelled by guest',
-      );
+      await api.cancelBookingWithRefund(booking.id, userId, 'Cancelled by guest');
       onUpdate({ status: 'cancelled' });
       onClose();
+      toast.success(
+        refundPreview && refundPreview.refundAmountRupees > 0
+          ? `Booking cancelled. ₹${refundPreview.refundAmountRupees.toLocaleString('en-IN')} will be refunded.`
+          : 'Booking cancelled.',
+      );
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to cancel booking',
@@ -741,13 +812,15 @@ function ManageBookingModal({
                 </div>
               </div>
 
+              <PriceBreakdown booking={booking} />
+
               {/* Actions */}
               <div className="flex flex-col gap-2.5">
                 {booking.status === 'upcoming' && (
                   <>
                     <button
                       onClick={() => setView('modify')}
-                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all active:scale-[0.98]"
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#003a5c] transition-all active:scale-[0.98]"
                     >
                       <span>Modify Booking</span>
                       <Edit3 className="w-4 h-4" />
@@ -763,7 +836,7 @@ function ManageBookingModal({
                       <ArrowRight className="w-4 h-4" />
                     </button>
                     <button
-                      onClick={handleCancel}
+                      onClick={openCancelConfirm}
                       disabled={saving}
                       className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-red-50 text-red-500 border border-red-200 hover:bg-red-100 transition-all"
                     >
@@ -774,18 +847,36 @@ function ManageBookingModal({
                 )}
                 {booking.status === 'completed' && (
                   <>
-                    <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all">
+                    <button
+                      onClick={() => {
+                        onClose();
+                        router.push(`/property/${booking.id}`);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#003a5c] transition-all"
+                    >
                       <span>Book Again</span>
                       <ArrowRight className="w-4 h-4" />
                     </button>
-                    <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-all">
+                    <button
+                      onClick={() => {
+                        onClose();
+                        router.push(`/property/${booking.id}#write-review`);
+                      }}
+                      className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-gray-50 text-gray-700 border border-gray-200 hover:bg-gray-100 transition-all"
+                    >
                       <span>Write a Review</span>
                       <Star className="w-4 h-4" />
                     </button>
                   </>
                 )}
                 {booking.status === 'cancelled' && (
-                  <button className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#1B3FA0] text-white hover:bg-[#162e82] transition-all">
+                  <button
+                    onClick={() => {
+                      onClose();
+                      router.push(`/property/${booking.id}`);
+                    }}
+                    className="w-full flex items-center justify-between px-4 py-3 rounded-xl text-[13px] font-semibold bg-[#004772] text-white hover:bg-[#003a5c] transition-all"
+                  >
                     <span>Book Again</span>
                     <ArrowRight className="w-4 h-4" />
                   </button>
@@ -803,7 +894,7 @@ function ManageBookingModal({
                   <p className="text-[14px] font-bold text-gray-900">Dates</p>
                   <button
                     onClick={() => setCalendarOpen((o) => !o)}
-                    className="flex items-center gap-1.5 text-[12px] font-semibold text-[#1B3FA0] hover:underline"
+                    className="flex items-center gap-1.5 text-[12px] font-semibold text-[#004772] hover:underline"
                   >
                     <Calendar className="w-3.5 h-3.5" />
                     {calendarOpen ? 'Close' : 'Change dates'}
@@ -848,60 +939,77 @@ function ManageBookingModal({
                 <GuestSelector guests={tempGuests} onChange={setTempGuests} />
               </div>
 
-              {/* Add-ons */}
-              <div>
-                <div className="mb-3">
-                  <p className="text-[14px] font-bold text-gray-900">
-                    Enhance Your Stay
-                  </p>
-                  <p className="text-[12px] text-gray-400 mt-0.5">
-                    Select add-ons to make your trip special
-                  </p>
-                </div>
-                <div className="relative">
-                  <AddOnsSelector
-                    addons={tempAddons}
-                    onChange={setTempAddons}
-                  />
-                </div>
-              </div>
-
               {/* Summary */}
-              {(nights > 0 || addonsTotal > 0) && (
+              {nights > 0 && (
                 <div className="bg-gray-50 rounded-2xl p-4 space-y-2.5">
                   <p className="text-[13px] font-bold text-gray-900">
                     Updated Summary
                   </p>
-                  {nights > 0 && (
+                  <div className="flex justify-between text-[13px] text-gray-600">
+                    <span>
+                      {nights} night{nights !== 1 ? 's' : ''} ·{' '}
+                      {guestLabel(tempGuests)}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* ── Cancel confirm ── */}
+          {view === 'cancel' && (
+            <div className="p-5 space-y-4">
+              <h3 className="text-[15px] font-bold text-gray-900">
+                Cancel this booking?
+              </h3>
+
+              {previewLoading && (
+                <div className="text-[13px] text-gray-500 py-6 text-center">
+                  Calculating your refund...
+                </div>
+              )}
+
+              {previewError && (
+                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-[13px] text-red-600">
+                  {previewError}
+                </div>
+              )}
+
+              {refundPreview && (
+                <>
+                  {refundPreview.refundPercent < 1 && (
+                    <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-start gap-3">
+                      <AlarmClock className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" />
+                      <div>
+                        <p className="text-[13.5px] font-bold text-amber-800">
+                          {refundPreview.refundPercent === 0
+                            ? 'No refund for this cancellation'
+                            : `Only ${Math.round(refundPreview.refundPercent * 100)}% will be refunded`}
+                        </p>
+                        <p className="text-[12px] text-amber-700 mt-1 leading-snug">
+                          {refundPreview.reason}
+                        </p>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="bg-gray-50 rounded-2xl p-4 space-y-2">
                     <div className="flex justify-between text-[13px] text-gray-600">
-                      <span>
-                        {nights} night{nights !== 1 ? 's' : ''} ·{' '}
-                        {guestLabel(tempGuests)}
+                      <span>Total paid</span>
+                      <span>₹{refundPreview.grandTotalRupees.toLocaleString('en-IN')}</span>
+                    </div>
+                    <div className="flex justify-between text-[15px] font-bold text-gray-900 pt-1 border-t border-gray-200">
+                      <span>You&apos;ll be refunded</span>
+                      <span className={refundPreview.refundAmountRupees > 0 ? 'text-green-600' : 'text-red-500'}>
+                        ₹{refundPreview.refundAmountRupees.toLocaleString('en-IN')}
                       </span>
                     </div>
+                  </div>
+
+                  {refundPreview.refundPercent === 1 && (
+                    <p className="text-[12px] text-gray-500">{refundPreview.reason}</p>
                   )}
-                  {tempAddons
-                    .filter((a) => a.selected)
-                    .map((a) => (
-                      <div
-                        key={a.id}
-                        className="flex justify-between text-[13px] text-gray-600"
-                      >
-                        <span>
-                          {a.emoji} {a.label}
-                        </span>
-                        <span className="font-medium">
-                          +₹{a.price.toLocaleString('en-IN')}
-                        </span>
-                      </div>
-                    ))}
-                  {addonsTotal > 0 && (
-                    <div className="pt-2 border-t border-gray-200 flex justify-between text-[13px] font-bold text-gray-900">
-                      <span>Add-ons total</span>
-                      <span>₹{addonsTotal.toLocaleString('en-IN')}</span>
-                    </div>
-                  )}
-                </div>
+                </>
               )}
             </div>
           )}
@@ -913,9 +1021,27 @@ function ManageBookingModal({
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full bg-[#1B3FA0] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#162e82] active:scale-[0.99] transition-all shadow-sm"
+              className="w-full bg-[#004772] text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-[#003a5c] active:scale-[0.99] transition-all shadow-sm"
             >
               {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        )}
+        {view === 'cancel' && (
+          <div className="flex-shrink-0 p-4 border-t border-gray-100 bg-white flex gap-2.5">
+            <button
+              onClick={() => setView('overview')}
+              disabled={saving}
+              className="flex-1 bg-gray-50 text-gray-700 border border-gray-200 text-[14px] font-bold py-3.5 rounded-2xl hover:bg-gray-100 transition-all"
+            >
+              Keep Booking
+            </button>
+            <button
+              onClick={handleCancel}
+              disabled={saving || previewLoading || !refundPreview}
+              className="flex-1 bg-red-500 text-white text-[14px] font-bold py-3.5 rounded-2xl hover:bg-red-600 active:scale-[0.99] transition-all shadow-sm disabled:opacity-50"
+            >
+              {saving ? 'Cancelling...' : 'Confirm Cancellation'}
             </button>
           </div>
         )}
@@ -988,12 +1114,13 @@ function BookingCard({
 
   const statusColor =
     booking.status === 'upcoming'
-      ? 'text-[#1B3FA0]'
+      ? 'text-[#004772]'
       : booking.status === 'completed'
         ? 'text-emerald-600'
         : 'text-red-400';
 
   const handleLocation = () => {
+    if (!booking.coordinates) return;
     window.open(
       `https://www.google.com/maps?q=${booking.coordinates.lat},${booking.coordinates.lng}`,
       '_blank',
@@ -1041,20 +1168,24 @@ function BookingCard({
             <div className="flex items-center gap-2.5">
               <button
                 onClick={handleLocation}
-                className="flex items-center gap-2 border border-gray-200 text-gray-600 text-[12.5px] font-semibold px-4 py-2 rounded-full hover:border-blue-400 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200"
+                disabled={!booking.coordinates}
+                title={booking.coordinates ? undefined : 'Exact location unavailable'}
+                className={cn(
+                  'flex items-center gap-2 border text-[12.5px] font-semibold px-4 py-2 rounded-full transition-all duration-200',
+                  booking.coordinates
+                    ? 'border-gray-200 text-gray-600 hover:border-figma-navy/40 hover:text-figma-navy hover:bg-figma-navy/5'
+                    : 'border-gray-100 text-gray-300 cursor-not-allowed',
+                )}
               >
                 <Navigation className="w-3.5 h-3.5" />
                 Location
-              </button>
-              <button className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 text-gray-400 hover:border-gray-300 hover:text-gray-600 hover:bg-gray-50 transition-all duration-200">
-                <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
           </div>
 
           <button
             onClick={onManage}
-            className="self-start mt-4 bg-[#1B3FA0] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#162e82] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
+            className="self-start mt-4 bg-[#004772] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#003a5c] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
           >
             Manage Booking
           </button>
@@ -1074,7 +1205,7 @@ function BookingCard({
             </p>
           </div>
           <div className="hidden sm:block w-8 h-px bg-gray-200" />
-          <div className="sm:hidden text-gray-300 font-bold">—</div>
+          <div className="sm:hidden text-gray-300 font-bold">-</div>
           <div className="text-center">
             <p className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-1.5">
               Check-Out
@@ -1134,11 +1265,11 @@ function SignedOutState() {
           Sign in to see your trips
         </h3>
         <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
-          Your bookings and stay history will show up here once you're signed in.
+          Your bookings and stay history will show up here once you&apos;re signed in.
         </p>
         <button
           onClick={() => router.push('/signin?redirect=/my-memories')}
-          className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+          className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#003a5c] transition-all shadow-sm"
         >
           Sign in
         </button>
@@ -1165,7 +1296,7 @@ function EmptyState({ tab }: { tab: TabKey }) {
         {cta && (
           <button
             onClick={() => router.push('/')}
-            className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#162e82] transition-all shadow-sm"
+            className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#003a5c] transition-all shadow-sm"
           >
             {cta}
           </button>
@@ -1221,10 +1352,10 @@ function TabSwitcher({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center bg-gray-100 rounded-full p-1"
+      className="relative flex items-center bg-gray-100 rounded-full p-1 w-full sm:w-fit overflow-x-auto scrollbar-hide"
     >
       <div
-        className="absolute top-1 bottom-1 bg-[#1B3FA0] rounded-full shadow-md transition-all duration-250 ease-in-out pointer-events-none"
+        className="absolute top-1 bottom-1 bg-[#004772] rounded-full shadow-md transition-all duration-250 ease-in-out pointer-events-none"
         style={{ left: indicator.left, width: indicator.width }}
       />
       {TABS.map((tab) => (
@@ -1375,9 +1506,10 @@ export default function MyMemoriesPage() {
 
       <Footer />
 
-      {managingBooking && (
+      {managingBooking && userId && (
         <ManageBookingModal
           booking={managingBooking}
+          userId={userId}
           onClose={() => setManagingId(null)}
           onUpdate={(updates) => handleUpdate(managingBooking.id, updates)}
         />

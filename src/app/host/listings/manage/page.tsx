@@ -20,7 +20,7 @@ import {
   AlertCircle,
   Image,
 } from 'lucide-react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import HostDashboardShell from '../../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
@@ -84,6 +84,7 @@ const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode; group: 
 
 export default function ManageListingPage() {
   const { userId } = useAuth();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const listingId = searchParams.get('id');
 
@@ -92,6 +93,8 @@ export default function ManageListingPage() {
   const [loading, setLoading] = useState(true);
   const [locationsLoading, setLocationsLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [formData, setFormData] = useState<ListingDetails | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
 
@@ -136,7 +139,7 @@ export default function ManageListingPage() {
   };
 
   const handleSave = async () => {
-    if (!formData || !listingId) {
+    if (!formData || !listingId || !userId) {
       toast.error('Listing data missing');
       return;
     }
@@ -148,6 +151,7 @@ export default function ManageListingPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           listingId: parseInt(listingId),
+          userId,
           title: formData.title,
           description: formData.description,
           price_weekday: formData.price_weekday,
@@ -178,11 +182,61 @@ export default function ManageListingPage() {
     }
   };
 
+  const handleTogglePause = async () => {
+    if (!listingId || !formData || !userId) return;
+    setPausing(true);
+    try {
+      const res = await fetch('/api/host/listings/toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: parseInt(listingId), isActive: !formData.is_active, userId }),
+      });
+      if (!res.ok) throw new Error('Failed to update listing status');
+      const { data } = await res.json();
+      setFormData((prev) => (prev ? { ...prev, is_active: data.isActive } : prev));
+      setListing((prev) => (prev ? { ...prev, is_active: data.isActive } : prev));
+      toast.success(data.isActive ? 'Listing is now live!' : 'Listing paused');
+    } catch (err) {
+      console.error('Toggle pause error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update listing status');
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!listingId) return;
+    if (
+      !window.confirm(
+        'Remove this listing permanently? This cannot be undone. Listings with existing bookings can\'t be removed -- pause them instead.',
+      )
+    ) {
+      return;
+    }
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to remove listing');
+      }
+      toast.success('Listing removed.');
+      router.push('/host/listings');
+    } catch (err) {
+      console.error('Remove listing error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove listing');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
   if (loading) {
     return (
       <HostDashboardShell active="listings">
         <div className="flex items-center justify-center py-20">
-          <Loader2 className="w-8 h-8 animate-spin text-blue-600" />
+          <Loader2 className="w-8 h-8 animate-spin text-figma-navy" />
         </div>
       </HostDashboardShell>
     );
@@ -193,7 +247,7 @@ export default function ManageListingPage() {
       <HostDashboardShell active="listings">
         <div className="text-center py-20">
           <p className="text-gray-500 mb-4">Listing not found</p>
-          <Link href="/host/listings" className="text-blue-600 hover:underline">
+          <Link href="/host/listings" className="text-figma-navy hover:underline">
             Back to Listings
           </Link>
         </div>
@@ -224,7 +278,7 @@ export default function ManageListingPage() {
             <button
               onClick={handleSave}
               disabled={saving}
-              className="px-7 py-2.5 bg-blue-600 text-white rounded-lg font-semibold hover:bg-blue-700 disabled:opacity-60 flex items-center gap-2 transition-colors"
+              className="px-6 py-2.5 bg-figma-navy text-white rounded-lg font-semibold hover:bg-figma-navy/90 disabled:opacity-60 flex items-center gap-2"
             >
               {saving && <Loader2 className="w-4 h-4 animate-spin" />}
               {saving ? 'Saving...' : 'Save Changes'}
@@ -263,16 +317,16 @@ export default function ManageListingPage() {
                     )}
                   </p>
                 </div>
-                <div className="grid grid-cols-2 gap-3 pt-3 border-t border-gray-200">
-                  <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-600 mb-1">Base Price</p>
-                    <p className="text-lg font-bold text-blue-600">
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <div>
+                    <p className="text-xs text-gray-600">Base Price</p>
+                    <p className="text-base font-bold text-figma-navy">
                       ₹{formData?.price_weekday?.toLocaleString()}
                     </p>
                   </div>
-                  <div className="bg-blue-50 rounded-lg p-3 text-center">
-                    <p className="text-xs text-gray-600 mb-1">Weekend</p>
-                    <p className="text-lg font-bold text-blue-600">
+                  <div>
+                    <p className="text-xs text-gray-600">Weekend</p>
+                    <p className="text-base font-bold text-figma-navy">
                       ₹{formData?.price_weekend?.toLocaleString()}
                     </p>
                   </div>
@@ -281,81 +335,52 @@ export default function ManageListingPage() {
             </div>
 
             {/* Section Navigation */}
-            <nav className="p-3 space-y-6">
-              {/* Main Settings */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-3">
-                  Listing Details
-                </h3>
-                <div className="space-y-1">
-                  {SECTIONS.filter(s => s.group === 'main').map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id)}
-                      className={cn(
-                        'w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-left',
-                        activeSection === section.id
-                          ? 'bg-blue-100 text-blue-900'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      )}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <span className={activeSection === section.id ? 'text-blue-600' : 'text-gray-500'}>
-                          {section.icon}
-                        </span>
-                        <span className="font-medium text-sm">{section.label}</span>
-                      </div>
-                      {activeSection === section.id && (
-                        <ChevronRight className="w-4 h-4 text-blue-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              {/* Monetization Section */}
-              <div>
-                <h3 className="text-xs font-bold text-gray-500 uppercase tracking-wider px-2 mb-3 flex items-center gap-2">
-                  <span>💰 Earn More</span>
-                </h3>
-                <div className="space-y-1">
-                  {SECTIONS.filter(s => s.group === 'monetization').map((section) => (
-                    <button
-                      key={section.id}
-                      onClick={() => setActiveSection(section.id)}
-                      className={cn(
-                        'w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-left',
-                        activeSection === section.id
-                          ? 'bg-blue-100 text-blue-900'
-                          : 'text-gray-700 hover:bg-gray-100'
-                      )}
-                    >
-                      <div className="flex items-center gap-3 flex-1">
-                        <span className={activeSection === section.id ? 'text-blue-600' : 'text-gray-500'}>
-                          {section.icon}
-                        </span>
-                        <span className="font-medium text-sm">{section.label}</span>
-                      </div>
-                      {activeSection === section.id && (
-                        <ChevronRight className="w-4 h-4 text-blue-600" />
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
+            <nav className="p-3 space-y-1">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-left',
+                    activeSection === section.id
+                      ? 'bg-figma-navy/10 text-figma-navy'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className={activeSection === section.id ? 'text-figma-navy' : 'text-gray-500'}>
+                      {section.icon}
+                    </span>
+                    <span className="font-medium text-sm">{section.label}</span>
+                  </div>
+                  {activeSection === section.id && (
+                    <ChevronRight className="w-4 h-4 text-figma-navy" />
+                  )}
+                </button>
+              ))}
 
               {/* Divider */}
               <div className="border-t border-gray-200" />
 
               {/* Listing Status Section */}
               <div className="space-y-1">
-                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all">
+                <button
+                  onClick={handleTogglePause}
+                  disabled={pausing || removing}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
                   <Pause className="w-5 h-5" />
-                  <span className="font-medium text-sm">Pause listing</span>
+                  <span className="font-medium text-sm">
+                    {pausing ? 'Updating...' : formData?.is_active ? 'Pause listing' : 'Reactivate listing'}
+                  </span>
                 </button>
-                <button className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all">
+                <button
+                  onClick={handleRemove}
+                  disabled={removing || pausing}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
                   <Trash2 className="w-5 h-5" />
-                  <span className="font-medium text-sm">Remove Listing</span>
+                  <span className="font-medium text-sm">{removing ? 'Removing...' : 'Remove Listing'}</span>
                 </button>
               </div>
             </nav>
@@ -402,7 +427,7 @@ function SectionRenderer({
   selectedLocation: any;
   listingId: number;
 }) {
-  const inputClasses = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none text-base';
+  const inputClasses = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-figma-navy outline-none text-base';
   const labelClasses = 'block text-sm font-semibold text-gray-700 mb-2';
 
   const sectionConfig: Record<SectionType, { title: string; description: string }> = {
@@ -593,9 +618,9 @@ function SectionRenderer({
 
             {selectedLocation && (
               <>
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <p className="text-sm font-semibold text-blue-900 mb-2">📍 Selected Location</p>
-                  <div className="space-y-1 text-sm text-blue-800">
+                <div className="p-4 bg-figma-navy/5 rounded-lg border border-figma-navy/30">
+                  <p className="text-sm font-semibold text-figma-navy mb-2">📍 Selected Location</p>
+                  <div className="space-y-1 text-sm text-figma-navy">
                     <p><strong>State:</strong> {selectedLocation.state}</p>
                     <p><strong>District:</strong> {selectedLocation.district}</p>
                     <p><strong>Area:</strong> {selectedLocation.lower_division_name}</p>

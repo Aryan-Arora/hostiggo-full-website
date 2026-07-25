@@ -47,7 +47,7 @@ export default function DiscountsAddonsPage() {
             onClick={() => setActiveTab('discounts')}
             className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
               activeTab === 'discounts'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-figma-navy text-figma-navy'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >
@@ -57,7 +57,7 @@ export default function DiscountsAddonsPage() {
             onClick={() => setActiveTab('addons')}
             className={`px-4 py-3 font-semibold border-b-2 transition-colors ${
               activeTab === 'addons'
-                ? 'border-blue-600 text-blue-600'
+                ? 'border-figma-navy text-figma-navy'
                 : 'border-transparent text-gray-600 hover:text-gray-900'
             }`}
           >

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as houseRulesService from '@/lib/services/house-rules';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function GET(
   request: NextRequest,
@@ -22,7 +24,10 @@ export async function GET(
   }
 }
 
-export async function POST(
+// House rules are one structured row per listing (booleans + times), not a
+// list — so saving is always an upsert on the whole row, not add/edit/delete
+// of individual items.
+export async function PATCH(
   request: NextRequest,
   { params }: { params: { listingId: string } }
 ) {
@@ -33,21 +38,25 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { rule } = body;
-
-    if (!rule) {
-      return NextResponse.json(
-        { error: 'Missing required field: rule' },
-        { status: 400 }
-      );
+    const { check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours, userId } = body;
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
+    await assertListingOwnedBy(listingId, String(userId));
 
-    const houseRule = await houseRulesService.addHouseRule(listingId, rule);
-    return NextResponse.json({ data: houseRule }, { status: 201 });
+    const updated = await houseRulesService.upsertHouseRules(listingId, {
+      check_in_time,
+      check_out_time,
+      smoking_allowed,
+      pets_allowed,
+      parties_allowed,
+      quiet_hours,
+    });
+    return NextResponse.json({ data: updated });
   } catch (error) {
-    console.error('[api/house-rules] POST error:', error);
+    console.error('[api/house-rules] PATCH error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to add house rule' },
+      { error: errorMessage(error, 'Failed to save house rules') },
       { status: 500 }
     );
   }

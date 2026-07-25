@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { toast } from 'sonner';
+import { useAuth } from '@/context/AuthContext';
 import { ListingDiscount } from '@/lib/services/discounts';
 import { cn } from '@/lib/utils';
 import { HelpCircle, Loader2 } from 'lucide-react';
@@ -30,6 +32,7 @@ interface DiscountsFormProps {
 }
 
 export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps) {
+  const { userId } = useAuth();
   const [discounts, setDiscounts] = useState<ListingDiscount[]>([]);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -92,7 +95,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
             {
               method: 'PATCH',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify(change),
+              body: JSON.stringify({ ...change, userId }),
             }
           );
         })
@@ -113,7 +116,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
+        <Loader2 className="w-6 h-6 animate-spin text-figma-navy" />
       </div>
     );
   }
@@ -131,10 +134,10 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
         </p>
       </div>
 
-      <p className="text-xs font-medium text-blue-600 flex items-center gap-1">
+      <Link href="/support" className="text-xs font-medium text-figma-navy flex items-center gap-1 hover:underline w-fit">
         <HelpCircle className="w-4 h-4" />
         How discounts work?
-      </p>
+      </Link>
 
       <div className="space-y-4">
         {discounts.map((discount) => {
@@ -157,7 +160,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
                   onClick={() => handleToggle(discount.id, !enabled)}
                   className={cn(
                     'relative inline-flex h-6 w-11 items-center rounded-full transition-colors',
-                    enabled ? 'bg-blue-600' : 'bg-gray-300'
+                    enabled ? 'bg-figma-navy' : 'bg-gray-300'
                   )}
                 >
                   <span
@@ -193,7 +196,7 @@ export default function DiscountsForm({ listingId, onSave }: DiscountsFormProps)
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 flex items-center justify-center gap-2"
+          className="w-full py-3 bg-figma-navy text-white font-semibold rounded-lg hover:bg-figma-navy/90 disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {saving && <Loader2 className="w-4 h-4 animate-spin" />}
           Save Changes

@@ -1,236 +1,199 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { Package, Plus, Trash2, Loader2 } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Sparkles, Loader2, Check, IndianRupee } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
+import { cn } from '@/lib/utils';
 import { useListingDraft } from '@/context/ListingDraftContext';
-import { toast } from 'sonner';
+import { groupAddonsByCategory, type Addon } from '@/lib/services/addons';
 
-interface Addon {
-  id?: number;
-  name: string;
-  description: string;
-  price: number;
-  listing_id?: number;
-}
+type Selection = { addon_id: number; price: number; includes: string };
 
 export default function AddonsPage() {
-  const { draft } = useListingDraft();
-  const [addons, setAddons] = useState<Addon[]>([]);
+  const { draft, update } = useListingDraft();
+  const [catalog, setCatalog] = useState<Addon[]>([]);
   const [loading, setLoading] = useState(true);
-  const [newAddon, setNewAddon] = useState({
-    name: '',
-    description: '',
-    price: 0,
+  const [selections, setSelections] = useState<Record<number, Selection>>(() => {
+    const initial: Record<number, Selection> = {};
+    (draft.addonSelections ?? []).forEach((s) => {
+      initial[s.addon_id] = s;
+    });
+    return initial;
   });
 
   useEffect(() => {
-    loadAddons();
+    let mounted = true;
+    fetch('/api/addons')
+      .then((res) => res.json())
+      .then((json) => {
+        if (mounted) setCatalog(json.data ?? []);
+      })
+      .catch((err) => console.error('[addons wizard step] failed to load catalog:', err))
+      .finally(() => {
+        if (mounted) setLoading(false);
+      });
+    return () => {
+      mounted = false;
+    };
   }, []);
 
-  const loadAddons = async () => {
-    if (!draft?.listing_id) {
-      setLoading(false);
-      return;
-    }
+  useEffect(() => {
+    update({ addonSelections: Object.values(selections) });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selections]);
 
-    try {
-      setLoading(true);
-      const response = await fetch(
-        `/api/host/listings/${draft.listing_id}/addons`
-      );
-
-      if (response.ok) {
-        const data = await response.json();
-        setAddons(data.data || []);
+  const toggle = (addon: Addon) => {
+    setSelections((prev) => {
+      const next = { ...prev };
+      if (next[addon.addon_id]) {
+        delete next[addon.addon_id];
+      } else {
+        next[addon.addon_id] = { addon_id: addon.addon_id, price: 0, includes: '' };
       }
-    } catch (error) {
-      console.error('Failed to load addons:', error);
-    } finally {
-      setLoading(false);
-    }
+      return next;
+    });
   };
 
-  const handleAddAddon = async () => {
-    if (!newAddon.name.trim() || !newAddon.description.trim() || newAddon.price < 0) {
-      toast.error('Please fill in all fields with valid values');
-      return;
-    }
-
-    try {
-      const response = await fetch(
-        `/api/host/listings/${draft?.listing_id}/addons`,
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(newAddon),
-        }
-      );
-
-      if (!response.ok) throw new Error('Failed to add addon');
-
-      const data = await response.json();
-      setAddons([...addons, data.data]);
-      setNewAddon({ name: '', description: '', price: 0 });
-      toast.success('Add-on created successfully');
-    } catch (error) {
-      console.error('Error adding addon:', error);
-      toast.error('Failed to add add-on');
-    }
+  const setField = (addonId: number, field: 'price' | 'includes', value: string) => {
+    setSelections((prev) => ({
+      ...prev,
+      [addonId]: {
+        ...prev[addonId],
+        [field]: field === 'price' ? Number(value) || 0 : value,
+      },
+    }));
   };
 
-  const handleDeleteAddon = async (id: number) => {
-    try {
-      const response = await fetch(
-        `/api/host/listings/${draft?.listing_id}/addons/${id}`,
-        { method: 'DELETE' }
-      );
-
-      if (!response.ok) throw new Error('Failed to delete addon');
-
-      setAddons(addons.filter(a => a.id !== id));
-      toast.success('Add-on removed');
-    } catch (error) {
-      console.error('Error deleting addon:', error);
-      toast.error('Failed to delete add-on');
-    }
-  };
+  const grouped = groupAddonsByCategory(catalog);
+  const selectedCount = Object.keys(selections).length;
 
   return (
     <WizardShell
-      step={11}
-      title="Add extra services (Optional)"
-      subtitle="Offer add-ons like airport transfers, breakfast, or cleaning for additional income."
-      nextLabel="Finish Creating Listing"
+      step={5}
+      title="Offer extra add-ons"
+      subtitle="Optional paid extras guests can add to their booking, like breakfast or airport pickup. You can add, remove, or reprice these anytime after publishing from your listing settings."
     >
-      <div className="max-w-2xl mx-auto space-y-8">
-        {/* Add New Addon Section */}
-        <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-6">
-          <div>
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Add a Service</h3>
-            <p className="text-sm text-gray-600">Guests can add these services to their booking</p>
-          </div>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Service Name
-              </label>
-              <input
-                type="text"
-                value={newAddon.name}
-                onChange={(e) =>
-                  setNewAddon(prev => ({
-                    ...prev,
-                    name: e.target.value
-                  }))
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="e.g., Airport Transfer, Breakfast, Extra Cleaning"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Description
-              </label>
-              <textarea
-                value={newAddon.description}
-                onChange={(e) =>
-                  setNewAddon(prev => ({
-                    ...prev,
-                    description: e.target.value
-                  }))
-                }
-                rows={3}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none resize-none"
-                placeholder="Describe what this service includes..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-semibold text-gray-700 mb-2">
-                Price per service (₹)
-              </label>
-              <input
-                type="number"
-                min="0"
-                value={newAddon.price}
-                onChange={(e) =>
-                  setNewAddon(prev => ({
-                    ...prev,
-                    price: parseInt(e.target.value) || 0
-                  }))
-                }
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 outline-none"
-                placeholder="e.g., 500"
-              />
-            </div>
-          </div>
-
-          <button
-            onClick={handleAddAddon}
-            className="w-full px-4 py-3 bg-blue-100 text-blue-600 rounded-lg font-semibold hover:bg-blue-200 transition-colors flex items-center justify-center gap-2"
-          >
-            <Plus className="w-5 h-5" />
-            Add Service
-          </button>
+      {loading ? (
+        <div className="flex items-center justify-center py-24">
+          <Loader2 className="w-8 h-8 text-gray-400 animate-spin" />
         </div>
+      ) : catalog.length === 0 ? (
+        <div className="text-center py-24 text-gray-500">
+          No add-ons are available to offer right now. You can skip this step.
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+          <div className="md:col-span-8 space-y-8">
+            {Object.entries(grouped).map(([category, items]) => (
+              <section key={category}>
+                <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
+                  <Sparkles className="w-5 h-5 text-figma-navy" />
+                  {category}
+                </h2>
+                <div className="space-y-3">
+                  {items.map((addon) => {
+                    const active = Boolean(selections[addon.addon_id]);
+                    return (
+                      <div
+                        key={addon.addon_id}
+                        className={cn(
+                          'bg-white border rounded-xl p-4 transition-all',
+                          active
+                            ? 'border-figma-navy ring-1 ring-figma-navy bg-figma-navy/4'
+                            : 'border-gray-200',
+                        )}
+                      >
+                        <button
+                          type="button"
+                          onClick={() => toggle(addon)}
+                          className="w-full flex items-center justify-between text-left"
+                        >
+                          <span className="text-sm font-semibold text-gray-800">
+                            {addon.name}
+                          </span>
+                          <span
+                            className={cn(
+                              'w-6 h-6 rounded-full border flex items-center justify-center transition-colors shrink-0',
+                              active
+                                ? 'bg-figma-navy border-figma-navy text-white'
+                                : 'border-gray-300',
+                            )}
+                          >
+                            {active && <Check className="w-3.5 h-3.5" />}
+                          </span>
+                        </button>
 
-        {/* Current Addons */}
-        {loading ? (
-          <div className="flex items-center justify-center py-12">
-            <Loader2 className="w-6 h-6 animate-spin text-blue-600" />
-          </div>
-        ) : addons.length > 0 ? (
-          <div className="space-y-3">
-            <h3 className="text-lg font-bold text-gray-900">Your Services</h3>
-            {addons.map((addon) => (
-              <div
-                key={addon.id}
-                className="bg-gray-50 rounded-lg p-4 border border-gray-200 space-y-2"
-              >
-                <div className="flex items-start justify-between gap-4">
-                  <div className="flex items-start gap-3 flex-1">
-                    <div className="w-10 h-10 rounded-lg bg-blue-100 flex items-center justify-center flex-shrink-0 mt-1">
-                      <Package className="w-5 h-5 text-blue-600" />
-                    </div>
-                    <div className="flex-1">
-                      <p className="font-semibold text-gray-900">{addon.name}</p>
-                      <p className="text-sm text-gray-600">{addon.description}</p>
-                      <p className="text-sm font-bold text-blue-600 mt-1">₹{addon.price}</p>
-                    </div>
-                  </div>
-                  <button
-                    onClick={() => addon.id && handleDeleteAddon(addon.id)}
-                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors flex-shrink-0"
-                  >
-                    <Trash2 className="w-5 h-5" />
-                  </button>
+                        {active && (
+                          <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                            <label className="text-xs font-medium text-gray-600">
+                              Price per booking
+                              <div className="mt-1 flex items-center border border-gray-200 rounded-lg px-3 py-2">
+                                <IndianRupee className="w-3.5 h-3.5 text-gray-400 mr-1" />
+                                <input
+                                  type="number"
+                                  min={0}
+                                  value={selections[addon.addon_id]?.price ?? 0}
+                                  onChange={(e) =>
+                                    setField(addon.addon_id, 'price', e.target.value)
+                                  }
+                                  className="w-full text-sm outline-none"
+                                  placeholder="0"
+                                />
+                              </div>
+                            </label>
+                            <label className="text-xs font-medium text-gray-600">
+                              What&apos;s included
+                              <input
+                                type="text"
+                                value={selections[addon.addon_id]?.includes ?? ''}
+                                onChange={(e) =>
+                                  setField(addon.addon_id, 'includes', e.target.value)
+                                }
+                                className="mt-1 w-full border border-gray-200 rounded-lg px-3 py-2 text-sm outline-none"
+                                placeholder="e.g. Continental breakfast for 2"
+                              />
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
                 </div>
-              </div>
+              </section>
             ))}
           </div>
-        ) : (
-          <div className="bg-blue-50 rounded-lg p-6 border border-blue-200 text-center">
-            <Package className="w-12 h-12 text-blue-600 mx-auto mb-3 opacity-50" />
-            <p className="text-gray-700 font-medium">No services yet</p>
-            <p className="text-sm text-gray-600 mt-1">Add services to increase your earnings per booking</p>
-          </div>
-        )}
 
-        {/* Info Box */}
-        <div className="bg-blue-50 rounded-lg p-6 border border-blue-200 space-y-2">
-          <p className="text-sm font-semibold text-blue-900">💡 Popular Add-ons</p>
-          <ul className="text-sm text-blue-800 space-y-1">
-            <li>• Airport/Railway transfers (₹500-1500)</li>
-            <li>• Breakfast service (₹200-500)</li>
-            <li>• Late check-out (₹300-1000)</li>
-            <li>• Laundry/Cleaning (₹200-800)</li>
-            <li>• Activity bookings (varies)</li>
-          </ul>
+          <div className="md:col-span-4 hidden md:block">
+            <div className="sticky top-28">
+              <div className="bg-white rounded-2xl shadow-card p-6 border border-gray-200">
+                <div className="text-xs font-semibold uppercase tracking-wider text-gray-400 mb-3">
+                  Selected add-ons
+                </div>
+                {selectedCount === 0 ? (
+                  <p className="text-sm text-gray-400 italic">
+                    No add-ons selected yet - guests won&apos;t see any extras.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {Object.values(selections).map((s) => {
+                      const addon = catalog.find((a) => a.addon_id === s.addon_id);
+                      return (
+                        <div
+                          key={s.addon_id}
+                          className="flex items-center justify-between text-sm"
+                        >
+                          <span className="text-gray-700">{addon?.name}</span>
+                          <span className="font-semibold text-gray-800">₹{s.price}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
         </div>
-      </div>
+      )}
     </WizardShell>
   );
 }

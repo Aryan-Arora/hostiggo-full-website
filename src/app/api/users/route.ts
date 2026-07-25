@@ -1,11 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
 import { updateUserProfile } from "@/lib/services/admin-writes";
+import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
 
-const jsonError = (err: unknown, status = 500) =>
-  NextResponse.json({ error: err instanceof Error ? err.message : "Request failed" }, { status });
+const jsonError = (err: unknown, status = 500) => {
+  console.error("[/api/users] error:", err);
+  return NextResponse.json({ error: errorMessage(err, "Request failed") }, { status });
+};
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,7 +24,36 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const data = await usersAPI.upsertUser(await req.json());
+    const body = (await req.json()) ?? {};
+    if (!body.user_id || !body.name) {
+      return NextResponse.json({ error: "user_id and name are required" }, { status: 400 });
+    }
+    // Whitelist the columns the onboarding flow actually owns -- passing the
+    // raw body to .upsert() meant any extra key 500'd with "column not
+    // found", and any users-table column could be written arbitrarily.
+    const age = body.age == null ? null : Number(body.age);
+    if (age != null && (!Number.isInteger(age) || age < 1 || age > 150)) {
+      return NextResponse.json({ error: "age must be between 1 and 150" }, { status: 400 });
+    }
+    // Optional fields are only included when actually sent, so an upsert
+    // that omits them can't null out values a previous save wrote.
+    const data = await usersAPI.upsertUser({
+      user_id: String(body.user_id),
+      name: String(body.name).slice(0, 200),
+      email: body.email ? String(body.email).slice(0, 320) : "",
+      ...(body.phone !== undefined && { phone: body.phone ? String(body.phone).slice(0, 20) : null }),
+      ...(body.age !== undefined && { age }),
+      ...(body.emergency_contact !== undefined && {
+        emergency_contact: body.emergency_contact
+          ? String(body.emergency_contact).slice(0, 200)
+          : null,
+      }),
+      ...(body.profile_pic_url !== undefined && {
+        profile_pic_url: body.profile_pic_url ? String(body.profile_pic_url) : null,
+      }),
+      ...(body.is_verified !== undefined && { is_verified: body.is_verified === true }),
+      ...(body.is_active !== undefined && { is_active: body.is_active === true }),
+    });
     return NextResponse.json({ data });
   } catch (err) {
     return jsonError(err);

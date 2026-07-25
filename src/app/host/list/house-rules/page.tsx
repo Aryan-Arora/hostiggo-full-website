@@ -37,7 +37,7 @@ function Check({ on }: { on: boolean }) {
     <span
       className={cn(
         'w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors',
-        on ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white',
+        on ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
       )}
     >
       {on && (
@@ -51,15 +51,20 @@ function Check({ on }: { on: boolean }) {
 
 export default function HouseRulesPage() {
   const searchParams = useSearchParams();
-  const { draft } = useListingDraft();
+  const { draft, update } = useListingDraft();
   const listingId = searchParams.get('listingId');
-  
-  const [rules, setRules] = useState(() => Object.fromEntries(RULES.map((r) => [r.id, r.on])));
+
+  const savedRules = draft.houseRules;
+  const [rules, setRules] = useState(() => ({
+    smoking: savedRules?.smoking_allowed ?? RULES.find((r) => r.id === 'smoking')!.on,
+    pets: savedRules?.pets_allowed ?? RULES.find((r) => r.id === 'pets')!.on,
+    parties: savedRules?.parties_allowed ?? RULES.find((r) => r.id === 'parties')!.on,
+  }));
   const [loading, setLoading] = useState(!!listingId);
   const [quietHoursFrom, setQuietHoursFrom] = useState('22:00');
   const [quietHoursTo, setQuietHoursTo] = useState('08:00');
-  const [checkInTime, setCheckInTime] = useState('14:00');
-  const [checkOutTime, setCheckOutTime] = useState('11:00');
+  const [checkInTime, setCheckInTime] = useState(savedRules?.check_in_time ?? '14:00');
+  const [checkOutTime, setCheckOutTime] = useState(savedRules?.check_out_time ?? '11:00');
 
   useEffect(() => {
     if (listingId) {
@@ -68,11 +73,31 @@ export default function HouseRulesPage() {
     }
   }, [listingId]);
 
+  // Only persist the wizard's own draft state on the fresh-listing branch --
+  // once a listingId exists (editing an already-created listing) the forms
+  // below write straight to the DB instead.
+  useEffect(() => {
+    if (listingId) return;
+    update({
+      houseRules: {
+        smoking_allowed: rules.smoking,
+        pets_allowed: rules.pets,
+        parties_allowed: rules.parties,
+        // Not a time range in the real schema (see ListingDraft comment) --
+        // true here just means "this host set a quiet-hours window".
+        quiet_hours: true,
+        check_in_time: checkInTime,
+        check_out_time: checkOutTime,
+      },
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rules, quietHoursFrom, quietHoursTo, checkInTime, checkOutTime, listingId]);
+
   // For new listings, show the backend forms after they're created
   if (listingId && !loading) {
     return (
       <WizardShell
-        step={8}
+        step={9}
         title="Set house rules and safety details"
         subtitle="These can be managed later from your listing management dashboard"
       >
@@ -94,7 +119,7 @@ export default function HouseRulesPage() {
   // For draft listings during wizard flow, show simple checkboxes
   return (
     <WizardShell
-      step={8}
+      step={9}
       title="Set some rules for your guests"
       subtitle="Clear rules help avoid misunderstandings and set the right expectations for your stay."
     >
@@ -103,24 +128,25 @@ export default function HouseRulesPage() {
         <div className="lg:col-span-7 space-y-6">
           <section className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
             <div className="flex items-center gap-3 mb-4">
-              <Home className="w-5 h-5 text-blue-600" />
+              <Home className="w-5 h-5 text-figma-navy" />
               <h2 className="text-lg font-bold text-gray-800">General House Rules</h2>
             </div>
             <div className="space-y-4">
               {RULES.map((r) => {
                 const Icon = r.icon;
-                const on = rules[r.id];
+                const key = r.id as keyof typeof rules;
+                const on = rules[key];
                 return (
                   <button
                     key={r.id}
-                    onClick={() => setRules((s) => ({ ...s, [r.id]: !s[r.id] }))}
+                    onClick={() => setRules((s) => ({ ...s, [key]: !s[key] }))}
                     className={cn(
                       'w-full flex items-center justify-between p-4 rounded-xl border transition-colors group',
-                      on ? 'border-blue-400 bg-blue-50/40' : 'border-gray-200 hover:border-blue-300',
+                      on ? 'border-figma-navy/60 bg-figma-navy/4' : 'border-gray-200 hover:border-figma-navy/40',
                     )}
                   >
                     <div className="flex items-center gap-4">
-                      <Icon className={cn('w-5 h-5', on ? 'text-blue-600' : 'text-gray-500')} />
+                      <Icon className={cn('w-5 h-5', on ? 'text-figma-navy' : 'text-gray-500')} />
                       <span className="text-sm text-gray-800">{r.label}</span>
                     </div>
                     <Check on={on} />
@@ -132,7 +158,7 @@ export default function HouseRulesPage() {
 
           <section className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
             <div className="flex items-center gap-3 mb-4">
-              <Clock className="w-5 h-5 text-blue-600" />
+              <Clock className="w-5 h-5 text-figma-navy" />
               <h2 className="text-lg font-bold text-gray-800">Quiet Hours &amp; Check-in</h2>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
@@ -148,7 +174,7 @@ export default function HouseRulesPage() {
                     type="time"
                     value={f.state}
                     onChange={(e) => f.setState(e.target.value)}
-                    className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-figma-navy"
                   />
                 </div>
               ))}
@@ -166,7 +192,7 @@ export default function HouseRulesPage() {
                     type="time"
                     value={f.state}
                     onChange={(e) => f.setState(e.target.value)}
-                    className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                    className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-figma-navy"
                   />
                 </div>
               ))}
@@ -192,13 +218,13 @@ export default function HouseRulesPage() {
             </div>
           </section>
 
-          <div className="bg-blue-50 rounded-2xl p-6 border border-blue-100">
+          <div className="bg-figma-navy/5 rounded-2xl p-6 border border-figma-navy/20">
             <div className="flex items-start gap-3">
-              <ShieldCheck className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+              <ShieldCheck className="w-5 h-5 text-figma-navy mt-0.5 shrink-0" />
               <div>
-                <h3 className="text-sm font-bold text-blue-900 mb-1">Safety Details Coming</h3>
-                <p className="text-sm text-blue-800">
-                  You'll be able to add detailed safety information in the next step. This includes security cameras, smoke alarms, and other safety features.
+                <h3 className="text-sm font-bold text-figma-navy mb-1">Safety Details Coming</h3>
+                <p className="text-sm text-figma-navy">
+                  You&apos;ll be able to add detailed safety information in the next step. This includes security cameras, smoke alarms, and other safety features.
                 </p>
               </div>
             </div>

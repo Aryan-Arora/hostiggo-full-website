@@ -174,7 +174,7 @@ export default function GuestMapSearch({
                 onFocus={() => setShowSuggestions(true)}
                 className="flex-1 bg-transparent text-sm font-medium outline-none"
               />
-              {suggestionsLoading && <Loader className="w-4 h-4 text-blue-500 animate-spin" />}
+              {suggestionsLoading && <Loader className="w-4 h-4 text-figma-navy animate-spin" />}
             </div>
 
             {/* Suggestions dropdown */}
@@ -184,7 +184,7 @@ export default function GuestMapSearch({
                   <button
                     key={suggestion.placeId}
                     onClick={() => handleSuggestionClick(suggestion)}
-                    className="w-full text-left px-4 py-3 hover:bg-blue-50 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
+                    className="w-full text-left px-4 py-3 hover:bg-figma-navy/5 transition-colors border-b border-gray-100 last:border-b-0 flex items-center gap-3"
                   >
                     <MapPin className="w-4 h-4 text-gray-400 flex-shrink-0" />
                     <div className="flex-1 min-w-0">
@@ -202,7 +202,7 @@ export default function GuestMapSearch({
           <div className="p-4 space-y-2 border-b border-gray-100">
             <button
               onClick={handleCurrentLocation}
-              className="w-full flex items-center justify-center gap-2 bg-blue-50 text-blue-600 px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-100 transition-colors"
+              className="w-full flex items-center justify-center gap-2 bg-figma-navy/5 text-figma-navy px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/10 transition-colors"
             >
               <Navigation className="w-4 h-4" />
               Use current location
@@ -212,7 +212,7 @@ export default function GuestMapSearch({
               <button
                 onClick={handleSearchThisArea}
                 disabled={geocodingLabel}
-                className="w-full flex items-center justify-center gap-2 bg-blue-600 text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-blue-700 transition-colors disabled:opacity-50"
+                className="w-full flex items-center justify-center gap-2 bg-figma-navy text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-colors disabled:opacity-50"
               >
                 <ArrowRight className="w-4 h-4" />
                 {geocodingLabel ? 'Searching...' : 'Search this area'}

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import * as safetyDetailsService from '@/lib/services/safety-details';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
 
 export async function GET(
   request: NextRequest,
@@ -42,7 +44,12 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { feature_id } = body;
+    const { feature_id, userId } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, String(userId));
 
     if (!feature_id) {
       return NextResponse.json(
@@ -56,7 +63,7 @@ export async function POST(
   } catch (error) {
     console.error('[api/safety-details] POST error:', error);
     return NextResponse.json(
-      { error: error instanceof Error ? error.message : 'Failed to add safety detail' },
+      { error: errorMessage(error, 'Failed to add safety detail') },
       { status: 500 }
     );
   }

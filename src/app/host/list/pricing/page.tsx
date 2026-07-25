@@ -13,7 +13,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         'relative w-12 h-7 rounded-full transition-colors shrink-0',
-        on ? 'bg-blue-600' : 'bg-gray-300',
+        on ? 'bg-figma-navy' : 'bg-gray-300',
       )}
       aria-pressed={on}
     >
@@ -27,15 +27,36 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
   );
 }
 
+const DEFAULT_DISCOUNT_PERCENT = { newListing: 20, weekly: 10, monthly: 15 };
+
 export default function PricingPage() {
   const { draft, update } = useListingDraft();
   const [price, setPrice] = useState(draft.priceWeekday ?? 2999);
-  const [discounts, setDiscounts] = useState({ newListing: true, weekly: true, monthly: false });
+  const [discounts, setDiscounts] = useState({
+    newListing: draft.discounts?.find((d) => d.discount_type === 'new_listing')?.enabled ?? true,
+    weekly: draft.discounts?.find((d) => d.discount_type === 'weekly')?.enabled ?? true,
+    monthly: draft.discounts?.find((d) => d.discount_type === 'monthly')?.enabled ?? false,
+  });
+  const [weeklyPercent, setWeeklyPercent] = useState(
+    draft.discounts?.find((d) => d.discount_type === 'weekly')?.percent ?? DEFAULT_DISCOUNT_PERCENT.weekly,
+  );
 
   useEffect(() => {
     update({ priceWeekday: price, priceWeekend: price });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [price]);
+
+  useEffect(() => {
+    update({
+      discounts: [
+        { discount_type: 'new_listing', percent: DEFAULT_DISCOUNT_PERCENT.newListing, enabled: discounts.newListing },
+        { discount_type: 'weekly', percent: weeklyPercent, enabled: discounts.weekly },
+        { discount_type: 'monthly', percent: DEFAULT_DISCOUNT_PERCENT.monthly, enabled: discounts.monthly },
+      ],
+    });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [discounts, weeklyPercent]);
+
   const toggle = (k: keyof typeof discounts) =>
     setDiscounts((d) => ({ ...d, [k]: !d[k] }));
 
@@ -45,7 +66,7 @@ export default function PricingPage() {
 
   return (
     <WizardShell
-      step={7}
+      step={8}
       title="Now, set your price"
       subtitle="You can change it anytime after you publish your listing."
     >
@@ -53,7 +74,7 @@ export default function PricingPage() {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Left: price */}
           <div className="md:col-span-7 space-y-6">
-            <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 transition-all hover:border-blue-200">
+            <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 transition-all hover:border-figma-navy/30">
               <label className="block text-sm text-gray-500 mb-4">
                 Price per night
               </label>
@@ -76,19 +97,19 @@ export default function PricingPage() {
                   <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice)}</span>
                 </div>
                 <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
-                  <span className="text-sm font-bold text-blue-600">You earn</span>
-                  <span className="text-xl font-bold text-blue-600">{fmt(earn)}</span>
+                  <span className="text-sm font-bold text-figma-navy">You earn</span>
+                  <span className="text-xl font-bold text-figma-navy">{fmt(earn)}</span>
                 </div>
               </div>
             </div>
 
-            <div className="bg-blue-50/60 border border-blue-100 rounded-2xl p-6 flex gap-4 items-start">
-              <Lightbulb className="w-5 h-5 text-blue-600 mt-0.5 shrink-0" />
+            <div className="bg-figma-navy/6 border border-figma-navy/20 rounded-2xl p-6 flex gap-4 items-start">
+              <Lightbulb className="w-5 h-5 text-figma-navy mt-0.5 shrink-0" />
               <div className="space-y-1">
-                <h4 className="text-sm font-bold text-blue-700">Tip: Stay competitive</h4>
+                <h4 className="text-sm font-bold text-figma-navy">Tip: Stay competitive</h4>
                 <p className="text-sm text-gray-600">
-                  Places like yours in Delhi typically range between ₹1,800 and
-                  ₹3,500 during weekends.
+                  Check what similar homestays nearby are charging before you finalize
+                  your price -- you can always adjust it later.
                 </p>
               </div>
             </div>
@@ -98,7 +119,7 @@ export default function PricingPage() {
           <div className="md:col-span-5">
             <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 h-full">
               <div className="flex items-center gap-2 mb-6">
-                <Percent className="w-5 h-5 text-blue-600" />
+                <Percent className="w-5 h-5 text-figma-navy" />
                 <h3 className="text-lg font-bold text-gray-800">Add discounts</h3>
               </div>
               <p className="text-sm text-gray-500 mb-8">
@@ -121,8 +142,11 @@ export default function PricingPage() {
                     <div className="flex items-center gap-2 mt-2">
                       <input
                         type="number"
-                        defaultValue={10}
-                        className="w-16 border border-gray-200 rounded-lg p-1 text-center text-sm outline-none focus:ring-2 focus:ring-blue-500"
+                        min={1}
+                        max={100}
+                        value={weeklyPercent}
+                        onChange={(e) => setWeeklyPercent(Number(e.target.value) || 0)}
+                        className="w-16 border border-gray-200 rounded-lg p-1 text-center text-sm outline-none focus:ring-2 focus:ring-figma-navy"
                       />
                       <span className="text-sm text-gray-600">%</span>
                     </div>
@@ -148,7 +172,7 @@ export default function PricingPage() {
             alt=""
             className="w-full h-full object-cover"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-blue-900/80 to-blue-900/20" />
+          <div className="absolute inset-0 bg-gradient-to-t from-figma-navy/80 to-figma-navy/20" />
           <div className="absolute inset-0 flex items-center justify-center text-center px-6">
             <div>
               <h3 className="text-xl font-bold text-white">Trust and Security</h3>

@@ -27,7 +27,7 @@ export default function DetailsPage() {
 
   return (
     <WizardShell
-      step={6}
+      step={7}
       title="Now, let's give your place a title and description"
       subtitle="Short, catchy titles work best. Describe what makes your place special to attract more guests."
       nextDisabled={!title.trim()}
@@ -50,7 +50,7 @@ export default function DetailsPage() {
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
                 placeholder="e.g., Cozy Cottage near the mountains"
-                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none"
+                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none"
               />
             </div>
             <div className="flex flex-col gap-2">
@@ -63,7 +63,7 @@ export default function DetailsPage() {
                 value={desc}
                 onChange={(e) => setDesc(e.target.value)}
                 placeholder="Tell guests about your space, neighborhood, and amenities..."
-                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all outline-none resize-none"
+                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none resize-none"
               />
             </div>
           </div>
@@ -72,8 +72,8 @@ export default function DetailsPage() {
         {/* Right: suggestions */}
         <div className="md:col-span-5">
           <div className="bg-gray-50 rounded-2xl p-6 sticky top-28 border border-gray-200">
-            <div className="flex items-center gap-2 mb-4 text-blue-600">
-              <Lightbulb className="w-5 h-5 fill-blue-600" />
+            <div className="flex items-center gap-2 mb-4 text-figma-navy">
+              <Lightbulb className="w-5 h-5 fill-figma-navy" />
               <h2 className="text-lg font-bold">Suggested Titles</h2>
             </div>
             <div className="flex flex-col gap-4">
@@ -87,10 +87,10 @@ export default function DetailsPage() {
                       <button
                         key={t}
                         onClick={() => setTitle(t.slice(0, 50))}
-                        className="w-full text-left p-3.5 rounded-xl bg-white hover:bg-blue-50 transition-colors border border-gray-200 flex justify-between items-center group"
+                        className="w-full text-left p-3.5 rounded-xl bg-white hover:bg-figma-navy/5 transition-colors border border-gray-200 flex justify-between items-center group"
                       >
                         <span className="text-sm text-gray-800">{t}</span>
-                        <PlusCircle className="w-5 h-5 text-gray-300 group-hover:text-blue-600 transition-colors" />
+                        <PlusCircle className="w-5 h-5 text-gray-300 group-hover:text-figma-navy transition-colors" />
                       </button>
                     ))}
                   </div>
@@ -98,13 +98,12 @@ export default function DetailsPage() {
               ))}
             </div>
 
-            <div className="mt-6 p-4 bg-blue-600 rounded-xl text-white relative overflow-hidden">
+            <div className="mt-6 p-4 bg-figma-navy rounded-xl text-white relative overflow-hidden">
               <div className="relative z-10">
                 <p className="text-sm font-bold mb-1">Pro Tip</p>
                 <p className="text-xs opacity-90 leading-relaxed">
-                  Listings with descriptions over 500 characters tend to get 20%
-                  more bookings. Mention unique features like &quot;high-speed
-                  wifi&quot; or &quot;morning sun&quot;.
+                  A detailed description helps guests know what to expect. Mention
+                  unique features like &quot;high-speed wifi&quot; or &quot;morning sun&quot;.
                 </p>
               </div>
               <Sparkles className="absolute -bottom-3 -right-3 w-20 h-20 opacity-20" />
