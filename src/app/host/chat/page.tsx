@@ -17,7 +17,7 @@ export default function HostChatPage() {
         </div>
 
         {/* Chat UI - takes remaining space */}
-        <div className="flex-1 min-h-[calc(100vh-280px)]">
+        <div className="flex-1 min-h-[calc(100dvh-280px)]">
           <HostChatUI />
         </div>
       </div>

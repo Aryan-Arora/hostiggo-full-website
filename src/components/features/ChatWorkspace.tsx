@@ -358,7 +358,7 @@ function ConversationPanel({
 
   if (!conversation) {
     return (
-      <section className="h-[70vh] min-w-0 rounded-[2rem] border border-gray-300 bg-white md:h-[calc(100vh-220px)] md:min-h-[520px]">
+      <section className="h-[70dvh] min-w-0 rounded-[2rem] border border-gray-300 bg-white md:h-[calc(100dvh-220px)] md:min-h-[520px]">
         <EmptyThread />
       </section>
     );
@@ -424,7 +424,7 @@ function ConversationPanel({
   };
 
   return (
-    <section className="relative flex h-[70vh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100vh-220px)] md:min-h-[520px]">
+    <section className="relative flex h-[70dvh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100dvh-220px)] md:min-h-[520px]">
       <div className="flex items-start justify-between gap-4">
         <div className="flex min-w-0 items-center gap-3">
           <button
@@ -695,7 +695,7 @@ export default function ChatWorkspace({
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
           <aside
             className={cn(
-              'h-[70vh] min-w-0 flex-col rounded-[2rem] border bg-white px-6 py-6 transition-colors md:flex md:h-[calc(100vh-220px)] md:min-h-[520px]',
+              'h-[70dvh] min-w-0 flex-col rounded-[2rem] border bg-white px-6 py-6 transition-colors md:flex md:h-[calc(100dvh-220px)] md:min-h-[520px]',
               selectedId ? 'hidden' : 'flex',
               selectedId || filtered.length === 0 ? 'border-figma-navy' : 'border-gray-300',
             )}

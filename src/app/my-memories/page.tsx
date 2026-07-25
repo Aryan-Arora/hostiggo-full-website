@@ -1352,7 +1352,7 @@ function TabSwitcher({
   return (
     <div
       ref={containerRef}
-      className="relative flex items-center bg-gray-100 rounded-full p-1"
+      className="relative flex items-center bg-gray-100 rounded-full p-1 w-full sm:w-fit overflow-x-auto scrollbar-hide"
     >
       <div
         className="absolute top-1 bottom-1 bg-[#004772] rounded-full shadow-md transition-all duration-250 ease-in-out pointer-events-none"
