@@ -52,8 +52,21 @@ export function CompactSearchBar() {
 
   return (
     <div ref={wrapRef} className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+      {/* Scrim behind an open pill's dropdown -- the results page always has a
+          map/map-preview card directly beneath this bar, and since the
+          dropdown is only as wide/tall as its own content, any part of that
+          card outside the dropdown's own footprint peeks out from behind it.
+          The scrim covers the whole page below the dropdown so nothing shows
+          through regardless of viewport width. */}
+      {activePanel && (
+        <div
+          className="fixed inset-0 z-[1050] bg-black/10"
+          aria-hidden="true"
+          onClick={() => setActivePanel(null)}
+        />
+      )}
       {/* Destination Pill */}
-      <div className="relative w-full sm:flex-[1.2] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.2] min-w-0">
         <button
           onClick={() => toggle('destination')}
           className={cn(
@@ -113,7 +126,7 @@ export function CompactSearchBar() {
       </div>
 
       {/* Date Pill */}
-      <div className="relative w-full sm:flex-[1.5] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.5] min-w-0">
         <button
           onClick={() => toggle('date')}
           className={cn(
@@ -199,7 +212,7 @@ export function CompactSearchBar() {
       </div>
 
       {/* Guests Pill */}
-      <div className="relative w-full sm:flex-[1.3] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.3] min-w-0">
         <button
           onClick={() => toggle('guests')}
           className={cn(
