@@ -98,7 +98,7 @@ export function CompactSearchBar() {
           )}
         </button>
         {activePanel === 'destination' && (
-          <div className="absolute top-[calc(100%+12px)] left-0 w-full min-w-[320px] z-50">
+          <div className="absolute top-[calc(100%+12px)] left-0 w-full min-w-[320px] z-[1100]">
             <DestinationDropdown
               value={location.query}
               onQueryChange={(v) => setLocation({ query: v })}
@@ -185,7 +185,7 @@ export function CompactSearchBar() {
           // making the calendar render at 0x0 (invisible, not just
           // mispositioned). Same fix as the property page's date picker.
           <div
-            className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-50"
+            className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-[1100]"
             style={{ width: 'min(600px, 95vw)' }}
           >
             <DateRangePicker
@@ -234,7 +234,7 @@ export function CompactSearchBar() {
           // wrapper it would extend 320px RIGHTWARD from this right-edge
           // anchor -- off the viewport (same bug family as the invisible
           // date picker).
-          <div className="absolute top-[calc(100%+12px)] right-0 z-50 w-[320px] max-w-[92vw]">
+          <div className="absolute top-[calc(100%+12px)] right-0 z-[1100] w-[320px] max-w-[92vw]">
             <GuestDropdown
               guests={guests}
               onChange={setGuests}
@@ -326,7 +326,7 @@ export default function SearchForm() {
             </div>
           </button>
           {activePanel === 'destination' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-50">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
               <DestinationDropdown
                 value={location.query}
                 onQueryChange={(v) => setLocation({ query: v })}
@@ -418,7 +418,7 @@ export default function SearchForm() {
 
           {/* Shared DatePicker Popover */}
           {activePanel === 'date' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-50">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-[1100]">
               <DateRangePicker
                 checkIn={dates.checkIn}
                 checkOut={dates.checkOut}
@@ -468,7 +468,7 @@ export default function SearchForm() {
             />
           </button>
           {activePanel === 'guests' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-50">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
               <GuestDropdown
                 guests={guests}
                 onChange={setGuests}
