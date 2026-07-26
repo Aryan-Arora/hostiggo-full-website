@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import { HotelServiceApi } from "@/lib/services/hotel";
 import { errorMessage } from "@/lib/api-error";
 
@@ -18,6 +19,16 @@ const jsonError = (err: unknown, status = 500) => {
 // no-cache, which silently defeated this exact header when it was present.
 const CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
 
+// Cache only the non-search (no `q`) paths, keyed by popular flag + limit.
+const getCachedLocations = unstable_cache(
+  async (popular: boolean, limit: number) =>
+    popular
+      ? await HotelServiceApi.getPopularLocations(limit)
+      : await HotelServiceApi.getLocationSample(limit),
+  ["locations-list"],
+  { revalidate: 3600, tags: ["reference"] },
+);
+
 export async function GET(req: NextRequest) {
   try {
     const query = req.nextUrl.searchParams.get("q");
@@ -26,9 +37,7 @@ export async function GET(req: NextRequest) {
 
     const data = query
       ? await HotelServiceApi.searchLocations(query)
-      : popular
-        ? await HotelServiceApi.getPopularLocations(limit)
-        : await HotelServiceApi.getLocationSample(limit);
+      : await getCachedLocations(popular, limit);
 
     const headers = query ? undefined : { "Cache-Control": CACHE_HEADER };
     return NextResponse.json({ data }, { headers });

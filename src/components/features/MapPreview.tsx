@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
+import 'leaflet/dist/leaflet.css';
 
 // Lazy load Leaflet
 const LeafletModule = typeof window !== 'undefined' ? require('leaflet') : null;
@@ -51,15 +52,6 @@ export default function MapPreview({
 
     const L = LeafletModule;
     if (!L) return;
-
-    // Load CSS on client
-    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
 
     const center = getCenter();
 

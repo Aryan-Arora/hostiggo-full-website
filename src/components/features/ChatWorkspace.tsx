@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useRef, useState, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import {
   Archive,
@@ -160,7 +161,9 @@ function ConversationRow({
     >
       <div className="relative mr-3 flex h-11 w-[70px] flex-shrink-0 items-center">
         {conversation.propertyImage && !isSupport ? (
-          <img
+          <Image
+            width={58}
+            height={44}
             src={conversation.propertyImage}
             alt=""
             onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
@@ -171,7 +174,9 @@ function ConversationRow({
             <Headphones className="h-4 w-4" />
           </span>
         )}
-        <img
+        <Image
+          width={36}
+          height={36}
           src={conversation.avatar}
           alt=""
           onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
@@ -299,7 +304,9 @@ function MessageBubble({
   return (
     <div className={cn('flex items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
       {!mine && (
-        <img
+        <Image
+          width={32}
+          height={32}
           src={avatar}
           alt=""
           onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
@@ -434,7 +441,9 @@ function ConversationPanel({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <img
+          <Image
+            width={44}
+            height={44}
             src={conversation.avatar}
             alt=""
             onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}

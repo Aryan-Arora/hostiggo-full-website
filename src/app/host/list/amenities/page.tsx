@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import {
   Wifi,
   UtensilsCrossed,
@@ -168,10 +169,12 @@ export default function AmenitiesPage() {
             <div className="bg-white rounded-2xl shadow-card p-6 border border-gray-200">
               <div className="relative w-full h-48 rounded-xl mb-4 overflow-hidden bg-gray-100 flex items-center justify-center">
                 {draft.photoUrls?.[0] ? (
-                  <img
+                  <Image
+                    fill
                     src={draft.photoUrls[0]}
                     alt="Listing preview"
-                    className="w-full h-full object-cover"
+                    sizes="(max-width: 1024px) 100vw, 33vw"
+                    className="object-cover"
                   />
                 ) : (
                   <span className="text-xs text-gray-400">Photos added later will show here</span>

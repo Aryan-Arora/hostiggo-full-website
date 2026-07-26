@@ -65,6 +65,12 @@ export default function DestinationDropdown({
       return;
     }
 
+    // Don't fire the network request for very short queries (e.g. a single
+    // character). Leave any existing results unchanged until length >= 2.
+    if (query.trim().length < 2) {
+      return;
+    }
+
     debounceTimer.current = setTimeout(async () => {
       setLoading(true);
       try {

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { Lightbulb, Percent } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
@@ -167,10 +168,12 @@ export default function PricingPage() {
 
         {/* Banner */}
         <div className="relative h-56 rounded-2xl overflow-hidden mt-8">
-          <img
+          <Image
+            fill
             src="https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=1200&h=500&fit=crop&q=80"
             alt=""
-            className="w-full h-full object-cover"
+            sizes="(max-width: 1024px) 100vw, 900px"
+            className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-figma-navy/80 to-figma-navy/20" />
           <div className="absolute inset-0 flex items-center justify-center text-center px-6">

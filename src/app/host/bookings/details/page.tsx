@@ -1,6 +1,7 @@
 'use client';
 
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import {
@@ -238,7 +239,9 @@ function DetailsInner() {
           <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="relative">
-                <img
+                <Image
+                  width={128}
+                  height={128}
                   src={view.guestPic}
                   alt={view.guestName}
                   onError={(e) => {
@@ -359,7 +362,9 @@ function DetailsInner() {
                 <h3 className="text-base font-bold text-gray-800">Property</h3>
               </div>
               <div className="flex gap-4 items-center mb-6">
-                <img
+                <Image
+                  width={64}
+                  height={64}
                   src={view.cover}
                   alt={view.title}
                   onError={(e) => {
