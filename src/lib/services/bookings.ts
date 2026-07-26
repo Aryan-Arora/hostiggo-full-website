@@ -1,4 +1,5 @@
 import { supabase } from "../supabase";
+import { supabaseAdmin } from "../supabase-admin";
 
 // None of updateBookingStatus/updateBookingDates/updateBookingGuests ever
 // checked that the caller actually owns the booking they're modifying —
@@ -201,7 +202,12 @@ export const bookingsAPI = {
 
     let guest = null;
     if (booking.user_id) {
-      const { data: guestRow } = await supabase
+      // Admin client: the authorization check above already confirmed the
+      // requester is either the guest or the listing's host, but RLS on
+      // `users` still blocks this SELECT under the anon client (no session
+      // forwarded server-side), which was silently rendering the guest's
+      // profile as blank/"not visible" to hosts.
+      const { data: guestRow } = await supabaseAdmin
         .from("users")
         .select("name, phone, profile_pic_url, is_verified, created_at")
         .eq("user_id", booking.user_id)

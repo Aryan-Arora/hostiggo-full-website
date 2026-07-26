@@ -21,9 +21,3 @@ export function roundPaise(paise: number): number {
 export function percentOf(amountPaise: number, rate: number): number {
   return roundPaise(amountPaise * rate);
 }
-
-/** Formats a paise amount as an INR display string, e.g. 123456 -> "₹1,234.56". */
-export function formatINR(paise: number): string {
-  const rupees = paiseToRupees(paise);
-  return `₹${rupees.toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}

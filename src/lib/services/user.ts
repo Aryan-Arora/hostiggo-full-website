@@ -1,4 +1,5 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../supabase";
+import { supabaseAdmin } from "../supabase-admin";
 
 const TESTING_SCHEMA = "hostiggo_testing_schema";
 const PROFILE_IMAGE_BUCKET = "profile-images";
@@ -47,8 +48,10 @@ const upsertUserWithSchema = async (payload: UpsertUserPayload) => {
 };
 
 const getUserByIdWithSchema = async (userId: string) => {
-  const client = supabase.schema(TESTING_SCHEMA);
-  return client.from("users").select("*").eq("user_id", userId).maybeSingle();
+  // Uses the admin client (not the anon `supabase` client) because RLS on
+  // `users` otherwise blocks this SELECT server-side (no session forwarded),
+  // silently returning null even right after a successful write.
+  return supabaseAdmin.from("users").select("*").eq("user_id", userId).maybeSingle();
 };
 
 const getSessionAccessToken = async (): Promise<string | null> => {

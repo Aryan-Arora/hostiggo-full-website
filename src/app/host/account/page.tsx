@@ -38,6 +38,19 @@ export default function HostAccountPage() {
     setLoading(true);
     setError(null);
     try {
+      // Ensure the user has a host profile row before fetching it -- a host
+      // who lands here before ever visiting /host/listings or /host/settings
+      // (which both do this) has no `host` row yet, and profile-info 404s.
+      try {
+        await fetch('/api/host/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+      } catch (profileErr) {
+        console.error('[host/account] Failed to create/ensure host profile:', profileErr);
+      }
+
       const res = await fetch(`/api/host/profile-info?userId=${encodeURIComponent(userId)}`);
       if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
       
