@@ -13,6 +13,19 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: "listingId, startDate and endDate are required" }, { status: 400 });
   }
 
+  // Guard against malformed date values (e.g. the literal string "null"
+  // from a stale client value) reaching Postgres -- an invalid date
+  // string there throws at the query level, which previously surfaced as
+  // the generic 500 "Could not verify availability" below instead of a
+  // clear validation error.
+  const isoDay = /^\d{4}-\d{2}-\d{2}$/;
+  if (!isoDay.test(startDate) || !isoDay.test(endDate)) {
+    return NextResponse.json(
+      { error: "startDate and endDate must be YYYY-MM-DD" },
+      { status: 400 },
+    );
+  }
+
   // Check for blocked calendar days.
   const { data: blocked, error: blockedErr } = await supabaseAdmin
     .from("listing_calendar")
