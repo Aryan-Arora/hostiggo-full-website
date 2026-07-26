@@ -214,7 +214,9 @@ export default function HostDashboardShell({
             aria-label="Host account"
             className="w-8 h-8 rounded-full overflow-hidden ml-1 border border-gray-200"
           >
-            <img
+            <Image
+              width={32}
+              height={32}
               src={avatar}
               alt={user?.name || 'Host profile'}
               className="w-full h-full object-cover"

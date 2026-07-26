@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useSearchParams } from 'next/navigation';
 import { toast } from 'sonner';
 import {
@@ -203,10 +204,12 @@ export default function HouseRulesPage() {
         {/* Right */}
         <div className="lg:col-span-5 space-y-6">
           <section className="rounded-2xl shadow-card border border-gray-200 overflow-hidden relative min-h-[300px] flex flex-col justify-end">
-            <img
+            <Image
+              fill
               src="https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=700&h=500&fit=crop&q=80"
               alt=""
-              className="absolute inset-0 w-full h-full object-cover"
+              sizes="(max-width: 1024px) 100vw, 40vw"
+              className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
             <div className="relative z-10 text-white p-6">

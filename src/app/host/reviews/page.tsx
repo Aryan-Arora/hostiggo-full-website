@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useMemo, useState } from 'react';
+import Image from 'next/image';
 import { Share2, Star, Search, Reply, Flag, Loader2 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { cn } from '@/lib/utils';
@@ -212,7 +213,9 @@ export default function ReviewsPage() {
                   className="bg-white rounded-3xl p-6 md:p-8 shadow-card border border-gray-100"
                 >
                   <div className="flex flex-col md:flex-row gap-6">
-                    <img
+                    <Image
+                      width={64}
+                      height={64}
                       src={r.reviewerAvatar || `https://i.pravatar.cc/100?u=${r.id}`}
                       alt={r.reviewerName}
                       className="w-16 h-16 rounded-2xl object-cover border-2 border-gray-100 flex-shrink-0"

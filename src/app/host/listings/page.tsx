@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { MapPin, Pencil, Plus, RotateCcw, Pause, Play } from 'lucide-react';
@@ -216,16 +217,17 @@ export default function MyListingsPage() {
                 )}
               >
                 <div className="relative aspect-[4/3] overflow-hidden">
-                  <img
+                  <Image
+                    fill
                     src={l.image}
                     alt={l.name}
-                    loading="lazy"
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
                     onError={(e) => {
                       const img = e.currentTarget;
                       if (img.src !== FALLBACK_IMAGE) img.src = FALLBACK_IMAGE;
                     }}
                     className={cn(
-                      'w-full h-full object-cover transition-all duration-500',
+                      'object-cover transition-all duration-500',
                       !l.active && 'grayscale group-hover:grayscale-0',
                     )}
                   />

@@ -6,6 +6,26 @@
 
 const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
 
+/**
+ * Simple in-memory cache for geocoding lookups to avoid re-hitting the network
+ * for repeated identical queries within a session. FIFO eviction past the cap
+ * keeps memory bounded. Errors are never cached (do not poison on failure).
+ */
+const GEO_CACHE_MAX = 200;
+const geoCache = new Map<string, unknown>();
+
+function cacheGet<T>(key: string): T | undefined {
+  return geoCache.has(key) ? (geoCache.get(key) as T) : undefined;
+}
+
+function cacheSet<T>(key: string, value: T): void {
+  if (geoCache.size >= GEO_CACHE_MAX) {
+    const oldest = geoCache.keys().next().value;
+    if (oldest !== undefined) geoCache.delete(oldest);
+  }
+  geoCache.set(key, value);
+}
+
 export interface GeocodingResult {
   latitude: number;
   longitude: number;
@@ -37,6 +57,10 @@ export interface AutocompleteResult {
 export async function geocodeAddress(query: string): Promise<GeocodingResult | null> {
   if (!query.trim()) return null;
 
+  const cacheKey = `geocode:${query.trim().toLowerCase()}`;
+  const cached = cacheGet<GeocodingResult | null>(cacheKey);
+  if (cached !== undefined) return cached;
+
   try {
     const params = new URLSearchParams({
       q: query,
@@ -54,10 +78,13 @@ export async function geocodeAddress(query: string): Promise<GeocodingResult | n
     if (!response.ok) throw new Error("Geocoding request failed");
 
     const data = await response.json();
-    if (!data || data.length === 0) return null;
+    if (!data || data.length === 0) {
+      cacheSet(cacheKey, null);
+      return null;
+    }
 
     const result = data[0];
-    return {
+    const geocoded: GeocodingResult = {
       latitude: parseFloat(result.lat),
       longitude: parseFloat(result.lon),
       displayName: result.display_name,
@@ -71,6 +98,8 @@ export async function geocodeAddress(query: string): Promise<GeocodingResult | n
         countryCode: result.address?.country_code?.toUpperCase(),
       },
     };
+    cacheSet(cacheKey, geocoded);
+    return geocoded;
   } catch (error) {
     console.error("[geocodeAddress] Error:", error);
     return null;
@@ -88,6 +117,10 @@ export async function reverseGeocode(
   longitude: number,
 ): Promise<GeocodingResult | null> {
   if (!latitude || !longitude) return null;
+
+  const cacheKey = `reverse:${latitude.toFixed(5)},${longitude.toFixed(5)}`;
+  const cached = cacheGet<GeocodingResult | null>(cacheKey);
+  if (cached !== undefined) return cached;
 
   try {
     const params = new URLSearchParams({
@@ -107,7 +140,7 @@ export async function reverseGeocode(
 
     const result = await response.json();
 
-    return {
+    const geocoded: GeocodingResult = {
       latitude,
       longitude,
       displayName: result.display_name,
@@ -121,6 +154,8 @@ export async function reverseGeocode(
         countryCode: result.address?.country_code?.toUpperCase(),
       },
     };
+    cacheSet(cacheKey, geocoded);
+    return geocoded;
   } catch (error) {
     console.error("[reverseGeocode] Error:", error);
     return null;
@@ -134,6 +169,10 @@ export async function reverseGeocode(
  */
 export async function autocompleteAddress(query: string): Promise<AutocompleteResult[]> {
   if (!query.trim() || query.length < 3) return [];
+
+  const cacheKey = `autocomplete:${query.trim().toLowerCase()}`;
+  const cached = cacheGet<AutocompleteResult[]>(cacheKey);
+  if (cached !== undefined) return cached;
 
   try {
     const params = new URLSearchParams({
@@ -154,7 +193,7 @@ export async function autocompleteAddress(query: string): Promise<AutocompleteRe
     const data = await response.json();
     if (!data) return [];
 
-    return data.map((result: any) => ({
+    const results: AutocompleteResult[] = data.map((result: any) => ({
       placeId: result.osm_id,
       displayName: result.display_name,
       latitude: parseFloat(result.lat),
@@ -168,6 +207,8 @@ export async function autocompleteAddress(query: string): Promise<AutocompleteRe
           ]
         : [0, 0, 0, 0],
     }));
+    cacheSet(cacheKey, results);
+    return results;
   } catch (error) {
     console.error("[autocompleteAddress] Error:", error);
     return [];

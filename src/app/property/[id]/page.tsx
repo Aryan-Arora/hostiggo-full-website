@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import 'leaflet/dist/leaflet.css';
 import DateRangePicker from '@/components/features/DateRangePicker';
 import {
   Star,
@@ -314,15 +315,6 @@ function PropertyMap({ property }: { property: Property }) {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const L = require('leaflet');
-
-    // Load CSS on client
-    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
 
     const center = getCenter();
 

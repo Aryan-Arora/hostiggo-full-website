@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import { AlertTriangle, Lightbulb, Smile, UserPlus, X, Lock, ChevronDown, type LucideIcon } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
@@ -151,10 +152,12 @@ export default function SupportPage() {
 
         <section className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
           <div className="lg:col-span-5 relative h-80 rounded-3xl overflow-hidden shadow-card">
-            <img
+            <Image
+              fill
               src="https://images.unsplash.com/photo-1521737604893-d14cc237f11d?w=700&h=500&fit=crop&q=80"
               alt="Support"
-              className="absolute inset-0 w-full h-full object-cover"
+              sizes="(max-width: 1024px) 100vw, 40vw"
+              className="object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent flex items-end p-8">
               <p className="text-white text-xl font-bold">Always by your side.</p>

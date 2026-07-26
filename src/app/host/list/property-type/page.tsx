@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import Image from 'next/image';
 import {
   Search,
   Home,
@@ -135,7 +136,9 @@ export default function PropertyTypePage() {
       {/* Help note */}
       <div className="mt-8 p-5 rounded-2xl bg-white border border-gray-200 shadow-card flex items-center gap-6">
         <div className="hidden md:block w-24 h-24 rounded-full overflow-hidden flex-shrink-0 bg-gray-100">
-          <img
+          <Image
+            width={96}
+            height={96}
             src="https://images.unsplash.com/photo-1505691938895-1758d7feb511?w=300&h=300&fit=crop&q=80"
             alt="Cozy interior"
             className="w-full h-full object-cover"

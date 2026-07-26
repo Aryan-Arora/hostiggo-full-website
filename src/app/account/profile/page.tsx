@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { ChevronRight, Camera, ShieldCheck, Mail, Phone, Loader2 } from 'lucide-react';
@@ -105,10 +106,12 @@ export default function GuestProfilePage() {
               <div className="bg-white rounded-3xl p-8 shadow-card border border-gray-200">
                 <div className="flex flex-col items-center text-center">
                   <div className="relative w-32 h-32 mb-6">
-                    <img
+                    <Image
+                      fill
                       src={avatar}
                       alt={name || 'Profile'}
-                      className="w-full h-full rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
+                      sizes="128px"
+                      className="rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
                     />
                     <input
                       ref={fileInputRef}

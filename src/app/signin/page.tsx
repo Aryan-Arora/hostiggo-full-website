@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, Suspense, useEffect } from 'react';
+import Image from 'next/image';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Mail, Phone, ChevronDown, ArrowLeft, Compass } from 'lucide-react';
@@ -94,10 +95,13 @@ function SignInContent() {
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden">
       {/* Background */}
-      <img
+      <Image
+        fill
+        priority
         src={authBg}
         alt="background"
-        className="absolute inset-0 w-full h-full object-cover"
+        sizes="100vw"
+        className="object-cover"
       />
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
 

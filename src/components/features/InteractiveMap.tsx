@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { StarIcon, X, CheckCircle, Navigation } from 'lucide-react';
 import type { Property } from '@/types';
+import 'leaflet/dist/leaflet.css';
 
 // Lazy load Leaflet on client side only
 const LeafletModule = typeof window !== 'undefined' ? require('leaflet') : null;
@@ -87,15 +88,6 @@ export default function InteractiveMap({
 
     const L = LeafletModule;
     if (!L) return;
-
-    // Load CSS on client
-    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
 
     mapInstanceRef.current = L.map(mapRef.current).setView(
       [INDIA_CENTER.lat, INDIA_CENTER.lng],
