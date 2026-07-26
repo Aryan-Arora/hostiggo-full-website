@@ -935,11 +935,21 @@ function BookingWidget({
 
   const checkAvailability = async () => {
     if (!checkIn || !checkOut) return;
+    const isoStart = toISODate(checkIn);
+    const isoEnd = toISODate(checkOut);
+    // Defense in depth: toISODate can only return null here if checkIn/
+    // checkOut were somehow invalid despite the guard above -- never send
+    // a malformed date to the API (it would otherwise interpolate as the
+    // literal string "null" and fail confusingly server-side).
+    if (!isoStart || !isoEnd) {
+      toast.error('Please select valid check-in and check-out dates.');
+      return;
+    }
     setStatus('checking');
     setUnavailableReason('');
     try {
       const res = await fetch(
-        `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISODate(checkIn)}&endDate=${toISODate(checkOut)}`
+        `/api/bookings/check-availability?listingId=${property.id}&startDate=${isoStart}&endDate=${isoEnd}`
       );
       const data = await res.json();
       if (!res.ok || data.error) {
