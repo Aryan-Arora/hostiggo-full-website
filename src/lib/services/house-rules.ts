@@ -81,20 +81,3 @@ export async function upsertHouseRules(listingId: number, input: HouseRulesInput
     throw error;
   }
 }
-
-/**
- * Delete the house rules row for a listing.
- */
-export async function deleteHouseRules(listingId: number): Promise<void> {
-  try {
-    const { error } = await supabase
-      .from('listing_house_rules')
-      .delete()
-      .eq('listing_id', listingId);
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('[house-rules] Failed to delete house rules:', error);
-    throw error;
-  }
-}

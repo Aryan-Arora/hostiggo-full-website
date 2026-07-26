@@ -114,36 +114,3 @@ export async function deleteDiscount(id: number, listingId?: number): Promise<vo
   }
 }
 
-/**
- * Toggle discount enabled/disabled
- */
-export async function toggleDiscount(id: number, enabled: boolean): Promise<ListingDiscount> {
-  return updateDiscount(id, undefined, enabled);
-}
-
-/**
- * Initialize default discounts for a new listing
- */
-export async function initializeDefaultDiscounts(listingId: number): Promise<void> {
-  try {
-    const defaultDiscounts = [
-      { discount_type: 'new_listing', percent: 0, enabled: false },
-      { discount_type: 'weekly', percent: 0, enabled: false },
-      { discount_type: 'monthly', percent: 0, enabled: false },
-    ];
-
-    const { error } = await supabase
-      .from('listing_discounts')
-      .insert(
-        defaultDiscounts.map((d) => ({
-          listing_id: listingId,
-          ...d,
-        }))
-      );
-
-    if (error) throw error;
-  } catch (error) {
-    console.error('[discounts] Failed to initialize default discounts:', error);
-    throw error;
-  }
-}
