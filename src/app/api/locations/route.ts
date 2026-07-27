@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
 import { HotelServiceApi } from "@/lib/services/hotel";
+import { getCachedLocations } from "@/lib/services/cached-reference-data";
 import { errorMessage } from "@/lib/api-error";
 
 const jsonError = (err: unknown, status = 500) => {
@@ -18,16 +18,6 @@ const jsonError = (err: unknown, status = 500) => {
 // Next/Vercel override any manually-set Cache-Control with a hard
 // no-cache, which silently defeated this exact header when it was present.
 const CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
-
-// Cache only the non-search (no `q`) paths, keyed by popular flag + limit.
-const getCachedLocations = unstable_cache(
-  async (popular: boolean, limit: number) =>
-    popular
-      ? await HotelServiceApi.getPopularLocations(limit)
-      : await HotelServiceApi.getLocationSample(limit),
-  ["locations-list"],
-  { revalidate: 3600, tags: ["reference"] },
-);
 
 export async function GET(req: NextRequest) {
   try {

@@ -1,3 +1,5 @@
+'use client';
+
 import { useRouter } from 'next/navigation';
 import PropertyCard from '@/components/features/PropertyCard';
 import PropertyCardHomeSkeleton from '@/components/features/PropertyCardHomeSkeleton';
