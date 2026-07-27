@@ -1,4 +1,4 @@
-import { supabase } from '../supabase';
+import { supabase, supabaseCacheable } from '../supabase';
 import { supabaseAdmin } from '../supabase-admin';
 import {
   SearchFilters,
@@ -33,8 +33,11 @@ export type ListingRow = {
 };
 
 export const HotelServiceApi = {
+  // Only reached via the unstable_cache-wrapped getCachedHotelsTeaser
+  // (src/lib/services/cached-reference-data.ts) -- uses supabaseCacheable
+  // (no forced no-store) so this stays compatible with static generation.
   getHotels: async () => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseCacheable
       .from('listings')
       .select(
         `
@@ -64,8 +67,10 @@ export const HotelServiceApi = {
     return HotelServiceApi.getListingsByLocationId(locationId, limit, 0);
   },
 
+  // Only reached via getCachedLocations (cached-reference-data.ts) --
+  // supabaseCacheable, see note on getHotels above.
   getLocationSample: async (limit: number = 22): Promise<LocationRow[]> => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseCacheable
       .from('locations')
       .select('location_id, state, district, lower_division_name')
       .order('location_id', { ascending: false })
@@ -81,8 +86,10 @@ export const HotelServiceApi = {
 
   // Ranks locations by how many active listings they have -- used for the
   // home page's "Popular in <city>" sections instead of a random sample.
+  // Only reached via getCachedLocations -- supabaseCacheable, see note on
+  // getHotels above.
   getPopularLocations: async (limit: number = 4): Promise<LocationRow[]> => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseCacheable
       .from('listings')
       .select('location_id, locations (location_id, state, district, lower_division_name)')
       .eq('is_active', true)
@@ -119,12 +126,15 @@ export const HotelServiceApi = {
       .map((entry) => entry.row);
   },
 
+  // Only reached via getHotelsByLocationId <- getCachedHotelsTeaser
+  // (cached-reference-data.ts) -- supabaseCacheable, see note on getHotels
+  // above.
   getListingsByLocationId: async (
     locationId: number,
     limit: number = 6,
     offset: number = 0,
   ): Promise<ListingRow[]> => {
-    const { data, error } = await supabase
+    const { data, error } = await supabaseCacheable
       .from('listings')
       .select(
         `
