@@ -10,16 +10,23 @@ import {
 
 // Both Supabase clients (src/lib/supabase.ts, supabase-admin.ts) force
 // `cache: "no-store"` on every fetch -- a deliberate earlier fix for an
-// unrelated stale-cache bug. That's incompatible with page-level ISR
-// (`export const revalidate`): Next tries to statically prerender a
-// revalidate-only page, hits the no-store fetch, and throws "Dynamic
-// server usage", which silently broke this page in production (verified
-// live: every "/" request logged that error and fell back to the error
-// state). force-dynamic renders per-request instead of prerendering, so
-// no-store fetches are fine -- the actual caching win still comes from
-// unstable_cache in cached-reference-data.ts, which caches independently
-// of the page's own rendering mode.
-export const dynamic = 'force-dynamic';
+// unrelated stale-cache bug. That's incompatible with static
+// generation/ISR (`export const revalidate`): Next disallows a no-store
+// fetch during a prerender pass and throws "Dynamic server usage", which
+// briefly broke this page in production the first time this was tried
+// with `force-dynamic` as a workaround -- but that traded away the fully
+// static, edge-cached shell for a per-request serverless render, which
+// pays a cold-start tax on the first hit after the function goes idle
+// (measured live: ~850ms TTFB cold vs ~80ms warm).
+//
+// The real fix: getCachedLocations/getCachedHotelsTeaser now read through
+// supabaseCacheable (src/lib/supabase.ts), which doesn't force no-store --
+// unstable_cache's own revalidate window is already the freshness
+// guarantee, so the inner no-store was redundant for these two calls
+// specifically. That makes this page static-generation-safe again, so ISR
+// (ready HTML served from cache, regenerated in the background) is back
+// on the table instead of a cold lambda on every idle-then-visit.
+export const revalidate = 60;
 
 // Server Component: the "Popular stays" sections are fetched here, at
 // request/build time, straight from the cached data-layer functions (no

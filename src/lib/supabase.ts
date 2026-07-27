@@ -42,4 +42,23 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
+// A second client, identical except it does NOT force `cache: "no-store"`.
+// Only for reads that are already wrapped in `unstable_cache`
+// (src/lib/services/cached-reference-data.ts) -- that wrapper is the actual
+// caching/freshness layer (its own revalidate window), so the inner fetch
+// forcing no-store was redundant there, and worse: a no-store fetch during
+// Next's static-generation pass throws "Dynamic server usage", which broke
+// the homepage in production (it couldn't be prerendered/ISR'd at all).
+// Everywhere else in the app should keep using the `supabase` export above.
+export const supabaseCacheable = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+  auth: {
+    autoRefreshToken: true,
+    persistSession: true,
+    detectSessionInUrl: true,
+  },
+  db: {
+    schema: "hostiggo_testing_schema",
+  },
+});
+
 export { SUPABASE_URL, SUPABASE_ANON_KEY };
