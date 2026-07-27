@@ -1,6 +1,5 @@
 import { NextResponse } from "next/server";
-import { unstable_cache } from "next/cache";
-import { HotelServiceApi } from "@/lib/services/hotel";
+import { getCachedAmenities } from "@/lib/services/cached-reference-data";
 import { errorMessage } from "@/lib/api-error";
 
 // The amenities list is reference data (23 fixed rows) that essentially
@@ -17,15 +16,9 @@ import { errorMessage } from "@/lib/api-error";
 // no-cache, which silently defeated this exact header when it was present.
 const CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
 
-const getAmenities = unstable_cache(
-  async () => await HotelServiceApi.getAmenities(),
-  ["amenities-all"],
-  { revalidate: 3600, tags: ["reference"] },
-);
-
 export async function GET() {
   try {
-    const data = await getAmenities();
+    const data = await getCachedAmenities();
     return NextResponse.json({ data }, { headers: { "Cache-Control": CACHE_HEADER } });
   } catch (err) {
     console.error("[/api/amenities] error:", err);
