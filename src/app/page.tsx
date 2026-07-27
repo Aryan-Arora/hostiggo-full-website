@@ -8,11 +8,18 @@ import {
   getCachedHotelsTeaser,
 } from '@/lib/services/cached-reference-data';
 
-// Matches the 60s revalidate window on getCachedHotelsTeaser -- without
-// this, Next would prerender this page once at build time (it's fully
-// static: no cookies()/headers() usage) and never regenerate it, so new
-// listings would never show up until the next deploy.
-export const revalidate = 60;
+// Both Supabase clients (src/lib/supabase.ts, supabase-admin.ts) force
+// `cache: "no-store"` on every fetch -- a deliberate earlier fix for an
+// unrelated stale-cache bug. That's incompatible with page-level ISR
+// (`export const revalidate`): Next tries to statically prerender a
+// revalidate-only page, hits the no-store fetch, and throws "Dynamic
+// server usage", which silently broke this page in production (verified
+// live: every "/" request logged that error and fell back to the error
+// state). force-dynamic renders per-request instead of prerendering, so
+// no-store fetches are fine -- the actual caching win still comes from
+// unstable_cache in cached-reference-data.ts, which caches independently
+// of the page's own rendering mode.
+export const dynamic = 'force-dynamic';
 
 // Server Component: the "Popular stays" sections are fetched here, at
 // request/build time, straight from the cached data-layer functions (no
