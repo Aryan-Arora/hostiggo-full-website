@@ -114,7 +114,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white sticky top-0 z-50 border-b border-gray-50 shadow-[0_8px_30px_rgba(59,130,246,0.12)] flex-shrink-0">
-      <div className="container-main">
+      <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
@@ -130,24 +130,26 @@ export default function Navbar() {
             />
             <div className="flex items-baseline">
               <span className="font-black text-[#374151] text-[17px] tracking-wider uppercase">
-                Hosti
+                Hostig
               </span>
               <span className="font-black text-[#0086D8] text-[17px] tracking-wider uppercase">
-                ggo
+                go
               </span>
             </div>
           </Link>
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-0.5">
-            <span className="flex items-center gap-1 text-gray-500 px-3 py-1.5 text-[13px] font-medium">
+            <span className="flex items-center gap-1 text-figma-navy px-3 py-1.5 text-[13px] font-bold">
               <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
               INR
             </span>
-            <span className="flex items-center gap-1 text-gray-500 px-3 py-1.5 text-[13px] font-medium">
+            <span className="h-4 w-px bg-gray-300 mx-1" />
+            <span className="flex items-center gap-1.5 text-figma-navy px-3 py-1.5 text-[13px] font-bold">
               <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
               English
             </span>
+            <span className="h-4 w-px bg-gray-300 mx-1" />
 
             {isAuthenticated ? (
               <>
@@ -237,10 +239,10 @@ export default function Navbar() {
             ) : (
               <>
                 <button
-                  className="text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium ml-1"
+                  className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[13px] font-bold ml-0.5"
                   onClick={() => router.push('/signin')}
                 >
-                  Sign in
+                  Sign In
                 </button>
                 <button
                   className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1 shadow-sm"

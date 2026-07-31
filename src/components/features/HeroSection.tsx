@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useListingState, useListingActions } from "@/context/ListingFilterContext";
 import type { SearchFilters } from "@/types";
 
-const heroBg = "/hero-bg.jpg";
+const heroBg = "/hero-bg.jpg?v=2";
 
 const HERO_TAGS = [
   { id: "budget", label: "₹1000 - ₹ 3000" },
@@ -72,7 +72,7 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="bg-gray-50/50 pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
+    <section className="pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
       <div className="container-main w-full min-w-0">
         {/* Main white wrapper matching the screenshot's unified container */}
         <div className="bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-2 sm:p-3 lg:p-4">
@@ -100,8 +100,8 @@ export default function HeroSection() {
 
                 {/* Popular Choices Glass Panel */}
                 <div className="mt-auto pt-6">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 shadow-lg">
-                    <h3 className="text-center text-white/90 font-medium tracking-[0.15em] uppercase text-xs mb-5">
+                  <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-sm">
+                    <h3 className="text-center text-white/90 font-medium tracking-[0.3em] uppercase text-xs mb-5">
                       Popular Choices
                     </h3>
                     <div className="flex flex-wrap justify-center gap-2.5">
@@ -112,15 +112,15 @@ export default function HeroSection() {
                             key={id}
                             type="button"
                             onClick={() => toggleTag(id)}
-                            className="flex items-center gap-2 bg-white hover:bg-white/90 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer transition-colors shadow-sm"
+                            aria-pressed={checked}
+                            className={cn(
+                              "text-xs font-semibold px-4 py-2 rounded-full shadow-sm transition-colors cursor-pointer",
+                              checked
+                                ? "bg-figma-navy text-white"
+                                : "bg-white hover:bg-white/90 text-gray-700",
+                            )}
                           >
-                            <div className={cn(
-                              "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors",
-                              checked ? "bg-figma-navy border-figma-navy text-white" : "border-gray-300 bg-white"
-                            )}>
-                              {checked && <svg className="w-2.5 h-2.5" viewBox="0 0 14 14" fill="none"><path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                            </div>
-                            <span>{label}</span>
+                            {label}
                           </button>
                         );
                       })}
