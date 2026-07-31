@@ -16,7 +16,7 @@ const HERO_TAGS = [
 
 export default function HeroSection() {
   return (
-    <section className="bg-gray-50/50 pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
+    <section className="pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
       <div className="container-main">
         {/* Main white wrapper matching the screenshot's unified container */}
         <div className="bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-2 sm:p-3 lg:p-4">

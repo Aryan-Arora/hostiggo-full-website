@@ -80,7 +80,7 @@ function CurrencyDropdown() {
           setOpen((v) => !v);
           setSearch('');
         }}
-        className="flex items-center gap-1 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium"
+        className="flex items-center gap-1 text-[#0f4c81] hover:text-[#0a3a63] px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-bold"
       >
         <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
         <span>{selected.code}.</span>
@@ -229,7 +229,7 @@ export default function Navbar() {
 
   return (
     <nav className="bg-white sticky top-0 z-50 border-b border-gray-50 shadow-[0_8px_30px_rgba(59,130,246,0.12)] flex-shrink-0">
-      <div className="container-main">
+      <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
@@ -243,10 +243,10 @@ export default function Navbar() {
             </div>
             <div className="flex items-baseline">
               <span className="font-black text-[#374151] text-[17px] tracking-wider uppercase">
-                Hosti
+                Hostig
               </span>
               <span className="font-black text-[#0086D8] text-[17px] tracking-wider uppercase">
-                ggo
+                go
               </span>
             </div>
           </Link>
@@ -254,11 +254,12 @@ export default function Navbar() {
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-0.5">
             <CurrencyDropdown />
-            <button className="flex items-center gap-1 text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium">
+            <span className="h-4 w-px bg-gray-300 mx-1" />
+            <button className="flex items-center gap-1.5 text-[#0f4c81] hover:text-[#0a3a63] px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-bold">
               <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
               <span>English</span>
-              <ChevronDown className="w-3 h-3 text-gray-400" />
             </button>
+            <span className="h-4 w-px bg-gray-300 mx-1" />
 
             {isAuthenticated ? (
               <>
@@ -346,20 +347,20 @@ export default function Navbar() {
             ) : (
               <>
                 <button
-                  className="text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium ml-1"
+                  className="text-[#0f4c81] hover:text-[#0a3a63] px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-bold ml-0.5"
                   onClick={() => router.push('/signin')}
                 >
-                  Sign in
+                  Sign In
                 </button>
                 <button
-                  className="bg-[#005a9c] hover:bg-[#004a80] active:bg-[#003a66] text-white px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1 shadow-sm"
+                  className="bg-[#0f4c81] hover:bg-[#0a3a63] active:bg-[#082e4f] text-white px-5 py-2 rounded-lg text-[13px] font-bold transition-colors ml-2 shadow-sm"
                   onClick={() => router.push('/signin')}
                 >
                   New user
                 </button>
                 <button
                   onClick={() => router.push('/host/list/property-type')}
-                  className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
+                  className="border-[1.5px] border-[#0f4c81] text-[#0f4c81] hover:bg-blue-50 px-5 py-[7px] rounded-xl text-[13px] font-bold transition-colors ml-3"
                 >
                   List your property
                 </button>

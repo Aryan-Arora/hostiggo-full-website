@@ -17,11 +17,11 @@ export default function PropertyCard({ property }: PropertyCardProps) {
 
   return (
     <div
-      className="card-base cursor-pointer group"
+      className="card-base rounded-3xl cursor-pointer group"
       onClick={() => router.push(`/property/${property.id}`)}
     >
       {/* Image */}
-      <div className="relative overflow-hidden" style={{ height: 170 }}>
+      <div className="relative overflow-hidden" style={{ height: 200 }}>
         <img
           src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
           alt={property.propertyName}
@@ -33,11 +33,11 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           onClick={(e) => { e.stopPropagation(); setLiked(v => !v); }}
           aria-label={liked ? "Remove from favourites" : "Add to favourites"}
           className={cn(
-            "absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
-            liked ? "bg-rose-500 text-white" : "bg-white/90 text-gray-500 hover:text-rose-400"
+            "absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
+            liked ? "bg-white text-rose-500" : "bg-white/95 text-gray-600 hover:text-rose-400"
           )}
         >
-          <Heart className={cn("w-3.5 h-3.5", liked && "fill-white")} />
+          <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
         </button>
         {property.isNew && (
           <span className="absolute top-2.5 left-2.5 bg-emerald-500 text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">NEW</span>
@@ -46,17 +46,17 @@ export default function PropertyCard({ property }: PropertyCardProps) {
       </div>
 
       {/* Details */}
-      <div className="p-3">
+      <div className="p-3.5">
         <h3 className="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-1 mb-0.5">{property.propertyName}</h3>
         <p className="text-[11px] text-gray-400 mb-2 line-clamp-1">{property.city}, {property.state}</p>
-        <div className="flex items-center gap-1 mb-2">
+        <div className="flex items-center gap-1 mb-2.5">
           <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />
-          <span className="text-[11px] font-bold text-gray-700">{property.rating.toFixed(2)}</span>
-          <span className="text-[11px] text-gray-400">· {property.reviewCount} reviews</span>
+          <span className="text-[11px] font-bold text-gray-700">{property.rating.toFixed(1)}</span>
+          <span className="text-[11px] text-gray-400">• {property.reviewCount} reviews</span>
         </div>
-        <div className="flex items-baseline gap-1">
-          <span className="text-[15px] font-extrabold text-gray-900">₹{property.price.toLocaleString("en-IN")}</span>
-          <span className="text-[11px] text-gray-400 font-medium">/night</span>
+        <div className="inline-flex items-baseline gap-1.5 border border-gray-300 rounded-lg px-3 py-1.5">
+          <span className="text-[14px] font-extrabold text-gray-900">₹ {property.price.toLocaleString("en-IN")}</span>
+          <span className="text-[11px] text-gray-500 font-medium">/ Night</span>
         </div>
       </div>
     </div>

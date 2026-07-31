@@ -76,7 +76,7 @@ export default function HomePage() {
   }, [reloadToken]);
 
   return (
-    <div className="min-h-screen bg-[#f0f2f5]">
+    <div className="min-h-screen bg-[#f8f6f1]">
       <Navbar />
       <HeroSection />
       <div className="container-main py-8 space-y-10">

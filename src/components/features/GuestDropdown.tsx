@@ -1,4 +1,4 @@
-import { Users, Baby, DoorOpen } from "lucide-react";
+import { User, Baby, BedDouble, PawPrint } from "lucide-react";
 import type { GuestCount } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ interface GuestDropdownProps {
 interface CounterRowProps {
   icon: React.ReactNode;
   label: string;
-  sublabel: string;
+  sublabel?: string;
   value: number;
   min?: number;
   max?: number;
@@ -20,39 +20,39 @@ interface CounterRowProps {
 
 function CounterRow({ icon, label, sublabel, value, min = 0, max = 20, onChange }: CounterRowProps) {
   return (
-    <div className="flex items-center justify-between py-3.5 border-b border-gray-50 last:border-0">
-      <div className="flex items-center gap-3">
-        <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-blue-600 flex-shrink-0">
+    <div className="flex items-center justify-between py-4">
+      <div className="flex items-center gap-3.5">
+        <div className="w-7 flex items-center justify-center text-gray-800 flex-shrink-0">
           {icon}
         </div>
         <div>
-          <p className="text-[13px] font-semibold text-gray-800 leading-tight">{label}</p>
-          <p className="text-[11px] text-gray-400 mt-0.5">{sublabel}</p>
+          <p className="text-[16px] font-semibold text-gray-900 leading-tight">{label}</p>
+          {sublabel && <p className="text-[13px] text-gray-400 mt-0.5">{sublabel}</p>}
         </div>
       </div>
 
-      <div className="flex items-center gap-2.5">
+      <div className="flex items-center gap-3">
         <button
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
           className={cn(
-            "w-8 h-8 rounded-full border flex items-center justify-center text-base transition-all font-light leading-none",
+            "w-8 h-8 rounded-full flex items-center justify-center text-lg font-medium leading-none text-white transition-all",
             value <= min
-              ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:scale-95"
+              ? "bg-gray-300 cursor-not-allowed"
+              : "bg-[#0f4c81] hover:bg-[#0a3a63] active:scale-95"
           )}
         >
           −
         </button>
-        <span className="w-5 text-center text-[13px] font-bold text-gray-800 tabular-nums">{value}</span>
+        <span className="w-5 text-center text-[16px] font-semibold text-gray-900 tabular-nums">{value}</span>
         <button
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
           className={cn(
-            "w-8 h-8 rounded-full border flex items-center justify-center text-base transition-all font-light leading-none",
+            "w-8 h-8 rounded-full flex items-center justify-center text-lg font-medium leading-none text-white transition-all",
             value >= max
-              ? "border-gray-200 text-gray-300 cursor-not-allowed"
-              : "border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600 active:scale-95"
+              ? "bg-gray-300 cursor-not-allowed"
+              : "bg-[#0f4c81] hover:bg-[#0a3a63] active:scale-95"
           )}
         >
           +
@@ -67,28 +67,27 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
     onChange({ ...guests, [key]: val });
 
   return (
-    <div className="dropdown-panel animate-fade-in-down w-[320px] max-w-[92vw] p-4">
+    <div className="dropdown-panel animate-fade-in-down w-[380px] max-w-[92vw] rounded-3xl p-6">
       <CounterRow
-        icon={<Users className="w-4 h-4" />}
+        icon={<User className="w-6 h-6" strokeWidth={1.7} />}
         label="Adults"
-        sublabel="Age 13 or above"
+        sublabel="Ages 18 or above"
         value={guests.adults}
         min={1}
         max={16}
         onChange={(v) => set("adults", v)}
       />
       <CounterRow
-        icon={<Baby className="w-4 h-4" />}
+        icon={<Baby className="w-6 h-6" strokeWidth={1.7} />}
         label="Children"
-        sublabel="Ages 2–12"
+        sublabel="Ages 0-17"
         value={guests.children}
         max={8}
         onChange={(v) => set("children", v)}
       />
       <CounterRow
-        icon={<DoorOpen className="w-4 h-4" />}
+        icon={<BedDouble className="w-6 h-6" strokeWidth={1.7} />}
         label="Room"
-        sublabel="1 or more"
         value={guests.rooms}
         min={1}
         max={10}
@@ -96,15 +95,12 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
       />
 
       {/* Pets toggle */}
-      <div className="flex items-center justify-between py-3.5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 bg-blue-50 rounded-xl flex items-center justify-center text-lg flex-shrink-0">
-            🐾
+      <div className="border-t border-gray-200 mt-2 pt-4 flex items-center justify-between pb-2">
+        <div className="flex items-center gap-3.5">
+          <div className="w-7 flex items-center justify-center text-gray-800 flex-shrink-0">
+            <PawPrint className="w-6 h-6" strokeWidth={1.7} />
           </div>
-          <div>
-            <p className="text-[13px] font-semibold text-gray-800 leading-tight">Pets with you?</p>
-            <p className="text-[11px] text-gray-400 mt-0.5">Service animals allowed</p>
-          </div>
+          <p className="text-[16px] font-semibold text-gray-900 leading-tight">Pets with you?</p>
         </div>
         <label className="toggle-switch">
           <input
@@ -118,7 +114,7 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
 
       <button
         onClick={onClose}
-        className="w-full mt-2 bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm"
+        className="w-full mt-4 bg-primary-gradient hover:opacity-90 active:scale-[0.99] text-white py-3 rounded-xl font-semibold text-[16px] transition-all shadow-sm"
       >
         Done
       </button>

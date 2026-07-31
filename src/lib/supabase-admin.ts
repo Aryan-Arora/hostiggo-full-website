@@ -16,7 +16,10 @@ if (!SERVICE_KEY) {
   );
 }
 
-export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY, {
+// createClient throws synchronously on an empty key, which would crash the
+// server at import time (before any route's try/catch can run). Fall back to
+// a placeholder so construction succeeds; requests will fail normally instead.
+export const supabaseAdmin = createClient(SUPABASE_URL, SERVICE_KEY || "missing-service-role-key", {
   auth: { persistSession: false, autoRefreshToken: false },
   db: { schema: SCHEMA.testingSchema },
 });

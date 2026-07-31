@@ -18,7 +18,7 @@
 
   body {
     font-family: 'Inter', sans-serif;
-    background-color: #f0f2f5;
+    background-color: #f8f6f1;
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -180,7 +180,7 @@
 }
 
 input:checked + .toggle-slider {
-  background-color: #2563eb;
+  background-color: #0f4c81;
 }
 
 input:checked + .toggle-slider::before {
