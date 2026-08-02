@@ -1,7 +1,5 @@
 import SearchForm from "@/components/features/SearchForm";
 
-import { cn } from "@/lib/utils";
-
 const heroBg = "/hero-bg.jpg";
 
 const HERO_TAGS = [
@@ -37,24 +35,18 @@ export default function HeroSection() {
 
                 {/* Popular Choices Glass Panel */}
                 <div className="mt-auto pt-6">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 shadow-lg">
-                    <h3 className="text-center text-white/90 font-medium tracking-[0.15em] uppercase text-xs mb-5">
+                  <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-sm">
+                    <h3 className="text-center text-white/90 font-medium tracking-[0.3em] uppercase text-xs mb-5">
                       Popular Choices
                     </h3>
                     <div className="flex flex-wrap justify-center gap-2.5">
-                      {HERO_TAGS.map(({ id, label, checked }) => (
-                        <label
+                      {HERO_TAGS.map(({ id, label }) => (
+                        <span
                           key={id}
-                          className="flex items-center gap-2 bg-white hover:bg-white/90 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer transition-colors shadow-sm"
+                          className="bg-white text-gray-700 text-xs font-semibold px-4 py-2 rounded-full shadow-sm"
                         >
-                          <div className={cn(
-                            "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors",
-                            checked ? "bg-blue-600 border-blue-600 text-white" : "border-gray-300 bg-white"
-                          )}>
-                            {checked && <svg className="w-2.5 h-2.5" viewBox="0 0 14 14" fill="none"><path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                          </div>
-                          <span>{label}</span>
-                        </label>
+                          {label}
+                        </span>
                       ))}
                     </div>
                   </div>
