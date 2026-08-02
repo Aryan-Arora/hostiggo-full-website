@@ -191,16 +191,12 @@ export function CompactSearchBar() {
           </div>
         </button>
         {activePanel === 'date' && (
-          // DateRangePicker's own root is `position: absolute` (the shared
-          // `.dropdown-panel` class), so it's out-of-flow relative to this
-          // wrapper -- without an explicit width here the wrapper
-          // shrink-to-fits around an out-of-flow child and collapses to 0,
-          // making the calendar render at 0x0 (invisible, not just
-          // mispositioned). Same fix as the property page's date picker.
-          <div
-            className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-[1100]"
-            style={{ width: 'min(600px, 95vw)' }}
-          >
+          // DateRangePicker overrides .dropdown-panel's default `position:
+          // absolute` with `!relative` and sets its own width, so this
+          // wrapper naturally shrink-to-fits around it -- `-translate-x-1/2`
+          // then centers correctly off the wrapper's own (now non-zero)
+          // rendered width.
+          <div className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-[1100]">
             <DateRangePicker
               checkIn={dates.checkIn}
               checkOut={dates.checkOut}
@@ -435,7 +431,7 @@ export default function SearchForm() {
 
           {/* Shared DatePicker Popover */}
           {activePanel === 'date' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-[1100]">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
               <DateRangePicker
                 checkIn={dates.checkIn}
                 checkOut={dates.checkOut}

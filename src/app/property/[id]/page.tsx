@@ -1080,19 +1080,14 @@ function BookingWidget({
       </div>
 
       {/* DateRangePicker dropdown — anchored to the *right* edge of this
-          narrow sidebar card. DateRangePicker renders itself at a fixed
-          min(600px, 95vw) width (sized for the wide, centered SearchForm
-          bar), much wider than this sidebar. `right-0` alone doesn't work
-          here: since DateRangePicker's own root is itself `position:
-          absolute` (the shared `.dropdown-panel` class), this wrapper's
-          only child is out-of-flow, so the wrapper's shrink-to-fit width
-          collapses to 0 and `right-0` just anchors a single point instead
-          of pushing the 600px box leftward. Giving the wrapper the same
-          explicit width fixes that, so it actually stays on-screen. */}
+          narrow sidebar card. DateRangePicker overrides .dropdown-panel's
+          default `position: absolute` with `!relative` and sets its own
+          min(720px, 95vw) width, so this wrapper naturally shrink-to-fits
+          around it and `right-0` correctly anchors the box's right edge. */}
       {showPicker && (
         <div
           className="absolute top-[calc(100%+8px)] right-0 z-50"
-          style={{ width: 'min(600px, 95vw)', scrollMarginTop: '90px' }}
+          style={{ scrollMarginTop: '90px' }}
           ref={pickerRef}
         >
           <DateRangePicker
