@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { useListingState, useListingActions } from "@/context/ListingFilterContext";
 import type { SearchFilters } from "@/types";
 
-const heroBg = "/hero-bg.jpg?v=2";
+const heroBg = "/hero-bg.jpg?v=3";
 
 const HERO_TAGS = [
   { id: "budget", label: "₹1000 - ₹ 3000" },
@@ -85,7 +85,7 @@ export default function HeroSection() {
             >
               <Image
                 src={heroBg}
-                alt="Lush green forest"
+                alt="Aerial view of a beach"
                 fill
                 priority
                 sizes="(max-width: 1024px) 100vw, 500px"
