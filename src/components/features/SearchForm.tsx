@@ -408,7 +408,7 @@ export default function SearchForm() {
 
           {/* Shared DatePicker Popover */}
           {activePanel === 'date' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-50">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-50">
               <DateRangePicker
                 checkIn={dates.checkIn}
                 checkOut={dates.checkOut}
