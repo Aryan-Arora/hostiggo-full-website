@@ -10,3 +10,693 @@ export const SUGGESTED_DESTINATIONS: Destination[] = [
   { id: "7", name: "Guwahati", state: "Assam", stayCount: 2870, imageUrl: "https://images.unsplash.com/photo-1548013146-72479768bada?w=96&h=96&fit=crop&q=80" },
   { id: "8", name: "Shimla", state: "Himachal Pradesh", stayCount: 5530, imageUrl: "https://images.unsplash.com/photo-1524492412937-b28074a5d7da?w=96&h=96&fit=crop&q=80" },
 ];
+
+export type CityAreaGuide = {
+  name: string;
+  description: string;
+};
+
+export type CityGuide = {
+  city: string;
+  state: string;
+  stayCount: number;
+  imageUrl: string;
+  areas: CityAreaGuide[];
+};
+
+/**
+ * Curated "city guides" that power the destination search dropdown. When the
+ * user types a city that has a guide, the dropdown surfaces its popular areas.
+ * Listings are stored at city/district level, so selecting an area searches the
+ * parent city's stays — the area name is carried through only as context for the
+ * results header (true per-area filtering would need each listing area-tagged).
+ */
+export const CITY_GUIDES: CityGuide[] = [
+  {
+    city: "New Delhi",
+    state: "Delhi",
+    stayCount: 12187,
+    imageUrl: "https://images.unsplash.com/photo-1587474260584-136574528ed5?w=128&h=128&fit=crop&q=80",
+    areas: [
+      { name: "Connaught Place", description: "Central Delhi, shopping, restaurants, nightlife" },
+      { name: "Karol Bagh", description: "Markets, very popular with travelers" },
+      { name: "Paharganj", description: "Near new delhi railway station, backpacker area" },
+      { name: "Hauz Khas", description: "Trendy cafes, nightlife, lake view heritage site" },
+      { name: "Aerocity", description: "Luxury hotels, modern district near airport" },
+    ],
+  },
+  {
+    city: "Manali",
+    state: "Himachal Pradesh",
+    stayCount: 4320,
+    imageUrl: "https://images.unsplash.com/photo-1626621341517-bbf3d9990a23?w=128&h=128&fit=crop&q=80",
+    areas: [
+      { name: "Old Manali", description: "Riverside cafes, laid-back backpacker vibe" },
+      { name: "Mall Road", description: "Central market, shops and eateries" },
+      { name: "Solang Valley", description: "Adventure sports, snow, paragliding" },
+      { name: "Vashisht", description: "Hot springs, temples, budget stays" },
+    ],
+  },
+  {
+    city: "Jaipur",
+    state: "Rajasthan",
+    stayCount: 8900,
+    imageUrl: "https://images.unsplash.com/photo-1599661046289-e31897846e41?w=128&h=128&fit=crop&q=80",
+    areas: [
+      { name: "C-Scheme", description: "Upscale central area, cafes and boutiques" },
+      { name: "Bani Park", description: "Heritage havelis, quiet, near the station" },
+      { name: "Amer", description: "Near Amer Fort, historic and scenic" },
+      { name: "MI Road", description: "Shopping, dining and city-centre buzz" },
+    ],
+  },
+  {
+    city: "Bangalore",
+    state: "Karnataka",
+    stayCount: 10800,
+    imageUrl: "https://images.unsplash.com/photo-1596176530529-78163a4f7af2?w=128&h=128&fit=crop&q=80",
+    areas: [
+      { name: "Indiranagar", description: "Trendy pubs, restaurants and boutiques" },
+      { name: "Koramangala", description: "Startup hub, cafes and nightlife" },
+      { name: "MG Road", description: "Central shopping and business district" },
+      { name: "Whitefield", description: "IT parks, modern district near tech campuses" },
+    ],
+  },
+  {
+    city: "Goa",
+    state: "Goa",
+    stayCount: 15400,
+    imageUrl: "https://images.unsplash.com/photo-1512343879784-a960bf40e7f2?w=128&h=128&fit=crop&q=80",
+    areas: [
+      { name: "Baga", description: "Lively beach, shacks and nightlife" },
+      { name: "Calangute", description: "Popular beach, water sports and markets" },
+      { name: "Anjuna", description: "Flea market, cliffs and beach parties" },
+      { name: "Panjim", description: "Latin quarter, riverside capital charm" },
+    ],
+  },
+];
+
+/** Find a curated city guide by (partial, case-insensitive) name match. */
+export const findCityGuide = (query: string): CityGuide | undefined => {
+  const q = query.trim().toLowerCase();
+  if (!q) return undefined;
+  return CITY_GUIDES.find((g) => {
+    const city = g.city.toLowerCase();
+    return city.startsWith(q) || q.startsWith(city) || (q.length >= 3 && city.includes(q));
+  });
+};
+
+export const POPULAR_FILTERS = [
+  { id: "1000-2000", label: "₹1000 - 2000" },
+  { id: "free-breakfast", label: "Free breakfast" },
+  { id: "couple-friendly", label: "Couple friendly" },
+  { id: "pet-friendly", label: "Pet friendly" },
+  { id: "family-friendly", label: "Family friendly" },
+];
+
+export const PROPERTY_IMAGES = {
+  room1: "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80",
+  room2: "https://images.unsplash.com/photo-1611892440504-42a792e24d32?w=800&h=600&fit=crop&q=80",
+  room3: "https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&h=600&fit=crop&q=80",
+  room4: "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?w=800&h=600&fit=crop&q=80",
+  room5: "https://images.unsplash.com/photo-1522771739844-6a9f6d5f14af?w=800&h=600&fit=crop&q=80",
+  room6: "https://images.unsplash.com/photo-1618773928121-c32242e63f39?w=800&h=600&fit=crop&q=80",
+  room7: "https://images.unsplash.com/photo-1584132967334-10e028bd69f7?w=800&h=600&fit=crop&q=80",
+  room8: "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?w=800&h=600&fit=crop&q=80",
+  room9: "https://images.unsplash.com/photo-1566665797739-1674de7a421a?w=800&h=600&fit=crop&q=80",
+  room10: "https://images.unsplash.com/photo-1445019980597-93fa8acb246c?w=800&h=600&fit=crop&q=80",
+};
+
+const img = (key: keyof typeof PROPERTY_IMAGES) => PROPERTY_IMAGES[key];
+
+// Shared mock reviews
+const MOCK_REVIEWS_SET_A: Review[] = [
+  { id: "r1", userName: "Priya Sharma", userAvatar: "https://i.pravatar.cc/48?img=5", rating: 5, reviewText: "Absolutely loved staying here! The place was spotlessly clean, beautifully decorated, and the host was incredibly warm and welcoming. Will definitely come back!", reviewDate: "February 2025" },
+  { id: "r2", userName: "Rahul Mehta", userAvatar: "https://i.pravatar.cc/48?img=12", rating: 4, reviewText: "Great location and excellent amenities. Breakfast was delicious. The only minor issue was parking, but overall a fantastic experience.", reviewDate: "January 2025" },
+  { id: "r3", userName: "Anita Kulkarni", userAvatar: "https://i.pravatar.cc/48?img=9", rating: 5, reviewText: "One of the best stays I have ever had. Beautiful property with stunning views. The host went above and beyond to make us feel at home.", reviewDate: "December 2024" },
+  { id: "r4", userName: "Vikram Singh", userAvatar: "https://i.pravatar.cc/48?img=17", rating: 4, reviewText: "Very comfortable stay. The room was spacious and clean. Good WiFi. Location is convenient to many attractions.", reviewDate: "November 2024" },
+  { id: "r5", userName: "Deepa Nair", userAvatar: "https://i.pravatar.cc/48?img=25", rating: 5, reviewText: "Perfect place for a family trip! Kids loved it. Great amenities and the host was very helpful with local tips.", reviewDate: "October 2024" },
+  { id: "r6", userName: "Arjun Patel", userAvatar: "https://i.pravatar.cc/48?img=33", rating: 3, reviewText: "Decent stay overall. Amenities are as described. Would have liked better breakfast options but the room was very clean.", reviewDate: "September 2024" },
+];
+
+// Shared hosts
+const HOST_SURESH: Host = {
+  id: "h1", name: "Suresh Kumar", avatar: "https://i.pravatar.cc/96?img=57",
+  rating: 4.9, tripsHosted: 284, joinDate: "March 2019",
+  bio: "Passionate traveller and host. I love sharing the beauty of my city with guests from around the world. I ensure every guest feels at home!",
+  responseRate: 98, responseTime: "within an hour", isSuperhost: true,
+};
+
+const HOST_MEERA: Host = {
+  id: "h2", name: "Meera Reddy", avatar: "https://i.pravatar.cc/96?img=47",
+  rating: 4.8, tripsHosted: 156, joinDate: "June 2020",
+  bio: "I take pride in offering clean, comfortable, and well-equipped spaces. Happy hosting!",
+  responseRate: 95, responseTime: "within a few hours", isSuperhost: true,
+};
+
+const HOST_AMIT: Host = {
+  id: "h3", name: "Amit Verma", avatar: "https://i.pravatar.cc/96?img=68",
+  rating: 4.7, tripsHosted: 89, joinDate: "January 2021",
+  bio: "Adventure enthusiast and nature lover. My properties are gateway to the best experiences India offers.",
+  responseRate: 90, responseTime: "within a day", isSuperhost: false,
+};
+
+const DEFAULT_RATING_BREAKDOWN = { cleanliness: 4.8, accuracy: 4.7, communication: 4.9, location: 4.6, checkIn: 4.8, value: 4.5 };
+
+export const ALL_PROPERTIES: Property[] = [
+  // ── New Delhi ──
+  {
+    id: "p1", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 26700, originalPrice: 32000, rating: 4.7, reviewCount: 112,
+    amenities: ["WiFi", "Parking", "Kitchen", "AC"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Free Parking", icon: "car", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Swimming Pool", icon: "droplets", available: false },
+      { name: "Breakfast", icon: "coffee", available: false },
+      { name: "Hot Water", icon: "droplets", available: true },
+      { name: "Balcony", icon: "wind", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room1"), img("room2"), img("room3"), img("room4"), img("room5"), img("room6")],
+    maxGuests: 4,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, ac: true, parking: true,
+    bedType: "King bed", isFavorite: true,
+    description: "A beautifully designed homestay in the heart of New Delhi, offering premium amenities and a warm, homely atmosphere. This heritage property blends traditional Indian architecture with modern comforts. Situated close to major tourist attractions, shopping markets, and metro connectivity, it is the ideal base to explore the capital. Our cozy rooms are thoughtfully decorated with local art and crafts, providing an authentic cultural experience. Whether you are here for business or leisure, we ensure a memorable stay tailored to your needs.",
+    coordinates: { lat: 28.6139, lng: 77.2090 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 4.9, accuracy: 4.7, communication: 5.0, location: 4.8, checkIn: 4.7, value: 4.5 },
+  },
+  {
+    id: "p2", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 18500, rating: 4.3, reviewCount: 98,
+    amenities: ["WiFi", "Kitchen", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Air Conditioning", icon: "zap", available: false },
+      { name: "Parking", icon: "car", available: false },
+      { name: "Pool", icon: "droplets", available: false },
+    ],
+    propertyType: "Apartment",
+    images: [img("room2"), img("room3"), img("room1"), img("room5"), img("room7"), img("room4")],
+    maxGuests: 3,
+    isInstantBook: false, freeCancellation: true, wifi: true, breakfast: false,
+    bedType: "Double bed",
+    description: "Modern apartment with all amenities in South Delhi. Perfect for business travelers and solo explorers looking for comfort in the city.",
+    coordinates: { lat: 28.6229, lng: 77.2195 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "p3", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 32000, originalPrice: 40000, rating: 4.5, reviewCount: 76,
+    amenities: ["WiFi", "AC", "Parking", "Pool"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "Swimming Pool", icon: "droplets", available: true },
+      { name: "Kitchen", icon: "utensils", available: false },
+      { name: "Breakfast", icon: "coffee", available: true },
+    ],
+    propertyType: "Villa",
+    images: [img("room3"), img("room1"), img("room2"), img("room6"), img("room8"), img("room9")],
+    maxGuests: 6,
+    isInstantBook: true, freeCancellation: false, breakfast: true, wifi: true, ac: true, pool: true,
+    bedType: "Queen bed",
+    description: "Luxurious villa with private pool in Greater Kailash. An exclusive retreat in New Delhi offering resort-style amenities.",
+    coordinates: { lat: 28.6050, lng: 77.2300 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "p4", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 12400, rating: 4.1, reviewCount: 54,
+    amenities: ["WiFi", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "AC", icon: "zap", available: false },
+      { name: "Parking", icon: "car", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room4"), img("room5"), img("room6"), img("room7"), img("room2")],
+    maxGuests: 2,
+    isInstantBook: false, freeCancellation: true, wifi: true,
+    bedType: "Single bed",
+    description: "A cozy budget-friendly homestay perfect for solo travelers and couples exploring Delhi.",
+    coordinates: { lat: 28.6300, lng: 77.1950 },
+    host: HOST_AMIT,
+    reviews: MOCK_REVIEWS_SET_A.slice(2, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "p5", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 22800, originalPrice: 28000, rating: 4.6, reviewCount: 143,
+    amenities: ["WiFi", "AC", "Kitchen", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Parking", icon: "car", available: false },
+      { name: "Pool", icon: "droplets", available: false },
+    ],
+    propertyType: "Apartment",
+    images: [img("room5"), img("room6"), img("room7"), img("room1"), img("room3")],
+    maxGuests: 4,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, ac: true,
+    bedType: "King bed",
+    description: "Spacious and stylish apartment in a premium location with excellent city views and all modern amenities.",
+    coordinates: { lat: 28.6180, lng: 77.2050 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 4.8, accuracy: 4.9, communication: 4.7, location: 4.9, checkIn: 4.8, value: 4.6 },
+  },
+  {
+    id: "p6", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 15900, rating: 4.4, reviewCount: 87,
+    amenities: ["WiFi", "Parking", "AC"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Kitchen", icon: "utensils", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room6"), img("room7"), img("room8"), img("room2"), img("room4")],
+    maxGuests: 3,
+    isInstantBook: false, freeCancellation: false, wifi: true, ac: true, parking: true,
+    bedType: "Double bed",
+    description: "A comfortable and well-located homestay offering great value for money in the city.",
+    coordinates: { lat: 28.6400, lng: 77.2150 },
+    host: HOST_AMIT,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 3),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "p7", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 38500, originalPrice: 48000, rating: 4.8, reviewCount: 201,
+    amenities: ["WiFi", "Pool", "Kitchen", "AC", "Parking"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Swimming Pool", icon: "droplets", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+    ],
+    propertyType: "Villa",
+    images: [img("room7"), img("room8"), img("room9"), img("room1"), img("room5"), img("room3")],
+    maxGuests: 8,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, ac: true, pool: true, parking: true,
+    bedType: "King bed",
+    description: "A magnificent villa perfect for large groups and family gatherings with premium facilities.",
+    coordinates: { lat: 28.5980, lng: 77.2280 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 5.0, accuracy: 4.9, communication: 5.0, location: 4.7, checkIn: 4.9, value: 4.8 },
+  },
+  {
+    id: "p8", propertyName: "Triply Stone House Cottages Homestay", city: "New Delhi", state: "Delhi",
+    price: 9800, rating: 4.2, reviewCount: 61,
+    amenities: ["WiFi", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Parking", icon: "car", available: false },
+      { name: "AC", icon: "zap", available: false },
+    ],
+    propertyType: "Cottage",
+    images: [img("room8"), img("room9"), img("room10"), img("room3"), img("room6")],
+    maxGuests: 2,
+    isInstantBook: false, freeCancellation: true, wifi: true,
+    bedType: "Queen bed",
+    description: "A charming cottage escape within the city, ideal for a quiet and peaceful retreat.",
+    coordinates: { lat: 28.6350, lng: 77.1870 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A.slice(1, 4),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Manali ──
+  {
+    id: "m1", propertyName: "Triply Stone House Cottages Homestay", city: "Manali", state: "Himachal Pradesh",
+    price: 26700, originalPrice: 35000, rating: 4.7, reviewCount: 156,
+    amenities: ["WiFi", "Mountain View", "Balcony", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+      { name: "Parking", icon: "car", available: false },
+      { name: "Pool", icon: "droplets", available: false },
+      { name: "Hot Water", icon: "droplets", available: true },
+    ],
+    propertyType: "Cottage",
+    images: [img("room1"), img("room5"), img("room9"), img("room3"), img("room7"), img("room2")],
+    maxGuests: 4,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, mountainView: true, balcony: true, kitchen: true,
+    bedType: "Double bed",
+    description: "Beautiful mountain cottage with stunning Himalayan views in the heart of Manali. Wake up to fresh mountain air and breathtaking scenery. This cozy retreat is perfect for couples and families looking to escape the city and reconnect with nature. Enjoy bonfires in the evening, trek the surrounding trails, and return to warm hospitality.",
+    coordinates: { lat: 32.2396, lng: 77.1887 },
+    host: HOST_AMIT,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 4.7, accuracy: 4.8, communication: 4.9, location: 5.0, checkIn: 4.7, value: 4.6 },
+  },
+  {
+    id: "m2", propertyName: "Triply Stone House Cottages Homestay", city: "Manali", state: "Himachal Pradesh",
+    price: 15200, rating: 4.5, reviewCount: 89,
+    amenities: ["WiFi", "Kitchen", "Mountain View"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "AC", icon: "zap", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room2"), img("room6"), img("room10"), img("room4"), img("room8")],
+    maxGuests: 3,
+    isInstantBook: false, freeCancellation: true, wifi: true, mountainView: true,
+    bedType: "King bed",
+    description: "Cozy Manali homestay with panoramic mountain views and home-cooked meals.",
+    coordinates: { lat: 32.2450, lng: 77.1950 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "m3", propertyName: "Triply Stone House Cottages Homestay", city: "Manali", state: "Himachal Pradesh",
+    price: 41000, originalPrice: 55000, rating: 4.9, reviewCount: 234,
+    amenities: ["WiFi", "Mountain View", "Pool", "Balcony", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "Heated Pool", icon: "droplets", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+    ],
+    propertyType: "Villa",
+    images: [img("room3"), img("room7"), img("room1"), img("room5"), img("room9"), img("room2")],
+    maxGuests: 8,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, pool: true, mountainView: true, balcony: true,
+    bedType: "Queen bed",
+    description: "Luxury mountain villa with heated pool and spectacular Himalayan vistas.",
+    coordinates: { lat: 32.2320, lng: 77.1820 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 5.0, accuracy: 5.0, communication: 4.9, location: 5.0, checkIn: 5.0, value: 4.8 },
+  },
+  // ── Shimla ──
+  {
+    id: "s1", propertyName: "Triply Stone House Cottages Homestay", city: "Shimla", state: "Himachal Pradesh",
+    price: 18700, originalPrice: 24000, rating: 4.6, reviewCount: 102,
+    amenities: ["WiFi", "Balcony", "Mountain View"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "Kitchen", icon: "utensils", available: false },
+      { name: "Pool", icon: "droplets", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room4"), img("room8"), img("room2"), img("room6"), img("room10")],
+    maxGuests: 4,
+    isInstantBook: true, freeCancellation: true, wifi: true, mountainView: true, balcony: true,
+    bedType: "Double bed",
+    description: "Colonial-era homestay with breathtaking Shimla valley views.",
+    coordinates: { lat: 31.1048, lng: 77.1734 },
+    host: HOST_AMIT,
+    reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "s2", propertyName: "Triply Stone House Cottages Homestay", city: "Shimla", state: "Himachal Pradesh",
+    price: 12300, rating: 4.4, reviewCount: 78,
+    amenities: ["WiFi", "Kitchen", "Parking"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "AC", icon: "zap", available: false },
+    ],
+    propertyType: "Cottage",
+    images: [img("room5"), img("room9"), img("room3"), img("room7"), img("room1")],
+    maxGuests: 3,
+    isInstantBook: false, freeCancellation: true, wifi: true, parking: true,
+    bedType: "King bed",
+    description: "Quaint cottage with garden views in a quiet Shimla neighborhood.",
+    coordinates: { lat: 31.1120, lng: 77.1800 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 3),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Jaipur ──
+  {
+    id: "j1", propertyName: "Triply Stone House Cottages Homestay", city: "Jaipur", state: "Rajasthan",
+    price: 34500, originalPrice: 44000, rating: 4.8, reviewCount: 178,
+    amenities: ["WiFi", "Pool", "AC", "Kitchen", "Parking"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Swimming Pool", icon: "droplets", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+    ],
+    propertyType: "Resort",
+    images: [img("room6"), img("room10"), img("room4"), img("room8"), img("room2"), img("room5")],
+    maxGuests: 6,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, ac: true, pool: true, parking: true,
+    bedType: "King bed",
+    description: "Heritage resort in the Pink City with all modern comforts and authentic Rajasthani hospitality.",
+    coordinates: { lat: 26.9124, lng: 75.7873 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 4.9, accuracy: 4.8, communication: 4.9, location: 4.7, checkIn: 4.8, value: 4.7 },
+  },
+  {
+    id: "j2", propertyName: "Triply Stone House Cottages Homestay", city: "Jaipur", state: "Rajasthan",
+    price: 16800, rating: 4.3, reviewCount: 65,
+    amenities: ["WiFi", "AC", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Pool", icon: "droplets", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room7"), img("room1"), img("room5"), img("room3"), img("room9")],
+    maxGuests: 3,
+    isInstantBook: false, freeCancellation: true, wifi: true, ac: true, balcony: true,
+    bedType: "Double bed",
+    description: "Comfortable Jaipur homestay with traditional Rajasthani decor and modern amenities.",
+    coordinates: { lat: 26.9200, lng: 75.7950 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A.slice(2, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Bangalore ──
+  {
+    id: "b1", propertyName: "Triply Stone House Cottages Homestay", city: "Bangalore", state: "Karnataka",
+    price: 21500, originalPrice: 27000, rating: 4.5, reviewCount: 134,
+    amenities: ["WiFi", "AC", "Parking", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Pool", icon: "droplets", available: false },
+      { name: "Breakfast", icon: "coffee", available: false },
+    ],
+    propertyType: "Apartment",
+    images: [img("room8"), img("room2"), img("room6"), img("room4"), img("room10")],
+    maxGuests: 4,
+    isInstantBook: true, freeCancellation: false, wifi: true, ac: true, parking: true, kitchen: true,
+    bedType: "Queen bed",
+    description: "Modern apartment in Bangalore's tech hub with excellent connectivity.",
+    coordinates: { lat: 12.9716, lng: 77.5946 },
+    host: HOST_AMIT,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  {
+    id: "b2", propertyName: "Triply Stone House Cottages Homestay", city: "Bangalore", state: "Karnataka",
+    price: 29800, rating: 4.6, reviewCount: 99,
+    amenities: ["WiFi", "AC", "Pool", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Swimming Pool", icon: "droplets", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+    ],
+    propertyType: "Villa",
+    images: [img("room9"), img("room3"), img("room7"), img("room1"), img("room5")],
+    maxGuests: 5,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, ac: true, pool: true, balcony: true,
+    bedType: "King bed",
+    description: "Elegant Bangalore villa in a peaceful neighbourhood with private pool.",
+    coordinates: { lat: 12.9800, lng: 77.6050 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Rishikesh ──
+  {
+    id: "r1", propertyName: "Triply Stone House Cottages Homestay", city: "Rishikesh", state: "Uttarakhand",
+    price: 13200, originalPrice: 18000, rating: 4.4, reviewCount: 88,
+    amenities: ["WiFi", "Mountain View", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Kitchen", icon: "utensils", available: false },
+      { name: "AC", icon: "zap", available: false },
+    ],
+    propertyType: "Cottage",
+    images: [img("room10"), img("room4"), img("room8"), img("room2"), img("room6")],
+    maxGuests: 2,
+    isInstantBook: false, freeCancellation: true, wifi: true, mountainView: true, balcony: true,
+    bedType: "Double bed",
+    description: "Serene riverside cottage in Rishikesh, perfect for yoga and meditation retreats.",
+    coordinates: { lat: 30.0869, lng: 78.2676 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Goa ──
+  {
+    id: "g1", propertyName: "Triply Stone House Cottages Homestay", city: "Goa", state: "Goa",
+    price: 47500, originalPrice: 62000, rating: 4.9, reviewCount: 312,
+    amenities: ["WiFi", "Pool", "AC", "Balcony", "Parking"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Private Pool", icon: "droplets", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Parking", icon: "car", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+    ],
+    propertyType: "Villa",
+    images: [img("room1"), img("room6"), img("room10"), img("room3"), img("room7"), img("room5")],
+    maxGuests: 8,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, ac: true, pool: true, parking: true, balcony: true,
+    bedType: "King bed",
+    description: "Stunning beachside villa in Goa with private pool, lush garden and sea breeze. This property is the definition of tropical luxury.",
+    coordinates: { lat: 15.2993, lng: 74.1240 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A,
+    ratingBreakdown: { cleanliness: 5.0, accuracy: 4.9, communication: 5.0, location: 5.0, checkIn: 5.0, value: 4.8 },
+  },
+  {
+    id: "g2", propertyName: "Triply Stone House Cottages Homestay", city: "Goa", state: "Goa",
+    price: 28600, rating: 4.5, reviewCount: 154,
+    amenities: ["WiFi", "Pool", "AC", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Pool", icon: "droplets", available: true },
+      { name: "AC", icon: "zap", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Parking", icon: "car", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room2"), img("room7"), img("room1"), img("room4"), img("room9")],
+    maxGuests: 4,
+    isInstantBook: false, freeCancellation: true, wifi: true, ac: true, pool: true, kitchen: true,
+    bedType: "Queen bed",
+    description: "Relaxed Goa homestay with pool access and close to top beaches.",
+    coordinates: { lat: 15.3100, lng: 74.1350 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Dharamshala ──
+  {
+    id: "dh1", propertyName: "Triply Stone House Cottages Homestay", city: "Dharamshala", state: "Himachal Pradesh",
+    price: 17400, originalPrice: 22000, rating: 4.6, reviewCount: 91,
+    amenities: ["WiFi", "Mountain View", "Kitchen", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Breakfast", icon: "coffee", available: true },
+      { name: "Pool", icon: "droplets", available: false },
+    ],
+    propertyType: "Homestay",
+    images: [img("room3"), img("room8"), img("room2"), img("room6"), img("room10")],
+    maxGuests: 3,
+    isInstantBook: true, freeCancellation: true, breakfast: true, wifi: true, mountainView: true, balcony: true, kitchen: true,
+    bedType: "Double bed",
+    description: "Peaceful Dharamshala retreat at the foothills of Dhauladhar mountains with stunning views.",
+    coordinates: { lat: 32.2190, lng: 76.3234 },
+    host: HOST_AMIT,
+    reviews: MOCK_REVIEWS_SET_A.slice(1, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Kasol ──
+  {
+    id: "k1", propertyName: "Triply Stone House Cottages Homestay", city: "Kasol", state: "Himachal Pradesh",
+    price: 8900, rating: 4.3, reviewCount: 67,
+    amenities: ["WiFi", "Mountain View", "Balcony"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Mountain View", icon: "mountain", available: true },
+      { name: "Balcony", icon: "wind", available: true },
+      { name: "Kitchen", icon: "utensils", available: false },
+      { name: "AC", icon: "zap", available: false },
+    ],
+    propertyType: "Cottage",
+    images: [img("room4"), img("room9"), img("room3"), img("room7"), img("room5")],
+    maxGuests: 2,
+    isInstantBook: false, freeCancellation: true, wifi: true, mountainView: true, balcony: true,
+    bedType: "Single bed",
+    description: "Rustic hillside cottage in Kasol with Parvati valley views. Great base for trekking.",
+    coordinates: { lat: 32.0109, lng: 77.3130 },
+    host: HOST_SURESH,
+    reviews: MOCK_REVIEWS_SET_A.slice(2, 5),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+  // ── Kolkata ──
+  {
+    id: "kl1", propertyName: "Triply Stone House Cottages Homestay", city: "Kolkata", state: "West Bengal",
+    price: 11500, originalPrice: 15000, rating: 4.2, reviewCount: 73,
+    amenities: ["WiFi", "AC", "Kitchen"],
+    amenityDetails: [
+      { name: "WiFi", icon: "wifi", available: true },
+      { name: "Air Conditioning", icon: "zap", available: true },
+      { name: "Kitchen", icon: "utensils", available: true },
+      { name: "Parking", icon: "car", available: false },
+      { name: "Pool", icon: "droplets", available: false },
+    ],
+    propertyType: "Apartment",
+    images: [img("room5"), img("room10"), img("room4"), img("room8"), img("room2")],
+    maxGuests: 3,
+    isInstantBook: true, freeCancellation: false, wifi: true, ac: true, kitchen: true,
+    bedType: "Double bed",
+    description: "Centrally located Kolkata apartment near Park Street and Victoria Memorial.",
+    coordinates: { lat: 22.5726, lng: 88.3639 },
+    host: HOST_MEERA,
+    reviews: MOCK_REVIEWS_SET_A.slice(0, 4),
+    ratingBreakdown: DEFAULT_RATING_BREAKDOWN,
+  },
+];
+
+// Helper: get unique cities and states
+export const ALL_CITIES = [...new Set(ALL_PROPERTIES.map(p => p.city))].sort();
+export const ALL_STATES = [...new Set(ALL_PROPERTIES.map(p => p.state))].sort();
+
+// Group properties for home page
+export const DELHI_PROPERTIES = ALL_PROPERTIES.filter(p => p.city === "New Delhi").slice(0, 4);
+export const DEHRADUN_PROPERTIES = ALL_PROPERTIES.filter(p => p.state === "Himachal Pradesh").slice(0, 4);
+export const DELHI_PROPERTIES_2 = ALL_PROPERTIES.filter(p => p.city === "Jaipur" || p.city === "Goa").slice(0, 4);
+export const DELHI_PROPERTIES_3 = ALL_PROPERTIES.filter(p => p.city === "Bangalore" || p.city === "Rishikesh").slice(0, 4);

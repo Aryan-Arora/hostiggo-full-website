@@ -74,7 +74,9 @@ export default function SearchPageContent() {
     }
   };
 
+  const areaParam = searchParams?.get('area');
   const displayDest = location.query || 'All destinations';
+  const headerDest = areaParam ? `${areaParam}, ${displayDest}` : displayDest;
   const showMap = viewMode === 'map' || viewMode === 'split';
   const showList = viewMode === 'list' || viewMode === 'split';
 
@@ -156,7 +158,7 @@ export default function SearchPageContent() {
 
               <div className="flex-1 min-w-0">
                 <ResultsHeader
-                  dest={displayDest}
+                  dest={headerDest}
                   count={counts.total}
                   sort={sort}
                   setSort={setSort}
