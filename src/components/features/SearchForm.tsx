@@ -312,7 +312,7 @@ export default function SearchForm() {
             </div>
           </button>
           {activePanel === 'destination' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-50">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-50">
               <DestinationDropdown
                 value={location.query}
                 onQueryChange={(v) => setLocation({ query: v })}

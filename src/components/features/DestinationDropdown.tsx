@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Clock, Navigation } from 'lucide-react';
+import { MapPin, Navigation } from 'lucide-react';
 import { SUGGESTED_DESTINATIONS, findCityGuide } from '@/constants/data';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -12,7 +12,7 @@ interface DestinationDropdownProps {
   onClose: () => void;
 }
 
-const RECENT = ['New Delhi', 'Manali', 'Shimla'];
+const FALLBACK_IMG = '/placeholder.svg';
 
 export default function DestinationDropdown({
   value,
@@ -90,7 +90,10 @@ export default function DestinationDropdown({
   const cityGuide = findCityGuide(query);
 
   return (
-    <div className="dropdown-panel animate-fade-in-down w-[360px] max-w-[92vw]">
+    <div
+      className="dropdown-panel !relative shrink-0 animate-fade-in-down"
+      style={{ width: 'min(560px, 92vw)' }}
+    >
       {/* Input */}
       <div className="p-3 border-b border-gray-50">
         <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
@@ -117,10 +120,10 @@ export default function DestinationDropdown({
         </div>
       </div>
 
-      <div className="py-2 max-h-[420px] overflow-y-auto scrollbar-hide">
+      <div className="max-h-[480px] overflow-y-auto scrollbar-hide">
         {query.trim() && cityGuide ? (
-          <>
-            {/* City header — selecting it searches the whole city */}
+          /* Matched city guide: city header + popular areas */
+          <div className="py-2">
             <button
               onClick={() => goToSearch(cityGuide.city)}
               className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-blue-50 transition-colors text-left group"
@@ -128,7 +131,8 @@ export default function DestinationDropdown({
               <img
                 src={cityGuide.imageUrl}
                 alt={cityGuide.city}
-                className="w-14 h-14 rounded-2xl object-cover flex-shrink-0"
+                onError={(e) => { (e.currentTarget as HTMLImageElement).src = FALLBACK_IMG; }}
+                className="w-14 h-14 rounded-2xl object-cover flex-shrink-0 bg-gray-100"
               />
               <div className="min-w-0">
                 <p className="text-[16px] font-bold text-gray-900 leading-tight">
@@ -142,7 +146,6 @@ export default function DestinationDropdown({
 
             <div className="h-px bg-gray-100 mx-4 my-1.5" />
 
-            {/* Popular areas within the city */}
             {cityGuide.areas.map((area) => (
               <button
                 key={area.name}
@@ -162,10 +165,46 @@ export default function DestinationDropdown({
                 </div>
               </button>
             ))}
-          </>
+          </div>
+        ) : !query.trim() ? (
+          /* Empty state: suggested destinations grid */
+          <div className="px-4 pt-3 pb-4">
+            <p className="text-[15px] font-bold text-gray-900 mb-4">
+              Suggested destinations
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
+              {SUGGESTED_DESTINATIONS.map((dest) => (
+                <button
+                  key={dest.id}
+                  onClick={() => handleSelect(dest.name)}
+                  className="flex items-center gap-3 p-1.5 rounded-2xl hover:bg-blue-50 transition-colors text-left group"
+                >
+                  <img
+                    src={dest.imageUrl}
+                    alt={dest.name}
+                    onError={(e) => { (e.currentTarget as HTMLImageElement).src = FALLBACK_IMG; }}
+                    className="w-12 h-12 rounded-2xl object-cover flex-shrink-0 bg-gray-100"
+                  />
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-bold text-gray-900 leading-tight truncate">
+                      {dest.name}
+                    </p>
+                    {dest.state && dest.state.toLowerCase() !== dest.name.toLowerCase() && (
+                      <p className="text-[12px] text-gray-500 leading-tight truncate">
+                        {dest.state}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-gray-400 mt-0.5">
+                      ({dest.stayCount.toLocaleString('en-IN')} stays)
+                    </p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
         ) : (
-          <>
-            {/* Current location */}
+          /* Typed query with no matching city guide: live location results */
+          <div className="py-2">
             <button
               onClick={() => handleSelect('Current location')}
               className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group"
@@ -181,38 +220,11 @@ export default function DestinationDropdown({
               </div>
             </button>
 
-            {/* Recent if no query */}
-            {!query.trim() && (
-              <>
-                <p className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
-                  Recent searches
-                </p>
-                {RECENT.map((r) => (
-                  <button
-                    key={r}
-                    onClick={() => handleSelect(r)}
-                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors text-left"
-                  >
-                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
-                      <Clock className="w-3.5 h-3.5 text-gray-500" />
-                    </div>
-                    <span className="text-[13px] font-medium text-gray-700">
-                      {r}
-                    </span>
-                  </button>
-                ))}
-                <p className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest mt-1">
-                  Popular destinations
-                </p>
-              </>
-            )}
-
-            {/* Destination list */}
-            {query.trim() && loading ? (
+            {loading ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">Searching...</p>
               </div>
-            ) : query.trim() && results.length === 0 ? (
+            ) : results.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">
                   No exact match found in database
@@ -252,7 +264,7 @@ export default function DestinationDropdown({
                 );
               })
             )}
-          </>
+          </div>
         )}
       </div>
     </div>
