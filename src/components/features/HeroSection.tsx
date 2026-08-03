@@ -1,6 +1,6 @@
 import SearchForm from "@/components/features/SearchForm";
 
-const heroBg = "/hero-bg.jpg";
+const heroBg = "/hero-bg.jpg?v=2";
 
 const HERO_TAGS = [
   { id: "budget", label: "₹1000 - ₹ 3000" },
