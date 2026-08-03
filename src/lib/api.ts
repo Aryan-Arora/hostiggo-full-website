@@ -464,6 +464,45 @@ export const api = {
     });
     return result;
   },
+  searchByState: async (
+    filters: SearchFilters,
+    destination: string,
+    cursor: number | null = null,
+    pageSize = 50,
+    extra?: {
+      startDate?: string | null;
+      endDate?: string | null;
+      totalGuests?: number;
+      amenities?: number[];
+    },
+  ) => {
+    const payload = {
+      cursor,
+      pageSize,
+      filters: {
+        startDate: extra?.startDate ?? null,
+        endDate: extra?.endDate ?? null,
+        state: destination?.trim() || undefined,
+        minPrice: filters.priceMin > 0 ? filters.priceMin : undefined,
+        maxPrice: filters.priceMax < 100000 ? filters.priceMax : undefined,
+        totalGuests: extra?.totalGuests,
+        ratings: filters.guestRating != null ? [filters.guestRating] : [],
+        amenities: extra?.amenities ?? ([] as number[]),
+        roomTypes: filters.propertyTypes,
+      },
+    };
+    const result = await request<{
+      data: any[];
+      cursor: number | null;
+      hasMore: boolean;
+      totalCount: number;
+      stateBounds?: any;
+    }>("/api/search", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    });
+    return result;
+  },
   sendOtp: (phone: string) =>
     request<any>("/api/auth/otp", {
       method: "POST",
@@ -531,6 +570,10 @@ export const api = {
         ...(isUuid(categoryId) ? { category_id: categoryId } : {}),
       }),
     }),
+  wishlistIds: (userId: string) =>
+    request<{ listing_id: string }[]>(
+      `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
+    ),
   wishlistListings: (userId: string, categoryId?: string) =>
     request<any[]>(
       `/api/wishlist?resource=listings&userId=${encodeURIComponent(userId)}${

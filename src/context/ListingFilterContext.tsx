@@ -34,10 +34,19 @@ interface ListingState {
     page: number;
     pageSize: number;
     hasMore: boolean;
+    cursor: number | null;
+    totalCount: number | null;
   };
   counts: {
     total: number;
   };
+  stateBounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null;
+  allProperties: Property[];
 }
 
 interface ListingActions {
@@ -135,6 +144,7 @@ const resolveAmenityIds = (
 
 export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
@@ -150,8 +160,10 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [guests, setGuestsState] = useState<GuestCount>(DEFAULT_GUESTS);
   const [sort, setSortState] = useState<SortOption>('recommended');
   const [page, setPage] = useState(0);
+  const [cursor, setCursor] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [stateBounds, setStateBounds] = useState<any>(null);
   const [amenityCatalogue, setAmenityCatalogue] = useState<
     { amenity_id: number; name: string }[]
   >([]);
@@ -173,12 +185,12 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchResults = useCallback(
-    async (pageNum: number = 0, isRefresh: boolean = false) => {
+    async (cursorVal: number | null = null, isRefresh: boolean = false) => {
       console.log(
         '[Context] fetchResults called with location.query=',
         JSON.stringify(location.query),
-        'pageNum=',
-        pageNum,
+        'cursor=',
+        cursorVal,
       );
       if (!mountedRef.current) {
         console.log('[Context] Aborted: not mounted');
@@ -189,40 +201,39 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
       setError(null);
 
       try {
-        const rows = await api.search(
+        // Use cursor-based pagination for infinite scroll (works for all searches)
+        const response = await api.searchByState(
           filters,
           location.query,
-          pageNum,
+          cursorVal,
           DEFAULT_PAGE_SIZE,
           {
             startDate: toISODate(dates.checkIn),
             endDate: toISODate(dates.checkOut),
             totalGuests: guests.adults + guests.children,
             amenities: resolveAmenityIds(filters.amenities, amenityCatalogue),
-            latitude: location.latitude,
-            longitude: location.longitude,
           },
         );
-        console.log('[Context] api.search returned rows:', rows?.length);
 
         if (!mountedRef.current) return;
 
-        const mapped = rows.map(mapListingToProperty).filter((item) => item.id);
-        console.log('[Context] mapped properties:', mapped.length);
+        const mapped = response.data.map(mapListingToProperty).filter((item) => item.id);
+        console.log('[Context] api.searchByState returned rows:', mapped.length);
 
-        if (pageNum === 0 || isRefresh) {
+        if (isRefresh || cursorVal === null) {
           setProperties(mapped);
+          setAllProperties(mapped);
         } else {
           setProperties((prev) => [...prev, ...mapped]);
+          setAllProperties((prev) => [...prev, ...mapped]);
         }
 
-        setHasMore(mapped.length === DEFAULT_PAGE_SIZE);
-        if (pageNum === 0 || isRefresh) {
-          setTotalCount(mapped.length);
-        } else {
-          setTotalCount((prev) => prev + mapped.length);
+        setCursor(response.cursor || null);
+        setHasMore(response.hasMore);
+        setTotalCount(response.totalCount);
+        if (response.stateBounds) {
+          setStateBounds(response.stateBounds);
         }
-        setPage(pageNum);
       } catch (err) {
         console.error('[Context] Fetch error:', err);
         if (mountedRef.current) {
@@ -236,12 +247,11 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   );
 
   const refresh = useCallback(async () => {
-    await fetchResults(0, true);
+    await fetchResults(null, true);
   }, [fetchResults]);
 
   const setSort = useCallback((newSort: SortOption) => {
     setSortState(newSort);
-    // In a real implementation, sort would trigger a refresh
   }, []);
 
   const setPriceRange = useCallback((range: [number, number]) => {
@@ -297,9 +307,9 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
 
   const fetchMore = useCallback(() => {
     if (hasMore && !loading) {
-      fetchResults(page + 1);
+      fetchResults(cursor);
     }
-  }, [hasMore, loading, page, fetchResults]);
+  }, [hasMore, loading, cursor, fetchResults]);
 
   const clearFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
@@ -355,13 +365,16 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     if (locationChanged) {
       console.log('[Context] Location changed to:', location.query);
       setPage(0);
+      setCursor(null);
       setProperties([]);
+      setAllProperties([]);
       setHasMore(true);
+      setStateBounds(null);
     }
 
-    // Fetch results (always from page 0 for new location/filters/dates/guests)
+    // Fetch results (always from beginning for new location/filters/dates/guests)
     if (locationChanged || filtersChanged || datesChanged || guestsChanged) {
-      fetchResults(0, true);
+      fetchResults(null, true);
     }
   }, [location.query, filters, dates, guests]); // fetchResults intentionally omitted
 
@@ -409,10 +422,14 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
       page,
       pageSize: DEFAULT_PAGE_SIZE,
       hasMore,
+      cursor,
+      totalCount,
     },
     counts: {
-      total: totalCount,
+      total: totalCount || 0,
     },
+    stateBounds,
+    allProperties,
   };
 
   const actions: ListingActions = {
