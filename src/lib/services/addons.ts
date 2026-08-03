@@ -222,25 +222,6 @@ export async function removeAddonFromListing(addonListingId: number, listingId?:
 }
 
 /**
- * Get addon by ID
- */
-export async function getAddonById(addonId: number): Promise<Addon | null> {
-  try {
-    const { data, error } = await supabase
-      .from('addons')
-      .select('*')
-      .eq('addon_id', addonId)
-      .single();
-
-    if (error && error.code !== 'PGRST116') throw error;
-    return data || null;
-  } catch (error) {
-    console.error('[addons] Failed to fetch addon:', error);
-    throw error;
-  }
-}
-
-/**
  * Group addons by category
  */
 export function groupAddonsByCategory(addons: Addon[]): Record<string, Addon[]> {

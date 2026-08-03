@@ -5,9 +5,16 @@ import WizardShell from '../_components/WizardShell';
 import { useListingDraft } from '@/context/ListingDraftContext';
 import { useState, useEffect } from 'react';
 import AddressSearch from '../_components/AddressSearch';
-import MapPicker from '../_components/MapPicker';
+import dynamic from 'next/dynamic';
 import { reverseGeocode } from '@/lib/services/geocoding';
 import { api } from '@/lib/api';
+
+const MapPicker = dynamic(() => import('../_components/MapPicker'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full h-[480px] md:h-[600px] rounded-2xl bg-gray-100 animate-pulse" />
+  ),
+});
 
 // Matches the geocoded city/district against the platform's curated
 // locations table (the same lookup the destination search bar uses) so the

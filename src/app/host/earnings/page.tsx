@@ -1,7 +1,6 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
-import { jsPDF } from 'jspdf';
 import {
   Download,
   Wallet,
@@ -184,7 +183,8 @@ export default function EarningsPage() {
     };
   }, [rows]);
 
-  const exportStatement = useCallback(() => {
+  const exportStatement = useCallback(async () => {
+    const { jsPDF } = await import('jspdf');
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();

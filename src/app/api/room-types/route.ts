@@ -1,12 +1,10 @@
 import { NextResponse } from "next/server";
-import { HotelServiceApi } from "@/lib/services/hotel";
+import { getCachedRoomTypes } from "@/lib/services/cached-reference-data";
 import { errorMessage } from "@/lib/api-error";
-
-export const dynamic = "force-dynamic";
 
 export async function GET() {
   try {
-    const data = await HotelServiceApi.getUniqueRoomType();
+    const data = await getCachedRoomTypes();
     return NextResponse.json({ data });
   } catch (err) {
     console.error("[/api/room-types] error:", err);

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { useParams, useRouter } from 'next/navigation';
 import {
   CheckCircle2,
@@ -136,12 +137,13 @@ export default function BookingConfirmationPage() {
         {/* Property card */}
         <div className="bg-white rounded-2xl shadow-card border border-gray-100 overflow-hidden mb-6">
           <div className="flex flex-col sm:flex-row">
-            <div className="sm:w-64 h-48 sm:h-auto flex-shrink-0 bg-gray-100">
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
+            <div className="relative sm:w-64 h-48 sm:h-auto flex-shrink-0 bg-gray-100">
+              <Image
+                fill
                 src={coverImage}
                 alt={property?.title || 'Property'}
-                className="w-full h-full object-cover"
+                sizes="(max-width: 640px) 100vw, 256px"
+                className="object-cover"
               />
             </div>
             <div className="flex-1 p-5">

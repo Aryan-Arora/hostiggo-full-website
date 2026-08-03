@@ -120,10 +120,3 @@ export type SortOption =
   | "newest"
   | "distance"
   | "best_value";
-
-export interface SearchState {
-  destination: string;
-  checkIn: Date | null;
-  checkOut: Date | null;
-  guests: GuestCount;
-}

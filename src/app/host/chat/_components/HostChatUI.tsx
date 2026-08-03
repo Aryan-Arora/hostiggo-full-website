@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
+import Image from 'next/image';
 import { Send, Search, MoreVertical, X } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
@@ -214,7 +215,9 @@ export default function HostChatUI() {
                   }`}
                 >
                   <div className="flex items-start gap-3">
-                    <img
+                    <Image
+                      width={40}
+                      height={40}
                       src={conv.avatar}
                       alt={conv.name}
                       className="w-10 h-10 rounded-full object-cover flex-shrink-0"
@@ -255,7 +258,9 @@ export default function HostChatUI() {
             {/* Chat Header */}
             <div className="p-4 border-b border-gray-200 flex items-center justify-between">
               <div className="flex items-center gap-3">
-                <img
+                <Image
+                  width={40}
+                  height={40}
                   src={selectedConversation.avatar}
                   alt={selectedConversation.name}
                   className="w-10 h-10 rounded-full object-cover"

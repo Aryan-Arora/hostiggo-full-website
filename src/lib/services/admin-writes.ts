@@ -712,7 +712,9 @@ export async function updateUserProfile(
   const clean: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const [k, v] of Object.entries(patch)) {
     if (!ALLOWED_PROFILE_FIELDS.has(k)) continue;
-    if (v !== undefined && v !== null && v !== "") clean[k] = v;
+    // Explicit null/"" must persist (e.g. clearing emergency_contact) --
+    // only an actually-omitted key should be left untouched.
+    clean[k] = v === "" ? null : v;
   }
   // select("*") rather than an explicit column list: the preference columns
   // below are added by a migration the operator applies separately (see

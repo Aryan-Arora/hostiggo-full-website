@@ -17,6 +17,7 @@ export async function POST(req: NextRequest) {
     const pageSize = Math.min(50, Math.max(1, Math.floor(Number(body.pageSize) || 10)));
     let data = await HotelServiceApi.filterHotels(filters, page, pageSize);
 
+    // TODO(perf): push into SQL for correct pagination
     // Property type filter: the RPC's p_roomtypes doesn't reliably match the
     // real property_type_name values, so filter here against the RPC's own
     // returned property_type_name instead of trusting the RPC to do it.
@@ -42,26 +43,29 @@ export async function POST(req: NextRequest) {
       // RPC rows are shaped { listing: { listing_id, ... }, distance }
       const listingIds = data.map((r: any) => r.listing?.listing_id ?? r.listing_id).filter(Boolean);
 
-      // Listings with at least one blocked calendar day in the range.
-      const { data: blockedRows, error: blockedErr } = await supabaseAdmin
-        .schema(DB_SCHEMA)
-        .from("listing_calendar")
-        .select("listing_id")
-        .in("listing_id", listingIds)
-        .gte("date", startDate)
-        .lt("date", endDate)
-        .eq("is_available", false);
+      // Both availability lookups are independent, so run them concurrently.
+      const [
+        { data: blockedRows, error: blockedErr },
+        { data: bookedRows, error: bookedErr },
+      ] = await Promise.all([
+        // Listings with at least one blocked calendar day in the range.
+        supabaseAdmin
+          .from("listing_calendar")
+          .select("listing_id")
+          .in("listing_id", listingIds)
+          .gte("date", startDate)
+          .lt("date", endDate)
+          .eq("is_available", false),
+        // Listings with a confirmed booking that overlaps the range.
+        supabaseAdmin
+          .from("bookings")
+          .select("listing_id")
+          .in("listing_id", listingIds)
+          .eq("status_id", 2)
+          .lt("start_date", endDate)
+          .gt("end_date", startDate),
+      ]);
       if (blockedErr) throw blockedErr;
-
-      // Listings with a confirmed booking that overlaps the range.
-      const { data: bookedRows, error: bookedErr } = await supabaseAdmin
-        .schema(DB_SCHEMA)
-        .from("bookings")
-        .select("listing_id")
-        .in("listing_id", listingIds)
-        .eq("status_id", 2)
-        .lt("start_date", endDate)
-        .gt("end_date", startDate);
       if (bookedErr) throw bookedErr;
 
       const unavailable = new Set([

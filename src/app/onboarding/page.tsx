@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, Suspense } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
@@ -104,7 +105,7 @@ function OnboardingContent() {
 
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden">
-      <img src={authBg} alt="" className="absolute inset-0 w-full h-full object-cover" />
+      <Image fill priority src={authBg} alt="" sizes="100vw" className="object-cover" />
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
 
       <div className="relative z-10 w-full max-w-[360px] mx-4 bg-white rounded-3xl shadow-2xl p-8">
@@ -127,10 +128,12 @@ function OnboardingContent() {
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col items-center mb-6">
             <div className="relative w-24 h-24">
-              <img
+              <Image
+                fill
                 src={photoUrl || DEFAULT_AVATAR}
                 alt="Profile"
-                className="w-full h-full rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
+                sizes="96px"
+                className="rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
               />
               <input
                 ref={fileInputRef}

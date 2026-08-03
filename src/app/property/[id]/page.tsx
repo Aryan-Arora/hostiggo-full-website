@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
+import 'leaflet/dist/leaflet.css';
 import DateRangePicker from '@/components/features/DateRangePicker';
 import {
   Star,
@@ -314,15 +315,6 @@ function PropertyMap({ property }: { property: Property }) {
     if (!mapRef.current || mapInstanceRef.current) return;
 
     const L = require('leaflet');
-
-    // Load CSS on client
-    if (typeof document !== 'undefined' && !document.getElementById('leaflet-css')) {
-      const link = document.createElement('link');
-      link.id = 'leaflet-css';
-      link.rel = 'stylesheet';
-      link.href = 'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css';
-      document.head.appendChild(link);
-    }
 
     const center = getCenter();
 
@@ -935,11 +927,21 @@ function BookingWidget({
 
   const checkAvailability = async () => {
     if (!checkIn || !checkOut) return;
+    const isoStart = toISODate(checkIn);
+    const isoEnd = toISODate(checkOut);
+    // Defense in depth: toISODate can only return null here if checkIn/
+    // checkOut were somehow invalid despite the guard above -- never send
+    // a malformed date to the API (it would otherwise interpolate as the
+    // literal string "null" and fail confusingly server-side).
+    if (!isoStart || !isoEnd) {
+      toast.error('Please select valid check-in and check-out dates.');
+      return;
+    }
     setStatus('checking');
     setUnavailableReason('');
     try {
       const res = await fetch(
-        `/api/bookings/check-availability?listingId=${property.id}&startDate=${toISODate(checkIn)}&endDate=${toISODate(checkOut)}`
+        `/api/bookings/check-availability?listingId=${property.id}&startDate=${isoStart}&endDate=${isoEnd}`
       );
       const data = await res.json();
       if (!res.ok || data.error) {

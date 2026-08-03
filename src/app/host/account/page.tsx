@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { Pencil, Star, Home, CalendarCheck, ShieldCheck, ChevronRight, type LucideIcon, Loader2 } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
@@ -38,6 +39,19 @@ export default function HostAccountPage() {
     setLoading(true);
     setError(null);
     try {
+      // Ensure the user has a host profile row before fetching it -- a host
+      // who lands here before ever visiting /host/listings or /host/settings
+      // (which both do this) has no `host` row yet, and profile-info 404s.
+      try {
+        await fetch('/api/host/profile', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId }),
+        });
+      } catch (profileErr) {
+        console.error('[host/account] Failed to create/ensure host profile:', profileErr);
+      }
+
       const res = await fetch(`/api/host/profile-info?userId=${encodeURIComponent(userId)}`);
       if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
       
@@ -93,10 +107,12 @@ export default function HostAccountPage() {
         <div className="lg:col-span-5 bg-white rounded-3xl p-8 shadow-card border border-gray-200">
           <div className="flex flex-col items-center text-center">
             <div className="relative w-32 h-32 mb-6">
-              <img
+              <Image
+                fill
                 src={profile.avatar}
                 alt={profile.name}
-                className="w-full h-full rounded-3xl object-cover ring-4 ring-gray-100 shadow"
+                sizes="128px"
+                className="rounded-3xl object-cover ring-4 ring-gray-100 shadow"
               />
               <button className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform" disabled title="Photo upload coming soon">
                 <Pencil className="w-4 h-4" />

@@ -1,6 +1,7 @@
 'use client';
 
 import { useRef, useState } from 'react';
+import Image from 'next/image';
 import { ImagePlus, Lightbulb, Trash2, Loader2, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import WizardShell from '../_components/WizardShell';
@@ -129,7 +130,7 @@ export default function PhotosPage() {
                   i === 0 && 'col-span-2 md:col-span-2 aspect-[16/10]',
                 )}
               >
-                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                <Image fill src={url} alt={`Photo ${i + 1}`} sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                 {i === 0 && (
                   <div className="absolute top-3 left-3 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full">
                     <span className="text-[11px] font-bold text-figma-navy uppercase tracking-wider">Cover</span>

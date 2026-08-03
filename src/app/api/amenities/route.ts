@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { HotelServiceApi } from "@/lib/services/hotel";
+import { getCachedAmenities } from "@/lib/services/cached-reference-data";
 import { errorMessage } from "@/lib/api-error";
 
 // The amenities list is reference data (23 fixed rows) that essentially
@@ -18,7 +18,7 @@ const CACHE_HEADER = "public, s-maxage=60, stale-while-revalidate=300";
 
 export async function GET() {
   try {
-    const data = await HotelServiceApi.getAmenities();
+    const data = await getCachedAmenities();
     return NextResponse.json({ data }, { headers: { "Cache-Control": CACHE_HEADER } });
   } catch (err) {
     console.error("[/api/amenities] error:", err);

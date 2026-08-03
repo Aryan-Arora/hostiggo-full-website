@@ -55,11 +55,6 @@ export interface LocationSummary {
   lowerDivisionName: string;
 }
 
-export interface LocationListings {
-  location: LocationSummary;
-  listings: GuestlistingSearchResults[];
-}
-
 export interface Review {
   id: string;
   userName: string;
@@ -95,77 +90,3 @@ export interface SearchFilters {
   endDate?: string;
 }
 
-export interface HostListingDetails {
-  id: string;
-  title: string;
-  location: string;
-  locationDetailed: string;
-  landmark?: string;
-  address_line1?: string;
-  address_line2?: string;
-  longitude: number;
-  latitude: number;
-  price: number;
-  weekendPrice: number;
-  images: {
-    imageUrl: string;
-    isMain: boolean;
-  }[];
-  status: 'live' | 'paused' | 'incomplete';
-  overview: string;
-  completionPercentage: number;
-  propertyType: {
-    name: string;
-    description: string;
-    image: string;
-  };
-  discounts: {
-    id: string;
-    percentage: number;
-    name: string;
-    description: string;
-    enabled: boolean;
-  }[];
-  facilities: {
-    id: number;
-    icon: string;
-    name: string;
-  }[];
-  rooms: {
-    id: string;
-    bedroomIndex: number;
-    name: string;
-    maxGuests: number;
-    bathrooms: number;
-    beds: number;
-    bedType?: string;
-  }[];
-  houseRulesId: number;
-  houseRules: {
-    id: string;
-    icon: string;
-    text: string;
-    time?: string;
-  }[];
-  addons: {
-    name: string;
-    price: number;
-    includes?: string;
-    timings?: string;
-    vehicle?: string;
-    fuel?: string;
-    note?: string;
-  }[];
-  nearbyLandmarks: {
-    name: string;
-    distance: string;
-  }[];
-  rating: number;
-  totalReviews: number;
-  reviews?: {
-    id: string;
-    guestName: string;
-    date: string;
-    comment: string;
-  }[];
-}

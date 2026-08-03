@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Heart,
   Star,
@@ -412,12 +413,13 @@ function WishlistCard({
     >
       {/* Image */}
       <div className="relative overflow-hidden" style={{ height: '170px' }}>
-        <img
+        <Image
+          fill
           src={imgErr ? FALLBACK : property.image}
           alt={property.name}
           onError={() => setImgErr(true)}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
         {/* Edit mode: ❌ remove icon */}
@@ -827,6 +829,8 @@ export default function WishlistPage() {
           <img
             src={vacationIllustration}
             alt="Vacation illustration"
+            loading="lazy"
+            decoding="async"
             className="w-[140px] sm:w-[175px] object-contain flex-shrink-0 drop-shadow-sm"
           />
           <div className="text-center sm:text-left">

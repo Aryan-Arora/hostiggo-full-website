@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HotelServiceApi } from "@/lib/services/hotel";
+import { getCachedLocations } from "@/lib/services/cached-reference-data";
 import { errorMessage } from "@/lib/api-error";
 
 const jsonError = (err: unknown, status = 500) => {
@@ -26,9 +27,7 @@ export async function GET(req: NextRequest) {
 
     const data = query
       ? await HotelServiceApi.searchLocations(query)
-      : popular
-        ? await HotelServiceApi.getPopularLocations(limit)
-        : await HotelServiceApi.getLocationSample(limit);
+      : await getCachedLocations(popular, limit);
 
     const headers = query ? undefined : { "Cache-Control": CACHE_HEADER };
     return NextResponse.json({ data }, { headers });

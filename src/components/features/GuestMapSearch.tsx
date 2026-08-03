@@ -3,11 +3,18 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { Search, MapPin, Loader, Navigation, ArrowRight } from 'lucide-react';
-import InteractiveMap from '@/components/features/InteractiveMap';
+import dynamic from 'next/dynamic';
 import { autocompleteAddress, geocodeAddress, reverseGeocode } from '@/lib/services/geocoding';
 import { useListingActions } from '@/context/ListingFilterContext';
 import { cn } from '@/lib/utils';
 import type { Property } from '@/types';
+
+const InteractiveMap = dynamic(() => import('@/components/features/InteractiveMap'), {
+  ssr: false,
+  loading: () => (
+    <div className="w-full rounded-2xl bg-gray-100 animate-pulse" style={{ minHeight: 400 }} />
+  ),
+});
 
 interface LocationSuggestion {
   placeId: string;

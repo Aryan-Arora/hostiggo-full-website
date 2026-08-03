@@ -5,7 +5,14 @@ import {
 import { cn } from '@/lib/utils';
 import type { SearchFilters } from '@/types';
 import { Star } from 'lucide-react';
-import MapPreview from '@/components/features/MapPreview';
+import dynamic from 'next/dynamic';
+
+const MapPreview = dynamic(() => import('@/components/features/MapPreview'), {
+  ssr: false,
+  loading: () => (
+    <div className="rounded-2xl bg-gray-100 animate-pulse" style={{ height: 160 }} />
+  ),
+});
 
 interface FiltersSidebarProps {
   onReset?: () => void;

@@ -33,5 +33,3 @@ export const supabaseAdmin = createClient(SUPABASE_URL, effectiveKey, {
       fetch(input, { ...init, cache: "no-store" }),
   },
 });
-
-export const hasServiceKey = () => Boolean(SERVICE_KEY);

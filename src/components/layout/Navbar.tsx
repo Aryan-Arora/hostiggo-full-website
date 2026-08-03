@@ -164,7 +164,9 @@ export default function Navbar() {
                     onClick={() => setProfileOpen((v) => !v)}
                     className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-offset-1 ring-transparent hover:ring-figma-accent transition-all"
                   >
-                    <img
+                    <Image
+                      width={36}
+                      height={36}
                       src={user?.profile_pic_url || USER.avatar}
                       alt={user?.name || USER.name}
                       className="w-full h-full object-cover"

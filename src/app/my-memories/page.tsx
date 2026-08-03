@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useSupabaseAuth } from '@/components/providers/AuthProvider';
 import {
@@ -732,11 +733,13 @@ function ManageBookingModal({
         }}
       >
         {/* ── Header ── */}
-        <div className="relative flex-shrink-0">
-          <img
+        <div className="relative flex-shrink-0 h-[130px]">
+          <Image
+            fill
             src={booking.image}
             alt={booking.title}
-            className="w-full h-[130px] object-cover"
+            sizes="(max-width: 560px) 100vw, 560px"
+            className="object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/20 to-transparent" />
           <button
@@ -1137,12 +1140,13 @@ function BookingCard({
       <div className="flex flex-col sm:flex-row min-h-[160px]">
         {/* Image */}
         <div className="relative w-full sm:w-[240px] h-[200px] sm:h-auto flex-shrink-0 overflow-hidden rounded-t-[20px] sm:rounded-l-[20px] sm:rounded-tr-none">
-          <img
+          <Image
+            fill
             src={imgErr ? FALLBACK : booking.image}
             alt={booking.title}
             onError={() => setImgErr(true)}
-            loading="lazy"
-            className="w-full h-full object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
+            sizes="(max-width: 640px) 100vw, 240px"
+            className="object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
           />
           <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-transparent to-transparent pointer-events-none" />
         </div>
@@ -1258,6 +1262,8 @@ function SignedOutState() {
       <img
         src={memoriesIllustration}
         alt="Sign in to see your trips"
+        loading="lazy"
+        decoding="async"
         className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm"
       />
       <div className="text-center sm:text-left max-w-xs">
@@ -1286,6 +1292,8 @@ function EmptyState({ tab }: { tab: TabKey }) {
       <img
         src={memoriesIllustration}
         alt="No trips"
+        loading="lazy"
+        decoding="async"
         className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm"
       />
       <div className="text-center sm:text-left max-w-xs">

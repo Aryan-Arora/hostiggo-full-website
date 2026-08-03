@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
@@ -163,10 +164,13 @@ export default function OTPPageContent() {
   return (
     <div className="min-h-screen relative flex flex-col items-center justify-center overflow-hidden">
       {/* Background */}
-      <img
+      <Image
+        fill
+        priority
         src={authBg}
         alt="background"
-        className="absolute inset-0 w-full h-full object-cover"
+        sizes="100vw"
+        className="object-cover"
       />
       <div className="absolute inset-0 bg-black/20 backdrop-blur-[2px]" />
 

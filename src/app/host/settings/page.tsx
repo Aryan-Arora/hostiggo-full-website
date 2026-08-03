@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Image from 'next/image';
 import { toast } from 'sonner';
 import {
   User,
@@ -159,7 +160,9 @@ export default function HostSettingsPage() {
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <div className="relative">
-                    <img
+                    <Image
+                      width={128}
+                      height={128}
                       src={profile?.avatar || 'https://i.pravatar.cc/200?img=45'}
                       alt={profile?.name || 'Host'}
                       className="w-32 h-32 rounded-3xl object-cover ring-4 ring-gray-100 shadow"
