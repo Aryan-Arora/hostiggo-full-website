@@ -245,6 +245,82 @@ export const HotelServiceApi = {
     return (data || []) as SearchListingRpcRow[];
   },
 
+  filterHotelsByState: async (
+    filters: SearchFilters,
+    cursor: number | null = null,
+    pageSize: number = 50,
+  ): Promise<{
+    data: SearchListingRpcRow[];
+    hasMore: boolean;
+    totalCount: number;
+    stateBounds: any;
+  }> => {
+    const amenityIds = filters.amenities ? filters.amenities.map(Number) : [];
+    const selectedRatings = filters.ratings || [];
+
+    // Determine search scope: use state if provided, otherwise use district (location)
+    const searchState = filters.state;
+    const searchDistrict = filters.district;
+
+    const { data, error, count } = await supabase.rpc('search_listings_by_state', {
+      p_state: searchState || null,
+      p_district: searchDistrict || null,
+      p_cursor: cursor,
+      p_start_date: filters.startDate,
+      p_end_date: filters.endDate,
+      p_min_price: filters.minPrice,
+      p_max_price: filters.maxPrice,
+      p_total_guests: filters.totalGuests,
+      p_ratings: selectedRatings,
+      p_amenities: amenityIds,
+      p_roomtypes: filters.roomTypes,
+      p_limit: pageSize,
+    }, { count: 'exact' });
+
+    if (error) {
+      console.error('[filterHotelsByState] RPC error:', JSON.stringify(error, null, 2));
+      throw error;
+    }
+
+    // Get state boundaries for map (if state-level search)
+    let stateBounds = null;
+    if (searchState) {
+      const { data: locationData } = await supabase
+        .from('locations')
+        .select('state, ST_AsGeoJSON(boundary) as boundary')
+        .eq('state', searchState)
+        .maybeSingle();
+
+      if (locationData?.boundary) {
+        try {
+          const geoJSON = JSON.parse(locationData.boundary);
+          const coordinates = geoJSON.coordinates?.[0] || [];
+          if (coordinates.length > 0) {
+            const lats = coordinates.map((c: any) => c[1]);
+            const lngs = coordinates.map((c: any) => c[0]);
+            stateBounds = {
+              north: Math.max(...lats),
+              south: Math.min(...lats),
+              east: Math.max(...lngs),
+              west: Math.min(...lngs),
+            };
+          }
+        } catch (e) {
+          console.warn('[filterHotelsByState] Failed to parse boundary:', e);
+        }
+      }
+    }
+
+    const hasMore = (data?.length || 0) === pageSize;
+
+    return {
+      data: (data || []) as SearchListingRpcRow[],
+      hasMore,
+      totalCount: count || 0,
+      stateBounds,
+    };
+  },
+
   formatPrice: (price: number): string => {
     return `₹${price.toLocaleString('en-IN')}`;
   },

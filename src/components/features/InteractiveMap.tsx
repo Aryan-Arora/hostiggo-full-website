@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { StarIcon, X, CheckCircle, Navigation } from 'lucide-react';
 import type { Property } from '@/types';
+import { useListingState } from '@/context/ListingFilterContext';
 import 'leaflet/dist/leaflet.css';
 
 // Lazy load Leaflet on client side only
@@ -35,9 +36,11 @@ export default function InteractiveMap({
   const mapInstanceRef = useRef<L.Map | null>(null);
   const markersRef = useRef<Map<string, L.Marker>>(new Map());
   const pointerMarkerRef = useRef<L.Marker | null>(null);
+  const stateBoundaryRef = useRef<L.Polygon | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const router = useRouter();
+  const { stateBounds, allProperties } = useListingState();
 
   const syncMapToPointer = useCallback(
     (lat: number, lng: number) => {
@@ -112,8 +115,88 @@ export default function InteractiveMap({
     setMapLoaded(true);
   }, []);
 
-  const getCenter = () => {
-    const withCoords = properties.filter((p) => p.coordinates);
+  const addMarkers = () => {
+    if (!mapInstanceRef.current) return;
+
+    const L = LeafletModule;
+    if (!L) return;
+
+    // Clear existing markers
+    markersRef.current.forEach((marker) => {
+      marker.remove();
+    });
+    markersRef.current.clear();
+
+    // Remove old boundary
+    if (stateBoundaryRef.current) {
+      stateBoundaryRef.current.remove();
+      stateBoundaryRef.current = null;
+    }
+
+    // For state-level searches, show all properties from that state, not just paginated ones
+    const displayProperties = allProperties.length > 0 ? allProperties : properties;
+    const bounds = L.latLngBounds([]);
+    let hasCoords = false;
+
+    displayProperties.forEach((property) => {
+      if (!property.coordinates) return;
+      hasCoords = true;
+
+      const { lat, lng } = property.coordinates;
+      bounds.extend([lat, lng]);
+
+      const isActive = property.id === activeId;
+      const icon = createMarkerIcon(property, isActive);
+      if (!icon) return;
+
+      const marker = L.marker([lat, lng], { icon, title: property.propertyName }).addTo(
+        mapInstanceRef.current!,
+      );
+
+      marker.on('click', () => {
+        setSelectedProperty(property);
+        onMarkerClick?.(property.id);
+      });
+
+      markersRef.current.set(property.id, marker);
+    });
+
+    // Draw state boundary if available
+    if (stateBounds) {
+      const L = LeafletModule;
+      if (L) {
+        try {
+          const boundsArray: L.LatLngTuple[] = [
+            [stateBounds.north, stateBounds.west],
+            [stateBounds.north, stateBounds.east],
+            [stateBounds.south, stateBounds.east],
+            [stateBounds.south, stateBounds.west],
+          ];
+
+          stateBoundaryRef.current = L.polygon(boundsArray, {
+            color: '#004772',
+            weight: 2,
+            opacity: 0.3,
+            fillOpacity: 0.05,
+            dashArray: '5, 5',
+          }).addTo(mapInstanceRef.current!);
+        } catch (e) {
+          console.warn('[InteractiveMap] Failed to draw state boundary:', e);
+        }
+      }
+    }
+
+    // Fit bounds if multiple properties
+    if (hasCoords && displayProperties.filter((p) => p.coordinates).length > 1) {
+      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
+    } else if (hasCoords) {
+      const center = getCenter(displayProperties);
+      mapInstanceRef.current.setView([center.lat, center.lng], getZoom(displayProperties));
+    }
+  };
+
+  const getCenter = (propsToUse: Property[] = properties) => {
+    const withCoords = propsToUse.filter((p) => p.coordinates);
     if (withCoords.length === 0) return INDIA_CENTER;
 
     const lat =
@@ -126,8 +209,8 @@ export default function InteractiveMap({
     return { lat, lng };
   };
 
-  const getZoom = (): number => {
-    const cities = new Set(properties.map((p) => p.city));
+  const getZoom = (propsToUse: Property[] = properties): number => {
+    const cities = new Set(propsToUse.map((p) => p.city));
     if (cities.size === 1) return 13;
     if (cities.size <= 3) return 10;
     return 5;
@@ -166,58 +249,11 @@ export default function InteractiveMap({
     });
   };
 
-  const addMarkers = () => {
-    if (!mapInstanceRef.current) return;
-
-    const L = LeafletModule;
-    if (!L) return;
-
-    // Clear existing markers
-    markersRef.current.forEach((marker) => {
-      marker.remove();
-    });
-    markersRef.current.clear();
-
-    const bounds = L.latLngBounds([]);
-    let hasCoords = false;
-
-    properties.forEach((property) => {
-      if (!property.coordinates) return;
-      hasCoords = true;
-
-      const { lat, lng } = property.coordinates;
-      bounds.extend([lat, lng]);
-
-      const isActive = property.id === activeId;
-      const icon = createMarkerIcon(property, isActive);
-      if (!icon) return;
-
-      const marker = L.marker([lat, lng], { icon, title: property.propertyName }).addTo(
-        mapInstanceRef.current!,
-      );
-
-      marker.on('click', () => {
-        setSelectedProperty(property);
-        onMarkerClick?.(property.id);
-      });
-
-      markersRef.current.set(property.id, marker);
-    });
-
-    // Fit bounds if multiple properties
-    if (hasCoords && properties.filter((p) => p.coordinates).length > 1) {
-      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
-    } else if (hasCoords) {
-      const center = getCenter();
-      mapInstanceRef.current.setView([center.lat, center.lng], getZoom());
-    }
-  };
-
-  // Re-add markers when properties change
+  // Re-add markers when properties or allProperties change
   useEffect(() => {
     if (!mapLoaded) return;
     addMarkers();
-  }, [properties, mapLoaded]);
+  }, [properties, allProperties, mapLoaded]);
 
   // Update marker icons when active changes
   useEffect(() => {
@@ -365,7 +401,7 @@ export default function InteractiveMap({
           className="absolute top-3 left-3 z-[999] bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 text-[12px] font-semibold text-gray-700"
           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
         >
-          {properties.filter((p) => p.coordinates).length} properties on map
+          {(allProperties.length > 0 ? allProperties : properties).filter((p) => p.coordinates).length} properties
         </div>
       )}
 

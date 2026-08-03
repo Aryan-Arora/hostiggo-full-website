@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { SCHEMA } from "@/lib/schema.constants";
+
+const DB_SCHEMA = SCHEMA.testingSchema;
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +31,7 @@ export async function GET(req: NextRequest) {
 
   // Check for blocked calendar days.
   const { data: blocked, error: blockedErr } = await supabaseAdmin
+    .schema(DB_SCHEMA)
     .from("listing_calendar")
     .select("date")
     .eq("listing_id", listingId)
@@ -50,6 +54,7 @@ export async function GET(req: NextRequest) {
 
   // Check for overlapping confirmed bookings.
   const { data: conflicts, error: conflictsErr } = await supabaseAdmin
+    .schema(DB_SCHEMA)
     .from("bookings")
     .select("booking_id")
     .eq("listing_id", listingId)
