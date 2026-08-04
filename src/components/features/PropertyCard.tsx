@@ -49,14 +49,15 @@ export default function PropertyCard({ property }: PropertyCardProps) {
       <div className="p-3.5">
         <h3 className="text-[13px] font-semibold text-gray-800 leading-snug line-clamp-1 mb-0.5">{property.propertyName}</h3>
         <p className="text-[11px] text-gray-400 mb-2 line-clamp-1">{property.city}, {property.state}</p>
-        <div className="flex items-center gap-1 mb-2.5">
+        <div className="flex items-center gap-1 mb-3">
           <Star className="w-3 h-3 text-amber-400 fill-amber-400 flex-shrink-0" />
           <span className="text-[11px] font-bold text-gray-700">{property.rating.toFixed(1)}</span>
           <span className="text-[11px] text-gray-400">• {property.reviewCount} reviews</span>
         </div>
-        <div className="inline-flex items-baseline gap-1.5 border border-gray-300 rounded-lg px-3 py-1.5">
-          <span className="text-[14px] font-extrabold text-gray-900">₹ {property.price.toLocaleString("en-IN")}</span>
-          <span className="text-[11px] text-gray-500 font-medium">/ Night</span>
+        {/* Price — flush to the card's left edge, straight (un-curved) left side, rounded right */}
+        <div className="-ml-3.5 flex w-fit items-baseline gap-1.5 bg-white border border-[#5B8DEF] border-l-0 pl-4 pr-4 py-2.5 rounded-r-2xl transition-all duration-200 hover:border-[#3f6fd1] hover:shadow-sm">
+          <span className="text-xl font-semibold text-gray-900 leading-none whitespace-nowrap">₹ {property.price.toLocaleString("en-IN")}</span>
+          <span className="text-[13px] font-medium text-gray-500 whitespace-nowrap">/ Night</span>
         </div>
       </div>
     </div>
