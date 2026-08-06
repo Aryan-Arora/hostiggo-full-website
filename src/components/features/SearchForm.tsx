@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Calendar, Users, ChevronDown, X } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import DestinationDropdown from '@/components/features/DestinationDropdown';
