@@ -60,11 +60,11 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           onClick={handleToggleLike}
           aria-label={liked ? "Remove from favourites" : "Add to favourites"}
           className={cn(
-            "absolute top-2.5 right-2.5 w-8 h-8 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
-            liked ? "bg-rose-500 text-white" : "bg-white/90 text-gray-500 hover:text-rose-400"
+            "absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
+            liked ? "bg-white text-rose-500" : "bg-white/95 text-gray-600 hover:text-rose-400"
           )}
         >
-          <Heart className={cn("w-3.5 h-3.5", liked && "fill-white")} />
+          <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
         </button>
         {property.isNew && (
           <span className="absolute top-2.5 left-2.5 bg-figma-success text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">NEW</span>
@@ -74,8 +74,8 @@ export default function PropertyCard({ property }: PropertyCardProps) {
 
       {/* Details -- typography pulled exactly from Figma node 3007:xxxxx:
           title 18px/medium, location 14px/medium @80% opacity, rating &
-          review-count both 16px/medium, price 25px/semibold -- all #1a1a1a. */}
-      <div className="px-5 py-4">
+          review-count both 16px/medium -- all #1a1a1a. */}
+      <div className="px-5 pt-4 pb-4">
         <h3
           className="font-medium leading-[1.4] tracking-[0.054px] text-figma-ink line-clamp-1 mb-1"
           style={{ fontSize: 18 }}
@@ -97,11 +97,13 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             · {property.reviewCount} reviews
           </span>
         </div>
-        <div className="flex items-baseline gap-1.5 w-fit">
-          <span className="font-semibold text-figma-ink" style={{ fontSize: 25 }}>
+        {/* Price — flush to the card's left edge, straight (un-curved) left side, rounded right */}
+        <div className="-ml-5 flex w-fit items-baseline gap-1.5 bg-white border border-figma-navy/40 border-l-0 pl-4 pr-4 py-2.5 rounded-r-2xl transition-all duration-200 hover:border-figma-navy hover:shadow-sm">
+          <span className="font-semibold text-figma-ink leading-none whitespace-nowrap" style={{ fontSize: 20 }}>
             ₹{property.price.toLocaleString("en-IN")}
           </span>
-          <span className="font-medium text-figma-ink" style={{ fontSize: 16 }}>/night</span>
+          <span className="text-[13px] font-medium text-figma-ink/70 whitespace-nowrap">/night</span>
+
         </div>
         <p className="text-[11px] text-figma-ink/50 mt-1.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
       </div>

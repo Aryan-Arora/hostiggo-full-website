@@ -10,14 +10,16 @@ interface DateRangePickerProps {
   blockedDates?: Set<string>;
 }
 
-const DAY_LABELS = ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"];
+// Monday-first week (weekend columns are highlighted).
+const DAY_LABELS = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 const MONTH_NAMES = [
   "January","February","March","April","May","June",
   "July","August","September","October","November","December",
 ];
 
 function daysInMonth(y: number, m: number) { return new Date(y, m + 1, 0).getDate(); }
-function firstDayOf(y: number, m: number) { return new Date(y, m, 1).getDay(); }
+// Offset of the 1st with a Monday-first week (Mon=0 … Sun=6).
+function firstDayOf(y: number, m: number) { return (new Date(y, m, 1).getDay() + 6) % 7; }
 function sameDay(a: Date, b: Date) {
   return a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
 }
@@ -73,7 +75,7 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, b
         onMouseEnter={() => !isDisabled && onDayHover(date)}
         onMouseLeave={() => onDayHover(null)}
         className={cn(
-          "calendar-day",
+          "calendar-day !w-full !h-11 !text-sm",
           isDisabled && "disabled",
           isBooked && !isPast && "line-through text-gray-300",
           isStart && "selected range-start",
@@ -89,13 +91,21 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, b
   }
 
   return (
-    <div className="flex-1 min-w-[230px]">
-      <p className="text-sm font-semibold text-gray-700 text-center mb-3">
+    <div className="flex-1 min-w-0">
+      <p className="text-xl font-bold text-gray-900 text-center mb-4">
         {MONTH_NAMES[month]} {year}
       </p>
-      <div className="grid grid-cols-7 mb-1">
-        {DAY_LABELS.map((d) => (
-          <div key={d} className="text-center text-[10px] font-semibold text-gray-400 py-1 uppercase tracking-wide">{d}</div>
+      <div className="grid grid-cols-7 mb-2">
+        {DAY_LABELS.map((d, i) => (
+          <div
+            key={d}
+            className={cn(
+              "text-center text-xs font-semibold py-1",
+              i >= 5 ? "text-blue-500" : "text-gray-400"
+            )}
+          >
+            {d}
+          </div>
         ))}
       </div>
       <div className="grid grid-cols-7">{cells}</div>
@@ -104,6 +114,14 @@ function CalendarMonth({ year, month, checkIn, checkOut, hoverDate, selecting, b
 }
 
 const EMPTY_BLOCKED = new Set<string>();
+
+const FLEX_OPTIONS = [
+  { id: "exact", label: "Exact dates" },
+  { id: "1", label: "± 1 Days" },
+  { id: "2", label: "± 2 Days" },
+  { id: "3", label: "± 3 Days" },
+  { id: "7", label: "± 7 Days" },
+];
 
 function fmtDate(d: Date | null) {
   if (!d) return "N/A";
@@ -116,6 +134,8 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
   const [baseMonth, setBaseMonth] = useState(today.getMonth());
   const [selecting, setSelecting] = useState<"checkin"|"checkout">(checkIn ? "checkout" : "checkin");
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
+  // Date flexibility (visual for now — "Exact dates" is the default).
+  const [flex, setFlex] = useState("exact");
 
   // Click-and-drag range selection: mousedown on a day starts a drag: holding
   // and moving across days previews the range (via the existing hover
@@ -151,6 +171,9 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
   const nextYear  = baseMonth === 11 ? baseYear + 1 : baseYear;
   const nextMonth = baseMonth === 11 ? 0 : baseMonth + 1;
 
+  // Don't allow navigating before the current month (all past dates are disabled).
+  const atCurrentMonth = baseYear === today.getFullYear() && baseMonth === today.getMonth();
+
   const prev = () => {
     if (baseMonth === 0) { setBaseYear(y => y - 1); setBaseMonth(11); }
     else setBaseMonth(m => m - 1);
@@ -184,7 +207,8 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
 
   return (
     <div
-      className="dropdown-panel animate-fade-in-down p-5 w-full max-h-[min(75vh,600px)] overflow-y-auto"
+      className="dropdown-panel !relative shrink-0 animate-fade-in-down p-6 max-h-[min(80vh,650px)] overflow-y-auto"
+      style={{ width: "min(720px, 95vw)" }}
     >
       {/* Date selection header */}
       <div className="flex gap-3 mb-5">
@@ -210,41 +234,61 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
         ))}
       </div>
 
-      {/* Month navigation row */}
-      <div className="flex items-center justify-between mb-3 px-1">
-        <button
-          onClick={prev}
-          className="p-1.5 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
-        >
-          <ChevronLeft className="w-4 h-4 text-gray-600" />
-        </button>
+      {/* Two-month calendars with edge navigation */}
+      <div className="relative overflow-x-auto scrollbar-hide">
+        {!atCurrentMonth && (
+          <button
+            onClick={prev}
+            aria-label="Previous month"
+            className="absolute left-0 top-0 w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition-colors z-10"
+          >
+            <ChevronLeft className="w-4 h-4 text-gray-600" />
+          </button>
+        )}
         <button
           onClick={next}
-          className="p-1.5 hover:bg-gray-100 active:bg-gray-200 rounded-lg transition-colors"
+          aria-label="Next month"
+          className="absolute right-0 top-0 w-9 h-9 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 active:bg-gray-100 transition-colors z-10"
         >
           <ChevronRight className="w-4 h-4 text-gray-600" />
         </button>
+
+        <div className="flex gap-8 min-w-[560px]">
+          <CalendarMonth
+            year={baseYear} month={baseMonth}
+            checkIn={checkIn} checkOut={checkOut}
+            hoverDate={hoverDate} selecting={selecting}
+            blockedDates={blockedDates}
+            onDayClick={handleDayClick} onDayHover={setHoverDate}
+            onDayMouseDown={handleDayMouseDown}
+          />
+          <CalendarMonth
+            year={nextYear} month={nextMonth}
+            checkIn={checkIn} checkOut={checkOut}
+            hoverDate={hoverDate} selecting={selecting}
+            blockedDates={blockedDates}
+            onDayClick={handleDayClick} onDayHover={setHoverDate}
+            onDayMouseDown={handleDayMouseDown}
+          />
+        </div>
       </div>
 
-      {/* Two-month calendars */}
-      <div className="flex gap-5 overflow-x-auto scrollbar-hide pb-1">
-        <CalendarMonth
-          year={baseYear} month={baseMonth}
-          checkIn={checkIn} checkOut={checkOut}
-          hoverDate={hoverDate} selecting={selecting}
-          blockedDates={blockedDates}
-          onDayClick={handleDayClick} onDayHover={setHoverDate}
-          onDayMouseDown={handleDayMouseDown}
-        />
-        <div className="w-px bg-gray-100 flex-shrink-0 self-stretch" />
-        <CalendarMonth
-          year={nextYear} month={nextMonth}
-          checkIn={checkIn} checkOut={checkOut}
-          hoverDate={hoverDate} selecting={selecting}
-          blockedDates={blockedDates}
-          onDayClick={handleDayClick} onDayHover={setHoverDate}
-          onDayMouseDown={handleDayMouseDown}
-        />
+      {/* Date flexibility pills */}
+      <div className="flex flex-wrap gap-3 mt-6 pt-6 border-t border-gray-100">
+        {FLEX_OPTIONS.map((o) => (
+          <button
+            key={o.id}
+            onClick={() => setFlex(o.id)}
+            className={cn(
+              "px-5 py-2.5 rounded-full border text-sm font-medium transition-colors",
+              flex === o.id
+                ? "border-figma-navy/40 text-figma-navy bg-figma-navy/5"
+                : "border-gray-200 text-gray-700 hover:border-gray-300"
+            )}
+          >
+            {o.label}
+          </button>
+        ))}
       </div>
 
       {/* Footer actions */}

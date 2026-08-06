@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, MapPin, Calendar, Users, ChevronDown, X } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import DestinationDropdown from '@/components/features/DestinationDropdown';
@@ -191,16 +191,12 @@ export function CompactSearchBar() {
           </div>
         </button>
         {activePanel === 'date' && (
-          // DateRangePicker's own root is `position: absolute` (the shared
-          // `.dropdown-panel` class), so it's out-of-flow relative to this
-          // wrapper -- without an explicit width here the wrapper
-          // shrink-to-fits around an out-of-flow child and collapses to 0,
-          // making the calendar render at 0x0 (invisible, not just
-          // mispositioned). Same fix as the property page's date picker.
-          <div
-            className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-[1100]"
-            style={{ width: 'min(600px, 95vw)' }}
-          >
+          // DateRangePicker overrides .dropdown-panel's default `position:
+          // absolute` with `!relative` and sets its own width, so this
+          // wrapper naturally shrink-to-fits around it -- `-translate-x-1/2`
+          // then centers correctly off the wrapper's own (now non-zero)
+          // rendered width.
+          <div className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-[1100]">
             <DateRangePicker
               checkIn={dates.checkIn}
               checkOut={dates.checkOut}
@@ -316,19 +312,19 @@ export default function SearchForm() {
           <button
             onClick={() => toggle('destination')}
             className={cn(
-              'w-full flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all text-left bg-white',
+              'w-full flex items-center gap-3 px-6 py-4 rounded-full border transition-all text-left bg-white',
               activePanel === 'destination'
                 ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
                 : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
             )}
           >
             <Search
-              className="w-5 h-5 text-gray-400 flex-shrink-0"
+              className="w-5 h-5 text-gray-500 flex-shrink-0"
               strokeWidth={2}
             />
             <div className="min-w-0 flex-1">
               {location.query ? (
-                <p className="text-[14px] font-medium text-gray-900 truncate">
+                <p className="text-[15px] font-medium text-gray-900 truncate">
                   {location.query}
                 </p>
               ) : (
@@ -339,7 +335,7 @@ export default function SearchForm() {
             </div>
           </button>
           {activePanel === 'destination' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
               <DestinationDropdown
                 value={location.query}
                 onQueryChange={(v) => setLocation({ query: v })}
@@ -366,27 +362,29 @@ export default function SearchForm() {
                   : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
               )}
             >
-              <Calendar
-                className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5"
-                strokeWidth={1.5}
-              />
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-bold text-gray-900 mb-1">
-                  Check In
-                </p>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <Calendar
+                    className="w-5 h-5 text-gray-700 flex-shrink-0"
+                    strokeWidth={1.7}
+                  />
+                  <p className="text-[16px] font-semibold text-gray-900">
+                    Check In
+                  </p>
+                </div>
                 {dates.checkIn ? (
                   <>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-[13px] text-gray-400">
                       {dates.checkIn.toLocaleDateString('en-US', {
                         weekday: 'long',
                       })}
                     </p>
-                    <p className="text-[13px] font-medium text-gray-900">
+                    <p className="text-[17px] font-medium text-gray-900">
                       {fmtDate(dates.checkIn)}
                     </p>
                   </>
                 ) : (
-                  <p className="text-[13px] text-gray-400 mt-1">Add date</p>
+                  <p className="text-[14px] text-gray-400 mt-1">Add date</p>
                 )}
               </div>
             </button>
@@ -403,27 +401,29 @@ export default function SearchForm() {
                   : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
               )}
             >
-              <Calendar
-                className="w-5 h-5 text-gray-600 flex-shrink-0 mt-0.5"
-                strokeWidth={1.5}
-              />
               <div className="min-w-0 flex-1">
-                <p className="text-[12px] font-bold text-gray-900 mb-1">
-                  Check Out
-                </p>
+                <div className="flex items-center gap-2.5 mb-2">
+                  <Calendar
+                    className="w-5 h-5 text-gray-700 flex-shrink-0"
+                    strokeWidth={1.7}
+                  />
+                  <p className="text-[16px] font-semibold text-gray-900">
+                    Check Out
+                  </p>
+                </div>
                 {dates.checkOut ? (
                   <>
-                    <p className="text-[11px] text-gray-500">
+                    <p className="text-[13px] text-gray-400">
                       {dates.checkOut.toLocaleDateString('en-US', {
                         weekday: 'long',
                       })}
                     </p>
-                    <p className="text-[13px] font-medium text-gray-900">
+                    <p className="text-[17px] font-medium text-gray-900">
                       {fmtDate(dates.checkOut)}
                     </p>
                   </>
                 ) : (
-                  <p className="text-[13px] text-gray-400 mt-1">Add date</p>
+                  <p className="text-[14px] text-gray-400 mt-1">Add date</p>
                 )}
               </div>
             </button>
@@ -431,7 +431,7 @@ export default function SearchForm() {
 
           {/* Shared DatePicker Popover */}
           {activePanel === 'date' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-[1100]">
+            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
               <DateRangePicker
                 checkIn={dates.checkIn}
                 checkOut={dates.checkOut}
@@ -459,16 +459,16 @@ export default function SearchForm() {
               className="w-5 h-5 text-gray-600 flex-shrink-0"
               strokeWidth={1.5}
             />
-            <div className="min-w-0 flex-1 flex items-center gap-1.5">
-              <span className="text-[14px] font-medium text-gray-800">
+            <div className="min-w-0 flex-1 flex items-center gap-2">
+              <span className="text-[15px] font-semibold text-gray-900">
                 {guests.adults} Adults
               </span>
-              <span className="text-gray-300 text-xs">•</span>
-              <span className="text-[14px] font-medium text-gray-800">
+              <span className="text-gray-400 text-xs">•</span>
+              <span className="text-[15px] font-semibold text-gray-900">
                 {guests.rooms} Room
               </span>
-              <span className="text-gray-300 text-xs">•</span>
-              <span className="text-[14px] font-medium text-gray-500">
+              <span className="text-gray-400 text-xs">•</span>
+              <span className="text-[15px] font-medium text-gray-400">
                 {guests.children} Children
               </span>
             </div>

@@ -4,6 +4,20 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
+// A "plain" destination search has a district but none of the restrictive
+// filters (price, dates, ratings, amenities, room types). The default guest
+// count is ignored because it is always present. In that case, if the search
+// RPC returns nothing, we can safely fall back to a direct district query.
+const isPlainDestinationSearch = (f: any): boolean =>
+  Boolean(f?.district) &&
+  !f.startDate &&
+  !f.endDate &&
+  f.minPrice == null &&
+  f.maxPrice == null &&
+  (!Array.isArray(f.ratings) || f.ratings.length === 0) &&
+  (!Array.isArray(f.amenities) || f.amenities.length === 0) &&
+  (!Array.isArray(f.roomTypes) || f.roomTypes.length === 0);
+
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -32,6 +46,20 @@ export async function POST(req: NextRequest) {
       data = data.filter((r: any) =>
         wanted.has((r.listing?.stay_type_title ?? "").toLowerCase()),
       );
+    }
+
+    // Fallback: the search_listings RPC misses some districts (e.g. New Delhi)
+    // even though active listings exist there. For a plain destination search,
+    // query listings by district directly so results still show.
+    // TODO: remove once the search_listings RPC district matching is fixed.
+    if ((!data || data.length === 0) && isPlainDestinationSearch(filters)) {
+      const rows = await HotelServiceApi.getListingsByDistrict(
+        filters.district,
+        pageSize,
+        page * pageSize,
+      );
+      data = rows.map((row: any) => ({ listing: row, distance: null }));
+      console.log("[/api/search] district fallback used:", filters.district, "→", data.length);
     }
 
     // If date range provided, filter out listings that are unavailable.
