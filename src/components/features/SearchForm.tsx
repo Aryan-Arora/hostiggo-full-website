@@ -324,11 +324,11 @@ export default function SearchForm() {
             />
             <div className="min-w-0 flex-1">
               {location.query ? (
-                <p className="text-[15px] font-medium text-gray-900 truncate">
+                <p className="text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-black truncate">
                   {location.query}
                 </p>
               ) : (
-                <p className="text-[14px] font-medium text-gray-400 truncate">
+                <p className="text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-[#888888] truncate">
                   Search destination or homestay
                 </p>
               )}
@@ -363,28 +363,28 @@ export default function SearchForm() {
               )}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex items-center gap-2.5 mb-1">
                   <Calendar
                     className="w-5 h-5 text-gray-700 flex-shrink-0"
                     strokeWidth={1.7}
                   />
-                  <p className="text-[16px] font-semibold text-gray-900">
+                  <p className="text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
                     Check In
                   </p>
                 </div>
                 {dates.checkIn ? (
                   <>
-                    <p className="text-[13px] text-gray-400">
+                    <p className="text-[12px] font-normal text-gray-400 leading-tight">
                       {dates.checkIn.toLocaleDateString('en-US', {
                         weekday: 'long',
                       })}
                     </p>
-                    <p className="text-[17px] font-medium text-gray-900">
+                    <p className="text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
                       {fmtDate(dates.checkIn)}
                     </p>
                   </>
                 ) : (
-                  <p className="text-[14px] text-gray-400 mt-1">Add date</p>
+                  <p className="text-[15px] font-normal text-gray-400 mt-1">Add date</p>
                 )}
               </div>
             </button>
@@ -402,28 +402,28 @@ export default function SearchForm() {
               )}
             >
               <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 mb-2">
+                <div className="flex items-center gap-2.5 mb-1">
                   <Calendar
                     className="w-5 h-5 text-gray-700 flex-shrink-0"
                     strokeWidth={1.7}
                   />
-                  <p className="text-[16px] font-semibold text-gray-900">
+                  <p className="text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
                     Check Out
                   </p>
                 </div>
                 {dates.checkOut ? (
                   <>
-                    <p className="text-[13px] text-gray-400">
+                    <p className="text-[12px] font-normal text-gray-400 leading-tight">
                       {dates.checkOut.toLocaleDateString('en-US', {
                         weekday: 'long',
                       })}
                     </p>
-                    <p className="text-[17px] font-medium text-gray-900">
+                    <p className="text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
                       {fmtDate(dates.checkOut)}
                     </p>
                   </>
                 ) : (
-                  <p className="text-[14px] text-gray-400 mt-1">Add date</p>
+                  <p className="text-[15px] font-normal text-gray-400 mt-1">Add date</p>
                 )}
               </div>
             </button>
@@ -459,16 +459,12 @@ export default function SearchForm() {
               className="w-5 h-5 text-gray-600 flex-shrink-0"
               strokeWidth={1.5}
             />
-            <div className="min-w-0 flex-1 flex items-center gap-2">
-              <span className="text-[15px] font-semibold text-gray-900">
-                {guests.adults} Adults
-              </span>
-              <span className="text-gray-400 text-xs">•</span>
-              <span className="text-[15px] font-semibold text-gray-900">
-                {guests.rooms} Room
-              </span>
-              <span className="text-gray-400 text-xs">•</span>
-              <span className="text-[15px] font-medium text-gray-400">
+            <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
+              <span>{guests.adults} Adults</span>
+              <span className="text-gray-400">•</span>
+              <span>{guests.rooms} Room</span>
+              <span className="text-gray-400">•</span>
+              <span className="text-gray-400 font-normal">
                 {guests.children} Children
               </span>
             </div>
@@ -495,7 +491,7 @@ export default function SearchForm() {
         <div className="mt-2 flex justify-center">
           <button
             onClick={handleSearch}
-            className="w-full max-w-[240px] flex items-center justify-center bg-primary-gradient text-white font-bold text-[15px] rounded-full px-6 py-3.5 transition-all shadow-md hover:opacity-90 active:scale-95"
+            className="w-full flex items-center justify-center bg-primary-gradient text-white font-semibold text-[16px] rounded-full px-6 py-3.5 transition-all shadow-md hover:opacity-90 active:scale-95"
           >
             Search
           </button>
@@ -521,8 +517,8 @@ export default function SearchForm() {
             <MapPin className="w-6 h-6 text-figma-navy" strokeWidth={1.5} />
           </div>
           <div>
-            <h3 className="text-[16px] font-semibold text-gray-900">Search on Map</h3>
-            <p className="text-[12px] text-gray-500">For Accurate Location</p>
+            <h3 className="text-[15px] font-medium text-figma-ink">Search on Map</h3>
+            <p className="text-[12px] font-normal text-gray-400">For Accurate Location</p>
           </div>
         </button>
       </div>

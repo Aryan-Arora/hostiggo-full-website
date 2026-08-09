@@ -129,32 +129,38 @@ export default function Navbar() {
               className="transition-transform group-hover:scale-105"
             />
             <div className="flex items-baseline">
-              <span className="font-black text-[#374151] text-[17px] tracking-wider uppercase">
+              <span
+                className="font-semibold text-[#374151] text-[21px] leading-[140%] uppercase tracking-normal"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
                 Hostig
               </span>
-              <span className="font-black text-[#0086D8] text-[17px] tracking-wider uppercase">
+              <span
+                className="font-semibold text-[#0086D8] text-[21px] leading-[140%] uppercase tracking-normal"
+                style={{ fontFamily: 'Poppins, sans-serif' }}
+              >
                 go
               </span>
             </div>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-0.5">
-            <span className="flex items-center gap-1 text-figma-navy px-3 py-1.5 text-[13px] font-bold">
+          <div className="hidden md:flex items-center gap-1">
+            <span className="flex items-center gap-1 text-figma-ink px-3 py-1.5 text-[14px] font-medium">
               <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
-              INR
+              INR.
             </span>
-            <span className="h-4 w-px bg-gray-300 mx-1" />
-            <span className="flex items-center gap-1.5 text-figma-navy px-3 py-1.5 text-[13px] font-bold">
+            <span className="h-4 w-px bg-gray-200 mx-0.5" />
+            <span className="flex items-center gap-1.5 text-figma-ink px-3 py-1.5 text-[14px] font-medium">
               <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
               English
             </span>
-            <span className="h-4 w-px bg-gray-300 mx-1" />
+            <span className="h-4 w-px bg-gray-200 mx-0.5" />
 
             {isAuthenticated ? (
               <>
                 <button
-                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
+                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
                   onClick={() => router.push('/host/list/property-type')}
                 >
                   List your property
@@ -194,7 +200,7 @@ export default function Navbar() {
                                   key={item.label}
                                   aria-disabled="true"
                                   title="Coming soon"
-                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-400 cursor-default select-none"
+                                  className="flex items-center gap-3 px-4 py-2.5 text-[14px] font-medium text-gray-400 cursor-default select-none"
                                 >
                                   <span className="text-gray-300">{item.icon}</span>
                                   <span>{item.label}</span>
@@ -210,7 +216,7 @@ export default function Navbar() {
                                     item.action?.();
                                     setProfileOpen(false);
                                   }}
-                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                  className="flex items-center gap-3 px-4 py-2.5 text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
                                   <span className="text-gray-400">{item.icon}</span>
                                   <span>{item.label}</span>
@@ -226,7 +232,7 @@ export default function Navbar() {
                       <div className="p-3">
                         <button
                           onClick={handleSignOut}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[14px] font-medium text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
                         >
                           <LogOut className="w-4 h-4" />
                           Sign out
@@ -239,20 +245,20 @@ export default function Navbar() {
             ) : (
               <>
                 <button
-                  className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[13px] font-bold ml-0.5"
+                  className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[14px] font-medium ml-0.5"
                   onClick={() => router.push('/signin')}
                 >
                   Sign In
                 </button>
                 <button
-                  className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1 shadow-sm"
+                  className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1 shadow-sm"
                   onClick={() => router.push('/signin')}
                 >
                   New user
                 </button>
                 <button
                   onClick={() => router.push('/host/list/property-type')}
-                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
+                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
                 >
                   List your property
                 </button>

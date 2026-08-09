@@ -25,14 +25,14 @@ export default function PopularStays({
   return (
     <section>
       <div className="flex items-center gap-4 mb-5">
-        <h2 className="text-[22px] font-semibold text-figma-ink uppercase tracking-wide">
+        <h2 className="text-figma-ink" style={{ fontSize: '20px', fontWeight: 500, lineHeight: '140%' }}>
           {title}
         </h2>
         <button
           onClick={() =>
             router.push(`/search?destination=${encodeURIComponent(city)}`)
           }
-          className="text-[12px] text-figma-navy bg-white shadow-md hover:shadow-lg px-3.5 py-1 rounded-full transition-all font-semibold"
+          className="text-typo-pill-label text-figma-ink/70 border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1 rounded-full transition-all"
         >
           View all
         </button>
