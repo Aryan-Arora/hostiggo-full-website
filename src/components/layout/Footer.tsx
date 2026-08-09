@@ -90,7 +90,7 @@ export default function Footer() {
       <div className="w-full h-px bg-[#E5E7EB]" />
 
       {/* Main footer — white background, content in a centered 1100px container */}
-      <div className="bg-white">
+      <div>
         <div className="mx-auto max-w-[1100px] px-6 pt-10 pb-10">
           {/* 4 columns (3 link sections + Download App) → 2 on tablet → 1 (centered) on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center sm:text-left">

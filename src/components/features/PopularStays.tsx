@@ -25,7 +25,7 @@ export default function PopularStays({
   return (
     <section>
       <div className="flex items-center gap-4 mb-5">
-        <h2 className="text-[22px] font-semibold text-figma-ink uppercase tracking-wide">
+        <h2 className="text-[22px] font-semibold text-figma-ink">
           {title}
         </h2>
         <button
