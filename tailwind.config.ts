@@ -8,6 +8,22 @@ export default {
       fontFamily: {
         sans: ['var(--font-poppins)', 'system-ui', 'sans-serif'],
       },
+      fontSize: {
+        'type-poppins-medium-12-140-03': ['12px', { lineHeight: '140%', letterSpacing: '0.003em', fontWeight: '500' }],
+        'type-poppins-regular-15-128-03': ['15px', { lineHeight: '128%', letterSpacing: '0.003em', fontWeight: '400' }],
+        'type-poppins-regular-16-128-03': ['16px', { lineHeight: '128%', letterSpacing: '0.003em', fontWeight: '400' }],
+        'type-poppins-regular-17-128-03': ['17px', { lineHeight: '128%', letterSpacing: '0.003em', fontWeight: '400' }],
+        'type-poppins-medium-18-128-03': ['18px', { lineHeight: '128%', letterSpacing: '0.003em', fontWeight: '500' }],
+        'type-poppins-semibold-24-140-03': ['24px', { lineHeight: '140%', letterSpacing: '0.003em', fontWeight: '600' }],
+        'type-poppins-semibold-26-158-03': ['26px', { lineHeight: '158%', letterSpacing: '0.003em', fontWeight: '600' }],
+        'type-poppins-medium-28-128-03': ['28px', { lineHeight: '128%', letterSpacing: '0.003em', fontWeight: '500' }],
+        'type-poppins-semibold-30-128-04': ['30px', { lineHeight: '128%', letterSpacing: '0.04em', fontWeight: '600' }],
+        'typo-card-subtitle': ['14px', { lineHeight: '140%', letterSpacing: '0.003em', fontWeight: '500' }],
+        'typo-card-metric': ['16px', { lineHeight: '140%', letterSpacing: '0.003em', fontWeight: '500' }],
+        'typo-card-price': ['20px', { lineHeight: '128%', letterSpacing: '0.003em', fontWeight: '600' }],
+        'typo-card-caption': ['13px', { lineHeight: '140%', letterSpacing: '0.003em', fontWeight: '500' }],
+        'typo-pill-label': ['12px', { lineHeight: '140%', letterSpacing: '0.003em', fontWeight: '600' }],
+      },
       colors: {
         // Design tokens pulled from Figma "Website Guest UI/UX" (file
         // PkxxdQZz9FfGkmUWhnrMOW). Old `primary`/`brand` scales kept

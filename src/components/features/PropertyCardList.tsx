@@ -103,8 +103,8 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         <div className="flex justify-between items-start gap-4">
           <div className="min-w-0 flex-1">
             <h3
-              className="font-semibold leading-[1.4] tracking-[0.075px] text-figma-ink line-clamp-1 mb-2"
-              style={{ fontSize: 25 }}
+              className="text-figma-ink line-clamp-1 mb-2"
+              style={{ fontSize: '25px', fontWeight: 600, lineHeight: '140%', letterSpacing: '0.075px' }}
             >
               {property.propertyName}
             </h3>
@@ -167,7 +167,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
             {property.originalPrice && (
               <p className="text-[13px] text-figma-ink/40 font-medium line-through mb-0.5">₹ {property.originalPrice.toLocaleString("en-IN")}</p>
             )}
-            <p className="font-semibold text-figma-ink leading-none mb-1" style={{ fontSize: 25 }}>
+            <p className="text-figma-ink leading-none mb-1" style={{ fontSize: '25px', fontWeight: 600, lineHeight: '140%', letterSpacing: '0.075px' }}>
               ₹ {property.price.toLocaleString("en-IN")}
             </p>
             <p className="text-[11px] text-figma-ink/50">+₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>

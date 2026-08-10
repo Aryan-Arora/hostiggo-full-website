@@ -127,7 +127,10 @@ function SignInContent() {
           </button>
         )}
 
-        <h2 className="text-[22px] font-bold text-gray-900 mb-1">
+        <h2
+          className="text-[24px] font-normal text-gray-900 mb-1"
+          style={{ fontFamily: 'Andika New Basic, serif' }}
+        >
           {mode === 'phone' ? 'Sign in with mobile no.' : 'Sign in with email'}
         </h2>
         <p className="text-[13px] text-gray-500 mb-6">
@@ -171,7 +174,8 @@ function SignInContent() {
         <button
           onClick={handleSendOTP}
           disabled={sending}
-          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-normal rounded-xl transition-all text-[16px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+          style={{ fontFamily: 'Albert Sans, sans-serif' }}
         >
           {sending ? 'Sending...' : 'Send OTP'}
         </button>
@@ -179,7 +183,12 @@ function SignInContent() {
         {/* Divider */}
         <div className="flex items-center gap-3 mb-5">
           <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-[12px] text-gray-400 font-medium">OR</span>
+          <span
+            className="text-[16px] text-gray-400 font-medium"
+            style={{ fontFamily: 'Albert Sans, sans-serif' }}
+          >
+            OR
+          </span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 

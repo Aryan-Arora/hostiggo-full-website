@@ -77,32 +77,30 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           review-count both 16px/medium -- all #1a1a1a. */}
       <div className="px-5 pt-4 pb-4">
         <h3
-          className="font-medium leading-[1.4] tracking-[0.054px] text-figma-ink line-clamp-1 mb-1"
-          style={{ fontSize: 18 }}
+          className="text-type-poppins-medium-18-128-03 text-figma-ink line-clamp-1 mb-1"
         >
           {property.propertyName}
         </h3>
         <p
-          className="font-medium leading-[1.4] tracking-[0.042px] text-figma-ink/80 line-clamp-1 mb-2"
-          style={{ fontSize: 14 }}
+          className="text-typo-card-subtitle text-figma-ink/80 line-clamp-1 mb-2"
         >
           {property.city}, {property.state}
         </p>
         <div className="flex items-center gap-1.5 mb-3">
           <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
-          <span className="font-medium text-figma-ink" style={{ fontSize: 16 }}>
+          <span className="text-typo-card-metric text-figma-ink">
             {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
           </span>
-          <span className="font-medium text-figma-ink/60" style={{ fontSize: 16 }}>
+          <span className="text-typo-card-metric text-figma-ink/60">
             · {property.reviewCount} reviews
           </span>
         </div>
         {/* Price — flush to the card's left edge, straight (un-curved) left side, rounded right */}
         <div className="-ml-5 flex w-fit items-baseline gap-1.5 bg-white border border-figma-navy/40 border-l-0 pl-4 pr-4 py-2.5 rounded-r-2xl transition-all duration-200 hover:border-figma-navy hover:shadow-sm">
-          <span className="font-semibold text-figma-ink leading-none whitespace-nowrap" style={{ fontSize: 20 }}>
+          <span className="text-typo-card-price text-figma-ink whitespace-nowrap">
             ₹{property.price.toLocaleString("en-IN")}
           </span>
-          <span className="text-[13px] font-medium text-figma-ink/70 whitespace-nowrap">/night</span>
+          <span className="text-typo-card-caption text-figma-ink/70 whitespace-nowrap">/night</span>
 
         </div>
         <p className="text-[11px] text-figma-ink/50 mt-1.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>

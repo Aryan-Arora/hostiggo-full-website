@@ -1,5 +1,6 @@
 'use client';
 
+import { Check } from "lucide-react";
 import Image from "next/image";
 import SearchForm from "@/components/features/SearchForm";
 
@@ -72,68 +73,86 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
+    <section className="pb-8 lg:pb-12 pt-4 flex items-center">
       <div className="container-main w-full min-w-0">
-        {/* Main white wrapper matching the screenshot's unified container */}
-        <div className="bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-2 sm:p-3 lg:p-4">
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-14 items-center">
+        {/* Outer White Card Container matching Figma screenshot */}
+        <div className="bg-white rounded-[36px] sm:rounded-[44px] p-5 sm:p-7 border border-gray-100 shadow-[0_12px_48px_rgba(0,0,0,0.05)] flex flex-col lg:flex-row gap-8 lg:gap-10 items-center">
 
-            {/* Left: hero image card */}
-            <div
-              className="relative w-full lg:w-[480px] xl:w-[500px] flex-shrink-0 rounded-[2rem] overflow-hidden select-none"
-              style={{ minHeight: 400 }}
-            >
-              <Image
-                src={heroBg}
-                alt="Aerial view of a beach"
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 500px"
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-              <div className="relative z-10 p-7 sm:p-9 flex flex-col h-full" style={{ minHeight: 400 }}>
-                <p className="text-white/90 text-sm font-medium tracking-wide mb-1">Discover your next</p>
-                <h1 className="text-white font-extrabold leading-[1.1] mb-auto" style={{ fontSize: "clamp(2.8rem,5vw,3.8rem)" }}>
-                  Perfect stay
-                </h1>
+          {/* Left: hero image card */}
+          <div
+            className="relative w-full lg:w-[480px] xl:w-[510px] flex-shrink-0 rounded-[28px] sm:rounded-[36px] overflow-hidden select-none"
+            style={{ minHeight: 460 }}
+          >
+            <Image
+              src={heroBg}
+              alt="Aerial view of a beach"
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 510px"
+              className="object-cover"
+              quality={95}
+            />
+            {/* Subtle dark gradient overlay for black-toned image feel */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/25 to-black/50" />
 
-                {/* Popular Choices Glass Panel */}
-                <div className="mt-auto pt-6">
-                  <div className="bg-white/5 backdrop-blur-md border border-white/10 rounded-3xl p-6 shadow-sm">
-                    <h3 className="text-center text-white/90 font-medium tracking-[0.3em] uppercase text-xs mb-5">
-                      Popular Choices
-                    </h3>
-                    <div className="flex flex-wrap justify-center gap-2.5">
-                      {HERO_TAGS.map(({ id, label }) => {
-                        const checked = isChecked(id);
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => toggleTag(id)}
-                            aria-pressed={checked}
+            <div className="relative z-10 p-6 sm:p-8 flex flex-col h-full" style={{ minHeight: 480 }}>
+              {/* Text styling matching Figma Dev Mode exactly */}
+              <p className="text-white mb-0" style={{ fontSize: '32px', fontWeight: 400, lineHeight: '140%', letterSpacing: '0.003em' }}>
+                Discover your next
+              </p>
+              <h1 className="text-white mb-auto" style={{ fontSize: '55px', fontWeight: 600, lineHeight: '140%', letterSpacing: '0.003em' }}>
+                Perfect stay
+              </h1>
+
+              {/* Popular Choices Glass Panel */}
+              <div className="mt-auto pt-4">
+                <div
+                  className="backdrop-blur-[2px] rounded-[24px] p-4 sm:p-5"
+                  style={{
+                    background: 'rgba(255, 255, 255, 0.06)',
+                    border: '1px solid rgba(255, 255, 255, 0.15)',
+                    boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
+                  }}
+                >
+                  <h3 className="text-center text-white mb-3.5" style={{ fontSize: '22px', fontWeight: 500, lineHeight: '140%', letterSpacing: '0.17em' }}>
+                    Popular Choices
+                  </h3>
+
+                  {/* Rectangular option boxes with square checkboxes */}
+                  <div className="flex flex-wrap justify-center gap-2">
+                    {HERO_TAGS.map(({ id, label }) => {
+                      const checked = isChecked(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleTag(id)}
+                          aria-pressed={checked}
+                          className="flex items-center gap-2 text-type-poppins-regular-15-128-03 text-[#1B1B1B] px-3.5 py-2 rounded-xl bg-white hover:bg-white transition-all cursor-pointer shadow-sm border border-gray-100/80"
+                        >
+                          <span
                             className={cn(
-                              "text-xs font-semibold px-4 py-2 rounded-full shadow-sm transition-colors cursor-pointer",
+                              "w-4 h-4 rounded-[4px] flex items-center justify-center transition-colors flex-shrink-0",
                               checked
-                                ? "bg-figma-navy text-white"
-                                : "bg-white hover:bg-white/90 text-gray-700",
+                                ? "bg-figma-navy text-white border border-figma-navy"
+                                : "bg-white border border-gray-300"
                             )}
                           >
-                            {label}
-                          </button>
-                        );
-                      })}
-                    </div>
+                            {checked && <Check className="w-3 h-3 stroke-[3]" />}
+                          </span>
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Right: search panel */}
-            <div className="flex-1 flex flex-col justify-center py-6 lg:py-0 w-full lg:max-w-md pr-0 lg:pr-8 mx-auto">
-              <SearchForm />
-            </div>
+          {/* Right: search panel */}
+          <div className="flex-1 flex flex-col justify-center py-2 lg:py-0 w-full lg:max-w-md mx-auto">
+            <SearchForm />
           </div>
         </div>
       </div>
