@@ -35,7 +35,7 @@ export default function MapPicker({
   const [gettingLocation, setGettingLocation] = useState(false);
 
   // Keep the map in sync when the parent supplies new coordinates (e.g. the
-  // user picked an address-search suggestion) — the map only followed
+  // user picked an address-search suggestion), the map only followed
   // marker-drags and "use current location" before this, silently ignoring
   // address search.
   useEffect(() => {

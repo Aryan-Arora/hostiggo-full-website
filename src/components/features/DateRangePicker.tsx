@@ -134,7 +134,7 @@ export default function DateRangePicker({ checkIn, checkOut, onChange, onClose, 
   const [baseMonth, setBaseMonth] = useState(today.getMonth());
   const [selecting, setSelecting] = useState<"checkin"|"checkout">(checkIn ? "checkout" : "checkin");
   const [hoverDate, setHoverDate] = useState<Date | null>(null);
-  // Date flexibility (visual for now — "Exact dates" is the default).
+  // Date flexibility (visual for now, "Exact dates" is the default).
   const [flex, setFlex] = useState("exact");
 
   // Click-and-drag range selection: mousedown on a day starts a drag: holding

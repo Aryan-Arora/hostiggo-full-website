@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest) {
     const { action, bookingId, userId } = body;
     if (!bookingId) return NextResponse.json({ error: "bookingId is required" }, { status: 400 });
 
-    // status/dates/guests all mutate an existing guest booking — require
+    // status/dates/guests all mutate an existing guest booking, require
     // the caller's userId so ownership can be verified (see
     // assertOwnsBooking in bookings.ts). "review" is a new row, not a
     // mutation of someone else's data, so it doesn't need this.

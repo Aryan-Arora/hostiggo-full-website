@@ -172,7 +172,7 @@ export const HotelServiceApi = {
   ): Promise<ListingRow[]> => {
     // Resolve matching location ids first (filtering listings on an embedded
     // location column is unreliable via PostgREST), then fetch listings in those
-    // locations — mirroring the proven getListingsByLocationId path.
+    // locations, mirroring the proven getListingsByLocationId path.
     const { data: locs, error: locErr } = await supabase
       .from('locations')
       .select('location_id')
@@ -343,11 +343,11 @@ export const HotelServiceApi = {
     }
 
     // listing_house_rules and listing_safety_details have RLS policies that
-    // block the anon client's SELECT entirely (confirmed live — rows exist
+    // block the anon client's SELECT entirely (confirmed live, rows exist
     // but the anon key always sees an empty result), unlike the other
     // tables joined above. Fetch these two with the service-role client
     // instead so real host-entered data actually reaches the guest page.
-    // Note: use a plain array select + take [0], not .maybeSingle() — in
+    // Note: use a plain array select + take [0], not .maybeSingle(), in
     // this Promise.all/dev-server context .maybeSingle() reproducibly
     // returned null even though the row genuinely exists (confirmed via an
     // isolated script and a plain array query against the identical

@@ -142,7 +142,7 @@ export default function OTPPageContent() {
         router.push(redirect || `/onboarding?mode=${mode}`);
       } else {
         // Supabase returned without throwing but didn't give us a real user
-        // + session — this used to silently navigate to `redirect` anyway,
+        // + session, this used to silently navigate to `redirect` anyway,
         // which could land the visitor on a protected page without ever
         // actually signing them in. Treat it as a failed verification.
         toast.error('Could not verify OTP. Please try again.');

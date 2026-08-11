@@ -38,7 +38,7 @@ interface MenuItem {
   to?: string;
   danger?: boolean;
   action?: () => void;
-  // Placeholder for a feature that isn't built yet — rendered disabled with a
+  // Placeholder for a feature that isn't built yet, rendered disabled with a
   // "Soon" pill so the slot stays in the menu without being a dead link.
   soon?: boolean;
 }

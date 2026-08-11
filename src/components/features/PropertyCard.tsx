@@ -95,7 +95,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             · {property.reviewCount} reviews
           </span>
         </div>
-        {/* Price — flush to the card's left edge, straight (un-curved) left side, rounded right */}
+        {/* Price, flush to the card's left edge, straight (un-curved) left side, rounded right */}
         <div className="-ml-5 flex w-fit items-baseline gap-1.5 bg-white border border-figma-navy/40 border-l-0 pl-4 pr-4 py-2.5 rounded-r-2xl transition-all duration-200 hover:border-figma-navy hover:shadow-sm">
           <span className="text-typo-card-price text-figma-ink whitespace-nowrap">
             ₹{property.price.toLocaleString("en-IN")}

@@ -210,7 +210,7 @@ export default function CalendarPage() {
 
     const isBooked = (dateStr: string): { booked: boolean; guest?: string } => {
       for (const b of bookings) {
-        // Booked for [start_date, end_date) — checkout day is free.
+        // Booked for [start_date, end_date), checkout day is free.
         if (b.start_date && b.end_date && dateStr >= b.start_date && dateStr < b.end_date) {
           return { booked: true, guest: b.guest?.name };
         }
@@ -453,7 +453,7 @@ export default function CalendarPage() {
                   </div>
 
                   {selected.status === 'booked' ? (
-                    // Booked days are read-only — can't re-price or block a reserved night.
+                    // Booked days are read-only, can't re-price or block a reserved night.
                     <>
                       <div className="space-y-4 mb-6">
                         <div className="flex justify-between items-center py-2 border-b border-gray-100">
