@@ -27,7 +27,7 @@ import { calculateHostPayout } from '@/lib/billing/payout';
 const FALLBACK_PROPERTY =
   'https://images.unsplash.com/photo-1613490493576-7fde63acd811?w=200&h=200&fit=crop&q=80';
 
-// Bookings are instant-confirmed on creation — booking_status only ever
+// Bookings are instant-confirmed on creation, booking_status only ever
 // defines 2 (CONFIRMED) and 3 (CANCELLED), there is no pending/approval step.
 const STATUS_LABEL: Record<number, string> = { 2: 'Confirmed', 3: 'Cancelled' };
 

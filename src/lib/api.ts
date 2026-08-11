@@ -150,11 +150,11 @@ export function mapListingToProperty(input: any): Property {
     host: buildHost(row),
     reviews,
     // No per-category (cleanliness/accuracy/communication/location/checkIn/
-    // value) rating exists anywhere in the schema — only a single overall
-    // `rating` per review — so no ratingBreakdown is fabricated here.
+    // value) rating exists anywhere in the schema, only a single overall
+    // `rating` per review, so no ratingBreakdown is fabricated here.
     houseRules: (() => {
       // listing_house_rules is one structured row per listing (booleans +
-      // times), not a list of free-text rules — build readable strings
+      // times), not a list of free-text rules, build readable strings
       // from it. Supabase may return it as an object or a 1-item array
       // depending on the relationship hint, so handle both.
       const hr = Array.isArray(row.listing_house_rules)
@@ -224,7 +224,7 @@ export function mapBooking(item: any) {
   const checkOut = new Date(item.end_date);
   const status = String(item.booking_label ?? "upcoming").toLowerCase();
 
-  // Only build real coordinates when the listing actually has them — the
+  // Only build real coordinates when the listing actually has them, the
   // guest-facing "Location" button previously defaulted to 22.5937,78.9629
   // (the geographic center of India) whenever they were missing, silently
   // sending guests to the wrong place instead of telling them it's unknown.
@@ -355,7 +355,7 @@ export const api = {
     numAdults?: number;
     numChildren?: number;
     addonIds?: number[];
-    // amount is intentionally not accepted here — the server recomputes the
+    // amount is intentionally not accepted here, the server recomputes the
     // real charge from the listing's own prices, see createBooking() in
     // src/lib/services/admin-writes.ts
   }) =>

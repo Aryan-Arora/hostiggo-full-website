@@ -3,7 +3,7 @@
 @tailwind utilities;
 
 /* Leaflet renders its controls (zoom, attribution) at z-index up to 1000, and
-   its `.leaflet-container` does not establish its own stacking context — so
+   its `.leaflet-container` does not establish its own stacking context, so
    those controls escape into the page's root stacking context and paint over
    app overlays such as the search destination dropdown. Isolating every map
    into its own stacking context caps all of Leaflet's internal z-indexes

@@ -5,7 +5,7 @@ export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
 }
 
-/** yyyy-mm-dd in local time. Never use `date.toISOString()` for this — it
+/** yyyy-mm-dd in local time. Never use `date.toISOString()` for this, it
  * converts to UTC first, which silently shifts the date back a day in any
  * timezone ahead of UTC (e.g. IST). */
 export function toISODate(d: Date | null): string | null {

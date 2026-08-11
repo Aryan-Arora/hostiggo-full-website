@@ -44,7 +44,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    // Note: any `amount` sent by the client is intentionally ignored —
+    // Note: any `amount` sent by the client is intentionally ignored,
     // createBooking() always recomputes the real charge server-side. Only
     // *which* addonIds were picked comes from the client; their price is
     // always looked up fresh from listing_addons inside createBooking().

@@ -25,7 +25,7 @@ export async function GET(
 }
 
 // House rules are one structured row per listing (booleans + times), not a
-// list — so saving is always an upsert on the whole row, not add/edit/delete
+// list, so saving is always an upsert on the whole row, not add/edit/delete
 // of individual items.
 export async function PATCH(
   request: NextRequest,

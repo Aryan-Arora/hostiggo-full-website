@@ -30,7 +30,7 @@ export type CityGuide = {
  * Curated "city guides" that power the destination search dropdown. When the
  * user types a city that has a guide, the dropdown surfaces its popular areas.
  * Listings are stored at city/district level, so selecting an area searches the
- * parent city's stays — the area name is carried through only as context for the
+ * parent city's stays, the area name is carried through only as context for the
  * results header (true per-area filtering would need each listing area-tagged).
  */
 export const CITY_GUIDES: CityGuide[] = [
