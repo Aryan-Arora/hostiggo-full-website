@@ -80,8 +80,7 @@ export default function HeroSection() {
 
           {/* Left: hero image card */}
           <div
-            className="relative w-full lg:w-[480px] xl:w-[510px] flex-shrink-0 rounded-[28px] sm:rounded-[36px] overflow-hidden select-none"
-            style={{ minHeight: 460 }}
+            className="relative w-full lg:w-[480px] xl:w-[510px] flex-shrink-0 rounded-[28px] sm:rounded-[36px] overflow-hidden select-none min-h-[340px] sm:min-h-[400px] lg:min-h-[460px]"
           >
             <Image
               src={heroBg}
@@ -95,12 +94,12 @@ export default function HeroSection() {
             {/* Subtle dark gradient overlay for black-toned image feel */}
             <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/25 to-black/50" />
 
-            <div className="relative z-10 p-6 sm:p-8 flex flex-col h-full" style={{ minHeight: 480 }}>
-              {/* Text styling matching Figma Dev Mode exactly */}
-              <p className="text-white mb-0" style={{ fontSize: '32px', fontWeight: 400, lineHeight: '140%', letterSpacing: '0.003em' }}>
+            <div className="relative z-10 p-6 sm:p-8 flex flex-col h-full min-h-[340px] sm:min-h-[420px] lg:min-h-[480px]">
+              {/* Text styling matching Figma Dev Mode exactly, scaled down below the lg breakpoint so it doesn't overflow the card on phones */}
+              <p className="text-white mb-0 text-[20px] sm:text-[26px] lg:text-[32px]" style={{ fontWeight: 400, lineHeight: '140%', letterSpacing: '0.003em' }}>
                 Discover your next
               </p>
-              <h1 className="text-white mb-auto" style={{ fontSize: '55px', fontWeight: 600, lineHeight: '140%', letterSpacing: '0.003em' }}>
+              <h1 className="text-white mb-auto text-[32px] sm:text-[42px] lg:text-[55px]" style={{ fontWeight: 600, lineHeight: '140%', letterSpacing: '0.003em' }}>
                 Perfect stay
               </h1>
 
@@ -114,7 +113,7 @@ export default function HeroSection() {
                     boxShadow: '0 8px 32px rgba(0, 0, 0, 0.06)',
                   }}
                 >
-                  <h3 className="text-center text-white mb-3.5" style={{ fontSize: '22px', fontWeight: 500, lineHeight: '140%', letterSpacing: '0.17em' }}>
+                  <h3 className="text-center text-white mb-3.5 text-[15px] sm:text-[18px] lg:text-[22px]" style={{ fontWeight: 500, lineHeight: '140%', letterSpacing: '0.17em' }}>
                     Popular Choices
                   </h3>
 
