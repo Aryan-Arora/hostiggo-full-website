@@ -324,11 +324,11 @@ export default function SearchForm() {
             />
             <div className="min-w-0 flex-1">
               {location.query ? (
-                <p className="text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-black truncate">
+                <p className="text-[15px] sm:text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-black truncate">
                   {location.query}
                 </p>
               ) : (
-                <p className="text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-[#888888] truncate">
+                <p className="text-[15px] sm:text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-[#888888] truncate">
                   Search destination or homestay
                 </p>
               )}
@@ -368,7 +368,7 @@ export default function SearchForm() {
                     className="w-5 h-5 text-gray-700 flex-shrink-0"
                     strokeWidth={1.7}
                   />
-                  <p className="text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
+                  <p className="text-[15px] sm:text-[18px] lg:text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
                     Check In
                   </p>
                 </div>
@@ -379,7 +379,7 @@ export default function SearchForm() {
                         weekday: 'long',
                       })}
                     </p>
-                    <p className="text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
+                    <p className="text-[16px] sm:text-[19px] lg:text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
                       {fmtDate(dates.checkIn)}
                     </p>
                   </>
@@ -407,7 +407,7 @@ export default function SearchForm() {
                     className="w-5 h-5 text-gray-700 flex-shrink-0"
                     strokeWidth={1.7}
                   />
-                  <p className="text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
+                  <p className="text-[15px] sm:text-[18px] lg:text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
                     Check Out
                   </p>
                 </div>
@@ -418,7 +418,7 @@ export default function SearchForm() {
                         weekday: 'long',
                       })}
                     </p>
-                    <p className="text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
+                    <p className="text-[16px] sm:text-[19px] lg:text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
                       {fmtDate(dates.checkOut)}
                     </p>
                   </>
@@ -459,7 +459,7 @@ export default function SearchForm() {
               className="w-5 h-5 text-gray-600 flex-shrink-0"
               strokeWidth={1.5}
             />
-            <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
+            <div className="min-w-0 flex-1 flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-[14px] sm:text-[17px] lg:text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
               <span>{guests.adults} Adults</span>
               <span className="text-gray-400">•</span>
               <span>{guests.rooms} Room</span>
