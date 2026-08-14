@@ -17,6 +17,11 @@ const MONTH_NAMES = [
   "July","August","September","October","November","December",
 ];
 
+function fmtDate(d: Date | null) {
+  if (!d) return "N/A";
+  return d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
+
 function daysInMonth(y: number, m: number) { return new Date(y, m + 1, 0).getDate(); }
 // Offset of the 1st with a Monday-first week (Mon=0 … Sun=6).
 function firstDayOf(y: number, m: number) { return (new Date(y, m, 1).getDay() + 6) % 7; }
@@ -225,9 +230,34 @@ export default function DateRangePicker({
 
   return (
     <div
-      className="dropdown-panel !relative shrink-0 animate-fade-in-down p-6"
+      className="dropdown-panel !relative shrink-0 animate-fade-in-down p-6 max-h-[min(80vh,650px)] overflow-y-auto"
       style={{ width: "min(720px, 95vw)" }}
     >
+      {/* Date selection header */}
+      <div className="flex gap-3 mb-5">
+        {[
+          { label: "Check in", date: checkIn, panel: "checkin" as const },
+          { label: "Check out", date: checkOut, panel: "checkout" as const },
+        ].map(({ label, date, panel }) => (
+          <button
+            key={panel}
+            type="button"
+            onClick={() => setSelecting(panel)}
+            className={cn(
+              "flex-1 border rounded-xl p-3 text-left transition-all",
+              selecting === panel
+                ? "border-figma-navy bg-figma-navy/5 shadow-sm"
+                : "border-gray-200 hover:border-gray-300"
+            )}
+          >
+            <p className="text-[10px] font-semibold text-gray-500 uppercase tracking-wide mb-1">{label}</p>
+            <p className={cn("text-sm font-semibold", date ? "text-gray-900" : "text-gray-400")}>
+              {fmtDate(date)}
+            </p>
+          </button>
+        ))}
+      </div>
+
       {/* Two-month calendars with edge navigation */}
       <div className="relative overflow-x-auto scrollbar-hide">
         {!atCurrentMonth && (
@@ -294,6 +324,24 @@ export default function DateRangePicker({
             {o.label}
           </button>
         ))}
+      </div>
+
+      {/* Footer actions */}
+      <div className="flex items-center justify-between mt-4 pt-4 border-t border-gray-100">
+        <button
+          type="button"
+          onClick={() => { onChange(null, null); setSelecting("checkin"); }}
+          className="text-sm text-gray-400 hover:text-gray-700 transition-colors font-medium underline underline-offset-2"
+        >
+          Clear dates
+        </button>
+        <button
+          type="button"
+          onClick={onClose}
+          className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-6 py-2 rounded-xl text-sm font-semibold transition-colors shadow-sm"
+        >
+          Done
+        </button>
       </div>
     </div>
   );
