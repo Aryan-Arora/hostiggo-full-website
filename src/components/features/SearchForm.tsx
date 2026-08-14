@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
-import { Search, Calendar, Users, ChevronDown, X, MapPin } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, X, MapPin, ArrowRight } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import DestinationDropdown from '@/components/features/DestinationDropdown';
@@ -70,23 +70,23 @@ export function CompactSearchBar() {
         <button
           onClick={() => toggle('destination')}
           className={cn(
-            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border',
             activePanel === 'destination'
-              ? 'border-figma-navy/40'
-              : 'border-transparent',
+              ? 'border-figma-navy/40 shadow-sm'
+              : 'border-transparent hover:border-gray-200',
           )}
         >
           <Search
-            className="w-5 h-5 text-gray-400 flex-shrink-0"
-            strokeWidth={2.5}
+            className="w-5 h-5 text-gray-500 flex-shrink-0"
+            strokeWidth={1.75}
           />
           <span
             className={cn(
-              'text-[14px] font-medium truncate',
-              location.query ? 'text-gray-900' : 'text-gray-400',
+              'text-[14px] truncate flex-1',
+              location.query ? 'text-gray-900 font-normal' : 'text-gray-500 font-normal',
             )}
           >
-            {location.query || 'New Delhi'}
+            {location.query || 'Search destination...'}
           </span>
           {location.query && (
             <span
@@ -130,62 +130,53 @@ export function CompactSearchBar() {
         <button
           onClick={() => toggle('date')}
           className={cn(
-            'w-full h-[52px] flex items-center gap-4 px-5 rounded-full bg-white transition-all text-left border-2',
-            activePanel === 'date' ? 'border-figma-navy/40' : 'border-transparent',
+            'w-full h-[52px] flex items-center gap-4 px-5 rounded-full bg-white transition-all text-left border',
+            activePanel === 'date'
+              ? 'border-figma-navy/40 shadow-sm'
+              : 'border-transparent hover:border-gray-200',
           )}
         >
           <Calendar
-            className="w-5 h-5 text-gray-600 flex-shrink-0"
+            className="w-5 h-5 text-gray-500 flex-shrink-0"
             strokeWidth={1.5}
           />
-          <div className="flex items-center gap-6 min-w-0 flex-1">
+          <div className="flex items-center justify-between sm:justify-start sm:gap-6 min-w-0 flex-1">
             <div className="min-w-0">
               {dates.checkIn ? (
                 <>
-                  <p className="text-[13px] font-bold text-gray-900 leading-none mb-1">
+                  <p className="text-[13px] font-medium text-gray-900 leading-tight">
                     {fmtDate(dates.checkIn)}
                   </p>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-gray-400 font-normal leading-tight mt-0.5">
                     {dates.checkIn.toLocaleDateString('en-US', {
                       weekday: 'long',
                     })}
                   </p>
                 </>
               ) : (
-                <p className="text-[13px] text-gray-400">Add dates</p>
+                <p className="text-[13px] text-gray-500 font-normal">Add dates</p>
               )}
             </div>
 
-            <svg
-              width="14"
-              height="12"
-              viewBox="0 0 14 12"
-              fill="none"
-              className="text-gray-300 flex-shrink-0"
-            >
-              <path
-                d="M1 6H13M13 6L8.5 1.5M13 6L8.5 10.5"
-                stroke="currentColor"
-                strokeWidth="1.5"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-              />
-            </svg>
+            <ArrowRight
+              className="w-4 h-4 text-gray-400 flex-shrink-0 my-auto"
+              strokeWidth={1.75}
+            />
 
             <div className="min-w-0">
               {dates.checkOut ? (
                 <>
-                  <p className="text-[13px] font-bold text-gray-900 leading-none mb-1">
+                  <p className="text-[13px] font-medium text-gray-900 leading-tight">
                     {fmtDate(dates.checkOut)}
                   </p>
-                  <p className="text-[11px] text-gray-400">
+                  <p className="text-[11px] text-gray-400 font-normal leading-tight mt-0.5">
                     {dates.checkOut.toLocaleDateString('en-US', {
                       weekday: 'long',
                     })}
                   </p>
                 </>
               ) : (
-                <p className="text-[13px] text-gray-400">Add dates</p>
+                <p className="text-[13px] text-gray-500 font-normal">Add dates</p>
               )}
             </div>
           </div>
@@ -208,31 +199,30 @@ export function CompactSearchBar() {
       </div>
 
       {/* Guests Pill */}
-      <div className="relative z-[1100] w-full sm:flex-[1.3] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.4] min-w-0">
         <button
           onClick={() => toggle('guests')}
           className={cn(
-            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border',
             activePanel === 'guests'
-              ? 'border-figma-navy/40'
-              : 'border-transparent',
+              ? 'border-figma-navy/40 shadow-sm'
+              : 'border-transparent hover:border-gray-200',
           )}
         >
           <Users
             className="w-5 h-5 text-gray-500 flex-shrink-0"
             strokeWidth={1.5}
           />
-          <div className="flex-1 truncate">
-            <p className="text-[13px] font-bold text-gray-800">
-              {guests.adults} Adults • {guests.rooms} Room
-            </p>
-            <p className="text-[11px] text-gray-400">
-              {guests.children} Children
-            </p>
+          <div className="flex-1 min-w-0 truncate text-[13px] font-normal leading-none">
+            <span className="text-gray-800 font-medium">{guests.adults} Adults</span>
+            <span className="text-gray-400 mx-1.5">•</span>
+            <span className="text-gray-800 font-medium">{guests.rooms} Room</span>
+            <span className="text-gray-400 mx-1.5">•</span>
+            <span className="text-gray-400">{guests.children} Children</span>
           </div>
           <ChevronDown
             className={cn(
-              'w-5 h-5 text-gray-400 transition-transform',
+              'w-4 h-4 text-gray-400 transition-transform flex-shrink-0',
               activePanel === 'guests' && 'rotate-180',
             )}
           />
@@ -256,7 +246,7 @@ export function CompactSearchBar() {
       {/* Search Button */}
       <button
         onClick={handleSearch}
-        className="h-[52px] px-8 w-full sm:w-auto bg-primary-gradient border-2 border-white/20 text-white font-bold text-[15px] rounded-full transition-all shadow-md active:scale-95 sm:flex-shrink-0"
+        className="h-[52px] px-8 w-full sm:w-auto bg-primary-gradient border border-white text-white font-medium sm:font-semibold text-[15px] rounded-full transition-all shadow-md active:scale-95 sm:flex-shrink-0 hover:opacity-95"
       >
         Search
       </button>
