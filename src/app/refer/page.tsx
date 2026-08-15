@@ -10,7 +10,7 @@ const STEPS: { icon: LucideIcon; title: string; desc: string }[] = [
   { icon: PartyPopper, title: '3. Earn Rewards', desc: 'Both you and your friend enjoy 0% commission for 3 months.' },
 ];
 
-// There is no referral system in the backend yet — no referral codes,
+// There is no referral system in the backend yet, no referral codes,
 // tracking, or reward ledger exist anywhere in the schema. This page
 // previously showed a hardcoded fake code, fake ₹28,900 earnings, and a
 // fake referral history table as if they were real account data. Until the
@@ -38,7 +38,7 @@ export default function ReferPage() {
           <div className="absolute top-0 right-0 -mr-20 -mt-20 w-80 h-80 bg-white/10 rounded-full blur-3xl" />
         </section>
 
-        {/* Coming soon — no referral tracking/reward system exists yet */}
+        {/* Coming soon, no referral tracking/reward system exists yet */}
         <div className="bg-white rounded-3xl p-10 shadow-card border border-gray-200 mb-16 text-center">
           <h3 className="text-lg font-bold text-gray-800 mb-2">Referral program coming soon</h3>
           <p className="text-sm text-gray-500 max-w-md mx-auto">

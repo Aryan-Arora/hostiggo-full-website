@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
     const action = body.action ?? "add";
 
     if (action === "add") {
-      // Only pass the real wishlists columns through — the raw body also
+      // Only pass the real wishlists columns through, the raw body also
       // carries `action`, which isn't a column and made every insert fail
       // with "Could not find the 'action' column of 'wishlists'".
       const { user_id, listing_id, category_id } = body;

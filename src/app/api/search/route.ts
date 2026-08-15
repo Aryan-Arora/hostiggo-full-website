@@ -39,7 +39,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Stay type filter (Private room / Shared room / Entire property) —
+    // Stay type filter (Private room / Shared room / Entire property),
     // same reasoning: filter on the real stay_type_title from the RPC row.
     if (filters?.stayTypes?.length && data?.length) {
       const wanted = new Set(filters.stayTypes.map((t: string) => t.toLowerCase()));

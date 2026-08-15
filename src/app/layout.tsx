@@ -5,6 +5,7 @@ import { AuthProvider as CustomAuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
 import SupabaseAuthProvider from '@/components/providers/AuthProvider';
+import { Analytics } from '@vercel/analytics/next';
 
 // Figma "Website Guest UI/UX" uses Poppins (Regular/Medium/SemiBold/Bold)
 // throughout -- this replaces the never-actually-loaded "Inter" fallback.
@@ -36,6 +37,7 @@ export default function RootLayout({
             </ListingFilterProvider>
           </CustomAuthProvider>
         </SupabaseAuthProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -92,7 +92,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
       style={{ boxShadow: "0px 4px 75.4px 0px rgba(0,0,0,0.08)" }}
       onClick={handleNavigate}
     >
-      {/* Image — Figma uses a square (299x299 at an 855-wide card, ~35%) */}
+      {/* Image, Figma uses a square (299x299 at an 855-wide card, ~35%) */}
       <div className="relative flex-shrink-0 w-full sm:w-[35%] aspect-square rounded-[35px] overflow-hidden">
         <Image
           src={imgErr ? FALLBACK : property.images[0] || FALLBACK}
@@ -133,7 +133,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
               {property.propertyName}
             </h3>
 
-            {/* Rating Block — show an honest "New" badge instead of a fake
+            {/* Rating Block, show an honest "New" badge instead of a fake
                 score when the listing has no real reviews yet, so this
                 doesn't contradict the guest-rating filter which correctly
                 excludes listings with no genuine rating. */}

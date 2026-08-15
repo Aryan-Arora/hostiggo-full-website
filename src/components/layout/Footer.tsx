@@ -42,7 +42,7 @@ const socials = [
   { Icon: Twitter, label: "X" },
 ];
 
-// Download badges are placeholders — the apps aren't published yet, so these
+// Download badges are placeholders, the apps aren't published yet, so these
 // render as non-interactive "coming soon" tiles rather than dead links.
 function AppStoreBadge() {
   return (
@@ -89,7 +89,7 @@ export default function Footer() {
       {/* Full-width divider separating page content from the footer */}
       <div className="w-full h-px bg-[#E5E7EB]" />
 
-      {/* Main footer — white background, content in a centered 1100px container */}
+      {/* Main footer, white background, content in a centered 1100px container */}
       <div className="bg-white">
         <div className="mx-auto max-w-[1100px] px-6 pt-10 pb-10">
           {/* 4 columns (3 link sections + Download App) → 2 on tablet → 1 (centered) on mobile */}
@@ -130,7 +130,7 @@ export default function Footer() {
             </div>
           </div>
 
-          {/* Language + social row — centered, 28px above */}
+          {/* Language + social row, centered, 28px above */}
           <div className="mt-7 flex flex-col sm:flex-row items-center justify-center gap-4">
             <button className="flex items-center gap-1.5 text-[#111827] hover:text-black text-[14px] font-semibold transition-colors">
               <Languages className="w-4 h-4" /> English

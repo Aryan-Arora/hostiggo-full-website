@@ -150,11 +150,11 @@ function CheckRow({
 }
 
 // Only the property types actually offered in the host's create-listing
-// wizard (src/app/host/list/property-type/page.tsx) — these are the only
+// wizard (src/app/host/list/property-type/page.tsx), these are the only
 // values a host can ever choose, so they're the only ones worth filtering by.
 const PROPERTY_TYPES = ['House', 'Apartment / Flat', 'Guest House', 'Hotel', 'Cabin', 'Villa', 'Treehouse', 'Tiny Home', 'Farm Stay'];
 // Only amenities that have a real catalogue row AND a working id mapping on
-// the host side (src/app/host/list/amenities/page.tsx AMENITY_DB_ID) — labels
+// the host side (src/app/host/list/amenities/page.tsx AMENITY_DB_ID), labels
 // match the real `amenities.name` values exactly so the fuzzy resolver in
 // ListingFilterContext always finds an exact (not guessed) match.
 const AMENITY_LIST = [
@@ -221,9 +221,9 @@ function PriceSlider({
         </div>
       </div>
 
-      {/* Dual range track — px-3 gives thumb room at both edges */}
+      {/* Dual range track, px-3 gives thumb room at both edges */}
       <div className="relative h-10 flex items-center mb-5 px-3 w-full">
-        {/* Background track — inset to match padding */}
+        {/* Background track, inset to match padding */}
         <div className="absolute left-3 right-3 h-[5px] bg-gray-200 rounded-full" />
         {/* Active range fill */}
         <div
@@ -243,7 +243,7 @@ function PriceSlider({
           className="absolute w-5 h-5 bg-white rounded-full shadow-md border-2 border-[#004772] pointer-events-none z-30"
           style={{ left: `calc(${pct2}% * (100% - 24px) / 100% + 2px)` }}
         />
-        {/* Min range input — range-thumb-only lets clicks pass through the
+        {/* Min range input, range-thumb-only lets clicks pass through the
             invisible track so only its own thumb is grabbable, otherwise
             the max slider (drawn on top) intercepts everything including
             drags near the ₹0 end. */}
@@ -339,7 +339,7 @@ export default function FiltersSidebar({
         <Section title="Popular Filters">
           <div className="flex flex-wrap gap-2 mt-1">
             {/* Private room / Shared room are the only "Popular Filters"
-                concepts with a real backing field (stay_types.title) —
+                concepts with a real backing field (stay_types.title),
                 everything else that used to live here (free cancellation,
                 free breakfast, couple/family friendly, etc.) has no
                 corresponding column anywhere in the schema or the
