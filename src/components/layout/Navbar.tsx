@@ -1,35 +1,34 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useSupabaseAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 import {
-  Globe,
-  IndianRupee,
-  Menu,
-  X,
-  MessageCircle,
-  Heart,
   Clock,
-  User,
-  Settings,
-  Star,
+  Gift,
+  Globe,
+  Heart,
   HelpCircle,
   Home,
+  IndianRupee,
   LogOut,
-  Gift,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
+  Menu,
+  MessageCircle,
+  Settings,
+  Star,
+  User,
+  X,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 // Signed-in user display fallback -- must match the placeholder used in
 // account/profile/page.tsx so an unset profile photo looks the same
 // everywhere instead of showing a different random face per page.
 const USER = {
-  name: 'Account',
-  avatar: 'https://i.pravatar.cc/200?img=45',
+  name: "Account",
+  avatar: "https://i.pravatar.cc/200?img=45",
 };
 
 interface MenuItem {
@@ -45,42 +44,54 @@ interface MenuItem {
 
 const MENU_GROUPS: MenuItem[][] = [
   [
-    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '/chat' },
+    {
+      icon: <MessageCircle className="w-4 h-4" />,
+      label: "Chats",
+      to: "/chat",
+    },
     {
       icon: <Heart className="w-4 h-4" />,
-      label: 'Wishlists',
-      to: '/wishlist',
+      label: "Wishlists",
+      to: "/wishlist",
     },
     {
       icon: <Clock className="w-4 h-4" />,
-      label: 'Memories',
-      to: '/my-memories',
+      label: "Memories",
+      to: "/my-memories",
     },
-    { icon: <User className="w-4 h-4" />, label: 'Profile', to: '/account/profile' },
+    {
+      icon: <User className="w-4 h-4" />,
+      label: "Profile",
+      to: "/account/profile",
+    },
   ],
   [
     {
       icon: <Settings className="w-4 h-4" />,
-      label: 'Account Settings',
-      to: '/account/settings',
+      label: "Account Settings",
+      to: "/account/settings",
     },
-    { icon: <Star className="w-4 h-4" />, label: 'My reviews', to: '/host/reviews' },
+    {
+      icon: <Star className="w-4 h-4" />,
+      label: "My reviews",
+      to: "/host/reviews",
+    },
     {
       icon: <Gift className="w-4 h-4" />,
-      label: 'Refer & earn',
-      to: '/refer',
+      label: "Refer & earn",
+      to: "/refer",
     },
     {
       icon: <HelpCircle className="w-4 h-4" />,
-      label: 'Customer support',
-      to: '/support',
+      label: "Customer support",
+      to: "/support",
     },
   ],
   [
     {
       icon: <Home className="w-4 h-4 text-amber-500" />,
-      label: 'Host & Earn',
-      to: '/host/listings',
+      label: "Host & Earn",
+      to: "/host/listings",
     },
   ],
 ];
@@ -108,8 +119,8 @@ export default function Navbar() {
         setProfileOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   return (
@@ -131,13 +142,13 @@ export default function Navbar() {
             <div className="flex items-baseline">
               <span
                 className="font-semibold text-[#374151] text-[21px] leading-[140%] uppercase tracking-normal"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
+                style={{ fontFamily: "Poppins, sans-serif" }}
               >
                 Hostig
               </span>
               <span
                 className="font-semibold text-[#0086D8] text-[21px] leading-[140%] uppercase tracking-normal"
-                style={{ fontFamily: 'Poppins, sans-serif' }}
+                style={{ fontFamily: "Poppins, sans-serif" }}
               >
                 go
               </span>
@@ -161,7 +172,7 @@ export default function Navbar() {
               <>
                 <button
                   className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
-                  onClick={() => router.push('/host/list/property-type')}
+                  onClick={() => router.push("/host/list/property-type")}
                 >
                   List your property
                 </button>
@@ -185,10 +196,10 @@ export default function Navbar() {
                   {profileOpen && (
                     <div
                       className={cn(
-                        'absolute right-0 top-[calc(100%+10px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden',
-                        'animate-fade-in-down origin-top-right',
+                        "absolute right-0 top-[calc(100%+10px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden",
+                        "animate-fade-in-down origin-top-right",
                       )}
-                      style={{ animation: 'fadeInDown 0.18s ease both' }}
+                      style={{ animation: "fadeInDown 0.18s ease both" }}
                     >
                       {MENU_GROUPS.map((group, gi) => (
                         <div key={gi}>
@@ -202,7 +213,9 @@ export default function Navbar() {
                                   title="Coming soon"
                                   className="flex items-center gap-3 px-4 py-2.5 text-[14px] font-medium text-gray-400 cursor-default select-none"
                                 >
-                                  <span className="text-gray-300">{item.icon}</span>
+                                  <span className="text-gray-300">
+                                    {item.icon}
+                                  </span>
                                   <span>{item.label}</span>
                                   <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
                                     Soon
@@ -211,14 +224,16 @@ export default function Navbar() {
                               ) : (
                                 <Link
                                   key={item.label}
-                                  href={item.to ?? '#'}
+                                  href={item.to ?? "#"}
                                   onClick={() => {
                                     item.action?.();
                                     setProfileOpen(false);
                                   }}
                                   className="flex items-center gap-3 px-4 py-2.5 text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
-                                  <span className="text-gray-400">{item.icon}</span>
+                                  <span className="text-gray-400">
+                                    {item.icon}
+                                  </span>
                                   <span>{item.label}</span>
                                 </Link>
                               ),
@@ -246,18 +261,18 @@ export default function Navbar() {
               <>
                 <button
                   className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[14px] font-medium ml-0.5"
-                  onClick={() => router.push('/signin')}
+                  onClick={() => router.push("/signin")}
                 >
                   Sign In
                 </button>
                 <button
                   className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1 shadow-sm"
-                  onClick={() => router.push('/signin')}
+                  onClick={() => router.push("/signin")}
                 >
                   New user
                 </button>
                 <button
-                  onClick={() => router.push('/host/list/property-type')}
+                  onClick={() => router.push("/host/list/property-type")}
                   className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
                 >
                   List your property
@@ -332,7 +347,7 @@ export default function Navbar() {
                 <button
                   onClick={() => {
                     setMobileOpen(false);
-                    router.push('/signin');
+                    router.push("/signin");
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl font-medium"
                 >
@@ -342,7 +357,7 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push('/signin');
+                      router.push("/signin");
                     }}
                     className="flex-1 bg-figma-navy text-white py-2 rounded-xl text-sm font-semibold"
                   >
@@ -351,7 +366,7 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push('/host/list/property-type');
+                      router.push("/host/list/property-type");
                     }}
                     className="flex-1 border border-figma-navy text-figma-navy py-2 rounded-xl text-sm font-semibold"
                   >
