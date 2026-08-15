@@ -315,11 +315,11 @@ export default function SearchForm() {
           />
           <div className="min-w-0 flex-1">
             {location.query ? (
-              <p className="text-[15px] font-medium text-gray-900 truncate">
+              <p className="text-[18px] font-medium text-gray-900 truncate">
                 {location.query}
               </p>
             ) : (
-              <p className="text-[15px] font-normal text-gray-400 truncate">
+              <p className="text-[17px] font-normal text-gray-400 truncate">
                 Search destination or homestay
               </p>
             )}
@@ -355,27 +355,27 @@ export default function SearchForm() {
           >
             <div className="flex items-center gap-1.5">
               <Calendar
-                className="w-3.5 h-3.5 text-gray-700 flex-shrink-0"
+                className="w-4 h-4 text-gray-700 flex-shrink-0"
                 strokeWidth={1.8}
               />
-              <span className="text-[13.5px] font-semibold text-gray-900">
+              <span className="text-[15px] font-semibold text-gray-900">
                 Check In
               </span>
             </div>
             <div>
               {dates.checkIn ? (
                 <>
-                  <p className="text-[11px] font-normal text-gray-400 leading-none">
+                  <p className="text-[13px] font-normal text-gray-400 leading-none mb-0.5">
                     {dates.checkIn.toLocaleDateString('en-US', {
                       weekday: 'long',
                     })}
                   </p>
-                  <p className="text-[14px] font-medium text-gray-900 leading-tight">
+                  <p className="text-[17px] font-medium text-gray-900 leading-tight">
                     {fmtDate(dates.checkIn)}
                   </p>
                 </>
               ) : (
-                <p className="text-[13px] font-normal text-gray-400">Add date</p>
+                <p className="text-[15px] font-normal text-gray-400">Add date</p>
               )}
             </div>
           </button>
@@ -394,27 +394,27 @@ export default function SearchForm() {
           >
             <div className="flex items-center gap-1.5">
               <Calendar
-                className="w-3.5 h-3.5 text-gray-700 flex-shrink-0"
+                className="w-4 h-4 text-gray-700 flex-shrink-0"
                 strokeWidth={1.8}
               />
-              <span className="text-[13.5px] font-semibold text-gray-900">
+              <span className="text-[15px] font-semibold text-gray-900">
                 Check Out
               </span>
             </div>
             <div>
               {dates.checkOut ? (
                 <>
-                  <p className="text-[11px] font-normal text-gray-400 leading-none">
+                  <p className="text-[13px] font-normal text-gray-400 leading-none mb-0.5">
                     {dates.checkOut.toLocaleDateString('en-US', {
                       weekday: 'long',
                     })}
                   </p>
-                  <p className="text-[14px] font-medium text-gray-900 leading-tight">
+                  <p className="text-[17px] font-medium text-gray-900 leading-tight">
                     {fmtDate(dates.checkOut)}
                   </p>
                 </>
               ) : (
-                <p className="text-[13px] font-normal text-gray-400">Add date</p>
+                <p className="text-[15px] font-normal text-gray-400">Add date</p>
               )}
             </div>
           </button>
@@ -422,7 +422,7 @@ export default function SearchForm() {
 
         {/* Shared DatePicker Popover */}
         {activePanel === 'date' && (
-          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-[1100]">
             <DateRangePicker
               checkIn={dates.checkIn}
               checkOut={dates.checkOut}
@@ -450,7 +450,7 @@ export default function SearchForm() {
             className="w-4 h-4 text-gray-600 flex-shrink-0"
             strokeWidth={1.5}
           />
-          <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[14.5px] font-medium text-gray-800">
+          <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[16px] font-medium text-gray-800">
             <span>{guests.adults} Adults</span>
             <span className="text-gray-400">•</span>
             <span>{guests.rooms} Room</span>

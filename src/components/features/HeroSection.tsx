@@ -79,12 +79,12 @@ export default function HeroSection() {
   return (
     <section className="pb-8 lg:pb-12 pt-4 flex items-center">
       <div className="container-main w-full min-w-0">
-        {/* Outer White Card Container — compact and sleeker */}
-        <div className="bg-white rounded-[28px] sm:rounded-[36px] shadow-[0_10px_36px_rgba(0,0,0,0.06)] flex flex-col lg:flex-row overflow-hidden items-stretch max-w-[1180px] mx-auto">
-          {/* Left: hero image card — compact 440px height */}
+        {/* Outer White Card Container — spacious and modern */}
+        <div className="bg-white rounded-[28px] sm:rounded-[36px] shadow-[0_10px_36px_rgba(0,0,0,0.06)] flex flex-col lg:flex-row items-stretch max-w-[1240px] mx-auto">
+          {/* Left: hero image card */}
           <div
-            className="relative w-full lg:w-[440px] xl:w-[470px] flex-shrink-0 select-none flex flex-col rounded-r-[24px] sm:rounded-r-[30px] overflow-hidden z-10"
-            style={{ minHeight: 440 }}
+            className="relative w-full lg:w-[480px] xl:w-[510px] flex-shrink-0 select-none flex flex-col rounded-[24px] sm:rounded-[30px] lg:rounded-l-[36px] lg:rounded-r-[30px] overflow-hidden z-10"
+            style={{ minHeight: 485 }}
           >
             <Image
               src={heroBg}
@@ -99,15 +99,15 @@ export default function HeroSection() {
             <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/25 to-black/50" />
 
             <div
-              className="relative z-10 p-5 sm:p-6 flex flex-col h-full justify-between"
-              style={{ minHeight: 440 }}
+              className="relative z-10 p-6 sm:p-7 flex flex-col h-full justify-between"
+              style={{ minHeight: 485 }}
             >
               {/* Text styling matching Figma Dev Mode */}
               <div>
                 <p
                   className="text-white mb-0"
                   style={{
-                    fontSize: "28px",
+                    fontSize: "30px",
                     fontWeight: 400,
                     lineHeight: "135%",
                     letterSpacing: "0.003em",
@@ -118,7 +118,7 @@ export default function HeroSection() {
                 <h1
                   className="text-white"
                   style={{
-                    fontSize: "48px",
+                    fontSize: "52px",
                     fontWeight: 600,
                     lineHeight: "135%",
                     letterSpacing: "0.003em",
@@ -184,8 +184,8 @@ export default function HeroSection() {
             </div>
           </div>
 
-          {/* Right: search panel — tighter padding */}
-          <div className="flex-1 flex flex-col justify-center p-5 sm:p-6 lg:p-8 w-full">
+          {/* Right: search panel — spacious padding */}
+          <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 lg:p-10 w-full rounded-b-[28px] sm:rounded-b-[36px] lg:rounded-bl-none lg:rounded-r-[36px]">
             <SearchForm />
           </div>
         </div>
