@@ -1,10 +1,10 @@
-'use client';
+"use client";
 
-import { ArrowRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import PropertyCard from '@/components/features/PropertyCard';
-import PropertyCardHomeSkeleton from '@/components/features/PropertyCardHomeSkeleton';
-import type { Property } from '@/types';
+import PropertyCard from "@/components/features/PropertyCard";
+import PropertyCardHomeSkeleton from "@/components/features/PropertyCardHomeSkeleton";
+import type { Property } from "@/types";
+import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface PopularStaysProps {
   title: string;
@@ -20,12 +20,15 @@ export default function PopularStays({
   itemsPerRow = 4,
 }: PopularStaysProps) {
   const router = useRouter();
-  const city = properties[0]?.city ?? '';
+  const city = properties[0]?.city ?? "";
 
   return (
     <section>
       <div className="flex items-center gap-4 mb-5">
-        <h2 className="text-figma-ink" style={{ fontSize: '20px', fontWeight: 500, lineHeight: '140%' }}>
+        <h2
+          className="text-figma-ink"
+          style={{ fontSize: "20px", fontWeight: 500, lineHeight: "140%" }}
+        >
           {title}
         </h2>
         <button
@@ -38,7 +41,7 @@ export default function PopularStays({
         </button>
       </div>
       <div className="relative">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
           {isLoading
             ? Array.from({ length: itemsPerRow }).map((_, i) => (
                 <PropertyCardHomeSkeleton key={`skeleton-${i}`} />

@@ -1,5 +1,7 @@
+'use client';
+
 import { useState, useRef, useEffect } from 'react';
-import { Search, Calendar, Users, ChevronDown, X, MapPin, ArrowRight } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import DestinationDropdown from '@/components/features/DestinationDropdown';
@@ -70,23 +72,23 @@ export function CompactSearchBar() {
         <button
           onClick={() => toggle('destination')}
           className={cn(
-            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border',
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
             activePanel === 'destination'
-              ? 'border-figma-navy/40 shadow-sm'
-              : 'border-transparent hover:border-gray-200',
+              ? 'border-figma-navy/40'
+              : 'border-transparent',
           )}
         >
           <Search
-            className="w-5 h-5 text-gray-500 flex-shrink-0"
-            strokeWidth={1.75}
+            className="w-5 h-5 text-gray-400 flex-shrink-0"
+            strokeWidth={2.5}
           />
           <span
             className={cn(
-              'text-[14px] truncate flex-1',
-              location.query ? 'text-gray-900 font-normal' : 'text-gray-500 font-normal',
+              'text-[14px] font-medium truncate',
+              location.query ? 'text-gray-900' : 'text-gray-400',
             )}
           >
-            {location.query || 'Search destination...'}
+            {location.query || 'New Delhi'}
           </span>
           {location.query && (
             <span
@@ -130,53 +132,62 @@ export function CompactSearchBar() {
         <button
           onClick={() => toggle('date')}
           className={cn(
-            'w-full h-[52px] flex items-center gap-4 px-5 rounded-full bg-white transition-all text-left border',
-            activePanel === 'date'
-              ? 'border-figma-navy/40 shadow-sm'
-              : 'border-transparent hover:border-gray-200',
+            'w-full h-[52px] flex items-center gap-4 px-5 rounded-full bg-white transition-all text-left border-2',
+            activePanel === 'date' ? 'border-figma-navy/40' : 'border-transparent',
           )}
         >
           <Calendar
-            className="w-5 h-5 text-gray-500 flex-shrink-0"
+            className="w-5 h-5 text-gray-600 flex-shrink-0"
             strokeWidth={1.5}
           />
-          <div className="flex items-center justify-between sm:justify-start sm:gap-6 min-w-0 flex-1">
+          <div className="flex items-center gap-6 min-w-0 flex-1">
             <div className="min-w-0">
               {dates.checkIn ? (
                 <>
-                  <p className="text-[13px] font-medium text-gray-900 leading-tight">
+                  <p className="text-[13px] font-bold text-gray-900 leading-none mb-1">
                     {fmtDate(dates.checkIn)}
                   </p>
-                  <p className="text-[11px] text-gray-400 font-normal leading-tight mt-0.5">
+                  <p className="text-[11px] text-gray-400">
                     {dates.checkIn.toLocaleDateString('en-US', {
                       weekday: 'long',
                     })}
                   </p>
                 </>
               ) : (
-                <p className="text-[13px] text-gray-500 font-normal">Add dates</p>
+                <p className="text-[13px] text-gray-400">Add dates</p>
               )}
             </div>
 
-            <ArrowRight
-              className="w-4 h-4 text-gray-400 flex-shrink-0 my-auto"
-              strokeWidth={1.75}
-            />
+            <svg
+              width="14"
+              height="12"
+              viewBox="0 0 14 12"
+              fill="none"
+              className="text-gray-300 flex-shrink-0"
+            >
+              <path
+                d="M1 6H13M13 6L8.5 1.5M13 6L8.5 10.5"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              />
+            </svg>
 
             <div className="min-w-0">
               {dates.checkOut ? (
                 <>
-                  <p className="text-[13px] font-medium text-gray-900 leading-tight">
+                  <p className="text-[13px] font-bold text-gray-900 leading-none mb-1">
                     {fmtDate(dates.checkOut)}
                   </p>
-                  <p className="text-[11px] text-gray-400 font-normal leading-tight mt-0.5">
+                  <p className="text-[11px] text-gray-400">
                     {dates.checkOut.toLocaleDateString('en-US', {
                       weekday: 'long',
                     })}
                   </p>
                 </>
               ) : (
-                <p className="text-[13px] text-gray-500 font-normal">Add dates</p>
+                <p className="text-[13px] text-gray-400">Add dates</p>
               )}
             </div>
           </div>
@@ -199,30 +210,31 @@ export function CompactSearchBar() {
       </div>
 
       {/* Guests Pill */}
-      <div className="relative z-[1100] w-full sm:flex-[1.4] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.3] min-w-0">
         <button
           onClick={() => toggle('guests')}
           className={cn(
-            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border',
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
             activePanel === 'guests'
-              ? 'border-figma-navy/40 shadow-sm'
-              : 'border-transparent hover:border-gray-200',
+              ? 'border-figma-navy/40'
+              : 'border-transparent',
           )}
         >
           <Users
             className="w-5 h-5 text-gray-500 flex-shrink-0"
             strokeWidth={1.5}
           />
-          <div className="flex-1 min-w-0 truncate text-[13px] font-normal leading-none">
-            <span className="text-gray-800 font-medium">{guests.adults} Adults</span>
-            <span className="text-gray-400 mx-1.5">•</span>
-            <span className="text-gray-800 font-medium">{guests.rooms} Room</span>
-            <span className="text-gray-400 mx-1.5">•</span>
-            <span className="text-gray-400">{guests.children} Children</span>
+          <div className="flex-1 truncate">
+            <p className="text-[13px] font-bold text-gray-800">
+              {guests.adults} Adults • {guests.rooms} Room
+            </p>
+            <p className="text-[11px] text-gray-400">
+              {guests.children} Children
+            </p>
           </div>
           <ChevronDown
             className={cn(
-              'w-4 h-4 text-gray-400 transition-transform flex-shrink-0',
+              'w-5 h-5 text-gray-400 transition-transform',
               activePanel === 'guests' && 'rotate-180',
             )}
           />
@@ -246,7 +258,7 @@ export function CompactSearchBar() {
       {/* Search Button */}
       <button
         onClick={handleSearch}
-        className="h-[52px] px-8 w-full sm:w-auto bg-primary-gradient border border-white text-white font-medium sm:font-semibold text-[15px] rounded-full transition-all shadow-md active:scale-95 sm:flex-shrink-0 hover:opacity-95"
+        className="h-[52px] px-8 w-full sm:w-auto bg-primary-gradient border-2 border-white/20 text-white font-bold text-[15px] rounded-full transition-all shadow-md active:scale-95 sm:flex-shrink-0"
       >
         Search
       </button>
@@ -254,7 +266,6 @@ export function CompactSearchBar() {
   );
 }
 
-/** Full search form used on home page hero */
 export default function SearchForm() {
   const { location, dates, guests } = useListingState();
   const { setLocation, setDates, setGuests } = useListingActions();
@@ -273,15 +284,6 @@ export default function SearchForm() {
 
   const toggle = (p: Panel) => setActivePanel((cur) => (cur === p ? null : p));
 
-  const guestSummary = () => {
-    const g = guests;
-    const parts = [`${g.adults} Adult${g.adults !== 1 ? 's' : ''}`];
-    if (g.children > 0)
-      parts.push(`${g.children} Child${g.children !== 1 ? 'ren' : ''}`);
-    parts.push(`${g.rooms} Room${g.rooms !== 1 ? 's' : ''}`);
-    return parts.join(', ');
-  };
-
   const handleSearch = () => {
     if (!location.query.trim()) {
       toast.error('Please enter a destination');
@@ -294,224 +296,222 @@ export default function SearchForm() {
   return (
     <div
       ref={wrapRef}
-      className="w-full flex-1 max-w-lg mx-auto lg:ml-auto lg:mr-0"
+      className="w-full h-full flex flex-col justify-between py-1 gap-3.5"
     >
-      <div className="flex flex-col gap-3.5">
-        {/* Destination */}
-        <div className="relative">
-          <button
-            onClick={() => toggle('destination')}
-            className={cn(
-              'w-full flex items-center gap-3 px-6 py-4 rounded-full border transition-all text-left bg-white',
-              activePanel === 'destination'
-                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
-                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-            )}
-          >
-            <Search
-              className="w-5 h-5 text-gray-500 flex-shrink-0"
-              strokeWidth={2}
-            />
-            <div className="min-w-0 flex-1">
-              {location.query ? (
-                <p className="text-[15px] sm:text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-black truncate">
-                  {location.query}
-                </p>
-              ) : (
-                <p className="text-[15px] sm:text-[18px] font-normal leading-[1.4] tracking-[0.003em] text-[#888888] truncate">
-                  Search destination or homestay
-                </p>
-              )}
-            </div>
-          </button>
-          {activePanel === 'destination' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
-              <DestinationDropdown
-                value={location.query}
-                onQueryChange={(v) => setLocation({ query: v })}
-                onSelect={(v) => {
-                  setLocation({ query: v });
-                  setActivePanel('date');
-                }}
-                onClose={() => setActivePanel(null)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Dates Row */}
-        <div className="flex gap-3.5 relative">
-          {/* Check In */}
-          <div className="relative flex-1">
-            <button
-              onClick={() => toggle('date')}
-              className={cn(
-                'w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left bg-white',
-                activePanel === 'date'
-                  ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
-                  : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 mb-1">
-                  <Calendar
-                    className="w-5 h-5 text-gray-700 flex-shrink-0"
-                    strokeWidth={1.7}
-                  />
-                  <p className="text-[15px] sm:text-[18px] lg:text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
-                    Check In
-                  </p>
-                </div>
-                {dates.checkIn ? (
-                  <>
-                    <p className="text-[12px] font-normal text-gray-400 leading-tight">
-                      {dates.checkIn.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                      })}
-                    </p>
-                    <p className="text-[16px] sm:text-[19px] lg:text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
-                      {fmtDate(dates.checkIn)}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[15px] font-normal text-gray-400 mt-1">Add date</p>
-                )}
-              </div>
-            </button>
-          </div>
-
-          {/* Check Out */}
-          <div className="relative flex-1">
-            <button
-              onClick={() => toggle('date')}
-              className={cn(
-                'w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left bg-white',
-                activePanel === 'date'
-                  ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
-                  : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 mb-1">
-                  <Calendar
-                    className="w-5 h-5 text-gray-700 flex-shrink-0"
-                    strokeWidth={1.7}
-                  />
-                  <p className="text-[15px] sm:text-[18px] lg:text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
-                    Check Out
-                  </p>
-                </div>
-                {dates.checkOut ? (
-                  <>
-                    <p className="text-[12px] font-normal text-gray-400 leading-tight">
-                      {dates.checkOut.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                      })}
-                    </p>
-                    <p className="text-[16px] sm:text-[19px] lg:text-[22px] font-normal leading-[1.4] tracking-[0.003em] text-black">
-                      {fmtDate(dates.checkOut)}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[15px] font-normal text-gray-400 mt-1">Add date</p>
-                )}
-              </div>
-            </button>
-          </div>
-
-          {/* Shared DatePicker Popover */}
-          {activePanel === 'date' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
-              <DateRangePicker
-                checkIn={dates.checkIn}
-                checkOut={dates.checkOut}
-                onChange={(checkIn, checkOut) =>
-                  setDates({ checkIn, checkOut })
-                }
-                onClose={() => setActivePanel(null)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Guests */}
-        <div className="relative">
-          <button
-            onClick={() => toggle('guests')}
-            className={cn(
-              'w-full flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all text-left bg-white',
-              activePanel === 'guests'
-                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
-                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-            )}
-          >
-            <Users
-              className="w-5 h-5 text-gray-600 flex-shrink-0"
-              strokeWidth={1.5}
-            />
-            <div className="min-w-0 flex-1 flex items-center flex-wrap gap-x-1.5 gap-y-0.5 text-[14px] sm:text-[17px] lg:text-[20px] font-medium leading-[1.4] tracking-[0.003em] text-black">
-              <span>{guests.adults} Adults</span>
-              <span className="text-gray-400">•</span>
-              <span>{guests.rooms} Room</span>
-              <span className="text-gray-400">•</span>
-              <span className="text-gray-400 font-normal">
-                {guests.children} Children
-              </span>
-            </div>
-            <ChevronDown
-              className={cn(
-                'w-5 h-5 text-gray-800 flex-shrink-0 transition-transform duration-200',
-                activePanel === 'guests' && 'rotate-180',
-              )}
-              strokeWidth={2}
-            />
-          </button>
-          {activePanel === 'guests' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
-              <GuestDropdown
-                guests={guests}
-                onChange={setGuests}
-                onClose={() => setActivePanel(null)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Search Button */}
-        <div className="mt-2 flex justify-center">
-          <button
-            onClick={handleSearch}
-            className="w-full flex items-center justify-center bg-primary-gradient text-white font-semibold text-[16px] rounded-full px-6 py-3.5 transition-all shadow-md hover:opacity-90 active:scale-95"
-          >
-            Search
-          </button>
-        </div>
-
-        {/* Search on Map Button */}
+      {/* Destination */}
+      <div className="relative">
         <button
-          onClick={() => {
-            if (location.query.trim().length > 0) {
-              toast.error('You can either use the map or fill in the location yourself, not both.');
-              return;
-            }
-            router.push('/search?view=map');
-          }}
+          onClick={() => toggle('destination')}
           className={cn(
-            "mt-1 w-full flex items-center gap-4 bg-white rounded-2xl p-4 border transition-all text-left",
-            location.query.trim().length > 0
-              ? "opacity-50 cursor-not-allowed border-gray-200"
-              : "border-gray-200 hover:border-gray-300 shadow-sm hover:shadow"
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full border transition-all text-left bg-white',
+            activePanel === 'destination'
+              ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+              : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
           )}
         >
-          <div className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm flex-shrink-0">
-            <MapPin className="w-6 h-6 text-figma-navy" strokeWidth={1.5} />
-          </div>
-          <div>
-            <h3 className="text-[15px] font-medium text-figma-ink">Search on Map</h3>
-            <p className="text-[12px] font-normal text-gray-400">For Accurate Location</p>
+          <Search
+            className="w-4 h-4 text-gray-400 flex-shrink-0"
+            strokeWidth={2}
+          />
+          <div className="min-w-0 flex-1">
+            {location.query ? (
+              <p className="text-[18px] font-medium text-gray-900 truncate">
+                {location.query}
+              </p>
+            ) : (
+              <p className="text-[17px] font-normal text-gray-400 truncate">
+                Search destination or homestay
+              </p>
+            )}
           </div>
         </button>
+        {activePanel === 'destination' && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
+            <DestinationDropdown
+              value={location.query}
+              onQueryChange={(v) => setLocation({ query: v })}
+              onSelect={(v) => {
+                setLocation({ query: v });
+                setActivePanel('date');
+              }}
+              onClose={() => setActivePanel(null)}
+            />
+          </div>
+        )}
       </div>
+
+      {/* Dates Row */}
+      <div className="flex gap-3 relative">
+        {/* Check In */}
+        <div className="relative flex-1">
+          <button
+            onClick={() => toggle('date')}
+            className={cn(
+              'w-full h-[76px] flex flex-col justify-center gap-0.5 px-4 py-2.5 rounded-2xl border transition-all text-left bg-white',
+              activePanel === 'date'
+                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              <Calendar
+                className="w-4 h-4 text-gray-700 flex-shrink-0"
+                strokeWidth={1.8}
+              />
+              <span className="text-[15px] font-semibold text-gray-900">
+                Check In
+              </span>
+            </div>
+            <div>
+              {dates.checkIn ? (
+                <>
+                  <p className="text-[13px] font-normal text-gray-400 leading-none mb-0.5">
+                    {dates.checkIn.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                    })}
+                  </p>
+                  <p className="text-[17px] font-medium text-gray-900 leading-tight">
+                    {fmtDate(dates.checkIn)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[15px] font-normal text-gray-400">Add date</p>
+              )}
+            </div>
+          </button>
+        </div>
+
+        {/* Check Out */}
+        <div className="relative flex-1">
+          <button
+            onClick={() => toggle('date')}
+            className={cn(
+              'w-full h-[76px] flex flex-col justify-center gap-0.5 px-4 py-2.5 rounded-2xl border transition-all text-left bg-white',
+              activePanel === 'date'
+                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              <Calendar
+                className="w-4 h-4 text-gray-700 flex-shrink-0"
+                strokeWidth={1.8}
+              />
+              <span className="text-[15px] font-semibold text-gray-900">
+                Check Out
+              </span>
+            </div>
+            <div>
+              {dates.checkOut ? (
+                <>
+                  <p className="text-[13px] font-normal text-gray-400 leading-none mb-0.5">
+                    {dates.checkOut.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                    })}
+                  </p>
+                  <p className="text-[17px] font-medium text-gray-900 leading-tight">
+                    {fmtDate(dates.checkOut)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[15px] font-normal text-gray-400">Add date</p>
+              )}
+            </div>
+          </button>
+        </div>
+
+        {/* Shared DatePicker Popover */}
+        {activePanel === 'date' && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-[1100]">
+            <DateRangePicker
+              checkIn={dates.checkIn}
+              checkOut={dates.checkOut}
+              onChange={(checkIn, checkOut) =>
+                setDates({ checkIn, checkOut })
+              }
+              onClose={() => setActivePanel(null)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Guests */}
+      <div className="relative">
+        <button
+          onClick={() => toggle('guests')}
+          className={cn(
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-2xl border transition-all text-left bg-white',
+            activePanel === 'guests'
+              ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+              : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+          )}
+        >
+          <Users
+            className="w-4 h-4 text-gray-600 flex-shrink-0"
+            strokeWidth={1.5}
+          />
+          <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[16px] font-medium text-gray-800">
+            <span>{guests.adults} Adults</span>
+            <span className="text-gray-400">•</span>
+            <span>{guests.rooms} Room</span>
+            <span className="text-gray-400">•</span>
+            <span className="text-gray-400 font-normal">
+              {guests.children} Children
+            </span>
+          </div>
+          <ChevronDown
+            className={cn(
+              'w-4 h-4 text-gray-500 flex-shrink-0 transition-transform duration-200',
+              activePanel === 'guests' && 'rotate-180',
+            )}
+            strokeWidth={2}
+          />
+        </button>
+        {activePanel === 'guests' && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
+            <GuestDropdown
+              guests={guests}
+              onChange={setGuests}
+              onClose={() => setActivePanel(null)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Search Button — centered blue pill matching Figma */}
+      <div className="flex justify-center pt-1">
+        <button
+          onClick={handleSearch}
+          className="w-auto min-w-[200px] h-[48px] flex items-center justify-center bg-primary-gradient text-white font-medium text-[15px] rounded-full px-10 transition-all shadow-md hover:opacity-90 active:scale-95"
+        >
+          Search
+        </button>
+      </div>
+
+      {/* Search on Map Button */}
+      <button
+        onClick={() => {
+          if (location.query.trim().length > 0) {
+            toast.error('You can either use the map or fill in the location yourself, not both.');
+            return;
+          }
+          router.push('/search?view=map');
+        }}
+        className={cn(
+          "w-full flex items-center gap-4 bg-white rounded-2xl p-4 border transition-all text-left",
+          location.query.trim().length > 0
+            ? "opacity-50 cursor-not-allowed border-gray-200"
+            : "border-gray-200 hover:border-gray-300 shadow-sm hover:shadow"
+        )}
+      >
+        <div className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm flex-shrink-0">
+          <MapPin className="w-6 h-6 text-figma-navy" strokeWidth={1.5} />
+        </div>
+        <div>
+          <h3 className="text-[15px] font-medium text-figma-ink">Search on Map</h3>
+          <p className="text-[12px] font-normal text-gray-400">For Accurate Location</p>
+        </div>
+      </button>
     </div>
   );
 }
