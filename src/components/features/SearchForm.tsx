@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Search, Calendar, Users, ChevronDown, X } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import DestinationDropdown from '@/components/features/DestinationDropdown';
@@ -487,6 +487,31 @@ export default function SearchForm() {
           Search
         </button>
       </div>
+
+      {/* Search on Map Button */}
+      <button
+        onClick={() => {
+          if (location.query.trim().length > 0) {
+            toast.error('You can either use the map or fill in the location yourself, not both.');
+            return;
+          }
+          router.push('/search?view=map');
+        }}
+        className={cn(
+          "w-full flex items-center gap-4 bg-white rounded-2xl p-4 border transition-all text-left",
+          location.query.trim().length > 0
+            ? "opacity-50 cursor-not-allowed border-gray-200"
+            : "border-gray-200 hover:border-gray-300 shadow-sm hover:shadow"
+        )}
+      >
+        <div className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm flex-shrink-0">
+          <MapPin className="w-6 h-6 text-figma-navy" strokeWidth={1.5} />
+        </div>
+        <div>
+          <h3 className="text-[15px] font-medium text-figma-ink">Search on Map</h3>
+          <p className="text-[12px] font-normal text-gray-400">For Accurate Location</p>
+        </div>
+      </button>
     </div>
   );
 }
