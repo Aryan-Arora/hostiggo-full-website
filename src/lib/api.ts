@@ -8,14 +8,31 @@ const FALLBACK_IMAGE =
 export const AUTH_USER_ID_KEY = "hostiggo:user-id";
 export const AUTH_PHONE_KEY = "hostiggo:phone";
 export const AUTH_EMAIL_KEY = "hostiggo:email";
+// Real Supabase session tokens (JWT), returned by /api/auth/otp on verify.
+// Sent as a Bearer token on every request so API routes can verify the
+// caller's identity server-side instead of trusting a client-claimed userId
+// -- see getAuthenticatedUserId() in src/lib/auth-server.ts.
+export const AUTH_ACCESS_TOKEN_KEY = "hostiggo:access-token";
+export const AUTH_REFRESH_TOKEN_KEY = "hostiggo:refresh-token";
 
 type ApiResult<T> = { data?: T; error?: string };
 
+export const getStoredAccessToken = () =>
+  typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_ACCESS_TOKEN_KEY);
+
+export const setStoredSession = (accessToken: string, refreshToken?: string | null) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) window.localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getStoredAccessToken();
   const res = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -269,6 +286,8 @@ export const clearStoredAuth = () => {
   window.localStorage.removeItem(AUTH_USER_ID_KEY);
   window.localStorage.removeItem(AUTH_PHONE_KEY);
   window.localStorage.removeItem(AUTH_EMAIL_KEY);
+  window.localStorage.removeItem(AUTH_ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
 };
 
 export type CurrentUser = {
