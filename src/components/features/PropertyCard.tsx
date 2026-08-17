@@ -1,21 +1,21 @@
-'use client';
+"use client";
 
-import { useState } from "react";
-import Image from "next/image";
-import { Heart, Star } from "lucide-react";
-import { useRouter } from "next/navigation";
-import type { Property } from "@/types";
-import { cn } from "@/lib/utils";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
+import { cn } from "@/lib/utils";
+import type { Property } from "@/types";
+import { Heart, Star } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 import { toast } from "sonner";
-import { calculateBookingInvoice } from "@/lib/billing/invoice";
 
 interface PropertyCardProps {
   property: Property;
 }
 
-const FALLBACK = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop&q=80";
+const FALLBACK =
+  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=400&h=300&fit=crop&q=80";
 
 export default function PropertyCard({ property }: PropertyCardProps) {
   const [imgErr, setImgErr] = useState(false);
@@ -23,14 +23,14 @@ export default function PropertyCard({ property }: PropertyCardProps) {
   const { isAuthenticated, userId } = useAuth();
   const { isSaved, toggle } = useWishlist(userId);
   const liked = isSaved(property.id);
-  const invoice = calculateBookingInvoice({ basePropertyPrice: property.price });
-  const feesAndTaxes = Math.round(invoice.grandTotalPaise / 100 - property.price);
 
   const handleToggleLike = async (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
       toast("Sign in to save properties to your wishlist.");
-      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      router.push(
+        `/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`,
+      );
       return;
     }
     try {
@@ -42,68 +42,69 @@ export default function PropertyCard({ property }: PropertyCardProps) {
 
   return (
     <div
-      className="bg-white rounded-[35px] overflow-hidden cursor-pointer group transition-shadow duration-200"
-      style={{ boxShadow: "0px 4px 30px 0px rgba(0,0,0,0.25)" }}
+      className="bg-white rounded-[28px] overflow-hidden cursor-pointer group transition-shadow duration-200 border border-gray-100"
+      style={{ boxShadow: "0 4px 24px rgba(0,0,0,0.06)" }}
       onClick={() => router.push(`/property/${property.id}`)}
     >
-      {/* Image -- Figma: rounded-tl/tr-[35px] matching the card radius */}
-      <div className="relative overflow-hidden rounded-t-[35px]" style={{ height: 190 }}>
+      {/* Image — taller, elongated card matching Figma */}
+      <div
+        className="relative overflow-hidden rounded-t-[28px]"
+        style={{ height: 230 }}
+      >
         <Image
-          src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
+          src={imgErr ? FALLBACK : property.images[0] || FALLBACK}
           alt={property.propertyName}
           onError={() => setImgErr(true)}
           fill
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
-          className="object-cover group-hover:scale-110 transition-transform duration-500"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
         <button
           onClick={handleToggleLike}
           aria-label={liked ? "Remove from favourites" : "Add to favourites"}
           className={cn(
             "absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
-            liked ? "bg-white text-rose-500" : "bg-white/95 text-gray-600 hover:text-rose-400"
+            liked
+              ? "bg-white text-rose-500"
+              : "bg-white/95 text-gray-600 hover:text-rose-400",
           )}
         >
           <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
         </button>
         {property.isNew && (
-          <span className="absolute top-2.5 left-2.5 bg-figma-success text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">NEW</span>
+          <span className="absolute top-2.5 left-2.5 bg-figma-success text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">
+            NEW
+          </span>
         )}
         <div className="absolute bottom-0 inset-x-0 h-10 bg-gradient-to-t from-black/20 to-transparent" />
       </div>
 
-      {/* Details -- typography pulled exactly from Figma node 3007:xxxxx:
-          title 18px/medium, location 14px/medium @80% opacity, rating &
-          review-count both 16px/medium -- all #1a1a1a. */}
+      {/* Details — clean Poppins typography matching Figma */}
       <div className="px-5 pt-4 pb-4">
-        <h3
-          className="text-type-poppins-medium-18-128-03 text-figma-ink line-clamp-1 mb-1"
-        >
+        <h3 className="text-[16px] font-medium leading-[1.28] tracking-[0.003em] text-figma-ink line-clamp-1 mb-1">
           {property.propertyName}
         </h3>
-        <p
-          className="text-typo-card-subtitle text-figma-ink/80 line-clamp-1 mb-2"
-        >
+        <p className="text-[14px] font-medium leading-[1.4] tracking-[0.003em] text-figma-ink/80 line-clamp-1 mb-2">
           {property.city}, {property.state}
         </p>
         <div className="flex items-center gap-1.5 mb-3">
           <Star className="w-4 h-4 text-amber-400 fill-amber-400 flex-shrink-0" />
-          <span className="text-typo-card-metric text-figma-ink">
-            {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
+          <span className="text-[14px] font-medium leading-[1.4] tracking-[0.003em] text-figma-ink">
+            {property.rating > 0 ? property.rating.toFixed(1) : "New"}
           </span>
-          <span className="text-typo-card-metric text-figma-ink/60">
+          <span className="text-[14px] font-medium leading-[1.4] tracking-[0.003em] text-figma-ink/60">
             · {property.reviewCount} reviews
           </span>
         </div>
-        {/* Price, flush to the card's left edge, straight (un-curved) left side, rounded right */}
-        <div className="-ml-5 flex w-fit items-baseline gap-1.5 bg-white border border-figma-navy/40 border-l-0 pl-4 pr-4 py-2.5 rounded-r-2xl transition-all duration-200 hover:border-figma-navy hover:shadow-sm">
-          <span className="text-typo-card-price text-figma-ink whitespace-nowrap">
+        {/* Price — clean outline pill, no taxes line */}
+        <div className="-ml-5 flex w-fit items-baseline gap-1.5 bg-white border border-figma-navy/30 border-l-0 pl-4 pr-4 py-2 rounded-r-2xl">
+          <span className="text-[18px] font-semibold leading-[1.28] tracking-[0.003em] text-figma-ink whitespace-nowrap">
             ₹{property.price.toLocaleString("en-IN")}
           </span>
-          <span className="text-typo-card-caption text-figma-ink/70 whitespace-nowrap">/night</span>
-
+          <span className="text-[12px] font-normal leading-[1.4] tracking-[0.003em] text-figma-ink/60 whitespace-nowrap">
+            / 2 Nights
+          </span>
         </div>
-        <p className="text-[11px] text-figma-ink/50 mt-1.5">+₹{feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
       </div>
     </div>
   );
