@@ -13,6 +13,7 @@ import {
   AUTH_EMAIL_KEY,
   normalizePhone,
   normalizeEmail,
+  setStoredSession,
 } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
@@ -138,6 +139,9 @@ export default function OTPPageContent() {
       const session = data?.session;
       
       if (userId && session) {
+        // Store the real Supabase session JWT so API routes can verify who's
+        // actually calling instead of trusting a client-claimed userId.
+        setStoredSession(session.access_token, session.refresh_token);
         await signIn(userId);
         router.push(redirect || `/onboarding?mode=${mode}`);
       } else {
