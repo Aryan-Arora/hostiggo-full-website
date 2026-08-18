@@ -3,10 +3,8 @@ import * as discountService from '@/lib/services/discounts';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { listingId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   try {
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) {
@@ -24,10 +22,8 @@ export async function GET(
   }
 }
 
-export async function POST(
-  request: NextRequest,
-  { params }: { params: { listingId: string } }
-) {
+export async function POST(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   try {
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) {

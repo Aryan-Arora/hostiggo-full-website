@@ -5,8 +5,9 @@ import { errorMessage } from "@/lib/api-error";
 
 export async function PATCH(
   request: NextRequest,
-  { params }: { params: { listingId: string; id: string } }
+  props: { params: Promise<{ listingId: string; id: string }> }
 ) {
+  const params = await props.params;
   try {
     const addonListingId = parseInt(params.id, 10);
     const listingId = parseInt(params.listingId, 10);
@@ -53,8 +54,9 @@ export async function PATCH(
 
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { listingId: string; id: string } }
+  props: { params: Promise<{ listingId: string; id: string }> }
 ) {
+  const params = await props.params;
   try {
     const addonListingId = parseInt(params.id, 10);
     const listingId = parseInt(params.listingId, 10);
