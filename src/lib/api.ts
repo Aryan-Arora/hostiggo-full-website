@@ -574,6 +574,10 @@ export const api = {
     request<{ listing_id: string }[]>(
       `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
     ),
+  wishlistCategories: (userId: string) =>
+    request<{ id: string; name: string }[]>(
+      `/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`,
+    ),
   wishlistListings: (userId: string, categoryId?: string) =>
     request<any[]>(
       `/api/wishlist?resource=listings&userId=${encodeURIComponent(userId)}${

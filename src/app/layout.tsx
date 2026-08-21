@@ -1,10 +1,9 @@
 import type { Metadata } from 'next';
 import { Poppins } from 'next/font/google';
 import './globals.css';
-import { AuthProvider as CustomAuthProvider } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
-import SupabaseAuthProvider from '@/components/providers/AuthProvider';
 
 // Figma "Website Guest UI/UX" uses Poppins (Regular/Medium/SemiBold/Bold)
 // throughout -- this replaces the never-actually-loaded "Inter" fallback.
@@ -28,14 +27,12 @@ export default function RootLayout({
   return (
     <html lang="en" className={poppins.variable}>
       <body>
-        <SupabaseAuthProvider>
-          <CustomAuthProvider>
-            <ListingFilterProvider>
-              <Toaster position="top-center" richColors closeButton />
-              {children}
-            </ListingFilterProvider>
-          </CustomAuthProvider>
-        </SupabaseAuthProvider>
+        <AuthProvider>
+          <ListingFilterProvider>
+            <Toaster position="top-center" richColors closeButton />
+            {children}
+          </ListingFilterProvider>
+        </AuthProvider>
       </body>
     </html>
   );

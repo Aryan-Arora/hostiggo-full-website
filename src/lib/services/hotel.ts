@@ -285,11 +285,15 @@ export const HotelServiceApi = {
     // Get state boundaries for map (if state-level search)
     let stateBounds = null;
     if (searchState) {
-      const { data: locationData } = await supabase
+      // supabase-js's select-string type parser can't resolve a raw SQL
+      // function call like `ST_AsGeoJSON(boundary) as boundary` -- it infers
+      // a ParserError type for the row even though PostgREST runs it fine.
+      // Override with the actual shape instead of widening to `any`.
+      const { data: locationData } = (await supabase
         .from('locations')
         .select('state, ST_AsGeoJSON(boundary) as boundary')
         .eq('state', searchState)
-        .maybeSingle();
+        .maybeSingle()) as { data: { state: string; boundary: string | null } | null };
 
       if (locationData?.boundary) {
         try {

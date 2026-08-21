@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
-import 'leaflet/dist/leaflet.css';
 import DateRangePicker from '@/components/features/DateRangePicker';
+import { loadGoogleMaps } from '@/lib/services/googleMaps';
 import {
   Star,
   Heart,
@@ -284,8 +284,8 @@ function ImageGallery({
 // ── 3. Property Map ──────────────────────────────────────────────────
 function PropertyMap({ property }: { property: Property }) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
   const [loaded, setLoaded] = useState(false);
 
   const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
@@ -313,50 +313,51 @@ function PropertyMap({ property }: { property: Property }) {
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
+    let cancelled = false;
 
-    const L = require('leaflet');
+    loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapRef.current || mapInstanceRef.current) return;
 
-    const center = getCenter();
+        const center = getCenter();
 
-    mapInstanceRef.current = L.map(mapRef.current).setView(
-      [center.lat, center.lng],
-      14,
-    );
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 14,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(mapInstanceRef.current);
+        const marker = new google.maps.Marker({
+          position: center,
+          map,
+          title: property.propertyName,
+          icon: {
+            path: 'M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z',
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            strokeWeight: 0,
+            scale: 1.6,
+            anchor: new google.maps.Point(12, 22),
+          },
+        });
 
-    // Create custom red pin marker using divIcon (most reliable approach)
-    const customIcon = L.divIcon({
-      html: `
-        <div style="
-          width: 32px;
-          height: 40px;
-          background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23ef4444%22><path d=%22M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z%22/></svg>');
-          background-repeat: no-repeat;
-          background-position: center;
-          background-size: contain;
-          cursor: pointer;
-        "></div>
-      `,
-      iconSize: [32, 40],
-      iconAnchor: [16, 40],
-      popupAnchor: [0, -40],
-      className: 'custom-marker-pin',
-    });
+        const infoWindow = new google.maps.InfoWindow({ content: property.propertyName });
+        marker.addListener('click', () => infoWindow.open({ map, anchor: marker }));
 
-    // Add marker with custom red pin icon
-    markerRef.current = L.marker([center.lat, center.lng], {
-      icon: customIcon,
-      title: property.propertyName,
-    })
-      .addTo(mapInstanceRef.current)
-      .bindPopup(property.propertyName);
+        mapInstanceRef.current = map;
+        markerRef.current = marker;
+        setLoaded(true);
+      })
+      .catch((err) => {
+        console.error('[PropertyMap] Failed to load Google Maps:', err);
+      });
 
-    setLoaded(true);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [property.propertyName, property.coordinates]);
 
   const center = getCenter();
@@ -380,13 +381,13 @@ function PropertyMap({ property }: { property: Property }) {
         )}
       </div>
       <a
-        href={`https://www.openstreetmap.org/?mlat=${center.lat}&mlon=${center.lng}&zoom=14`}
+        href={`https://www.google.com/maps/search/?api=1&query=${center.lat},${center.lng}`}
         target="_blank"
         rel="noopener noreferrer"
         className="inline-flex items-center gap-1.5 text-[12px] text-figma-navy hover:text-figma-navy/90 font-semibold transition-colors"
       >
         <ExternalLink className="w-3.5 h-3.5" />
-        View on OpenStreetMap
+        View on Google Maps
       </a>
     </div>
   );

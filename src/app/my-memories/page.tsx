@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useSupabaseAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from '@/context/AuthContext';
 import {
   MapPin,
   Calendar,
@@ -32,7 +32,7 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 const memoriesIllustration = '/memories-illustration.png';
 import { cn } from '@/lib/utils';
-import { api, getStoredUserId, mapBooking } from '@/lib/api';
+import { api, mapBooking } from '@/lib/api';
 import { toast } from 'sonner';
 import { calculateBookingInvoice } from '@/lib/billing/invoice';
 
@@ -1407,8 +1407,7 @@ export default function MyMemoriesPage() {
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [managingId, setManagingId] = useState<string | null>(null);
-  const [userId, setUserId] = useState<string | null>(null);
-  const { user, isLoading } = useSupabaseAuth();
+  const { userId, loading: isLoading } = useAuth();
 
   useEffect(() => {
     if (isLoading) return;
@@ -1416,8 +1415,7 @@ export default function MyMemoriesPage() {
     let mounted = true;
 
     const loadBookings = async () => {
-      const resolvedUserId = user?.id ?? getStoredUserId();
-      if (mounted) setUserId(resolvedUserId);
+      const resolvedUserId = userId;
       if (!resolvedUserId) {
         setBookings([]);
         setLoading(false);
@@ -1446,7 +1444,7 @@ export default function MyMemoriesPage() {
     return () => {
       mounted = false;
     };
-  }, [user?.id, isLoading]);
+  }, [userId, isLoading]);
 
   const counts: Record<TabKey, number> = {
     upcoming: bookings.filter((b) => b.status === 'upcoming').length,
