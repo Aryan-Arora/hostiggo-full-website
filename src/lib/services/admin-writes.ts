@@ -177,11 +177,11 @@ export async function createBooking(input: {
   // looked up server-side from listing_addons below, never trusted from
   // the client, same reasoning as `amount` never being accepted directly.
   addonIds?: number[];
-  // `amount` is intentionally NOT accepted from the client anymore — the
+  // `amount` is intentionally NOT accepted from the client anymore, the
   // charge is always recomputed here from the listing's real prices so a
   // guest can't submit an arbitrary (or zero) amount for a real booking.
 }) {
-  // Resolve the owning host + real pricing/capacity from the listing —
+  // Resolve the owning host + real pricing/capacity from the listing,
   // never trust client-supplied price or guest-count data for the charge.
   const { data: listing, error: lerr } = await supabaseAdmin
     .from("listings")
@@ -226,9 +226,9 @@ export async function createBooking(input: {
     throw new Error("These dates are already booked.");
 
   // Recompute the charge server-side from the listing's real per-night
-  // prices — weekend nights (Fri/Sat) use price_weekend, everything else
-  // uses price_weekday — plus whichever add-ons the guest actually picked
-  // (priced from listing_addons, never from the client) — run through the
+  // prices, weekend nights (Fri/Sat) use price_weekend, everything else
+  // uses price_weekday, plus whichever add-ons the guest actually picked
+  // (priced from listing_addons, never from the client), run through the
   // real GST/service-fee invoice (src/lib/billing/invoice.ts) so the
   // stored amount always matches the exact number the guest was shown at
   // checkout, and can't be spoofed by the client.
@@ -315,13 +315,13 @@ export async function createBooking(input: {
     }
   }
 
-  // Checks A/B above are check-then-insert, not atomic — two requests can
+  // Checks A/B above are check-then-insert, not atomic, two requests can
   // both pass them and both insert a CONFIRMED booking for overlapping
   // dates. There's no way to add a real DB-level exclusion constraint from
   // here (would need direct schema access this service doesn't have), so
   // instead re-check immediately after inserting: if another CONFIRMED
   // booking for the same listing/dates already existed before ours
-  // (lower booking_id = arrived first), we lost the race — cancel the
+  // (lower booking_id = arrived first), we lost the race, cancel the
   // booking we just created rather than leave two guests both holding a
   // "confirmed" reservation for the same nights. This shrinks the race
   // window from the whole request round-trip down to just this recheck,
@@ -439,7 +439,7 @@ export async function cancelBooking(
     .single();
   if (error) throw error;
 
-  // Release the calendar nights createBooking blocked for this reservation —
+  // Release the calendar nights createBooking blocked for this reservation,
   // otherwise a cancelled booking's dates stay marked unavailable forever.
   if (data?.listing_id && data.start_date && data.end_date) {
     const nights = eachDateInRange(data.start_date, data.end_date);

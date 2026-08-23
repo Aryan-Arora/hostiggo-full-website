@@ -16,7 +16,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { calculateHostPayout } from '@/lib/billing/payout';
 
-// Bookings are instant-confirmed on creation — status_id is only ever
+// Bookings are instant-confirmed on creation, status_id is only ever
 // 2 (confirmed) or 3 (cancelled), there is no pending/approval step.
 const STATUS_CANCELLED = 3;
 const STATUS_CONFIRMED = 2;

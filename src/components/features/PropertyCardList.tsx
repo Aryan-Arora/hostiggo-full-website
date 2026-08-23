@@ -1,20 +1,21 @@
-import { useState } from "react";
-import Image from "next/image";
-import { Heart, Star, Wifi, Car, Coffee } from "lucide-react";
-import { useRouter } from "next/navigation";
-import type { Property } from "@/types";
-import { cn, toISODate } from "@/lib/utils";
-import { useListingState } from "@/context/ListingFilterContext";
 import { useAuth } from "@/context/AuthContext";
+import { useListingState } from "@/context/ListingFilterContext";
 import { useWishlist } from "@/hooks/useWishlist";
-import { toast } from "sonner";
 import { calculateBookingInvoice } from "@/lib/billing/invoice";
+import { cn, toISODate } from "@/lib/utils";
+import type { Property } from "@/types";
+import { Car, Coffee, Heart, Star, Wifi } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
 
 interface PropertyCardListProps {
   property: Property;
 }
 
-const FALLBACK = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&q=80";
+const FALLBACK =
+  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&q=80";
 
 export default function PropertyCardList({ property }: PropertyCardListProps) {
   const [imgErr, setImgErr] = useState(false);
@@ -23,11 +24,20 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
 
   const nights =
     dates.checkIn && dates.checkOut
-      ? Math.max(0, Math.round((dates.checkOut.getTime() - dates.checkIn.getTime()) / 86400000))
+      ? Math.max(
+          0,
+          Math.round(
+            (dates.checkOut.getTime() - dates.checkIn.getTime()) / 86400000,
+          ),
+        )
       : null;
   const totalGuests = guests.adults + guests.children;
-  const invoice = calculateBookingInvoice({ basePropertyPrice: property.price });
-  const feesAndTaxes = Math.round(invoice.grandTotalPaise / 100 - property.price);
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: property.price,
+  });
+  const feesAndTaxes = Math.round(
+    invoice.grandTotalPaise / 100 - property.price,
+  );
   const { isAuthenticated, userId } = useAuth();
   const { isSaved, toggle } = useWishlist(userId);
   const liked = isSaved(property.id);
@@ -36,7 +46,9 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
       toast("Sign in to save properties to your wishlist.");
-      router.push(`/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`);
+      router.push(
+        `/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`,
+      );
       return;
     }
     try {
@@ -50,18 +62,24 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
     const checkIn = toISODate(dates.checkIn);
     const checkOut = toISODate(dates.checkOut);
     const params = new URLSearchParams();
-    if (checkIn) params.set('checkIn', checkIn);
-    if (checkOut) params.set('checkOut', checkOut);
+    if (checkIn) params.set("checkIn", checkIn);
+    if (checkOut) params.set("checkOut", checkOut);
     const qs = params.toString();
-    router.push(`/property/${property.id}${qs ? `?${qs}` : ''}`);
+    router.push(`/property/${property.id}${qs ? `?${qs}` : ""}`);
   };
 
   const discount = property.originalPrice
-    ? Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)
+    ? Math.round(
+        ((property.originalPrice - property.price) / property.originalPrice) *
+          100,
+      )
     : null;
 
   const amenityTags = [
-    property.breakfast && { label: "Breakfast", icon: <Coffee className="w-3 h-3" /> },
+    property.breakfast && {
+      label: "Breakfast",
+      icon: <Coffee className="w-3 h-3" />,
+    },
     property.wifi && { label: "Wifi", icon: <Wifi className="w-3 h-3" /> },
     property.parking && { label: "Parking", icon: <Car className="w-3 h-3" /> },
   ].filter(Boolean) as { label: string; icon: React.ReactNode }[];
@@ -74,10 +92,10 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
       style={{ boxShadow: "0px 4px 75.4px 0px rgba(0,0,0,0.08)" }}
       onClick={handleNavigate}
     >
-      {/* Image — Figma uses a square (299x299 at an 855-wide card, ~35%) */}
+      {/* Image, Figma uses a square (299x299 at an 855-wide card, ~35%) */}
       <div className="relative flex-shrink-0 w-full sm:w-[35%] aspect-square rounded-[35px] overflow-hidden">
         <Image
-          src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
+          src={imgErr ? FALLBACK : property.images[0] || FALLBACK}
           alt={property.propertyName}
           onError={() => setImgErr(true)}
           fill
@@ -89,7 +107,9 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
           onClick={handleToggleLike}
           className={cn(
             "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
-            liked ? "text-rose-500" : "text-gray-500 hover:text-rose-400 hover:scale-110"
+            liked
+              ? "text-rose-500"
+              : "text-gray-500 hover:text-rose-400 hover:scale-110",
           )}
         >
           <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
@@ -98,39 +118,51 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
 
       {/* Content Container */}
       <div className="flex-1 flex flex-col justify-between py-1 pr-2 min-w-0">
-
         {/* Top Header Row */}
         <div className="flex justify-between items-start gap-4">
           <div className="min-w-0 flex-1">
             <h3
-              className="font-semibold leading-[1.4] tracking-[0.075px] text-figma-ink line-clamp-1 mb-2"
-              style={{ fontSize: 25 }}
+              className="text-figma-ink line-clamp-1 mb-2"
+              style={{
+                fontSize: "25px",
+                fontWeight: 600,
+                lineHeight: "140%",
+                letterSpacing: "0.075px",
+              }}
             >
               {property.propertyName}
             </h3>
 
-            {/* Rating Block — show an honest "New" badge instead of a fake
+            {/* Rating Block, show an honest "New" badge instead of a fake
                 score when the listing has no real reviews yet, so this
                 doesn't contradict the guest-rating filter which correctly
                 excludes listings with no genuine rating. */}
             <div className="flex items-center gap-2 mb-2">
               {property.rating > 0 ? (
                 <div className="flex items-center gap-1.5 bg-figma-navy/5 border border-figma-navy/20 rounded-md px-2 py-0.5">
-                  <span className="text-[14px] font-semibold text-figma-ink">{property.rating.toFixed(1)}</span>
+                  <span className="text-[14px] font-semibold text-figma-ink">
+                    {property.rating.toFixed(1)}
+                  </span>
                   <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
                 </div>
               ) : (
                 <div className="flex items-center gap-1.5 bg-figma-surface rounded-md px-2 py-0.5">
-                  <span className="text-[14px] font-semibold text-figma-muted">New</span>
+                  <span className="text-[14px] font-semibold text-figma-muted">
+                    New
+                  </span>
                 </div>
               )}
-              <span className="text-[14px] text-figma-ink/70">· {property.reviewCount} reviews</span>
+              <span className="text-[14px] text-figma-ink/70">
+                · {property.reviewCount} reviews
+              </span>
             </div>
 
             {/* Location + distance row */}
             <p className="text-[14px] text-figma-ink/60 font-medium line-clamp-1 mb-3">
               {property.city}, {property.state}
-              {property.distanceFromCenter ? ` · ${property.distanceFromCenter} from centre` : ''}
+              {property.distanceFromCenter
+                ? ` · ${property.distanceFromCenter} from centre`
+                : ""}
             </p>
 
             {/* Badges/Tags */}
@@ -153,7 +185,8 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
 
             {/* Room details text */}
             <p className="text-[11px] text-figma-ink/50 font-medium">
-              Up to {property.maxGuests} guest{property.maxGuests === 1 ? '' : 's'}
+              Up to {property.maxGuests} guest
+              {property.maxGuests === 1 ? "" : "s"}
             </p>
           </div>
 
@@ -161,19 +194,31 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
           <div className="flex-shrink-0 flex flex-col items-end text-right">
             {nights !== null && nights > 0 && (
               <p className="text-[12px] text-figma-ink/60 font-medium mb-1">
-                {nights} night{nights === 1 ? '' : 's'}, {totalGuests} guest{totalGuests === 1 ? '' : 's'}
+                {nights} night{nights === 1 ? "" : "s"}, {totalGuests} guest
+                {totalGuests === 1 ? "" : "s"}
               </p>
             )}
             {property.originalPrice && (
-              <p className="text-[13px] text-figma-ink/40 font-medium line-through mb-0.5">₹ {property.originalPrice.toLocaleString("en-IN")}</p>
+              <p className="text-[13px] text-figma-ink/40 font-medium line-through mb-0.5">
+                ₹ {property.originalPrice.toLocaleString("en-IN")}
+              </p>
             )}
-            <p className="font-semibold text-figma-ink leading-none mb-1" style={{ fontSize: 25 }}>
+            <p
+              className="text-figma-ink leading-none mb-1"
+              style={{
+                fontSize: "25px",
+                fontWeight: 600,
+                lineHeight: "140%",
+                letterSpacing: "0.075px",
+              }}
+            >
               ₹ {property.price.toLocaleString("en-IN")}
             </p>
-            <p className="text-[11px] text-figma-ink/50">+₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees</p>
+            <p className="text-[11px] text-figma-ink/50">
+              +₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees
+            </p>
           </div>
         </div>
-
       </div>
     </div>
   );

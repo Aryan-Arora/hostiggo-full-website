@@ -160,6 +160,59 @@ export const HotelServiceApi = {
     return (data || []) as ListingRow[];
   },
 
+  // Listings whose location matches a district name (case-insensitive). Used as
+  // a fallback for the search flow: the `search_listings` RPC currently returns
+  // nothing for some districts (e.g. New Delhi) even though active listings
+  // exist there, so a plain destination search can query them directly.
+  // TODO: remove once the search_listings RPC district matching is fixed.
+  getListingsByDistrict: async (
+    district: string,
+    limit: number = 20,
+    offset: number = 0,
+  ): Promise<ListingRow[]> => {
+    // Resolve matching location ids first (filtering listings on an embedded
+    // location column is unreliable via PostgREST), then fetch listings in those
+    // locations, mirroring the proven getListingsByLocationId path.
+    const { data: locs, error: locErr } = await supabase
+      .from('locations')
+      .select('location_id')
+      .ilike('district', district)
+      .limit(1000);
+
+    if (locErr) {
+      console.error('Fetch error (getListingsByDistrict/locations):', locErr);
+      throw locErr;
+    }
+
+    const locationIds = (locs || []).map((l: any) => l.location_id);
+    if (locationIds.length === 0) return [];
+
+    const { data, error } = await supabase
+      .from('listings')
+      .select(
+        `
+        listing_id,
+        title,
+        price_weekday,
+        location_id,
+        locations (state, district),
+        listing_media (media_url, is_cover)
+      `,
+      )
+      .eq('is_active', true)
+      .in('location_id', locationIds)
+      .eq('listing_media.is_cover', true)
+      .order('listing_id', { ascending: false })
+      .range(offset, offset + limit - 1);
+
+    if (error) {
+      console.error('Fetch error (getListingsByDistrict/listings):', error);
+      throw error;
+    }
+
+    return (data || []) as ListingRow[];
+  },
+
   // Listings owned by a given user (resolves host_uuid via the host table).
   // Paginated via offset/limit so hosts with more than a page of listings
   // (the demo host has 150+) aren't silently capped.
@@ -370,11 +423,11 @@ export const HotelServiceApi = {
     }
 
     // listing_house_rules and listing_safety_details have RLS policies that
-    // block the anon client's SELECT entirely (confirmed live — rows exist
+    // block the anon client's SELECT entirely (confirmed live, rows exist
     // but the anon key always sees an empty result), unlike the other
     // tables joined above. Fetch these two with the service-role client
     // instead so real host-entered data actually reaches the guest page.
-    // Note: use a plain array select + take [0], not .maybeSingle() — in
+    // Note: use a plain array select + take [0], not .maybeSingle(), in
     // this Promise.all/dev-server context .maybeSingle() reproducibly
     // returned null even though the row genuinely exists (confirmed via an
     // isolated script and a plain array query against the identical

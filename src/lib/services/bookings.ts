@@ -2,7 +2,7 @@ import { supabase } from "../supabase";
 import { supabaseAdmin } from "../supabase-admin";
 
 // None of updateBookingStatus/updateBookingDates/updateBookingGuests ever
-// checked that the caller actually owns the booking they're modifying —
+// checked that the caller actually owns the booking they're modifying,
 // only bookingId was required, so any guest could edit or cancel any other
 // guest's booking just by knowing (or guessing) its id. Confirmed live:
 // a demo guest was able to overwrite booking #46 (belonging to a different
@@ -247,7 +247,7 @@ export const bookingsAPI = {
 
     if (error) throw error;
 
-    // Release the calendar nights this booking had blocked — otherwise a
+    // Release the calendar nights this booking had blocked, otherwise a
     // guest cancelling from "My Trips" (a different code path than the
     // host-side cancelBooking) leaves those dates unavailable forever.
     if (
@@ -286,7 +286,7 @@ export const bookingsAPI = {
       .single();
     if (fetchErr) throw fetchErr;
 
-    // Same conflict checks createBooking runs — otherwise "modify dates"
+    // Same conflict checks createBooking runs, otherwise "modify dates"
     // can move a booking onto already-blocked or already-booked nights.
     const { data: blocked, error: blockedErr } = await supabase
       .from("listing_calendar")

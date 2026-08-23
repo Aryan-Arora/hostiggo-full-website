@@ -3,10 +3,8 @@ import * as houseRulesService from '@/lib/services/house-rules';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
 
-export async function GET(
-  request: NextRequest,
-  { params }: { params: { listingId: string } }
-) {
+export async function GET(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   try {
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) {
@@ -25,12 +23,10 @@ export async function GET(
 }
 
 // House rules are one structured row per listing (booleans + times), not a
-// list — so saving is always an upsert on the whole row, not add/edit/delete
+// list, so saving is always an upsert on the whole row, not add/edit/delete
 // of individual items.
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { listingId: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   try {
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) {

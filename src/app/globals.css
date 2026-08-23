@@ -18,7 +18,7 @@
 
   body {
     font-family: var(--font-poppins), system-ui, sans-serif;
-    background-color: #f0f2f5;
+    background-color: #f8f6f1;
     color: hsl(var(--foreground));
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
@@ -31,7 +31,7 @@
 
 @layer components {
   .container-main {
-    @apply max-w-6xl mx-auto px-4 sm:px-6 lg:px-8;
+    @apply max-w-7xl mx-auto px-4 sm:px-6 lg:px-8;
   }
 
   .bg-primary-gradient {

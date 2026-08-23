@@ -877,7 +877,7 @@ function BookingWidget({
   useEffect(() => { onNightsChange?.(nights); }, [nights]);
   useEffect(() => { onGuestsChange?.(guests); }, [guests]);
 
-  // Mirrors the server-side calc in createBooking() — weekend nights
+  // Mirrors the server-side calc in createBooking(), weekend nights
   // (Fri/Sat) bill at priceWeekend, everything else at the weekday price,
   // so this preview matches what actually gets charged. Also tracks how
   // many nights fell at each rate so the breakdown label below can say
@@ -1021,7 +1021,7 @@ function BookingWidget({
           </span>
         )}
       </div>
-      {/* Discount badge — informational only. The booking price calc below
+      {/* Discount badge, informational only. The booking price calc below
           doesn't apply this discount yet (that's a separate pricing-logic
           change), so it's shown honestly as a host-offered discount rather
           than baked into the displayed/charged price. */}
@@ -1030,7 +1030,7 @@ function BookingWidget({
           `🏷️ ${property.activeDiscount.percent}% off: ${property.activeDiscount.type.replace(/_/g, ' ')}`}
       </p>
 
-      {/* Date selector — displays selected dates, opens picker on click.
+      {/* Date selector, displays selected dates, opens picker on click.
           Wrapped in `relative` so the absolutely-positioned dropdown-panel
           below anchors to this row instead of the sticky booking widget
           container (sticky also establishes a positioning context, which
@@ -1080,20 +1080,15 @@ function BookingWidget({
         </div>
       </div>
 
-      {/* DateRangePicker dropdown — anchored to the *right* edge of this
-          narrow sidebar card. DateRangePicker renders itself at a fixed
-          min(600px, 95vw) width (sized for the wide, centered SearchForm
-          bar), much wider than this sidebar. `right-0` alone doesn't work
-          here: since DateRangePicker's own root is itself `position:
-          absolute` (the shared `.dropdown-panel` class), this wrapper's
-          only child is out-of-flow, so the wrapper's shrink-to-fit width
-          collapses to 0 and `right-0` just anchors a single point instead
-          of pushing the 600px box leftward. Giving the wrapper the same
-          explicit width fixes that, so it actually stays on-screen. */}
+      {/* DateRangePicker dropdown, anchored to the *right* edge of this
+          narrow sidebar card. DateRangePicker overrides .dropdown-panel's
+          default `position: absolute` with `!relative` and sets its own
+          min(720px, 95vw) width, so this wrapper naturally shrink-to-fits
+          around it and `right-0` correctly anchors the box's right edge. */}
       {showPicker && (
         <div
           className="absolute top-[calc(100%+8px)] right-0 z-50"
-          style={{ width: 'min(600px, 95vw)', scrollMarginTop: '90px' }}
+          style={{ scrollMarginTop: '90px' }}
           ref={pickerRef}
         >
           <DateRangePicker
@@ -1114,7 +1109,7 @@ function BookingWidget({
         </p>
       )}
 
-      {/* Price breakdown — only show when available/confirmed */}
+      {/* Price breakdown, only show when available/confirmed */}
       {nights > 0 && (status === 'available' || status === 'confirmed' || status === 'booking') && (
         <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
           <div className="flex justify-between text-gray-600">
@@ -2075,7 +2070,7 @@ export default function PropertyDetailsPage() {
                 </div>
               )}
 
-              {/* Overall rating — no per-category breakdown is shown here
+              {/* Overall rating, no per-category breakdown is shown here
                   because the database only stores one rating per review;
                   there's no real cleanliness/accuracy/communication/location/
                   check-in/value sub-score anywhere to break it down into. */}

@@ -1,13 +1,17 @@
-'use client';
+"use client";
 
-import Image from "next/image";
 import SearchForm from "@/components/features/SearchForm";
+import { Check } from "lucide-react";
+import Image from "next/image";
 
+import {
+  useListingActions,
+  useListingState,
+} from "@/context/ListingFilterContext";
 import { cn } from "@/lib/utils";
-import { useListingState, useListingActions } from "@/context/ListingFilterContext";
 import type { SearchFilters } from "@/types";
 
-const heroBg = "/hero-bg.jpg";
+const heroBg = "/hero-bg.jpg?v=4";
 
 const HERO_TAGS = [
   { id: "budget", label: "₹1000 - ₹ 3000" },
@@ -21,7 +25,8 @@ const HERO_TAGS = [
 
 export default function HeroSection() {
   const { filters, sort } = useListingState();
-  const { setPriceRange, setRating, setBooleanFilter, setSort } = useListingActions();
+  const { setPriceRange, setRating, setBooleanFilter, setSort } =
+    useListingActions();
 
   const isChecked = (id: string): boolean => {
     switch (id) {
@@ -72,68 +77,116 @@ export default function HeroSection() {
   };
 
   return (
-    <section className="bg-gray-50/50 pb-8 lg:pb-12 pt-5 lg:pt-8 flex items-center mt-3">
+    <section className="pb-8 lg:pb-12 pt-4 flex items-center">
       <div className="container-main w-full min-w-0">
-        {/* Main white wrapper matching the screenshot's unified container */}
-        <div className="bg-white rounded-[2.5rem] shadow-[0_8px_30px_rgb(0,0,0,0.04)] p-2 sm:p-3 lg:p-4">
-          <div className="flex flex-col lg:flex-row gap-8 lg:gap-14 items-center">
+        {/* Outer White Card Container — spacious and modern */}
+        <div className="bg-white rounded-[28px] sm:rounded-[36px] shadow-[0_10px_36px_rgba(0,0,0,0.06)] flex flex-col lg:flex-row items-stretch max-w-[1240px] mx-auto">
+          {/* Left: hero image card */}
+          <div
+            className="relative w-full lg:w-[480px] xl:w-[510px] flex-shrink-0 select-none flex flex-col rounded-[24px] sm:rounded-[30px] lg:rounded-l-[36px] lg:rounded-r-[30px] overflow-hidden z-10"
+            style={{ minHeight: 485 }}
+          >
+            <Image
+              src={heroBg}
+              alt="Aerial view of a beach"
+              fill
+              priority
+              sizes="(max-width: 1024px) 100vw, 470px"
+              className="object-cover"
+              quality={95}
+            />
+            {/* Subtle dark gradient overlay for black-toned image feel */}
+            <div className="absolute inset-0 bg-gradient-to-b from-black/35 via-black/25 to-black/50" />
 
-            {/* Left: hero image card */}
             <div
-              className="relative w-full lg:w-[480px] xl:w-[500px] flex-shrink-0 rounded-[2rem] overflow-hidden select-none"
-              style={{ minHeight: 400 }}
+              className="relative z-10 p-6 sm:p-7 flex flex-col h-full justify-between"
+              style={{ minHeight: 485 }}
             >
-              <Image
-                src={heroBg}
-                alt="Lush green forest"
-                fill
-                priority
-                sizes="(max-width: 1024px) 100vw, 500px"
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-black/10" />
-              <div className="relative z-10 p-7 sm:p-9 flex flex-col h-full" style={{ minHeight: 400 }}>
-                <p className="text-white/90 text-sm font-medium tracking-wide mb-1">Discover your next</p>
-                <h1 className="text-white font-extrabold leading-[1.1] mb-auto" style={{ fontSize: "clamp(2.8rem,5vw,3.8rem)" }}>
+              {/* Text styling matching Figma Dev Mode */}
+              <div>
+                <p
+                  className="text-white mb-0"
+                  style={{
+                    fontSize: "30px",
+                    fontWeight: 400,
+                    lineHeight: "135%",
+                    letterSpacing: "0.003em",
+                  }}
+                >
+                  Discover your next
+                </p>
+                <h1
+                  className="text-white"
+                  style={{
+                    fontSize: "52px",
+                    fontWeight: 600,
+                    lineHeight: "135%",
+                    letterSpacing: "0.003em",
+                  }}
+                >
                   Perfect stay
                 </h1>
+              </div>
 
-                {/* Popular Choices Glass Panel */}
-                <div className="mt-auto pt-6">
-                  <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-3xl p-6 shadow-lg">
-                    <h3 className="text-center text-white/90 font-medium tracking-[0.15em] uppercase text-xs mb-5">
-                      Popular Choices
-                    </h3>
-                    <div className="flex flex-wrap justify-center gap-2.5">
-                      {HERO_TAGS.map(({ id, label }) => {
-                        const checked = isChecked(id);
-                        return (
-                          <button
-                            key={id}
-                            type="button"
-                            onClick={() => toggleTag(id)}
-                            className="flex items-center gap-2 bg-white hover:bg-white/90 text-gray-700 text-xs font-semibold px-3 py-2 rounded-lg cursor-pointer transition-colors shadow-sm"
+              {/* Popular Choices Glass Panel */}
+              <div className="pt-3">
+                <div
+                  className="backdrop-blur-[2px] rounded-[20px] p-3 sm:p-4"
+                  style={{
+                    background: "rgba(255, 255, 255, 0.06)",
+                    border: "1px solid rgba(255, 255, 255, 0.15)",
+                    boxShadow: "0 8px 32px rgba(0, 0, 0, 0.06)",
+                  }}
+                >
+                  <h3
+                    className="text-center text-white mb-2.5"
+                    style={{
+                      fontSize: "19px",
+                      fontWeight: 500,
+                      lineHeight: "140%",
+                      letterSpacing: "0.15em",
+                    }}
+                  >
+                    Popular Choices
+                  </h3>
+
+                  {/* Rectangular option boxes with square checkboxes */}
+                  <div className="flex flex-wrap justify-center gap-1.5">
+                    {HERO_TAGS.map(({ id, label }) => {
+                      const checked = isChecked(id);
+                      return (
+                        <button
+                          key={id}
+                          type="button"
+                          onClick={() => toggleTag(id)}
+                          aria-pressed={checked}
+                          className="flex items-center gap-1.5 text-[13.5px] font-normal text-[#1B1B1B] px-3 py-1.5 rounded-lg bg-white hover:bg-white transition-all cursor-pointer shadow-sm border border-gray-100/80"
+                        >
+                          <span
+                            className={cn(
+                              "w-3.5 h-3.5 rounded-[3px] flex items-center justify-center transition-colors flex-shrink-0",
+                              checked
+                                ? "bg-figma-navy text-white border border-figma-navy"
+                                : "bg-white border border-gray-300",
+                            )}
                           >
-                            <div className={cn(
-                              "w-3.5 h-3.5 rounded-sm border flex items-center justify-center transition-colors",
-                              checked ? "bg-figma-navy border-figma-navy text-white" : "border-gray-300 bg-white"
-                            )}>
-                              {checked && <svg className="w-2.5 h-2.5" viewBox="0 0 14 14" fill="none"><path d="M11.6666 3.5L5.24992 9.91667L2.33325 7" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>}
-                            </div>
-                            <span>{label}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
+                            {checked && (
+                              <Check className="w-2.5 h-2.5 stroke-[3]" />
+                            )}
+                          </span>
+                          <span>{label}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 </div>
               </div>
             </div>
+          </div>
 
-            {/* Right: search panel */}
-            <div className="flex-1 flex flex-col justify-center py-6 lg:py-0 w-full lg:max-w-md pr-0 lg:pr-8 mx-auto">
-              <SearchForm />
-            </div>
+          {/* Right: search panel — spacious padding */}
+          <div className="flex-1 flex flex-col justify-center p-6 sm:p-8 lg:p-10 w-full rounded-b-[28px] sm:rounded-b-[36px] lg:rounded-bl-none lg:rounded-r-[36px]">
+            <SearchForm />
           </div>
         </div>
       </div>
