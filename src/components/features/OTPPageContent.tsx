@@ -9,13 +9,11 @@ import { cn } from '@/lib/utils';
 import {
   api,
   AUTH_PHONE_KEY,
-  AUTH_USER_ID_KEY,
   AUTH_EMAIL_KEY,
   normalizePhone,
   normalizeEmail,
   setStoredSession,
 } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 

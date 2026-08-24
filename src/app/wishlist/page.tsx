@@ -19,12 +19,12 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useSupabaseAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 const vacationIllustration = '/vacation-illustration.png';
 import { cn } from '@/lib/utils';
-import { api, getStoredUserId, mapWishlistListing } from '@/lib/api';
+import { api, mapWishlistListing } from '@/lib/api';
 import { toast } from 'sonner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -494,8 +494,6 @@ export default function WishlistPage() {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [editMode, setEditMode] = useState(false);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
-  const [userId, setUserId] = useState<string | null>(null);
-
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [confirmRemoveGroup, setConfirmRemoveGroup] =
@@ -505,12 +503,7 @@ export default function WishlistPage() {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const { user, isLoading } = useSupabaseAuth();
-
-  useEffect(() => {
-    if (isLoading) return;
-    setUserId(user?.id ?? getStoredUserId());
-  }, [user?.id, isLoading]);
+  const { userId, loading: isLoading } = useAuth();
 
   useEffect(() => {
     if (!userId) {
