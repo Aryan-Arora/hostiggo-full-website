@@ -3,7 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { SCHEMA } from "./schema.constants";
 
 // Server-only Supabase client using the service-role key. This BYPASSES RLS and
-// must NEVER be imported into a client component — it lives behind /app/api/*
+// must NEVER be imported into a client component, it lives behind /app/api/*
 // route handlers only. The `server-only` import above makes a client-side
 // import a build error.
 const SUPABASE_URL =
@@ -12,7 +12,7 @@ const SERVICE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
 if (!SERVICE_KEY) {
   console.warn(
-    "[supabase-admin] SUPABASE_SERVICE_ROLE_KEY is missing — write endpoints will fail.",
+    "[supabase-admin] SUPABASE_SERVICE_ROLE_KEY is missing, write endpoints will fail.",
   );
 }
 
@@ -24,7 +24,7 @@ export const supabaseAdmin = createClient(SUPABASE_URL, effectiveKey, {
   auth: { persistSession: false, autoRefreshToken: false },
   db: { schema: SCHEMA.testingSchema },
   // Next.js patches the global `fetch` in the App Router and will cache GET
-  // requests — including the ones supabase-js makes under the hood — to its
+  // requests, including the ones supabase-js makes under the hood, to its
   // on-disk Data Cache, which survives dev-server restarts. Without this,
   // a query that returned an empty result once (e.g. before a row existed)
   // can keep being served stale indefinitely, even for a live SELECT.

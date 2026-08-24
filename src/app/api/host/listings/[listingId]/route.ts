@@ -9,10 +9,8 @@ export const dynamic = "force-dynamic";
  * listing has any bookings -- pausing (is_active=false) is the correct
  * action for a listing with booking history, deletion would orphan them.
  */
-export async function DELETE(
-  _req: NextRequest,
-  { params }: { params: { listingId: string } },
-) {
+export async function DELETE(_req: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
   try {
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) {

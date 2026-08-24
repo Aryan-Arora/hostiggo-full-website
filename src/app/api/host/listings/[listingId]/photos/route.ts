@@ -2,11 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 export async function GET(
   req: NextRequest,
-  { params }: { params: { listingId: string } }
+  props: { params: Promise<{ listingId: string }> }
 ) {
   try {
+    const params = await props.params;
     const listingId = params.listingId;
-    
+
     // TODO: Fetch photos from database
     // For now, return empty array
     return NextResponse.json({ data: [] });
@@ -21,9 +22,10 @@ export async function GET(
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { listingId: string } }
+  props: { params: Promise<{ listingId: string }> }
 ) {
   try {
+    const params = await props.params;
     const listingId = params.listingId;
     const formData = await req.formData();
     const file = formData.get('file') as File;
@@ -55,9 +57,10 @@ export async function POST(
 
 export async function DELETE(
   req: NextRequest,
-  { params }: { params: { listingId: string } }
+  props: { params: Promise<{ listingId: string }> }
 ) {
   try {
+    const params = await props.params;
     const listingId = params.listingId;
     const { photoId } = await req.json();
 

@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { Building2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-// A real user row from the DB — used only as a dev shortcut so the host area
+// A real user row from the DB, used only as a dev shortcut so the host area
 // is reviewable locally (production sign-in is phone OTP). Never shown in prod.
 const DEMO_HOST_ID = '7701820c-50fe-4ee8-a4e6-e18068c1fb0b';
 const IS_DEV = process.env.NODE_ENV !== 'production';

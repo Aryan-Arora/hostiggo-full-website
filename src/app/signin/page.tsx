@@ -1,52 +1,60 @@
-'use client';
+"use client";
 
-import { useState, useRef, Suspense, useEffect } from 'react';
-import Image from 'next/image';
-import Link from 'next/link';
-import { useRouter, useSearchParams } from 'next/navigation';
-import { Mail, Phone, ChevronDown, ArrowLeft, Compass } from 'lucide-react';
-const authBg = '/auth-bg.jpg';
-import { cn } from '@/lib/utils';
-import { api, AUTH_PHONE_KEY, AUTH_EMAIL_KEY, normalizePhone, normalizeEmail } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
-import { toast } from 'sonner';
+import {
+  api,
+  AUTH_EMAIL_KEY,
+  AUTH_PHONE_KEY,
+  normalizeEmail,
+  normalizePhone,
+} from "@/lib/api";
+import { supabase } from "@/lib/supabase";
+import { ArrowLeft, ChevronDown, Compass, Mail, Phone } from "lucide-react";
+import Image from "next/image";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
+const authBg = "/auth-bg.jpg";
 
-type Mode = 'phone' | 'email';
+type Mode = "phone" | "email";
 
 function SignInContent() {
-  const [mode, setMode] = useState<Mode>('phone');
-  const [phone, setPhone] = useState('');
-  const [email, setEmail] = useState('');
+  const [mode, setMode] = useState<Mode>("phone");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
   const router = useRouter();
   const searchParams = useSearchParams();
-  const redirect = searchParams?.get('redirect') || '';
+  const redirect = searchParams?.get("redirect") || "";
 
-  const errorParam = searchParams?.get('error');
+  const errorParam = searchParams?.get("error");
 
   useEffect(() => {
     if (!errorParam) return;
-    toast.error(errorParam === 'access_denied' ? 'Google sign-in was cancelled.' : `Sign-in error. Please try again.`);
+    toast.error(
+      errorParam === "access_denied"
+        ? "Google sign-in was cancelled."
+        : `Sign-in error. Please try again.`,
+    );
   }, [errorParam]);
 
-  const handleSkip = () => router.push(redirect || '/');
+  const handleSkip = () => router.push(redirect || "/");
 
   const handleSendOTP = async () => {
     if (sendingRef.current) return;
-    if (mode === 'phone' && phone.trim().length < 10) return;
-    if (mode === 'email' && !email.includes('@')) return;
+    if (mode === "phone" && phone.trim().length < 10) return;
+    if (mode === "email" && !email.includes("@")) return;
 
     sendingRef.current = true;
     setSending(true);
     try {
-      if (mode === 'email') {
+      if (mode === "email") {
         const normalizedEmail = normalizeEmail(email);
         await api.sendEmailOtp(normalizedEmail);
         window.localStorage.setItem(AUTH_EMAIL_KEY, normalizedEmail);
         router.push(
           `/otp?mode=email&value=${encodeURIComponent(normalizedEmail)}${
-            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
           }`,
         );
       } else {
@@ -55,14 +63,18 @@ function SignInContent() {
         window.localStorage.setItem(AUTH_PHONE_KEY, normalizedPhone);
         router.push(
           `/otp?mode=phone&value=${encodeURIComponent(normalizedPhone)}${
-            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ''
+            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
           }`,
         );
       }
     } catch (error) {
-      const msg = error instanceof Error ? error.message : 'Failed to send OTP';
-      if (msg.toLowerCase().includes('rate limit') || msg.toLowerCase().includes('over') || msg.toLowerCase().includes('too many')) {
-        toast.error('Please wait 60 seconds before requesting a new code');
+      const msg = error instanceof Error ? error.message : "Failed to send OTP";
+      if (
+        msg.toLowerCase().includes("rate limit") ||
+        msg.toLowerCase().includes("over") ||
+        msg.toLowerCase().includes("too many")
+      ) {
+        toast.error("Please wait 60 seconds before requesting a new code");
       } else {
         toast.error(msg);
       }
@@ -75,20 +87,20 @@ function SignInContent() {
   const handleGoogleSignIn = async () => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: 'google',
-        options: { 
-          redirectTo: `${window.location.origin}/auth/callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ''}`,
+        provider: "google",
+        options: {
+          redirectTo: `${window.location.origin}/auth/callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`,
           queryParams: {
-            access_type: 'offline',
-            prompt: 'consent',
+            access_type: "offline",
+            prompt: "consent",
           },
         },
       });
       if (error) {
-        toast.error('Google sign-in failed. Please try again.');
+        toast.error("Google sign-in failed. Please try again.");
       }
     } catch (err) {
-      toast.error('Google sign-in failed. Please try again.');
+      toast.error("Google sign-in failed. Please try again.");
     }
   };
 
@@ -118,24 +130,27 @@ function SignInContent() {
       {/* Card */}
       <div className="relative z-10 w-full max-w-[360px] mx-4 bg-white rounded-3xl shadow-2xl p-8">
         {/* Back arrow on email mode */}
-        {mode === 'email' && (
+        {mode === "email" && (
           <button
-            onClick={() => setMode('phone')}
+            onClick={() => setMode("phone")}
             className="mb-4 p-1 rounded-full hover:bg-gray-100 transition-colors inline-flex"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
           </button>
         )}
 
-        <h2 className="text-[22px] font-bold text-gray-900 mb-1">
-          {mode === 'phone' ? 'Sign in with mobile no.' : 'Sign in with email'}
+        <h2
+          className="text-[24px] font-normal text-gray-900 mb-1"
+          style={{ fontFamily: "Andika New Basic, serif" }}
+        >
+          {mode === "phone" ? "Sign in with mobile no." : "Sign in with email"}
         </h2>
         <p className="text-[13px] text-gray-500 mb-6">
           Sign in to access personalized travel plans made for you
         </p>
 
         {/* Phone input */}
-        {mode === 'phone' && (
+        {mode === "phone" && (
           <div className="flex items-center gap-0 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
             <div className="flex items-center gap-1 px-3 py-3 bg-gray-50 border-r border-gray-200 text-[14px] font-medium text-gray-700 cursor-pointer select-none">
               <span>+91</span>
@@ -146,7 +161,7 @@ function SignInContent() {
               placeholder="Enter Mobile No."
               value={phone}
               onChange={(e) =>
-                setPhone(e.target.value.replace(/\D/g, '').slice(0, 10))
+                setPhone(e.target.value.replace(/\D/g, "").slice(0, 10))
               }
               className="flex-1 px-4 py-3 text-[14px] text-gray-800 outline-none bg-white placeholder:text-gray-400"
             />
@@ -154,7 +169,7 @@ function SignInContent() {
         )}
 
         {/* Email input */}
-        {mode === 'email' && (
+        {mode === "email" && (
           <div className="flex items-center gap-2 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
             <Mail className="w-4 h-4 text-gray-400 ml-4 flex-shrink-0" />
             <input
@@ -171,21 +186,27 @@ function SignInContent() {
         <button
           onClick={handleSendOTP}
           disabled={sending}
-          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-normal rounded-xl transition-all text-[16px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+          style={{ fontFamily: "Albert Sans, sans-serif" }}
         >
-          {sending ? 'Sending...' : 'Send OTP'}
+          {sending ? "Sending..." : "Send OTP"}
         </button>
 
         {/* Divider */}
         <div className="flex items-center gap-3 mb-5">
           <div className="flex-1 h-px bg-gray-200" />
-          <span className="text-[12px] text-gray-400 font-medium">OR</span>
+          <span
+            className="text-[16px] text-gray-400 font-medium"
+            style={{ fontFamily: "Albert Sans, sans-serif" }}
+          >
+            OR
+          </span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
 
         {/* Social buttons */}
         <div className="flex items-center justify-center gap-5 mb-6">
-          {mode === 'phone' ? (
+          {mode === "phone" ? (
             <>
               {/* Google */}
               <button
@@ -207,7 +228,7 @@ function SignInContent() {
             <>
               {/* Phone login */}
               <button
-                onClick={() => setMode('phone')}
+                onClick={() => setMode("phone")}
                 className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm"
               >
                 <Phone className="w-5 h-5 text-figma-navy" />
@@ -225,10 +246,10 @@ function SignInContent() {
         </div>
 
         {/* Switch mode */}
-        {mode === 'phone' && (
+        {mode === "phone" && (
           <p className="text-center text-[13px] text-gray-500 mb-4">
             <button
-              onClick={() => setMode('email')}
+              onClick={() => setMode("email")}
               className="text-figma-navy hover:underline font-medium"
             >
               Sign in with email instead
@@ -247,11 +268,11 @@ function SignInContent() {
 
         {/* Terms */}
         <p className="text-center text-[11px] text-gray-400 leading-relaxed">
-          By continuing, you agree to Hostiggo&apos;s{' '}
+          By continuing, you agree to Hostiggo&apos;s{" "}
           <a href="/terms" className="text-figma-navy hover:underline">
             Terms and Conditions
-          </a>{' '}
-          and{' '}
+          </a>{" "}
+          and{" "}
           <a href="/privacy" className="text-figma-navy hover:underline">
             Privacy Policy
           </a>

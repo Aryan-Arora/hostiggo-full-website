@@ -1,34 +1,34 @@
-'use client';
+"use client";
 
-import { useState, useRef, useEffect } from 'react';
-import Link from 'next/link';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
+import { useAuth } from "@/context/AuthContext";
+import { cn } from "@/lib/utils";
 import {
-  Globe,
-  IndianRupee,
-  Menu,
-  X,
-  MessageCircle,
-  Heart,
   Clock,
-  User,
-  Settings,
-  Star,
+  Gift,
+  Globe,
+  Heart,
   HelpCircle,
   Home,
+  IndianRupee,
   LogOut,
-  Gift,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
+  Menu,
+  MessageCircle,
+  Settings,
+  Star,
+  User,
+  X,
+} from "lucide-react";
+import Image from "next/image";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
 
 // Signed-in user display fallback -- must match the placeholder used in
 // account/profile/page.tsx so an unset profile photo looks the same
 // everywhere instead of showing a different random face per page.
 const USER = {
-  name: 'Account',
-  avatar: 'https://i.pravatar.cc/200?img=45',
+  name: "Account",
+  avatar: "https://i.pravatar.cc/200?img=45",
 };
 
 interface MenuItem {
@@ -37,49 +37,61 @@ interface MenuItem {
   to?: string;
   danger?: boolean;
   action?: () => void;
-  // Placeholder for a feature that isn't built yet — rendered disabled with a
+  // Placeholder for a feature that isn't built yet, rendered disabled with a
   // "Soon" pill so the slot stays in the menu without being a dead link.
   soon?: boolean;
 }
 
 const MENU_GROUPS: MenuItem[][] = [
   [
-    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '/chat' },
+    {
+      icon: <MessageCircle className="w-4 h-4" />,
+      label: "Chats",
+      to: "/chat",
+    },
     {
       icon: <Heart className="w-4 h-4" />,
-      label: 'Wishlists',
-      to: '/wishlist',
+      label: "Wishlists",
+      to: "/wishlist",
     },
     {
       icon: <Clock className="w-4 h-4" />,
-      label: 'Memories',
-      to: '/my-memories',
+      label: "Memories",
+      to: "/my-memories",
     },
-    { icon: <User className="w-4 h-4" />, label: 'Profile', to: '/account/profile' },
+    {
+      icon: <User className="w-4 h-4" />,
+      label: "Profile",
+      to: "/account/profile",
+    },
   ],
   [
     {
       icon: <Settings className="w-4 h-4" />,
-      label: 'Account Settings',
-      to: '/account/settings',
+      label: "Account Settings",
+      to: "/account/settings",
     },
-    { icon: <Star className="w-4 h-4" />, label: 'My reviews', to: '/host/reviews' },
+    {
+      icon: <Star className="w-4 h-4" />,
+      label: "My reviews",
+      to: "/host/reviews",
+    },
     {
       icon: <Gift className="w-4 h-4" />,
-      label: 'Refer & earn',
-      to: '/refer',
+      label: "Refer & earn",
+      to: "/refer",
     },
     {
       icon: <HelpCircle className="w-4 h-4" />,
-      label: 'Customer support',
-      to: '/support',
+      label: "Customer support",
+      to: "/support",
     },
   ],
   [
     {
       icon: <Home className="w-4 h-4 text-amber-500" />,
-      label: 'Host & Earn',
-      to: '/host/listings',
+      label: "Host & Earn",
+      to: "/host/listings",
     },
   ],
 ];
@@ -107,13 +119,13 @@ export default function Navbar() {
         setProfileOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
   }, []);
 
   return (
     <nav className="bg-white sticky top-0 z-50 border-b border-gray-50 shadow-[0_8px_30px_rgba(59,130,246,0.12)] flex-shrink-0">
-      <div className="container-main">
+      <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link
@@ -128,31 +140,39 @@ export default function Navbar() {
               className="transition-transform group-hover:scale-105"
             />
             <div className="flex items-baseline">
-              <span className="font-black text-[#374151] text-[17px] tracking-wider uppercase">
-                Hosti
+              <span
+                className="font-semibold text-[#374151] text-[21px] leading-[140%] uppercase tracking-normal"
+                style={{ fontFamily: "Poppins, sans-serif" }}
+              >
+                Hostig
               </span>
-              <span className="font-black text-[#0086D8] text-[17px] tracking-wider uppercase">
-                ggo
+              <span
+                className="font-semibold text-[#0086D8] text-[21px] leading-[140%] uppercase tracking-normal"
+                style={{ fontFamily: "Poppins, sans-serif" }}
+              >
+                go
               </span>
             </div>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-0.5">
-            <span className="flex items-center gap-1 text-gray-500 px-3 py-1.5 text-[13px] font-medium">
+          <div className="hidden md:flex items-center gap-1">
+            <span className="flex items-center gap-1 text-figma-ink px-3 py-1.5 text-[14px] font-medium">
               <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
-              INR
+              INR.
             </span>
-            <span className="flex items-center gap-1 text-gray-500 px-3 py-1.5 text-[13px] font-medium">
+            <span className="h-4 w-px bg-gray-200 mx-0.5" />
+            <span className="flex items-center gap-1.5 text-figma-ink px-3 py-1.5 text-[14px] font-medium">
               <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
               English
             </span>
+            <span className="h-4 w-px bg-gray-200 mx-0.5" />
 
             {isAuthenticated ? (
               <>
                 <button
-                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
-                  onClick={() => router.push('/host/list/property-type')}
+                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
+                  onClick={() => router.push("/host/list/property-type")}
                 >
                   List your property
                 </button>
@@ -176,10 +196,10 @@ export default function Navbar() {
                   {profileOpen && (
                     <div
                       className={cn(
-                        'absolute right-0 top-[calc(100%+10px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden',
-                        'animate-fade-in-down origin-top-right',
+                        "absolute right-0 top-[calc(100%+10px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden",
+                        "animate-fade-in-down origin-top-right",
                       )}
-                      style={{ animation: 'fadeInDown 0.18s ease both' }}
+                      style={{ animation: "fadeInDown 0.18s ease both" }}
                     >
                       {MENU_GROUPS.map((group, gi) => (
                         <div key={gi}>
@@ -191,9 +211,11 @@ export default function Navbar() {
                                   key={item.label}
                                   aria-disabled="true"
                                   title="Coming soon"
-                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-400 cursor-default select-none"
+                                  className="flex items-center gap-3 px-4 py-2.5 text-[14px] font-medium text-gray-400 cursor-default select-none"
                                 >
-                                  <span className="text-gray-300">{item.icon}</span>
+                                  <span className="text-gray-300">
+                                    {item.icon}
+                                  </span>
                                   <span>{item.label}</span>
                                   <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
                                     Soon
@@ -202,14 +224,16 @@ export default function Navbar() {
                               ) : (
                                 <Link
                                   key={item.label}
-                                  href={item.to ?? '#'}
+                                  href={item.to ?? "#"}
                                   onClick={() => {
                                     item.action?.();
                                     setProfileOpen(false);
                                   }}
-                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
+                                  className="flex items-center gap-3 px-4 py-2.5 text-[14px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
                                 >
-                                  <span className="text-gray-400">{item.icon}</span>
+                                  <span className="text-gray-400">
+                                    {item.icon}
+                                  </span>
                                   <span>{item.label}</span>
                                 </Link>
                               ),
@@ -223,7 +247,7 @@ export default function Navbar() {
                       <div className="p-3">
                         <button
                           onClick={handleSignOut}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
+                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[14px] font-medium text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
                         >
                           <LogOut className="w-4 h-4" />
                           Sign out
@@ -236,20 +260,20 @@ export default function Navbar() {
             ) : (
               <>
                 <button
-                  className="text-gray-600 hover:text-gray-900 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-medium ml-1"
-                  onClick={() => router.push('/signin')}
+                  className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[14px] font-medium ml-0.5"
+                  onClick={() => router.push("/signin")}
                 >
-                  Sign in
+                  Sign In
                 </button>
                 <button
-                  className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1 shadow-sm"
-                  onClick={() => router.push('/signin')}
+                  className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1 shadow-sm"
+                  onClick={() => router.push("/signin")}
                 >
                   New user
                 </button>
                 <button
-                  onClick={() => router.push('/host/list/property-type')}
-                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
+                  onClick={() => router.push("/host/list/property-type")}
+                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
                 >
                   List your property
                 </button>
@@ -323,7 +347,7 @@ export default function Navbar() {
                 <button
                   onClick={() => {
                     setMobileOpen(false);
-                    router.push('/signin');
+                    router.push("/signin");
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl font-medium"
                 >
@@ -333,7 +357,7 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push('/signin');
+                      router.push("/signin");
                     }}
                     className="flex-1 bg-figma-navy text-white py-2 rounded-xl text-sm font-semibold"
                   >
@@ -342,7 +366,7 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push('/host/list/property-type');
+                      router.push("/host/list/property-type");
                     }}
                     className="flex-1 border border-figma-navy text-figma-navy py-2 rounded-xl text-sm font-semibold"
                   >

@@ -8,14 +8,31 @@ const FALLBACK_IMAGE =
 export const AUTH_USER_ID_KEY = "hostiggo:user-id";
 export const AUTH_PHONE_KEY = "hostiggo:phone";
 export const AUTH_EMAIL_KEY = "hostiggo:email";
+// Real Supabase session tokens (JWT), returned by /api/auth/otp on verify.
+// Sent as a Bearer token on every request so API routes can verify the
+// caller's identity server-side instead of trusting a client-claimed userId
+// -- see getAuthenticatedUserId() in src/lib/auth-server.ts.
+export const AUTH_ACCESS_TOKEN_KEY = "hostiggo:access-token";
+export const AUTH_REFRESH_TOKEN_KEY = "hostiggo:refresh-token";
 
 type ApiResult<T> = { data?: T; error?: string };
 
+export const getStoredAccessToken = () =>
+  typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_ACCESS_TOKEN_KEY);
+
+export const setStoredSession = (accessToken: string, refreshToken?: string | null) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) window.localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getStoredAccessToken();
   const res = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -150,11 +167,11 @@ export function mapListingToProperty(input: any): Property {
     host: buildHost(row),
     reviews,
     // No per-category (cleanliness/accuracy/communication/location/checkIn/
-    // value) rating exists anywhere in the schema — only a single overall
-    // `rating` per review — so no ratingBreakdown is fabricated here.
+    // value) rating exists anywhere in the schema, only a single overall
+    // `rating` per review, so no ratingBreakdown is fabricated here.
     houseRules: (() => {
       // listing_house_rules is one structured row per listing (booleans +
-      // times), not a list of free-text rules — build readable strings
+      // times), not a list of free-text rules, build readable strings
       // from it. Supabase may return it as an object or a 1-item array
       // depending on the relationship hint, so handle both.
       const hr = Array.isArray(row.listing_house_rules)
@@ -224,7 +241,7 @@ export function mapBooking(item: any) {
   const checkOut = new Date(item.end_date);
   const status = String(item.booking_label ?? "upcoming").toLowerCase();
 
-  // Only build real coordinates when the listing actually has them — the
+  // Only build real coordinates when the listing actually has them, the
   // guest-facing "Location" button previously defaulted to 22.5937,78.9629
   // (the geographic center of India) whenever they were missing, silently
   // sending guests to the wrong place instead of telling them it's unknown.
@@ -269,6 +286,8 @@ export const clearStoredAuth = () => {
   window.localStorage.removeItem(AUTH_USER_ID_KEY);
   window.localStorage.removeItem(AUTH_PHONE_KEY);
   window.localStorage.removeItem(AUTH_EMAIL_KEY);
+  window.localStorage.removeItem(AUTH_ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
 };
 
 export type CurrentUser = {
@@ -355,7 +374,7 @@ export const api = {
     numAdults?: number;
     numChildren?: number;
     addonIds?: number[];
-    // amount is intentionally not accepted here — the server recomputes the
+    // amount is intentionally not accepted here, the server recomputes the
     // real charge from the listing's own prices, see createBooking() in
     // src/lib/services/admin-writes.ts
   }) =>

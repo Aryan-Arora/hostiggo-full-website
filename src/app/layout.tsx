@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
+import { Analytics } from '@vercel/analytics/next';
 
 // Figma "Website Guest UI/UX" uses Poppins (Regular/Medium/SemiBold/Bold)
 // throughout -- this replaces the never-actually-loaded "Inter" fallback.
@@ -26,13 +27,14 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={poppins.variable}>
-      <body>
+      <body className={poppins.className}>
         <AuthProvider>
           <ListingFilterProvider>
             <Toaster position="top-center" richColors closeButton />
             {children}
           </ListingFilterProvider>
         </AuthProvider>
+        <Analytics />
       </body>
     </html>
   );

@@ -6,7 +6,7 @@ const SUPABASE_ANON_KEY =
   "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImpoaWhxbWtxdmJ3Zm5pd2N1bGhrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NjM3MTM1NzgsImV4cCI6MjA3OTI4OTU3OH0.b7AUBFdFMK0XJo8Q3xMzruma60vyj-4CgMrKFPgMenk";
 
 if (!SUPABASE_ANON_KEY) {
-  console.warn("[supabase] SUPABASE_ANON_KEY is missing — auth and DB calls will fail.");
+  console.warn("[supabase] SUPABASE_ANON_KEY is missing, auth and DB calls will fail.");
 }
 
 // Next.js patches the global `fetch` in the App Router and will cache GET

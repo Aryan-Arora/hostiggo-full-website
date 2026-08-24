@@ -1,7 +1,7 @@
 import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
 
 // The actual `listing_house_rules` table is one structured row per listing
-// (booleans + times), NOT a list of free-text rule strings — the original
+// (booleans + times), NOT a list of free-text rule strings, the original
 // version of this file assumed a `rule` text column that never existed,
 // so every read/write here failed with "Could not find the 'rule' column"
 // (verified directly against the live table schema).
@@ -46,7 +46,7 @@ export type HouseRulesInput = Partial<
 /**
  * Create or update the house rules row for a listing. There's no unique
  * constraint on listing_id in the live table, so a real upsert (ON
- * CONFLICT) isn't possible — check for an existing row first and
+ * CONFLICT) isn't possible, check for an existing row first and
  * update/insert accordingly.
  */
 export async function upsertHouseRules(listingId: number, input: HouseRulesInput): Promise<HouseRule> {
