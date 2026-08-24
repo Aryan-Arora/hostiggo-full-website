@@ -5,6 +5,13 @@ type FooterLink = { label: string; href: string };
 
 const footerSections: { title: string; links: FooterLink[] }[] = [
   {
+    title: "Company",
+    links: [
+      { label: "About us", href: "/about" },
+      { label: "Contact us", href: "/contact" },
+    ],
+  },
+  {
     title: "Hosting",
     links: [
       { label: "Become a host", href: "/become-a-host" },
@@ -92,8 +99,8 @@ export default function Footer() {
       {/* Main footer, white background, content in a centered 1100px container */}
       <div className="bg-white">
         <div className="mx-auto max-w-[1100px] px-6 pt-10 pb-10">
-          {/* 4 columns (3 link sections + Download App) → 2 on tablet → 1 (centered) on mobile */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-8 text-center sm:text-left">
+          {/* 5 columns (4 link sections + Download App) → 3 on tablet → 2 → 1 (centered) on mobile */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8 text-center sm:text-left">
             {footerSections.map((section) => (
               <div key={section.title}>
                 <h3 className="text-[18px] font-bold text-[#111827] mb-4">
