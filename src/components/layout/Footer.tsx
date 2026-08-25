@@ -37,6 +37,7 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
       { label: "Terms & policies", href: "/terms" },
       { label: "Privacy policy", href: "/privacy" },
       { label: "Cancellation & refunds", href: "/cancellation" },
+      { label: "Shipping policy", href: "/shipping-policy" },
       { label: "Cookie policy", href: "/cookies" },
       { label: "FAQs", href: "/support" },
     ],
