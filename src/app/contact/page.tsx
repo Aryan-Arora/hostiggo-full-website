@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { ChevronLeft, Mail, MessageSquareWarning, ShieldAlert } from "lucide-react";
+import { Building2, ChevronLeft, Mail, MessageSquareWarning, Phone, ShieldAlert } from "lucide-react";
 import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 
@@ -79,7 +79,7 @@ export default function ContactPage() {
           })}
         </section>
 
-        <section className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10">
+        <section className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10 mb-10">
           <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
             Response times
           </h2>
@@ -93,6 +93,54 @@ export default function ContactPage() {
             </Link>
             .
           </p>
+        </section>
+
+        <section className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10">
+          <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
+            Registered business details
+          </h2>
+          <p className="text-sm text-figma-ink/60 mb-6">
+            Published as required under the Consumer Protection (E-Commerce)
+            Rules, 2020.
+          </p>
+          <dl className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            <div className="flex gap-3">
+              <Building2 className="w-5 h-5 text-figma-navy shrink-0 mt-0.5" />
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-figma-ink/50 mb-1">
+                  Legal entity
+                </dt>
+                <dd className="text-[15px] text-figma-ink/80">
+                  Hostiggo Trips Private Limited
+                </dd>
+              </div>
+            </div>
+            <div className="flex gap-3">
+              <Phone className="w-5 h-5 text-figma-navy shrink-0 mt-0.5" />
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-figma-ink/50 mb-1">
+                  Customer care
+                </dt>
+                <dd className="text-[15px] text-figma-ink/80">
+                  <a href="tel:+918448337674" className="hover:text-figma-navy">
+                    +91 84483 37674
+                  </a>
+                </dd>
+              </div>
+            </div>
+            <div className="flex gap-3 sm:col-span-2">
+              <Building2 className="w-5 h-5 text-figma-navy shrink-0 mt-0.5" />
+              <div>
+                <dt className="text-xs font-semibold uppercase tracking-wide text-figma-ink/50 mb-1">
+                  Registered office
+                </dt>
+                <dd className="text-[15px] text-figma-ink/80">
+                  C-72, Plot H-584, Shivaji Park, Punjabi Bagh, West Delhi,
+                  New Delhi, Delhi, India – 110026
+                </dd>
+              </div>
+            </div>
+          </dl>
         </section>
       </main>
       <Footer />

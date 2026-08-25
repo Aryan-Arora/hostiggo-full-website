@@ -162,7 +162,7 @@ export default function Footer() {
       {/* Full-width dark blue copyright bar */}
       <div className="w-full h-16 bg-figma-navy flex items-center justify-center px-4">
         <p className="text-white text-[13px] font-medium text-center">
-          © {new Date().getFullYear()} Hostiggo. Travel made simple.
+          © {new Date().getFullYear()} Hostiggo Trips Private Limited. Travel made simple.
         </p>
       </div>
     </footer>
