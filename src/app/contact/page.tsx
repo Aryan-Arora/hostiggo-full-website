@@ -19,7 +19,7 @@ const channels = [
   {
     icon: ShieldAlert,
     title: "Grievance & data requests",
-    body: "For grievances under our Privacy Policy or requests related to your personal data.",
+    body: "For grievances under our Privacy Policy or requests related to your personal data. Grievance Officer: Daksh Bhasin.",
     action: { label: "support@hostiggo.com", href: "mailto:support@hostiggo.com" },
   },
 ];
