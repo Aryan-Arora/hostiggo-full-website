@@ -29,6 +29,8 @@ import SafetyDetailsForm from '@/components/features/SafetyDetailsForm';
 import AddonsForm from '@/components/features/AddonsForm';
 import DiscountsForm from '@/components/features/DiscountsForm';
 import ListingPhotosManager from '@/components/features/ListingPhotosManager';
+import AddressSearch from '../../list/_components/AddressSearch';
+import { reverseGeocode, resolveLocationId } from '@/lib/services/geocoding';
 import { cn } from '@/lib/utils';
 
 interface ListingDetails {
@@ -45,6 +47,8 @@ interface ListingDetails {
   address_line2: string;
   landmark: string;
   location_id: number;
+  latitude?: number | null;
+  longitude?: number | null;
   property_type_id: number;
   is_active?: boolean;
 }
@@ -164,6 +168,8 @@ export default function ManageListingPage() {
           address_line1: formData.address_line1,
           address_line2: formData.address_line2,
           landmark: formData.landmark,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
         }),
       });
 
@@ -591,90 +597,15 @@ function SectionRenderer({
         ) : null}
 
         {section === 'location' && (
-          <div className="space-y-4">
-            <div>
-              <label className={labelClasses}>Select Location</label>
-              <select
-                value={formData?.location_id || ''}
-                onChange={(e) => {
-                  const locId = parseInt(e.target.value);
-                  setFormData((prev: any) =>
-                    prev ? { ...prev, location_id: locId } : null
-                  );
-                }}
-                disabled={locationsLoading}
-                className={cn(inputClasses, 'bg-white')}
-              >
-                <option value="">
-                  {locationsLoading ? 'Loading locations...' : 'Select a location'}
-                </option>
-                {locations.map((loc) => (
-                  <option key={loc.location_id} value={loc.location_id}>
-                    {loc.state} • {loc.district} • {loc.lower_division_name}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {selectedLocation && (
-              <>
-                <div className="p-4 bg-figma-navy/5 rounded-lg border border-figma-navy/30">
-                  <p className="text-sm font-semibold text-figma-navy mb-2">📍 Selected Location</p>
-                  <div className="space-y-1 text-sm text-figma-navy">
-                    <p><strong>State:</strong> {selectedLocation.state}</p>
-                    <p><strong>District:</strong> {selectedLocation.district}</p>
-                    <p><strong>Area:</strong> {selectedLocation.lower_division_name}</p>
-                    <p><strong>Pincode:</strong> {selectedLocation.pincode}</p>
-                  </div>
-                </div>
-
-                <div>
-                  <label className={labelClasses}>Address Line 1</label>
-                  <input
-                    type="text"
-                    value={formData?.address_line1 || ''}
-                    onChange={(e) =>
-                      setFormData((prev: any) =>
-                        prev ? { ...prev, address_line1: e.target.value } : null
-                      )
-                    }
-                    className={inputClasses}
-                    placeholder="Street address"
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClasses}>Address Line 2 (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData?.address_line2 || ''}
-                    onChange={(e) =>
-                      setFormData((prev: any) =>
-                        prev ? { ...prev, address_line2: e.target.value } : null
-                      )
-                    }
-                    className={inputClasses}
-                    placeholder="Apt, suite, etc."
-                  />
-                </div>
-
-                <div>
-                  <label className={labelClasses}>Landmark (Optional)</label>
-                  <input
-                    type="text"
-                    value={formData?.landmark || ''}
-                    onChange={(e) =>
-                      setFormData((prev: any) =>
-                        prev ? { ...prev, landmark: e.target.value } : null
-                      )
-                    }
-                    className={inputClasses}
-                    placeholder="e.g., Near Central Park"
-                  />
-                </div>
-              </>
-            )}
-          </div>
+          <LocationSection
+            formData={formData}
+            setFormData={setFormData}
+            locations={locations}
+            locationsLoading={locationsLoading}
+            selectedLocation={selectedLocation}
+            inputClasses={inputClasses}
+            labelClasses={labelClasses}
+          />
         )}
 
         {section === 'capacity' && (
@@ -707,6 +638,148 @@ function SectionRenderer({
             ))}
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Location editing for an existing listing. The host types/picks their
+ * address (AddressSearch, backed by Google Places autocomplete) and the
+ * coordinates, curated location_id, and displayed detected area are all
+ * derived from that automatically -- previously this required manually
+ * cross-referencing a plain <select> of every curated location by hand,
+ * with no coordinates captured at all. The curated-location dropdown is
+ * kept as a fallback/override for the rare address that doesn't resolve
+ * to a match, same as the listing-creation wizard's location step.
+ */
+function LocationSection({
+  formData,
+  setFormData,
+  locations,
+  locationsLoading,
+  selectedLocation,
+  inputClasses,
+  labelClasses,
+}: {
+  formData: any;
+  setFormData: any;
+  locations: any[];
+  locationsLoading: boolean;
+  selectedLocation: any;
+  inputClasses: string;
+  labelClasses: string;
+}) {
+  const [detecting, setDetecting] = useState(false);
+
+  const handleAddressSelect = async (lat: number, lng: number, addr: string) => {
+    setFormData((prev: any) =>
+      prev ? { ...prev, address_line1: addr, latitude: lat, longitude: lng } : null,
+    );
+    setDetecting(true);
+    try {
+      const result = await reverseGeocode(lat, lng);
+      if (!result) return;
+      const locationId = await resolveLocationId(result.address.city, result.address.county);
+      if (locationId) {
+        setFormData((prev: any) => (prev ? { ...prev, location_id: locationId } : null));
+      }
+    } finally {
+      setDetecting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className={labelClasses}>Address</label>
+        <AddressSearch
+          value={formData?.address_line1 || ''}
+          onChange={(addr) =>
+            setFormData((prev: any) => (prev ? { ...prev, address_line1: addr } : null))
+          }
+          onSelect={handleAddressSelect}
+          placeholder="Start typing the property address"
+        />
+        <p className="text-xs text-gray-500 mt-1.5">
+          {detecting
+            ? 'Detecting location…'
+            : 'Pick a suggestion and the location below is filled in automatically.'}
+        </p>
+      </div>
+
+      {selectedLocation ? (
+        <div className="p-4 bg-figma-navy/5 rounded-lg border border-figma-navy/30">
+          <p className="text-sm font-semibold text-figma-navy mb-2">📍 Detected Location</p>
+          <div className="space-y-1 text-sm text-figma-navy">
+            <p><strong>State:</strong> {selectedLocation.state}</p>
+            <p><strong>District:</strong> {selectedLocation.district}</p>
+            <p><strong>Area:</strong> {selectedLocation.lower_division_name}</p>
+            <p><strong>Pincode:</strong> {selectedLocation.pincode}</p>
+          </div>
+        </div>
+      ) : (
+        formData?.latitude != null &&
+        formData?.longitude != null && (
+          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <p className="text-sm text-amber-800">
+              Coordinates detected, but this address doesn&apos;t match a curated
+              location yet -- pick the closest one below.
+            </p>
+          </div>
+        )
+      )}
+
+      <div>
+        <label className={labelClasses}>
+          Location {formData?.latitude != null ? '(auto-detected -- adjust if needed)' : ''}
+        </label>
+        <select
+          value={formData?.location_id || ''}
+          onChange={(e) => {
+            const locId = parseInt(e.target.value);
+            setFormData((prev: any) => (prev ? { ...prev, location_id: locId } : null));
+          }}
+          disabled={locationsLoading}
+          className={cn(inputClasses, 'bg-white')}
+        >
+          <option value="">
+            {locationsLoading ? 'Loading locations...' : 'Select a location'}
+          </option>
+          {locations.map((loc) => (
+            <option key={loc.location_id} value={loc.location_id}>
+              {loc.state} • {loc.district} • {loc.lower_division_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className={labelClasses}>Address Line 2 (Optional)</label>
+        <input
+          type="text"
+          value={formData?.address_line2 || ''}
+          onChange={(e) =>
+            setFormData((prev: any) =>
+              prev ? { ...prev, address_line2: e.target.value } : null,
+            )
+          }
+          className={inputClasses}
+          placeholder="Apt, suite, etc."
+        />
+      </div>
+
+      <div>
+        <label className={labelClasses}>Landmark (Optional)</label>
+        <input
+          type="text"
+          value={formData?.landmark || ''}
+          onChange={(e) =>
+            setFormData((prev: any) => (prev ? { ...prev, landmark: e.target.value } : null))
+          }
+          className={inputClasses}
+          placeholder="e.g., Near Central Park"
+        />
       </div>
     </div>
   );
