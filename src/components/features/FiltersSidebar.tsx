@@ -1,10 +1,13 @@
+'use client';
+
+import { useState } from 'react';
 import {
   useListingActions,
   useListingState,
 } from '@/context/ListingFilterContext';
 import { cn } from '@/lib/utils';
 import type { SearchFilters } from '@/types';
-import { Star } from 'lucide-react';
+import { Star, ChevronDown, Plus, Minus, Check } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const MapPreview = dynamic(() => import('@/components/features/MapPreview'), {
@@ -37,16 +40,17 @@ function Section({
   return (
     <div
       className={cn(
-        'pb-6 mb-6',
-        !noBorder && 'border-b border-dashed border-gray-200',
+        'pb-4 mb-4',
+        !noBorder && 'border-b border-dotted border-gray-200',
       )}
     >
-      <div className="flex items-center justify-between mb-4">
-        <h3 className="text-[17px] font-bold text-[#1A1A1A]">{title}</h3>
+      <div className="flex items-center justify-between mb-2.5">
+        <h3 className="text-[15px] font-semibold text-gray-900">{title}</h3>
         {showClear && (
           <button
+            type="button"
             onClick={onClear}
-            className="text-[13px] font-semibold text-[#0396EF] hover:underline"
+            className="text-xs font-medium text-blue-500 hover:underline"
           >
             Clear all
           </button>
@@ -63,100 +67,48 @@ function CheckChip({
   onChange,
   className,
   disabled = false,
+  children,
 }: {
-  label: string;
+  label?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   className?: string;
   disabled?: boolean;
+  children?: React.ReactNode;
 }) {
   return (
     <button
+      type="button"
       onClick={() => !disabled && onChange(!checked)}
       disabled={disabled}
       title={disabled ? 'Coming soon' : undefined}
       className={cn(
-        'px-3 py-2 rounded-[10px] text-[13px] font-medium border transition-all h-auto min-h-[38px] text-center flex items-center justify-center flex-1 min-w-[calc(50%-4px)]',
+        'px-3 py-1.5 rounded-lg text-[13px] font-medium border transition-all text-center flex items-center justify-center gap-1.5 cursor-pointer',
         disabled
           ? 'bg-gray-50 text-gray-300 border-gray-100 cursor-not-allowed'
           : checked
-            ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
-            : 'bg-white text-gray-500 border-gray-200 hover:border-gray-300',
+            ? 'bg-blue-50 text-blue-500 border-blue-400'
+            : 'bg-white text-gray-700 border-gray-200 hover:border-gray-300 hover:text-gray-900',
         className,
       )}
     >
-      <span className="leading-tight">{label}</span>
+      {children ? children : <span className="leading-tight">{label}</span>}
     </button>
   );
 }
 
-function CheckRow({
-  label,
-  checked,
-  onChange,
-  disabled = false,
-}: {
-  label: string;
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}) {
-  return (
-    <button
-      onClick={() => !disabled && onChange(!checked)}
-      disabled={disabled}
-      title={disabled ? 'Coming soon' : undefined}
-      className={cn(
-        'w-full flex items-center gap-2.5 py-1.5 group text-left',
-        disabled ? 'cursor-not-allowed' : 'cursor-pointer',
-      )}
-    >
-      <div
-        className={cn(
-          'w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all',
-          disabled
-            ? 'border-gray-100 bg-gray-50'
-            : checked
-              ? 'bg-[#0396EF] border-[#0396EF]'
-              : 'border-gray-300 group-hover:border-[#0396EF]',
-        )}
-      >
-        {checked && !disabled && (
-          <svg width="8" height="6" viewBox="0 0 8 6" fill="none">
-            <path
-              d="M1 3L3 5L7 1"
-              stroke="white"
-              strokeWidth="1.5"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        )}
-      </div>
-      <span
-        className={cn(
-          'text-[13px] transition-colors',
-          disabled
-            ? 'text-gray-300'
-            : checked
-              ? 'text-[#1A1A1A] font-semibold'
-              : 'text-gray-600 group-hover:text-[#1A1A1A]',
-        )}
-      >
-        {label}
-      </span>
-    </button>
-  );
-}
+const PROPERTY_TYPES = [
+  'House',
+  'Apartment / Flat',
+  'Guest House',
+  'Hotel',
+  'Cabin',
+  'Villa',
+  'Treehouse',
+  'Tiny Home',
+  'Farm Stay',
+];
 
-// Only the property types actually offered in the host's create-listing
-// wizard (src/app/host/list/property-type/page.tsx), these are the only
-// values a host can ever choose, so they're the only ones worth filtering by.
-const PROPERTY_TYPES = ['House', 'Apartment / Flat', 'Guest House', 'Hotel', 'Cabin', 'Villa', 'Treehouse', 'Tiny Home', 'Farm Stay'];
-// Only amenities that have a real catalogue row AND a working id mapping on
-// the host side (src/app/host/list/amenities/page.tsx AMENITY_DB_ID), labels
-// match the real `amenities.name` values exactly so the fuzzy resolver in
-// ListingFilterContext always finds an exact (not guessed) match.
 const AMENITY_LIST = [
   'WiFi',
   'Kitchen',
@@ -177,12 +129,32 @@ const AMENITY_LIST = [
   'Garden',
 ];
 
-function fmtPrice(v: number, isMax: boolean, MAX: number) {
-  if (isMax && v >= MAX) return '₹1L+';
-  if (v >= 100000) return `₹${(v / 100000).toFixed(v % 100000 === 0 ? 0 : 1)}L`;
-  if (v >= 1000) return `₹${(v / 1000).toFixed(v % 1000 === 0 ? 0 : 1)}k`;
-  return `₹${v}`;
-}
+const BED_TYPES = [
+  'King bed',
+  'Queen bed',
+  'Double bed',
+  'Single bed',
+  'Sofa bed',
+  'Twin bed',
+  'Bunk bed',
+];
+
+const POPULAR_FILTERS: {
+  id: string;
+  label: string;
+  type: 'stayType' | 'boolean';
+  key?: keyof SearchFilters;
+  stayValue?: string;
+}[] = [
+  { id: 'private_room', label: 'Private room', type: 'stayType', stayValue: 'Private Room' },
+  { id: 'shared_room', label: 'Shared room', type: 'stayType', stayValue: 'Shared Space' },
+  { id: 'free_cancellation', label: 'Free cancellation', type: 'boolean', key: 'freeCancellation' },
+  { id: 'free_breakfast', label: 'Free breakfast', type: 'boolean', key: 'breakfast' },
+  { id: 'double_bed', label: 'Double bed', type: 'boolean', key: 'doubleBed' },
+  { id: 'couple_friendly', label: 'Couple friendly', type: 'boolean', key: 'coupleFriendly' },
+  { id: 'free_wifi', label: 'Free wifi', type: 'boolean', key: 'wifi' },
+  { id: 'family_friendly', label: 'Family friendly', type: 'boolean', key: 'familyFriendly' },
+];
 
 function PriceSlider({
   min,
@@ -194,64 +166,80 @@ function PriceSlider({
   onPriceChange: (min: number, max: number) => void;
 }) {
   const MIN = 0;
-  const MAX = 100000;
+  const MAX = 15000;
   const pct1 = Math.min(100, Math.max(0, (min / MAX) * 100));
   const pct2 = Math.min(100, Math.max(0, (max / MAX) * 100));
 
   const ticks = [
     { v: 0, label: '₹0' },
-    { v: 25000, label: '₹25k' },
-    { v: 50000, label: '₹50k' },
-    { v: 75000, label: '₹75k' },
-    { v: 100000, label: '₹1L+' },
+    { v: 1000, label: '₹1000' },
+    { v: 4000, label: '₹4000' },
+    { v: 10000, label: '₹10,000' },
+    { v: 15000, label: '₹15k+' },
   ];
 
   return (
-    <div className="mt-2 overflow-x-hidden">
-      {/* Selected range label */}
-      <div className="flex items-center justify-between mb-5">
-        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Min</p>
-          <p className="text-[14px] font-bold text-[#004772]">{fmtPrice(min, false, MAX)}</p>
-        </div>
-        <div className="mx-3 h-px w-4 bg-gray-300" />
-        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 text-center">
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-0.5">Max</p>
-          <p className="text-[14px] font-bold text-[#004772]">{fmtPrice(max, true, MAX)}</p>
-        </div>
+    <div className="mt-1 overflow-x-hidden">
+      {/* Price label */}
+      <p className="text-[14px] font-medium text-gray-800 mb-3.5">
+        Min - Max : ₹ {min.toLocaleString()} - ₹ {max.toLocaleString()}
+      </p>
+
+      {/* Ticks positioned above track */}
+      <div className="relative h-6 mb-1 px-3 w-full">
+        {ticks.map((tick) => {
+          const pct = (tick.v / MAX) * 100;
+          return (
+            <div
+              key={tick.v}
+              className="absolute flex flex-col items-center -translate-x-1/2"
+              style={{ left: `calc(${pct}% * (100% - 24px) / 100% + 12px)` }}
+            >
+              <span className="text-[10px] font-medium text-gray-500 whitespace-nowrap">
+                {tick.label}
+              </span>
+              <svg
+                width="6"
+                height="4"
+                viewBox="0 0 6 4"
+                fill="none"
+                className="text-gray-400 mt-0.5"
+              >
+                <path d="M3 4L0 0H6L3 4Z" fill="currentColor" />
+              </svg>
+            </div>
+          );
+        })}
       </div>
 
-      {/* Dual range track, px-3 gives thumb room at both edges */}
-      <div className="relative h-10 flex items-center mb-5 px-3 w-full">
-        {/* Background track, inset to match padding */}
-        <div className="absolute left-3 right-3 h-[5px] bg-gray-200 rounded-full" />
-        {/* Active range fill */}
+      {/* Dual range track */}
+      <div className="relative h-7 flex items-center px-3 w-full">
+        {/* Background track (Thick & Pill-shaped) */}
+        <div className="absolute left-3 right-3 h-3 bg-[#EAF2F8] rounded-full" />
+        {/* Active range fill (Muted steel-blue) */}
         <div
-          className="absolute h-[5px] bg-[#004772] rounded-full"
+          className="absolute h-3 bg-[#6B8E9E] rounded-full"
           style={{
             left: `calc(${pct1}% * (100% - 24px) / 100% + 12px)`,
             right: `calc((100% - ${pct2}%) * (100% - 24px) / 100% + 12px)`,
           }}
         />
-        {/* Min thumb indicator */}
+        {/* Min thumb indicator (Dark-blue with white border & shadow) */}
         <div
-          className="absolute w-5 h-5 bg-white rounded-full shadow-md border-2 border-[#004772] pointer-events-none z-30"
-          style={{ left: `calc(${pct1}% * (100% - 24px) / 100% + 2px)` }}
+          className="absolute w-6 h-6 bg-[#004772] rounded-full border-2 border-white shadow-md pointer-events-none z-30"
+          style={{ left: `calc(${pct1}% * (100% - 24px) / 100%)` }}
         />
-        {/* Max thumb indicator */}
+        {/* Max thumb indicator (Dark-blue with white border & shadow) */}
         <div
-          className="absolute w-5 h-5 bg-white rounded-full shadow-md border-2 border-[#004772] pointer-events-none z-30"
-          style={{ left: `calc(${pct2}% * (100% - 24px) / 100% + 2px)` }}
+          className="absolute w-6 h-6 bg-[#004772] rounded-full border-2 border-white shadow-md pointer-events-none z-30"
+          style={{ left: `calc(${pct2}% * (100% - 24px) / 100%)` }}
         />
-        {/* Min range input, range-thumb-only lets clicks pass through the
-            invisible track so only its own thumb is grabbable, otherwise
-            the max slider (drawn on top) intercepts everything including
-            drags near the ₹0 end. */}
+        {/* Min range input */}
         <input
           type="range"
           min={MIN}
           max={MAX}
-          step={1000}
+          step={100}
           value={min}
           onChange={(e) => {
             const v = +e.target.value;
@@ -265,7 +253,7 @@ function PriceSlider({
           type="range"
           min={MIN}
           max={MAX}
-          step={1000}
+          step={100}
           value={max}
           onChange={(e) => {
             const v = +e.target.value;
@@ -276,14 +264,20 @@ function PriceSlider({
         />
       </div>
 
-      {/* Tick labels */}
-      <div className="flex justify-between px-3">
-        {ticks.map((tick) => (
-          <div key={tick.v} className="flex flex-col items-center">
-            <div className="w-px h-2 bg-gray-200 mb-1" />
-            <span className="text-[10px] font-medium text-gray-400">{tick.label}</span>
-          </div>
-        ))}
+      {/* Floating Min / Max labels below thumbs */}
+      <div className="relative h-5 mt-1 px-3 w-full">
+        <span
+          className="absolute text-[11px] font-medium text-gray-800 pointer-events-none text-center -translate-x-1/2 whitespace-nowrap"
+          style={{ left: `calc(${pct1}% * (100% - 24px) / 100% + 12px)` }}
+        >
+          Min
+        </span>
+        <span
+          className="absolute text-[11px] font-medium text-gray-800 pointer-events-none text-center -translate-x-1/2 whitespace-nowrap"
+          style={{ left: `calc(${pct2}% * (100% - 24px) / 100% + 12px)` }}
+        >
+          Max
+        </span>
       </div>
     </div>
   );
@@ -298,141 +292,311 @@ export default function FiltersSidebar({
   const {
     setPriceRange,
     setRating,
+    setSort,
     toggleAmenity,
     togglePropertyType,
     toggleStayType,
+    toggleBedType,
+    setBooleanFilter,
     clearFilters,
   } = useListingActions();
 
+  const [showAllPropertyTypes, setShowAllPropertyTypes] = useState(false);
+  const [showAllAmenities, setShowAllAmenities] = useState(false);
+  const [showAllBedTypes, setShowAllBedTypes] = useState(false);
+  const [ratingOrder, setRatingOrder] = useState<'asc' | 'desc' | null>(null);
+  const [bedCounts, setBedCounts] = useState<Record<string, number>>({});
+
   const handleReset = () => {
     clearFilters();
+    setRatingOrder(null);
+    setBedCounts({});
     if (onReset) onReset();
   };
 
+  const displayedPropertyTypes = showAllPropertyTypes
+    ? PROPERTY_TYPES
+    : PROPERTY_TYPES.slice(0, 6);
+
+  const displayedAmenities = showAllAmenities
+    ? AMENITY_LIST
+    : AMENITY_LIST.slice(0, 8);
+
+  const displayedBedTypes = showAllBedTypes
+    ? BED_TYPES
+    : BED_TYPES.slice(0, 4);
+
   return (
     <aside className="w-[280px] lg:w-[320px] xl:w-[360px] flex-shrink-0 max-w-full">
-      <div className="bg-white rounded-[20px] p-6 shadow-[0_2px_15px_rgba(0,0,0,0.06)] border border-gray-100 mb-6 overflow-hidden">
-        <div className="mb-6">
-          <MapPreview city={city} count={count} />
-        </div>
-
-        <Section title="Price Range" noBorder>
-          <PriceSlider
-            min={filters.priceMin}
-            max={filters.priceMax}
-            onPriceChange={(min, max) => setPriceRange([min, max])}
-          />
-        </Section>
+      {/* Map Preview */}
+      <div className="mb-5">
+        <MapPreview city={city} count={count} />
       </div>
 
-      <div className="bg-white rounded-[20px] p-6 sticky top-[132px] z-30 shadow-[0_2px_15px_rgba(0,0,0,0.06)] border border-gray-100">
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-[17px] font-bold text-gray-800">Filters</h2>
-          <button
-            onClick={handleReset}
-            className="text-[13px] font-semibold text-[#0396EF] hover:underline"
-          >
-            Clear all
-          </button>
-        </div>
+      {/* Filters Main Header */}
+      <div className="flex items-center justify-between pb-3.5 mb-3.5 border-b border-dotted border-gray-200">
+        <h2 className="text-lg font-bold text-gray-900">Filters</h2>
+        <button
+          type="button"
+          onClick={handleReset}
+          className="text-sm font-medium text-blue-500 hover:text-blue-600 hover:underline transition-colors cursor-pointer"
+        >
+          Clear all
+        </button>
+      </div>
 
-        <Section title="Popular Filters">
-          <div className="flex flex-wrap gap-2 mt-1">
-            {/* Private room / Shared room are the only "Popular Filters"
-                concepts with a real backing field (stay_types.title),
-                everything else that used to live here (free cancellation,
-                free breakfast, couple/family friendly, etc.) has no
-                corresponding column anywhere in the schema or the
-                create-listing wizard, so it was removed rather than shown
-                as dead/disabled clutter. */}
-            <CheckChip
-              label="Private room"
-              checked={filters.stayTypes.includes('Private Room')}
-              onChange={() => toggleStayType('Private Room')}
-            />
-            <CheckChip
-              label="Shared room"
-              checked={filters.stayTypes.includes('Shared Space')}
-              onChange={() => toggleStayType('Shared Space')}
-            />
-          </div>
-        </Section>
+      {/* Price Range */}
+      <Section title="Price Range">
+        <PriceSlider
+          min={filters.priceMin}
+          max={filters.priceMax}
+          onPriceChange={(min, max) => setPriceRange([min, max])}
+        />
+      </Section>
 
-        <Section title="Guest ratings">
-          <div className="mt-1 space-y-3">
-            <div className="flex flex-wrap gap-2">
-              <button
-                onClick={() => setRating(filters.guestRating === 3 ? 0 : 3)}
-                className={cn(
-                  'px-3 py-2 rounded-[10px] text-[13px] font-medium border transition-all min-h-[38px] flex flex-1 items-center justify-center gap-1.5 min-w-[100px]',
-                  filters.guestRating === 3
-                    ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
-                    : 'bg-white text-gray-500 border-gray-200',
-                )}
-              >
-                3{' '}
-                <Star
-                  className={cn(
-                    'w-3.5 h-3.5',
-                    filters.guestRating === 3
-                      ? 'fill-[#0396EF] text-[#0396EF]'
-                      : 'fill-amber-400 text-amber-400',
-                  )}
-                />{' '}
-                or above
-              </button>
-              <button
-                onClick={() => setRating(filters.guestRating === 4 ? 0 : 4)}
-                className={cn(
-                  'px-3 py-2 rounded-[10px] text-[13px] font-medium border transition-all min-h-[38px] w-12 flex items-center justify-center gap-1',
-                  filters.guestRating === 4
-                    ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
-                    : 'bg-white text-gray-500 border-gray-200',
-                )}
-              >
-                4 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              </button>
-              <button
-                onClick={() => setRating(filters.guestRating === 5 ? 0 : 5)}
-                className={cn(
-                  'px-3 py-2 rounded-[10px] text-[13px] font-medium border transition-all min-h-[38px] w-12 flex items-center justify-center gap-1',
-                  filters.guestRating === 5
-                    ? 'bg-[#0396EF]/[0.08] text-[#0396EF] border-[#0396EF]'
-                    : 'bg-white text-gray-500 border-gray-200',
-                )}
-              >
-                5 <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-              </button>
-            </div>
-          </div>
-        </Section>
+      {/* Popular Filters */}
+      <Section title="Popular Filters">
+        <div className="flex flex-wrap gap-2">
+          {POPULAR_FILTERS.map((item) => {
+            const isChecked =
+              item.type === 'stayType' && item.stayValue
+                ? filters.stayTypes.includes(item.stayValue)
+                : item.type === 'boolean' && item.key
+                  ? Boolean(filters[item.key])
+                  : false;
 
-        <Section title="Property Type">
-          <div className="flex flex-wrap gap-2">
-            {PROPERTY_TYPES.map((pt) => (
+            return (
               <CheckChip
-                key={pt}
-                label={pt}
-                checked={filters.propertyTypes.includes(pt)}
-                onChange={() => togglePropertyType(pt)}
+                key={item.id}
+                label={item.label}
+                checked={isChecked}
+                onChange={() => {
+                  if (item.type === 'stayType' && item.stayValue) {
+                    toggleStayType(item.stayValue);
+                  } else if (item.type === 'boolean' && item.key) {
+                    setBooleanFilter(item.key, !filters[item.key]);
+                  }
+                }}
               />
-            ))}
-          </div>
-        </Section>
+            );
+          })}
+        </div>
+      </Section>
 
-        <Section title="Facilities" noBorder>
-          <div className="space-y-0.5">
-            {AMENITY_LIST.map((am) => (
-              <CheckRow
-                key={am}
-                label={am}
-                checked={filters.amenities.includes(am)}
-                onChange={() => toggleAmenity(am)}
-              />
-            ))}
+      {/* Guest Ratings */}
+      <Section title="Guest ratings">
+        <div className="space-y-2">
+          <div className="flex flex-wrap gap-2">
+            <CheckChip
+              checked={filters.guestRating === 3}
+              onChange={() => setRating(filters.guestRating === 3 ? null : 3)}
+              className="flex-1 min-w-[100px]"
+            >
+              <span>3</span>
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+              <span>or above</span>
+            </CheckChip>
+            <CheckChip
+              checked={filters.guestRating === 4}
+              onChange={() => setRating(filters.guestRating === 4 ? null : 4)}
+              className="flex-1"
+            >
+              <span>4</span>
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            </CheckChip>
+            <CheckChip
+              checked={filters.guestRating === 5}
+              onChange={() => setRating(filters.guestRating === 5 ? null : 5)}
+              className="flex-1"
+            >
+              <span>5</span>
+              <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+            </CheckChip>
           </div>
-        </Section>
-      </div>
+          <div className="flex flex-wrap gap-2 pt-1">
+            <CheckChip
+              label="Lowest to highest"
+              checked={ratingOrder === 'asc'}
+              onChange={() => {
+                const next = ratingOrder === 'asc' ? null : 'asc';
+                setRatingOrder(next);
+                if (next === 'asc') setSort('price_asc');
+              }}
+              className="flex-1 text-xs"
+            />
+            <CheckChip
+              label="Highest to lowest"
+              checked={ratingOrder === 'desc'}
+              onChange={() => {
+                const next = ratingOrder === 'desc' ? null : 'desc';
+                setRatingOrder(next);
+                if (next === 'desc') setSort('price_desc');
+              }}
+              className="flex-1 text-xs"
+            />
+          </div>
+        </div>
+      </Section>
+
+      {/* Property Type */}
+      <Section title="Property Type">
+        <div className="flex flex-wrap gap-2">
+          {displayedPropertyTypes.map((pt) => (
+            <CheckChip
+              key={pt}
+              label={pt}
+              checked={filters.propertyTypes.includes(pt)}
+              onChange={() => togglePropertyType(pt)}
+            />
+          ))}
+        </div>
+        {PROPERTY_TYPES.length > 6 && (
+          <button
+            type="button"
+            onClick={() => setShowAllPropertyTypes((prev) => !prev)}
+            className="mt-2.5 flex items-center gap-1 text-[13px] font-medium text-blue-500 hover:text-blue-600 cursor-pointer"
+          >
+            <span>{showAllPropertyTypes ? 'View less' : 'View all'}</span>
+            <ChevronDown
+              className={cn(
+                'w-3.5 h-3.5 transition-transform',
+                showAllPropertyTypes && 'rotate-180',
+              )}
+            />
+          </button>
+        )}
+      </Section>
+
+      {/* Facilities */}
+      <Section title="Facilities">
+        <div className="flex flex-wrap gap-2">
+          {displayedAmenities.map((am) => (
+            <CheckChip
+              key={am}
+              label={am}
+              checked={filters.amenities.includes(am)}
+              onChange={() => toggleAmenity(am)}
+            />
+          ))}
+        </div>
+        {AMENITY_LIST.length > 8 && (
+          <button
+            type="button"
+            onClick={() => setShowAllAmenities((prev) => !prev)}
+            className="mt-2.5 flex items-center gap-1 text-[13px] font-medium text-blue-500 hover:text-blue-600 cursor-pointer"
+          >
+            <span>{showAllAmenities ? 'View less' : 'View all'}</span>
+            <ChevronDown
+              className={cn(
+                'w-3.5 h-3.5 transition-transform',
+                showAllAmenities && 'rotate-180',
+              )}
+            />
+          </button>
+        )}
+      </Section>
+
+      {/* Bed Type */}
+      <Section title="Bed type" noBorder>
+        <div className="space-y-1">
+          {displayedBedTypes.map((bed) => {
+            const isChecked = filters.bedTypes.includes(bed);
+            const count = bedCounts[bed] || 1;
+
+            return (
+              <div
+                key={bed}
+                className="flex items-center justify-between py-1.5 min-h-[36px]"
+              >
+                <button
+                  type="button"
+                  onClick={() => {
+                    toggleBedType(bed);
+                    if (!isChecked && (!bedCounts[bed] || bedCounts[bed] < 1)) {
+                      setBedCounts((prev) => ({ ...prev, [bed]: 1 }));
+                    }
+                  }}
+                  className="flex items-center gap-2.5 cursor-pointer select-none group flex-1 text-left"
+                >
+                  <div
+                    className={cn(
+                      'w-4 h-4 rounded border transition-colors flex items-center justify-center flex-shrink-0',
+                      isChecked
+                        ? 'bg-blue-500 border-blue-500 text-white'
+                        : 'border-gray-300 bg-white group-hover:border-blue-400',
+                    )}
+                  >
+                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
+                  </div>
+                  <span
+                    className={cn(
+                      'text-[13px] transition-colors',
+                      isChecked
+                        ? 'text-gray-900 font-medium'
+                        : 'text-gray-600 group-hover:text-gray-900',
+                    )}
+                  >
+                    {bed}
+                  </span>
+                </button>
+
+                {isChecked && (
+                  <div className="flex items-center gap-1.5 ml-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        if (count <= 1) {
+                          toggleBedType(bed);
+                          setBedCounts((prev) => {
+                            const copy = { ...prev };
+                            delete copy[bed];
+                            return copy;
+                          });
+                        } else {
+                          setBedCounts((prev) => ({ ...prev, [bed]: count - 1 }));
+                        }
+                      }}
+                      className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-800 bg-white transition-colors"
+                      aria-label="Decrease count"
+                    >
+                      <Minus className="w-3 h-3" />
+                    </button>
+                    <span className="text-xs font-semibold text-gray-800 w-5 text-center">
+                      {count}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBedCounts((prev) => ({ ...prev, [bed]: count + 1 }));
+                      }}
+                      className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-800 bg-white transition-colors"
+                      aria-label="Increase count"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+            );
+          })}
+        </div>
+
+        {BED_TYPES.length > 4 && (
+          <button
+            type="button"
+            onClick={() => setShowAllBedTypes((prev) => !prev)}
+            className="mt-2 flex items-center gap-1 text-[13px] font-medium text-blue-500 hover:text-blue-600 cursor-pointer"
+          >
+            <span>{showAllBedTypes ? 'View less' : 'View all'}</span>
+            <ChevronDown
+              className={cn(
+                'w-3.5 h-3.5 transition-transform',
+                showAllBedTypes && 'rotate-180',
+              )}
+            />
+          </button>
+        )}
+      </Section>
     </aside>
   );
 }

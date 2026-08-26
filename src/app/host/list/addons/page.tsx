@@ -5,7 +5,7 @@ import { Sparkles, Loader2, Check, IndianRupee } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
 import { useListingDraft } from '@/context/ListingDraftContext';
-import { groupAddonsByCategory, type Addon } from '@/lib/services/addons';
+import { groupAddonsByCategory, type Addon } from '@/lib/services/addons-shared';
 
 type Selection = { addon_id: number; price: number; includes: string };
 

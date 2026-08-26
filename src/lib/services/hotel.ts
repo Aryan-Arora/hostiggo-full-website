@@ -298,6 +298,86 @@ export const HotelServiceApi = {
     return (data || []) as SearchListingRpcRow[];
   },
 
+  filterHotelsByState: async (
+    filters: SearchFilters,
+    cursor: number | null = null,
+    pageSize: number = 50,
+  ): Promise<{
+    data: SearchListingRpcRow[];
+    hasMore: boolean;
+    totalCount: number;
+    stateBounds: any;
+  }> => {
+    const amenityIds = filters.amenities ? filters.amenities.map(Number) : [];
+    const selectedRatings = filters.ratings || [];
+
+    // Determine search scope: use state if provided, otherwise use district (location)
+    const searchState = filters.state;
+    const searchDistrict = filters.district;
+
+    const { data, error, count } = await supabase.rpc('search_listings_by_state', {
+      p_state: searchState || null,
+      p_district: searchDistrict || null,
+      p_cursor: cursor,
+      p_start_date: filters.startDate,
+      p_end_date: filters.endDate,
+      p_min_price: filters.minPrice,
+      p_max_price: filters.maxPrice,
+      p_total_guests: filters.totalGuests,
+      p_ratings: selectedRatings,
+      p_amenities: amenityIds,
+      p_roomtypes: filters.roomTypes,
+      p_limit: pageSize,
+    }, { count: 'exact' });
+
+    if (error) {
+      console.error('[filterHotelsByState] RPC error:', JSON.stringify(error, null, 2));
+      throw error;
+    }
+
+    // Get state boundaries for map (if state-level search)
+    let stateBounds = null;
+    if (searchState) {
+      // supabase-js's select-string type parser can't resolve a raw SQL
+      // function call like `ST_AsGeoJSON(boundary) as boundary` -- it infers
+      // a ParserError type for the row even though PostgREST runs it fine.
+      // Override with the actual shape instead of widening to `any`.
+      const { data: locationData } = (await supabase
+        .from('locations')
+        .select('state, ST_AsGeoJSON(boundary) as boundary')
+        .eq('state', searchState)
+        .maybeSingle()) as { data: { state: string; boundary: string | null } | null };
+
+      if (locationData?.boundary) {
+        try {
+          const geoJSON = JSON.parse(locationData.boundary);
+          const coordinates = geoJSON.coordinates?.[0] || [];
+          if (coordinates.length > 0) {
+            const lats = coordinates.map((c: any) => c[1]);
+            const lngs = coordinates.map((c: any) => c[0]);
+            stateBounds = {
+              north: Math.max(...lats),
+              south: Math.min(...lats),
+              east: Math.max(...lngs),
+              west: Math.min(...lngs),
+            };
+          }
+        } catch (e) {
+          console.warn('[filterHotelsByState] Failed to parse boundary:', e);
+        }
+      }
+    }
+
+    const hasMore = (data?.length || 0) === pageSize;
+
+    return {
+      data: (data || []) as SearchListingRpcRow[],
+      hasMore,
+      totalCount: count || 0,
+      stateBounds,
+    };
+  },
+
   formatPrice: (price: number): string => {
     return `₹${price.toLocaleString('en-IN')}`;
   },
@@ -310,7 +390,16 @@ export const HotelServiceApi = {
       return null;
     }
 
-    const { data, error } = await supabase
+    // Uses the admin client, not the anon `supabase` client used elsewhere
+    // in this file -- unlike the RPC-backed search functions (which run as
+    // SECURITY DEFINER and bypass RLS regardless of caller), this is a
+    // direct table select with nested embeds (listing_addons,
+    // listing_discounts). If RLS on those child tables doesn't grant the
+    // anon role read access, Supabase doesn't error -- it silently returns
+    // an empty array for that embed while the rest of the row loads fine,
+    // which is exactly why host-added addons weren't showing up on the
+    // guest-facing property page.
+    const { data, error } = await supabaseAdmin
       .from('listings')
       .select(
         `

@@ -367,14 +367,19 @@ function ListResults({
         </div>
       )}
 
-      {/* End message when no more results */}
-      {!hasMore && paginated.length > 0 && (
-        <div className="mt-8 py-6 text-center">
-          <p className="text-sm text-gray-500">
-            ✓ Showing all {totalCount} properties
+      {/* Count display and end message */}
+      <div className="mt-8 py-4 text-center">
+        {totalCount && (
+          <p className="text-sm text-gray-500 font-medium">
+            {paginated.length} of {totalCount.toLocaleString('en-IN')} properties loaded
           </p>
-        </div>
-      )}
+        )}
+        {!hasMore && paginated.length > 0 && (
+          <p className="text-sm text-gray-500 mt-2">
+            ✓ Showing all properties in this area
+          </p>
+        )}
+      </div>
     </>
   );
 }

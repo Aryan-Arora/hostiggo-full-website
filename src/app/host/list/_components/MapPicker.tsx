@@ -4,10 +4,10 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Minus, LocateFixed, Loader2 } from 'lucide-react';
 import { reverseGeocode } from '@/lib/services/geocoding';
 
-// We'll use dynamic import to avoid SSR issues with leaflet
+// We'll use dynamic import to avoid SSR issues with the Google Maps script
 import dynamic from 'next/dynamic';
 
-const LeafletMap = dynamic(() => import('./LeafletMap'), {
+const GoogleMap = dynamic(() => import('./GoogleMap'), {
   ssr: false,
   loading: () => (
     <div className="w-full h-[480px] md:h-[600px] bg-gray-100 rounded-2xl flex items-center justify-center">
@@ -92,7 +92,7 @@ export default function MapPicker({
 
   return (
     <div className="relative w-full rounded-2xl overflow-hidden shadow-card border border-gray-200 bg-gray-100">
-      <LeafletMap
+      <GoogleMap
         latitude={location.lat}
         longitude={location.lng}
         onMarkerMove={handleMarkerMove}

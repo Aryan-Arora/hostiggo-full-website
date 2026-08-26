@@ -8,14 +8,31 @@ const FALLBACK_IMAGE =
 export const AUTH_USER_ID_KEY = "hostiggo:user-id";
 export const AUTH_PHONE_KEY = "hostiggo:phone";
 export const AUTH_EMAIL_KEY = "hostiggo:email";
+// Real Supabase session tokens (JWT), returned by /api/auth/otp on verify.
+// Sent as a Bearer token on every request so API routes can verify the
+// caller's identity server-side instead of trusting a client-claimed userId
+// -- see getAuthenticatedUserId() in src/lib/auth-server.ts.
+export const AUTH_ACCESS_TOKEN_KEY = "hostiggo:access-token";
+export const AUTH_REFRESH_TOKEN_KEY = "hostiggo:refresh-token";
 
 type ApiResult<T> = { data?: T; error?: string };
 
+export const getStoredAccessToken = () =>
+  typeof window === "undefined" ? null : window.localStorage.getItem(AUTH_ACCESS_TOKEN_KEY);
+
+export const setStoredSession = (accessToken: string, refreshToken?: string | null) => {
+  if (typeof window === "undefined") return;
+  window.localStorage.setItem(AUTH_ACCESS_TOKEN_KEY, accessToken);
+  if (refreshToken) window.localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
+};
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
+  const token = getStoredAccessToken();
   const res = await fetch(path, {
     ...init,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -269,6 +286,8 @@ export const clearStoredAuth = () => {
   window.localStorage.removeItem(AUTH_USER_ID_KEY);
   window.localStorage.removeItem(AUTH_PHONE_KEY);
   window.localStorage.removeItem(AUTH_EMAIL_KEY);
+  window.localStorage.removeItem(AUTH_ACCESS_TOKEN_KEY);
+  window.localStorage.removeItem(AUTH_REFRESH_TOKEN_KEY);
 };
 
 export type CurrentUser = {
@@ -464,34 +483,119 @@ export const api = {
     });
     return result;
   },
+  searchByState: async (
+    filters: SearchFilters,
+    destination: string,
+    cursor: number | null = null,
+    pageSize = 50,
+    extra?: {
+      startDate?: string | null;
+      endDate?: string | null;
+      totalGuests?: number;
+      amenities?: number[];
+    },
+  ) => {
+    const payload = {
+      cursor,
+      pageSize,
+      filters: {
+        startDate: extra?.startDate ?? null,
+        endDate: extra?.endDate ?? null,
+        // `destination` is always city/district-level free text (the search
+        // box and map search both only ever collect a place name like
+        // "Bhopal", never an Indian state) -- sending it as `state` makes
+        // the RPC's exact state-column match fail and search silently
+        // returns zero results. `district` is what actually matches.
+        district: destination?.trim() || undefined,
+        minPrice: filters.priceMin > 0 ? filters.priceMin : undefined,
+        maxPrice: filters.priceMax < 100000 ? filters.priceMax : undefined,
+        totalGuests: extra?.totalGuests,
+        ratings: filters.guestRating != null ? [filters.guestRating] : [],
+        amenities: extra?.amenities ?? ([] as number[]),
+        roomTypes: filters.propertyTypes,
+      },
+    };
+    // Not routed through request<T>() -- that helper unwraps a `{ data: T }`
+    // envelope for every other endpoint, but /api/search's own top-level
+    // response IS `{ data, cursor, hasMore, totalCount, stateBounds }`, so
+    // request()'s auto-unwrap would strip it down to just the listings array
+    // and silently drop cursor/hasMore/totalCount/stateBounds.
+    const res = await fetch("/api/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(payload),
+    });
+    const result = (await res.json().catch(() => ({}))) as {
+      data: any[];
+      cursor: number | null;
+      hasMore: boolean;
+      totalCount: number;
+      stateBounds?: any;
+      error?: string;
+    };
+    if (!res.ok || result.error) {
+      throw new Error(result.error || `Request failed: ${res.status}`);
+    }
+    return result;
+  },
   sendOtp: (phone: string) =>
     request<any>("/api/auth/otp", {
       method: "POST",
       body: JSON.stringify({ action: "send", phone: normalizePhone(phone) }),
     }),
-  sendEmailOtp: (email: string) =>
-    request<any>("/api/auth/otp", {
-      method: "POST",
-      body: JSON.stringify({ action: "send", email: normalizeEmail(email) }),
-    }),
-  verifyOtp: (params: { phone?: string; email?: string; token: string }) =>
-    request<any>("/api/auth/otp", {
+  sendEmailOtp: async (email: string) => {
+    const { data, error } = await supabase.auth.signInWithOtp({
+      email: normalizeEmail(email),
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo:
+          typeof window !== "undefined" ? `${window.location.origin}/auth/callback` : undefined,
+      },
+    });
+    if (error) throw error;
+    return data;
+  },
+  verifyOtp: async (params: { phone?: string; email?: string; token: string }) => {
+    if (params.email) {
+      const email = normalizeEmail(params.email);
+      const { data, error } = await supabase.auth.verifyOtp({
+        email,
+        token: params.token,
+        type: "email",
+      });
+      if (error) throw error;
+
+      const user = data.user;
+      if (!user) return data;
+
+      const profile = await request<CurrentUser>("/api/users", {
+        method: "POST",
+        body: JSON.stringify({
+          user_id: user.id,
+          name: user.user_metadata?.full_name || user.user_metadata?.name || "",
+          email: user.email || user.user_metadata?.email || email,
+          phone: user.phone || null,
+          age: user.user_metadata?.age || null,
+          emergency_contact: user.user_metadata?.emergency_contact || null,
+          is_verified: true,
+          is_active: true,
+        }),
+      });
+
+      return { user, session: data.session, profile };
+    }
+
+    return request<any>("/api/auth/otp", {
       method: "POST",
       body: JSON.stringify({
         action: "verify",
         ...(params.phone ? { phone: normalizePhone(params.phone) } : {}),
-        ...(params.email ? { email: normalizeEmail(params.email) } : {}),
         token: params.token,
-        type: params.email ? "email" : "sms",
+        type: "sms",
       }),
-    }),
-  wishlistCategories: (userId: string) =>
-    request<any[]>(`/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`),
-  wishlistIds: (userId: string) =>
-    request<{ listing_id: string }[]>(
-      `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
-    ),
-  addWishlistItem: (userId: string, listingId: string | number, categoryId?: string) =>
+    });
+  },
+  addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<any>("/api/wishlist", {
       method: "POST",
       body: JSON.stringify({
@@ -501,6 +605,14 @@ export const api = {
         ...(isUuid(categoryId) ? { category_id: categoryId } : {}),
       }),
     }),
+  wishlistIds: (userId: string) =>
+    request<{ listing_id: string }[]>(
+      `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
+    ),
+  wishlistCategories: (userId: string) =>
+    request<{ id: string; name: string }[]>(
+      `/api/wishlist?resource=categories&userId=${encodeURIComponent(userId)}`,
+    ),
   wishlistListings: (userId: string, categoryId?: string) =>
     request<any[]>(
       `/api/wishlist?resource=listings&userId=${encodeURIComponent(userId)}${

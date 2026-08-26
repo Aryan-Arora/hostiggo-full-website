@@ -1,14 +1,11 @@
 'use client';
 
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import dynamic from 'next/dynamic';
 import { StarIcon, X, CheckCircle, Navigation } from 'lucide-react';
 import type { Property } from '@/types';
-import 'leaflet/dist/leaflet.css';
-
-// Lazy load Leaflet on client side only
-const LeafletModule = typeof window !== 'undefined' ? require('leaflet') : null;
+import { useListingState } from '@/context/ListingFilterContext';
+import { loadGoogleMaps } from '@/lib/services/googleMaps';
 
 const INDIA_CENTER = { lat: 22.5937, lng: 78.9629 };
 
@@ -29,52 +26,47 @@ export default function InteractiveMap({
   className = '',
   pointer,
   onPointerMoved,
-  reverseGeocodeEnabled = false,
 }: InteractiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markersRef = useRef<Map<string, L.Marker>>(new Map());
-  const pointerMarkerRef = useRef<L.Marker | null>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markersRef = useRef<Map<string, google.maps.Marker>>(new Map());
+  const pointerMarkerRef = useRef<google.maps.Marker | null>(null);
+  const stateBoundaryRef = useRef<google.maps.Polygon | null>(null);
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
   const router = useRouter();
+  const { stateBounds, allProperties } = useListingState();
 
   const syncMapToPointer = useCallback(
     (lat: number, lng: number) => {
       const map = mapInstanceRef.current;
       if (!map) return;
 
-      const L = LeafletModule;
-      if (!L) return;
-
-      map.panTo([lat, lng]);
+      map.panTo({ lat, lng });
       map.setZoom(13);
 
-      // Remove old pointer marker
       if (pointerMarkerRef.current) {
-        pointerMarkerRef.current.remove();
+        pointerMarkerRef.current.setMap(null);
       }
 
-      // Create new pointer marker (blue circle with white dot)
-      const pointerIcon = L.divIcon({
-        html: `<div style="
-          width: 32px;
-          height: 32px;
-          background-color: #004772;
-          border: 3px solid white;
-          border-radius: 50%;
-          box-shadow: 0 2px 6px rgba(0,0,0,0.3);
-        "></div>`,
-        iconSize: [32, 32],
-        iconAnchor: [16, 16],
-        className: 'pointer-marker',
+      const marker = new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        draggable: true,
+        icon: {
+          path: google.maps.SymbolPath.CIRCLE,
+          scale: 16,
+          fillColor: '#004772',
+          fillOpacity: 1,
+          strokeColor: 'white',
+          strokeWeight: 3,
+        },
       });
 
-      const marker = L.marker([lat, lng], { icon: pointerIcon, draggable: true }).addTo(map);
-
-      marker.on('dragend', () => {
-        const pos = marker.getLatLng();
-        onPointerMoved?.(pos.lat, pos.lng);
+      marker.addListener('dragend', () => {
+        const pos = marker.getPosition();
+        if (!pos) return;
+        onPointerMoved?.(pos.lat(), pos.lng());
       });
 
       pointerMarkerRef.current = marker;
@@ -82,121 +74,82 @@ export default function InteractiveMap({
     [onPointerMoved],
   );
 
-  // Initialize Leaflet map
-  useEffect(() => {
-    if (!mapRef.current || mapInstanceRef.current) return;
+  const createMarkerIcon = (property: Property, isActive: boolean) => {
+    const bgColor = isActive ? '#003a5c' : '#004772';
+    const borderColor = isActive ? 'white' : 'rgba(255,255,255,0.6)';
+    const borderWidth = isActive ? 2.5 : 2;
 
-    const L = LeafletModule;
-    if (!L) return;
+    return {
+      path: google.maps.SymbolPath.CIRCLE,
+      scale: 24,
+      fillColor: bgColor,
+      fillOpacity: 1,
+      strokeColor: borderColor,
+      strokeWeight: borderWidth,
+    };
+  };
 
-    mapInstanceRef.current = L.map(mapRef.current).setView(
-      [INDIA_CENTER.lat, INDIA_CENTER.lng],
-      5,
-    );
+  const createMarkerLabel = (property: Property): google.maps.MarkerLabel => ({
+    text: `₹${Math.round(property.price / 1000)}k`,
+    color: 'white',
+    fontSize: '12px',
+    fontWeight: '700',
+  });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(mapInstanceRef.current);
-
-    // Handle map clicks to add a location marker
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.on('click', (e: L.LeafletMouseEvent) => {
-        const { lat, lng } = e.latlng;
-        syncMapToPointer(lat, lng);
-        onPointerMoved?.(lat, lng);
-      });
-    }
-
-    setMapLoaded(true);
-  }, []);
-
-  const getCenter = () => {
-    const withCoords = properties.filter((p) => p.coordinates);
+  const getCenter = (propsToUse: Property[] = properties) => {
+    const withCoords = propsToUse.filter((p) => p.coordinates);
     if (withCoords.length === 0) return INDIA_CENTER;
 
     const lat =
-      withCoords.reduce((sum, p) => sum + p.coordinates!.lat, 0) /
-      withCoords.length;
+      withCoords.reduce((sum, p) => sum + p.coordinates!.lat, 0) / withCoords.length;
     const lng =
-      withCoords.reduce((sum, p) => sum + p.coordinates!.lng, 0) /
-      withCoords.length;
+      withCoords.reduce((sum, p) => sum + p.coordinates!.lng, 0) / withCoords.length;
 
     return { lat, lng };
   };
 
-  const getZoom = (): number => {
-    const cities = new Set(properties.map((p) => p.city));
+  const getZoom = (propsToUse: Property[] = properties): number => {
+    const cities = new Set(propsToUse.map((p) => p.city));
     if (cities.size === 1) return 13;
     if (cities.size <= 3) return 10;
     return 5;
   };
 
-  const createMarkerIcon = (property: Property, isActive: boolean) => {
-    const L = LeafletModule;
-    if (!L) return null;
+  const addMarkers = useCallback(() => {
+    const map = mapInstanceRef.current;
+    if (!map) return;
 
-    const price = `₹${Math.round(property.price / 1000)}k`;
-    const bgColor = isActive ? '#003a5c' : '#004772';
-    const borderColor = isActive ? 'white' : 'rgba(255,255,255,0.6)';
-    const borderWidth = isActive ? 2.5 : 2;
-
-    return L.divIcon({
-      html: `<div style="
-        background-color: ${bgColor};
-        border: ${borderWidth}px solid ${borderColor};
-        border-radius: 50%;
-        width: 48px;
-        height: 48px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.25);
-        font-weight: 700;
-        font-size: 12px;
-        color: white;
-        cursor: pointer;
-        font-family: system-ui, -apple-system;
-      ">${price}</div>`,
-      iconSize: [48, 48],
-      iconAnchor: [24, 24],
-      popupAnchor: [0, -24],
-      className: 'property-marker',
-    });
-  };
-
-  const addMarkers = () => {
-    if (!mapInstanceRef.current) return;
-
-    const L = LeafletModule;
-    if (!L) return;
-
-    // Clear existing markers
-    markersRef.current.forEach((marker) => {
-      marker.remove();
-    });
+    markersRef.current.forEach((marker) => marker.setMap(null));
     markersRef.current.clear();
 
-    const bounds = L.latLngBounds([]);
+    if (stateBoundaryRef.current) {
+      stateBoundaryRef.current.setMap(null);
+      stateBoundaryRef.current = null;
+    }
+
+    // For state-level searches, show all properties from that state, not just paginated ones
+    const displayProperties = allProperties.length > 0 ? allProperties : properties;
+    const bounds = new google.maps.LatLngBounds();
     let hasCoords = false;
 
-    properties.forEach((property) => {
+    displayProperties.forEach((property) => {
       if (!property.coordinates) return;
       hasCoords = true;
 
       const { lat, lng } = property.coordinates;
-      bounds.extend([lat, lng]);
+      bounds.extend({ lat, lng });
 
       const isActive = property.id === activeId;
-      const icon = createMarkerIcon(property, isActive);
-      if (!icon) return;
 
-      const marker = L.marker([lat, lng], { icon, title: property.propertyName }).addTo(
-        mapInstanceRef.current!,
-      );
+      const marker = new google.maps.Marker({
+        position: { lat, lng },
+        map,
+        title: property.propertyName,
+        icon: createMarkerIcon(property, isActive),
+        label: createMarkerLabel(property),
+      });
 
-      marker.on('click', () => {
+      marker.addListener('click', () => {
         setSelectedProperty(property);
         onMarkerClick?.(property.id);
       });
@@ -204,20 +157,82 @@ export default function InteractiveMap({
       markersRef.current.set(property.id, marker);
     });
 
-    // Fit bounds if multiple properties
-    if (hasCoords && properties.filter((p) => p.coordinates).length > 1) {
-      mapInstanceRef.current.fitBounds(bounds, { padding: [50, 50] });
-    } else if (hasCoords) {
-      const center = getCenter();
-      mapInstanceRef.current.setView([center.lat, center.lng], getZoom());
-    }
-  };
+    if (stateBounds) {
+      try {
+        const boundsPath: google.maps.LatLngLiteral[] = [
+          { lat: stateBounds.north, lng: stateBounds.west },
+          { lat: stateBounds.north, lng: stateBounds.east },
+          { lat: stateBounds.south, lng: stateBounds.east },
+          { lat: stateBounds.south, lng: stateBounds.west },
+        ];
 
-  // Re-add markers when properties change
+        stateBoundaryRef.current = new google.maps.Polygon({
+          paths: boundsPath,
+          map,
+          strokeColor: '#004772',
+          strokeWeight: 2,
+          strokeOpacity: 0.3,
+          fillColor: '#004772',
+          fillOpacity: 0.05,
+        });
+      } catch (e) {
+        console.warn('[InteractiveMap] Failed to draw state boundary:', e);
+      }
+    }
+
+    if (hasCoords && displayProperties.filter((p) => p.coordinates).length > 1) {
+      map.fitBounds(bounds, 50);
+    } else if (hasCoords) {
+      const center = getCenter(displayProperties);
+      map.setCenter(center);
+      map.setZoom(getZoom(displayProperties));
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [properties, allProperties, activeId, stateBounds, onMarkerClick]);
+
+  // Initialize Google Map
+  useEffect(() => {
+    if (!mapRef.current || mapInstanceRef.current) return;
+    let cancelled = false;
+
+    loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapRef.current || mapInstanceRef.current) return;
+
+        const map = new google.maps.Map(mapRef.current, {
+          center: INDIA_CENTER,
+          zoom: 5,
+          streetViewControl: false,
+          mapTypeControl: false,
+          fullscreenControl: false,
+        });
+
+        map.addListener('click', (e: google.maps.MapMouseEvent) => {
+          if (!e.latLng) return;
+          const lat = e.latLng.lat();
+          const lng = e.latLng.lng();
+          syncMapToPointer(lat, lng);
+          onPointerMoved?.(lat, lng);
+        });
+
+        mapInstanceRef.current = map;
+        setMapLoaded(true);
+      })
+      .catch((err) => {
+        console.error('[InteractiveMap] Failed to load Google Maps:', err);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Re-add markers when properties or allProperties change
   useEffect(() => {
     if (!mapLoaded) return;
     addMarkers();
-  }, [properties, mapLoaded]);
+  }, [mapLoaded, addMarkers]);
 
   // Update marker icons when active changes
   useEffect(() => {
@@ -225,8 +240,7 @@ export default function InteractiveMap({
       const property = properties.find((p) => p.id === id);
       if (property) {
         const isActive = id === activeId;
-        const icon = createMarkerIcon(property, isActive);
-        marker.setIcon(icon);
+        marker.setIcon(createMarkerIcon(property, isActive));
       }
     });
   }, [activeId, properties]);
@@ -237,7 +251,7 @@ export default function InteractiveMap({
     if (pointer) {
       syncMapToPointer(pointer.lat, pointer.lng);
     } else if (pointerMarkerRef.current) {
-      pointerMarkerRef.current.remove();
+      pointerMarkerRef.current.setMap(null);
       pointerMarkerRef.current = null;
     }
   }, [pointer, mapLoaded, syncMapToPointer]);
@@ -365,7 +379,7 @@ export default function InteractiveMap({
           className="absolute top-3 left-3 z-[999] bg-white/95 backdrop-blur-sm rounded-full px-3 py-1.5 text-[12px] font-semibold text-gray-700"
           style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.12)' }}
         >
-          {properties.filter((p) => p.coordinates).length} properties on map
+          {(allProperties.length > 0 ? allProperties : properties).filter((p) => p.coordinates).length} properties
         </div>
       )}
 
