@@ -165,9 +165,10 @@ export default function GuestMapSearch({
   }, []);
 
   return (
-    <div className={`flex h-full gap-4 ${className}`}>
-      {/* Search panel */}
-      <div className="w-full md:w-80 flex flex-col bg-white rounded-2xl shadow-lg overflow-hidden">
+    <div className={`flex flex-col md:flex-row h-full gap-4 ${className}`}>
+      {/* Search panel -- full width but height-capped on mobile (so the map
+          below still gets room), a fixed-width sidebar on desktop. */}
+      <div className="w-full md:w-80 flex-shrink-0 max-h-[45%] md:max-h-none flex flex-col bg-white rounded-2xl shadow-lg overflow-hidden">
         {/* Search input */}
         <div ref={searchContainerRef} className="relative">
           <div className="p-4 border-b border-gray-100">
@@ -246,8 +247,13 @@ export default function GuestMapSearch({
         </div>
       </div>
 
-      {/* Map panel */}
-      <div className="hidden md:flex flex-1 rounded-2xl overflow-hidden shadow-lg">
+      {/* Map panel -- this is the only place GuestMapSearch is used (the
+          "Show Map" toggle on the search results page), and that toggle's
+          whole point is to show a map. It used to be `hidden md:flex`,
+          which meant the map never rendered at all below the md breakpoint
+          -- mobile users tapping "Show Map" only ever saw the search/list
+          panel above, with no map underneath it. */}
+      <div className="flex flex-1 min-h-[280px] md:min-h-0 rounded-2xl overflow-hidden shadow-lg">
         <InteractiveMap
           properties={properties}
           activeId={activeId}
