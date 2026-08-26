@@ -160,9 +160,9 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Full-width dark blue copyright bar */}
-      <div className="w-full h-16 bg-figma-navy flex items-center justify-center px-4">
-        <p className="text-white text-[13px] font-medium text-center">
+      {/* Full-width copyright bar matching header/footer white background */}
+      <div className="w-full h-14 bg-white border-t border-gray-200 flex items-center justify-center px-4">
+        <p className="text-gray-500 text-[13px] font-medium text-center">
           © {new Date().getFullYear()} Hostiggo Trips Private Limited. Travel made simple.
         </p>
       </div>
