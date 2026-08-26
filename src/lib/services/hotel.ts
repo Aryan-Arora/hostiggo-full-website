@@ -335,9 +335,15 @@ export const HotelServiceApi = {
       throw error;
     }
 
-    // Get state boundaries for map (if state-level search)
+    // Get state boundaries for map (if state-level search). District
+    // searches (the common case -- see searchByState in src/lib/api.ts,
+    // which always sends `district` since the destination search box only
+    // ever collects city/district text) don't have a `searchState` to key
+    // off, so fall back to the state of the first matched listing -- every
+    // row in a district search is necessarily within one state anyway.
+    const boundsLookupState = searchState || data?.[0]?.listing?.locations?.state;
     let stateBounds = null;
-    if (searchState) {
+    if (boundsLookupState) {
       // supabase-js's select-string type parser can't resolve a raw SQL
       // function call like `ST_AsGeoJSON(boundary) as boundary` -- it infers
       // a ParserError type for the row even though PostgREST runs it fine.
@@ -345,7 +351,7 @@ export const HotelServiceApi = {
       const { data: locationData } = (await supabase
         .from('locations')
         .select('state, ST_AsGeoJSON(boundary) as boundary')
-        .eq('state', searchState)
+        .eq('state', boundsLookupState)
         .maybeSingle()) as { data: { state: string; boundary: string | null } | null };
 
       if (locationData?.boundary) {
