@@ -118,5 +118,4 @@ export type SortOption =
   | "top_rated"
   | "most_popular"
   | "newest"
-  | "distance"
   | "best_value";

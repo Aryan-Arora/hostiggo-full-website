@@ -107,10 +107,13 @@ export default function GuestMapSearch({
     async (lat: number, lng: number) => {
       setPointerCoords({ lat, lng });
       setGeocodingLabel(true);
-      const address = await reverseGeocode(lat, lng);
-
-      if (address) {
-        setSelectedLabel(address.displayName);
+      try {
+        const address = await reverseGeocode(lat, lng);
+        if (address) {
+          setSelectedLabel(address.displayName);
+        }
+      } finally {
+        setGeocodingLabel(false);
       }
     },
     [],
@@ -124,10 +127,13 @@ export default function GuestMapSearch({
         const lng = pos.coords.longitude;
         setPointerCoords({ lat, lng });
         setGeocodingLabel(true);
-        const address = await reverseGeocode(lat, lng);
-
-        if (address) {
-          setSelectedLabel(address.displayName);
+        try {
+          const address = await reverseGeocode(lat, lng);
+          if (address) {
+            setSelectedLabel(address.displayName);
+          }
+        } finally {
+          setGeocodingLabel(false);
         }
       },
       (err) => {
