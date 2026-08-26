@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
-import { Addon, ListingAddon, groupAddonsByCategory } from '@/lib/services/addons';
+import { Addon, ListingAddon, groupAddonsByCategory } from '@/lib/services/addons-shared';
 import { cn } from '@/lib/utils';
 import { ChevronDown, Loader2, Trash2 } from 'lucide-react';
 

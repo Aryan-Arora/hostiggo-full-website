@@ -78,7 +78,9 @@ const sections = [
   {
     id: "support-contact",
     title: "14. Support & Contact",
-    body: `For questions, support, or grievances related to the platform or these Terms and Conditions, users may contact Hostiggo at support@hostiggo.com. The support team is available twenty-four (24) hours a day to assist with inquiries and concerns.`,
+    body: `For questions, support, or grievances related to the platform or these Terms and Conditions, users may contact Hostiggo Trips Private Limited at support@hostiggo.com or +91 84483 37674. The support team is available twenty-four (24) hours a day to assist with inquiries and concerns.
+
+Registered office: C-72, Plot H-584, Shivaji Park, Punjabi Bagh, West Delhi, New Delhi, Delhi, India – 110026.`,
   },
 ];
 

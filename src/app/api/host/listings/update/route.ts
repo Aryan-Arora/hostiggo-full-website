@@ -27,6 +27,8 @@ export async function PATCH(req: NextRequest) {
       address_line1,
       address_line2,
       landmark,
+      latitude,
+      longitude,
     } = body;
 
     if (!listingId || !userId) {
@@ -41,6 +43,12 @@ export async function PATCH(req: NextRequest) {
       if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10000000)) {
         return NextResponse.json({ error: `${label} out of range` }, { status: 400 });
       }
+    }
+    if (latitude !== undefined && (!Number.isFinite(Number(latitude)) || Math.abs(Number(latitude)) > 90)) {
+      return NextResponse.json({ error: "latitude out of range" }, { status: 400 });
+    }
+    if (longitude !== undefined && (!Number.isFinite(Number(longitude)) || Math.abs(Number(longitude)) > 180)) {
+      return NextResponse.json({ error: "longitude out of range" }, { status: 400 });
     }
 
     // Build update object with only provided fields
@@ -57,6 +65,8 @@ export async function PATCH(req: NextRequest) {
     if (address_line1 !== undefined) updateData.address_line1 = address_line1;
     if (address_line2 !== undefined) updateData.address_line2 = address_line2;
     if (landmark !== undefined) updateData.landmark = landmark;
+    if (latitude !== undefined) updateData.latitude = parseFloat(String(latitude));
+    if (longitude !== undefined) updateData.longitude = parseFloat(String(longitude));
 
     // Always update the updated_at timestamp
     updateData.updated_at = new Date().toISOString();
@@ -68,7 +78,7 @@ export async function PATCH(req: NextRequest) {
       .update(updateData)
       .eq("listing_id", listingId)
       .select(
-        "listing_id, title, description, price_weekday, price_weekend, num_guests, num_bedrooms, num_beds, num_bathrooms, location_id, address_line1, address_line2, landmark, updated_at",
+        "listing_id, title, description, price_weekday, price_weekend, num_guests, num_bedrooms, num_beds, num_bathrooms, location_id, address_line1, address_line2, landmark, latitude, longitude, updated_at",
       );
 
     if (error) {

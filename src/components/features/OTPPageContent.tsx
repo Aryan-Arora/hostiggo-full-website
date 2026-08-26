@@ -9,15 +9,14 @@ import { cn } from '@/lib/utils';
 import {
   api,
   AUTH_PHONE_KEY,
-  AUTH_USER_ID_KEY,
   AUTH_EMAIL_KEY,
   normalizePhone,
   normalizeEmail,
   setStoredSession,
 } from '@/lib/api';
-import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
+import { hasSubmittedAadhaarKyc } from '@/lib/aadhaar';
 
 const OTP_LENGTH = 6;
 const RESEND_DELAY = 20;
@@ -143,7 +142,12 @@ export default function OTPPageContent() {
         // actually calling instead of trusting a client-claimed userId.
         setStoredSession(session.access_token, session.refresh_token);
         await signIn(userId);
-        router.push(redirect || `/onboarding?mode=${mode}`);
+        const target = redirect || `/onboarding?mode=${mode}`;
+        router.push(
+          hasSubmittedAadhaarKyc(userId)
+            ? target
+            : `/kyc/aadhaar?redirect=${encodeURIComponent(target)}`,
+        );
       } else {
         // Supabase returned without throwing but didn't give us a real user
         // + session, this used to silently navigate to `redirect` anyway,

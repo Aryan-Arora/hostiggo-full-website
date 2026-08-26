@@ -1,10 +1,12 @@
 /**
- * Geocoding utilities using OpenStreetMap Nominatim API (free, no API key required)
+ * Geocoding utilities backed by the Google Maps JavaScript API (Geocoding +
+ * Places libraries). Requires NEXT_PUBLIC_GOOGLE_MAPS_API_KEY.
  * Forward geocoding: address → coordinates
  * Reverse geocoding: coordinates → address
  */
 
-const NOMINATIM_BASE = "https://nominatim.openstreetmap.org";
+import { loadGoogleMaps } from './googleMaps';
+import { api } from '../api';
 
 /**
  * Simple in-memory cache for geocoding lookups to avoid re-hitting the network
@@ -49,6 +51,30 @@ export interface AutocompleteResult {
   boundingBox: [number, number, number, number]; // [south, north, west, east]
 }
 
+function addressComponents(
+  components: google.maps.GeocoderAddressComponent[] = [],
+): GeocodingResult['address'] {
+  const find = (type: string) =>
+    components.find((c) => c.types.includes(type))?.long_name;
+  const findShort = (type: string) =>
+    components.find((c) => c.types.includes(type))?.short_name;
+
+  return {
+    street: [find('street_number'), find('route')].filter(Boolean).join(' ') || undefined,
+    city: find('locality') || find('postal_town') || find('administrative_area_level_2'),
+    county: find('administrative_area_level_2'),
+    state: find('administrative_area_level_1'),
+    postcode: find('postal_code'),
+    country: find('country'),
+    countryCode: findShort('country')?.toUpperCase(),
+  };
+}
+
+async function getGeocoder(): Promise<google.maps.Geocoder> {
+  const g = await loadGoogleMaps();
+  return new g.maps.Geocoder();
+}
+
 /**
  * Forward geocoding: convert address string to coordinates
  * @param query - Address to search for
@@ -62,46 +88,25 @@ export async function geocodeAddress(query: string): Promise<GeocodingResult | n
   if (cached !== undefined) return cached;
 
   try {
-    const params = new URLSearchParams({
-      q: query,
-      format: "json",
-      addressdetails: "1",
-      limit: "1",
-    });
+    const geocoder = await getGeocoder();
+    const { results } = await geocoder.geocode({ address: query });
 
-    const response = await fetch(`${NOMINATIM_BASE}/search?${params}`, {
-      headers: {
-        "User-Agent": "Hostiggo-App (Next.js)",
-      },
-    });
-
-    if (!response.ok) throw new Error("Geocoding request failed");
-
-    const data = await response.json();
-    if (!data || data.length === 0) {
+    if (!results || results.length === 0) {
       cacheSet(cacheKey, null);
       return null;
     }
 
-    const result = data[0];
+    const result = results[0];
     const geocoded: GeocodingResult = {
-      latitude: parseFloat(result.lat),
-      longitude: parseFloat(result.lon),
-      displayName: result.display_name,
-      address: {
-        street: result.address?.road,
-        city: result.address?.city || result.address?.town,
-        county: result.address?.county,
-        state: result.address?.state,
-        postcode: result.address?.postcode,
-        country: result.address?.country,
-        countryCode: result.address?.country_code?.toUpperCase(),
-      },
+      latitude: result.geometry.location.lat(),
+      longitude: result.geometry.location.lng(),
+      displayName: result.formatted_address,
+      address: addressComponents(result.address_components),
     };
     cacheSet(cacheKey, geocoded);
     return geocoded;
   } catch (error) {
-    console.error("[geocodeAddress] Error:", error);
+    console.error('[geocodeAddress] Error:', error);
     return null;
   }
 }
@@ -123,41 +128,25 @@ export async function reverseGeocode(
   if (cached !== undefined) return cached;
 
   try {
-    const params = new URLSearchParams({
-      lat: latitude.toString(),
-      lon: longitude.toString(),
-      format: "json",
-      addressdetails: "1",
-    });
+    const geocoder = await getGeocoder();
+    const { results } = await geocoder.geocode({ location: { lat: latitude, lng: longitude } });
 
-    const response = await fetch(`${NOMINATIM_BASE}/reverse?${params}`, {
-      headers: {
-        "User-Agent": "Hostiggo-App (Next.js)",
-      },
-    });
+    if (!results || results.length === 0) {
+      cacheSet(cacheKey, null);
+      return null;
+    }
 
-    if (!response.ok) throw new Error("Reverse geocoding request failed");
-
-    const result = await response.json();
-
+    const result = results[0];
     const geocoded: GeocodingResult = {
       latitude,
       longitude,
-      displayName: result.display_name,
-      address: {
-        street: result.address?.road,
-        city: result.address?.city || result.address?.town,
-        county: result.address?.county,
-        state: result.address?.state,
-        postcode: result.address?.postcode,
-        country: result.address?.country,
-        countryCode: result.address?.country_code?.toUpperCase(),
-      },
+      displayName: result.formatted_address,
+      address: addressComponents(result.address_components),
     };
     cacheSet(cacheKey, geocoded);
     return geocoded;
   } catch (error) {
-    console.error("[reverseGeocode] Error:", error);
+    console.error('[reverseGeocode] Error:', error);
     return null;
   }
 }
@@ -175,42 +164,67 @@ export async function autocompleteAddress(query: string): Promise<AutocompleteRe
   if (cached !== undefined) return cached;
 
   try {
-    const params = new URLSearchParams({
-      q: query,
-      format: "json",
-      addressdetails: "1",
-      limit: "5",
-    });
+    const g = await loadGoogleMaps();
+    const autocompleteService = new g.maps.places.AutocompleteService();
 
-    const response = await fetch(`${NOMINATIM_BASE}/search?${params}`, {
-      headers: {
-        "User-Agent": "Hostiggo-App (Next.js)",
+    const predictions = await new Promise<google.maps.places.AutocompletePrediction[]>(
+      (resolve, reject) => {
+        autocompleteService.getPlacePredictions({ input: query }, (preds, status) => {
+          if (status === g.maps.places.PlacesServiceStatus.OK && preds) {
+            resolve(preds);
+          } else if (status === g.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+            resolve([]);
+          } else {
+            reject(new Error(`Places autocomplete failed: ${status}`));
+          }
+        });
       },
-    });
+    );
 
-    if (!response.ok) throw new Error("Autocomplete request failed");
+    if (predictions.length === 0) {
+      cacheSet(cacheKey, []);
+      return [];
+    }
 
-    const data = await response.json();
-    if (!data) return [];
+    // Places Autocomplete doesn't return coordinates directly, so resolve
+    // each prediction's lat/lng via the Geocoder (keyed by place_id).
+    const geocoder = await getGeocoder();
+    const resolved = await Promise.all(
+      predictions.slice(0, 5).map(async (prediction) => {
+        try {
+          const { results } = await geocoder.geocode({ placeId: prediction.place_id });
+          const result = results?.[0];
+          if (!result) return null;
 
-    const results: AutocompleteResult[] = data.map((result: any) => ({
-      placeId: result.osm_id,
-      displayName: result.display_name,
-      latitude: parseFloat(result.lat),
-      longitude: parseFloat(result.lon),
-      boundingBox: result.boundingbox
-        ? [
-            parseFloat(result.boundingbox[0]),
-            parseFloat(result.boundingbox[1]),
-            parseFloat(result.boundingbox[2]),
-            parseFloat(result.boundingbox[3]),
-          ]
-        : [0, 0, 0, 0],
-    }));
+          const bounds = result.geometry.viewport;
+          const boundingBox: [number, number, number, number] = bounds
+            ? [
+                bounds.getSouthWest().lat(),
+                bounds.getNorthEast().lat(),
+                bounds.getSouthWest().lng(),
+                bounds.getNorthEast().lng(),
+              ]
+            : [0, 0, 0, 0];
+
+          const suggestion: AutocompleteResult = {
+            placeId: prediction.place_id,
+            displayName: prediction.description,
+            latitude: result.geometry.location.lat(),
+            longitude: result.geometry.location.lng(),
+            boundingBox,
+          };
+          return suggestion;
+        } catch {
+          return null;
+        }
+      }),
+    );
+
+    const results = resolved.filter((r): r is AutocompleteResult => r !== null);
     cacheSet(cacheKey, results);
     return results;
   } catch (error) {
-    console.error("[autocompleteAddress] Error:", error);
+    console.error('[autocompleteAddress] Error:', error);
     return [];
   }
 }
@@ -218,12 +232,34 @@ export async function autocompleteAddress(query: string): Promise<AutocompleteRe
 /**
  * Format address components into a readable string
  */
-export function formatAddress(address: GeocodingResult["address"]): string {
+export function formatAddress(address: GeocodingResult['address']): string {
   const parts = [];
   if (address.street) parts.push(address.street);
   if (address.city) parts.push(address.city);
   if (address.state) parts.push(address.state);
   if (address.postcode) parts.push(address.postcode);
   if (address.country) parts.push(address.country);
-  return parts.filter(Boolean).join(", ");
+  return parts.filter(Boolean).join(', ');
+}
+
+/**
+ * Matches a geocoded city/district against the platform's curated
+ * locations table (the same lookup the destination search bar uses) so a
+ * listing gets tagged with a real location_id instead of silently staying
+ * unset. Best-effort: many towns genuinely aren't in that curated list
+ * yet, so no match just means no location_id -- not a case to fake a
+ * wrong location for. Shared between the listing-creation wizard and the
+ * post-listing "manage" edit page, so both auto-detect the same way.
+ */
+export async function resolveLocationId(city?: string, county?: string): Promise<number | undefined> {
+  for (const candidate of [city, county]) {
+    if (!candidate) continue;
+    try {
+      const results = await api.locations(1, candidate);
+      if (results?.[0]?.location_id) return results[0].location_id;
+    } catch {
+      // Non-fatal -- callers shouldn't fail because location lookup failed.
+    }
+  }
+  return undefined;
 }

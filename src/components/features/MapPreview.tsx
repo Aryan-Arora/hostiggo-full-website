@@ -2,10 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
-import 'leaflet/dist/leaflet.css';
-
-// Lazy load Leaflet
-const LeafletModule = typeof window !== 'undefined' ? require('leaflet') : null;
+import { loadGoogleMaps } from '@/lib/services/googleMaps';
 
 const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'New Delhi': { lat: 28.6139, lng: 77.209 },
@@ -22,6 +19,9 @@ const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
 
 const INDIA_CENTER = { lat: 22.5937, lng: 78.9629 };
 
+const PIN_PATH =
+  'M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z';
+
 interface MapPreviewProps {
   city?: string;
   count?: number;
@@ -34,8 +34,8 @@ export default function MapPreview({
   coordinates,
 }: MapPreviewProps) {
   const mapRef = useRef<HTMLDivElement>(null);
-  const mapInstanceRef = useRef<L.Map | null>(null);
-  const markerRef = useRef<L.Marker | null>(null);
+  const mapInstanceRef = useRef<google.maps.Map | null>(null);
+  const markerRef = useRef<google.maps.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
 
   const getCenter = () => {
@@ -49,64 +49,58 @@ export default function MapPreview({
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
+    let cancelled = false;
 
-    const L = LeafletModule;
-    if (!L) return;
+    loadGoogleMaps()
+      .then(() => {
+        if (cancelled || !mapRef.current || mapInstanceRef.current) return;
 
-    const center = getCenter();
+        const center = getCenter();
 
-    mapInstanceRef.current = L.map(mapRef.current).setView(
-      [center.lat, center.lng],
-      11,
-    );
+        const map = new google.maps.Map(mapRef.current, {
+          center,
+          zoom: 11,
+          disableDefaultUI: true,
+          draggable: false,
+          scrollwheel: false,
+          keyboardShortcuts: false,
+        });
 
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      attribution:
-        '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      maxZoom: 19,
-    }).addTo(mapInstanceRef.current);
+        markerRef.current = new google.maps.Marker({
+          position: center,
+          map,
+          icon: {
+            path: PIN_PATH,
+            fillColor: '#ef4444',
+            fillOpacity: 1,
+            strokeWeight: 0,
+            scale: 1.6,
+            anchor: new google.maps.Point(12, 22),
+          },
+        });
 
-    // Create custom red pin marker using divIcon (reliable approach)
-    const customIcon = L.divIcon({
-      html: `
-        <div style="
-          width: 32px;
-          height: 40px;
-          background-image: url('data:image/svg+xml;utf8,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 24 24%22 fill=%22%23ef4444%22><path d=%22M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z%22/></svg>');
-          background-repeat: no-repeat;
-          background-position: center;
-          background-size: contain;
-          cursor: pointer;
-        "></div>
-      `,
-      iconSize: [32, 40],
-      iconAnchor: [16, 40],
-      popupAnchor: [0, -40],
-      className: 'custom-marker-pin',
-    });
+        mapInstanceRef.current = map;
+        setMapLoaded(true);
+      })
+      .catch((err) => {
+        console.error('[MapPreview] Failed to load Google Maps:', err);
+      });
 
-    // Add marker with custom red pin icon
-    markerRef.current = L.marker([center.lat, center.lng], {
-      icon: customIcon,
-    }).addTo(mapInstanceRef.current);
-
-    // Disable interactions
-    if (mapInstanceRef.current) {
-      mapInstanceRef.current.dragging.disable();
-      mapInstanceRef.current.scrollWheelZoom.disable();
-    }
-
-    setMapLoaded(true);
+    return () => {
+      cancelled = true;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update map center when city or coordinates change
   useEffect(() => {
     if (!mapInstanceRef.current || !mapLoaded) return;
     const center = getCenter();
-    mapInstanceRef.current.setView([center.lat, center.lng], 11);
+    mapInstanceRef.current.setCenter(center);
     if (markerRef.current) {
-      markerRef.current.setLatLng([center.lat, center.lng]);
+      markerRef.current.setPosition(center);
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [city, coordinates, mapLoaded]);
 
   return (

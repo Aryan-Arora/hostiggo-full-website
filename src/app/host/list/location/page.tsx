@@ -6,8 +6,7 @@ import { useListingDraft } from '@/context/ListingDraftContext';
 import { useState, useEffect } from 'react';
 import AddressSearch from '../_components/AddressSearch';
 import dynamic from 'next/dynamic';
-import { reverseGeocode } from '@/lib/services/geocoding';
-import { api } from '@/lib/api';
+import { reverseGeocode, resolveLocationId } from '@/lib/services/geocoding';
 
 const MapPicker = dynamic(() => import('../_components/MapPicker'), {
   ssr: false,
@@ -15,26 +14,6 @@ const MapPicker = dynamic(() => import('../_components/MapPicker'), {
     <div className="w-full h-[480px] md:h-[600px] rounded-2xl bg-gray-100 animate-pulse" />
   ),
 });
-
-// Matches the geocoded city/district against the platform's curated
-// locations table (the same lookup the destination search bar uses) so the
-// listing gets tagged with a real location_id instead of silently staying
-// unset. Best-effort: many towns genuinely aren't in that curated list yet,
-// so no match just means no location_id (shows as "Location pending"),
-// which is honest -- not a case to fake a wrong location for.
-async function resolveLocationId(city?: string, county?: string): Promise<number | undefined> {
-  for (const candidate of [city, county]) {
-    if (!candidate) continue;
-    try {
-      const results = await api.locations(1, candidate);
-      if (results?.[0]?.location_id) return results[0].location_id;
-    } catch {
-      // Non-fatal -- listing creation shouldn't fail because location
-      // lookup failed.
-    }
-  }
-  return undefined;
-}
 
 export default function LocationPage() {
   const { draft, update } = useListingDraft();

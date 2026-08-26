@@ -93,10 +93,18 @@ export default function DestinationDropdown({
     };
   }, [query]);
 
+  // Deliberately doesn't call onClose() here -- onSelect already decides
+  // the right terminal panel state for its caller (SearchForm advances to
+  // the date panel, CompactSearchBar closes to null). Calling onClose()
+  // right after onSelect() used to fire a second setActivePanel(null) that
+  // clobbered whatever onSelect had just set, so picking any destination
+  // that wasn't one of the hardcoded city-guide entries (which navigate
+  // straight to /search via goToSearch below, sidestepping this) silently
+  // closed the whole search bar instead of moving on to date selection --
+  // looked like nothing happened when you picked a location.
   const handleSelect = (name: string) => {
     pushRecentSearch(name);
     onSelect(name);
-    onClose();
   };
 
   const handleUseCurrentLocation = () => {

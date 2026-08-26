@@ -78,8 +78,11 @@ Information may also be disclosed where required by law, court order, government
     title: "14. Contact & Grievance Redressal",
     body: `For questions, concerns, or requests related to this Privacy Policy or personal data, users may contact:
 
-Hostiggo Support Team
+Grievance Officer: Daksh Bhasin
+Hostiggo Trips Private Limited
+C-72, Plot H-584, Shivaji Park, Punjabi Bagh, West Delhi, New Delhi, Delhi, India – 110026
 Email: support@hostiggo.com
+Phone: +91 84483 37674
 
 Hostiggo will make reasonable efforts to address grievances and data-related requests in a timely manner in accordance with applicable law.`,
   },

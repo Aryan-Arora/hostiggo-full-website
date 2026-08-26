@@ -59,17 +59,17 @@ export default function WizardShell({
   return (
     <div className="min-h-screen flex flex-col bg-[#f0f2f5] text-gray-800">
       {/* Top bar */}
-      <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-12 h-20 bg-white shadow-nav">
+      <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 md:px-16 lg:px-20 h-20 bg-white shadow-sm border-b border-gray-100">
         <Link
           href="/"
-          className="text-xl font-extrabold tracking-tight text-gray-900"
+          className="text-xl font-extrabold tracking-tight text-gray-900 flex items-center gap-2"
         >
           HOSTI<span className="text-figma-navy">GGO</span>
         </Link>
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-4">
           <Link
             href="/host/listings"
-            className="text-sm font-medium text-gray-500 hover:bg-gray-50 transition-colors px-4 py-2 rounded-lg"
+            className="text-sm font-medium text-gray-600 hover:text-gray-900 transition-colors px-4 py-2 rounded-lg hover:bg-gray-50"
           >
             Save &amp; Exit
           </Link>
@@ -105,7 +105,7 @@ export default function WizardShell({
               {title}
             </h1>
             {subtitle && (
-              <p className="text-base md:text-lg text-gray-500 max-w-2xl">
+              <p className="text-lg md:text-xl text-gray-600 max-w-3xl leading-relaxed">
                 {subtitle}
               </p>
             )}
@@ -115,7 +115,7 @@ export default function WizardShell({
       </main>
 
       {/* Footer nav */}
-      <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-4 md:px-12 py-4 bg-white border-t border-gray-200">
+      <footer className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-6 md:px-16 lg:px-20 py-5 bg-white border-t border-gray-200 shadow-lg">
         <button
           type="button"
           onClick={() =>
@@ -141,7 +141,7 @@ export default function WizardShell({
               else submit();
             }}
             className={cn(
-              'rounded-xl px-10 py-3 text-sm font-bold text-white transition-all active:scale-95 shadow-md flex items-center gap-2',
+              'rounded-lg px-8 py-2.5 text-sm font-bold text-white transition-all active:scale-95 shadow-sm flex items-center gap-2',
               nextDisabled || submitting
                 ? 'bg-gray-300 cursor-not-allowed'
                 : 'bg-figma-navy hover:bg-figma-navy/90',
