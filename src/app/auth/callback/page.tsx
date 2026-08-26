@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { hasSubmittedAadhaarKyc } from '@/lib/aadhaar';
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -44,7 +45,11 @@ function AuthCallbackContent() {
       if (!active) return;
       await signIn(user.id);
       if (!active) return;
-      router.push(redirectTarget);
+      router.push(
+        hasSubmittedAadhaarKyc(user.id)
+          ? redirectTarget
+          : `/kyc/aadhaar?redirect=${encodeURIComponent(redirectTarget)}`,
+      );
     };
 
     // A provider-side denial (e.g. "Cancel" on Google's consent screen)

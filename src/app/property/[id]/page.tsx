@@ -1137,7 +1137,7 @@ function BookingWidget({
             <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
-            <span>Hostiggo service fee (13%)</span>
+            <span>Hostiggo service fee ({(invoice.hostiggoServiceFeeRate * 100).toFixed(0)}%)</span>
             <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">

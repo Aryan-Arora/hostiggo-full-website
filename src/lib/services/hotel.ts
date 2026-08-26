@@ -390,7 +390,16 @@ export const HotelServiceApi = {
       return null;
     }
 
-    const { data, error } = await supabase
+    // Uses the admin client, not the anon `supabase` client used elsewhere
+    // in this file -- unlike the RPC-backed search functions (which run as
+    // SECURITY DEFINER and bypass RLS regardless of caller), this is a
+    // direct table select with nested embeds (listing_addons,
+    // listing_discounts). If RLS on those child tables doesn't grant the
+    // anon role read access, Supabase doesn't error -- it silently returns
+    // an empty array for that embed while the rest of the row loads fine,
+    // which is exactly why host-added addons weren't showing up on the
+    // guest-facing property page.
+    const { data, error } = await supabaseAdmin
       .from('listings')
       .select(
         `
