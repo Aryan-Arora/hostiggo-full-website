@@ -1,7 +1,5 @@
 'use client';
 
-import { Skeleton } from '@/components/ui/skeleton';
-import { cn } from '@/lib/utils';
 
 interface PropertyCardSkeletonProps {
   variant?: 'modern' | 'classic';

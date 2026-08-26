@@ -1,5 +1,5 @@
+import { Instagram, Languages, Linkedin, Twitter } from "lucide-react";
 import Link from "next/link";
-import { Languages, Instagram, Linkedin, Twitter } from "lucide-react";
 
 type FooterLink = { label: string; href: string };
 
