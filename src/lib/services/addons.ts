@@ -1,26 +1,8 @@
-import { supabase } from '@/lib/supabase';
+import 'server-only';
+import { supabaseAdmin as supabase } from '@/lib/supabase-admin';
+import type { Addon, ListingAddon } from './addons-shared';
 
-export interface Addon {
-  addon_id: number;
-  name: string;
-  icon: string;
-  category: string;
-  created_at: string;
-}
-
-export interface ListingAddon {
-  id: number;
-  listing_id: number;
-  addon_id: number;
-  price: number;
-  includes: string;
-  timing_from: string | null;
-  timing_to: string | null;
-  another_details: Record<string, any> | null;
-  additional_notes: string;
-  created_at: string;
-  addon?: Addon;
-}
+export type { Addon, ListingAddon } from './addons-shared';
 
 /**
  * Get all available addons from the database
@@ -221,18 +203,4 @@ export async function removeAddonFromListing(addonListingId: number, listingId?:
   }
 }
 
-/**
- * Group addons by category
- */
-export function groupAddonsByCategory(addons: Addon[]): Record<string, Addon[]> {
-  return addons.reduce(
-    (acc, addon) => {
-      if (!acc[addon.category]) {
-        acc[addon.category] = [];
-      }
-      acc[addon.category].push(addon);
-      return acc;
-    },
-    {} as Record<string, Addon[]>
-  );
-}
+export { groupAddonsByCategory } from './addons-shared';

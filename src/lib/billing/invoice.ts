@@ -1,11 +1,8 @@
 import { percentOf, roundPaise, rupeesToPaise } from "./money";
 import type { BookingInvoice, BookingInvoiceInput, BookingInvoiceLineItem } from "./types";
 
-// Confirmed with the operator: the Hostiggo Service Fee is 13% of the base
-// property price, not a flat ₹1,300 -- the source doc's single worked
-// example (₹10,000 property -> ₹1,300 fee) is 13% of that one number, not
-// a flat amount.
-export const HOSTIGGO_SERVICE_FEE_RATE = 0.13;
+// Hostiggo Service Fee: 8% of the base property price.
+export const HOSTIGGO_SERVICE_FEE_RATE = 0.08;
 
 export const GST_RATES = {
   propertyHigh: 0.18,

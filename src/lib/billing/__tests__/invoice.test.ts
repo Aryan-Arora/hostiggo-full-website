@@ -2,14 +2,14 @@ import { describe, expect, it } from "vitest";
 import { calculateBookingInvoice, HOSTIGGO_SERVICE_FEE_RATE } from "../invoice";
 
 describe("calculateBookingInvoice", () => {
-  it("computes the ₹10,000 worked example (13% service fee, 18% property GST above ₹7,500)", () => {
+  it("computes the ₹10,000 worked example (8% service fee, 18% property GST above ₹7,500)", () => {
     const invoice = calculateBookingInvoice({ basePropertyPrice: 10000 });
-    expect(invoice.hostiggoServiceFeePaise).toBe(130000); // ₹1,300
+    expect(invoice.hostiggoServiceFeePaise).toBe(80000); // ₹800
     expect(invoice.propertyGstRate).toBe(0.18);
     expect(invoice.gstOnPropertyPaise).toBe(180000); // ₹1,800
-    expect(invoice.gstOnHostiggoServiceFeePaise).toBe(23400); // ₹234 (18% of ₹1,300)
-    // 10000 + 1800 + 1300 + 234 = 13334
-    expect(invoice.grandTotalRupees).toBe(13334);
+    expect(invoice.gstOnHostiggoServiceFeePaise).toBe(14400); // ₹144 (18% of ₹800)
+    // 10000 + 1800 + 800 + 144 = 12744
+    expect(invoice.grandTotalRupees).toBe(12744);
   });
 
   it("uses 5% property GST at exactly ₹7,500 (threshold is exclusive -- 'above ₹7,500' means >7500)", () => {
@@ -46,7 +46,7 @@ describe("calculateBookingInvoice", () => {
     ]);
   });
 
-  it("service fee rate is 13%, confirmed with the operator (not the flat ₹1,300 the source doc's single example could be misread as)", () => {
-    expect(HOSTIGGO_SERVICE_FEE_RATE).toBe(0.13);
+  it("service fee rate is 8%", () => {
+    expect(HOSTIGGO_SERVICE_FEE_RATE).toBe(0.08);
   });
 });
