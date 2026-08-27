@@ -366,7 +366,10 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  createBooking: (payload: {
+  // Opens a Razorpay order for the priced booking -- no booking exists yet.
+  // Pass the response into window.Razorpay's checkout, then call
+  // confirmBookingPayment() with what its success handler returns.
+  reserveBooking: (payload: {
     listingId: string | number;
     userId: string;
     startDate: string;
@@ -375,10 +378,27 @@ export const api = {
     numChildren?: number;
     addonIds?: number[];
     // amount is intentionally not accepted here, the server recomputes the
-    // real charge from the listing's own prices, see createBooking() in
-    // src/lib/services/admin-writes.ts
+    // real charge from the listing's own prices, see
+    // validateAndPriceBooking() in src/lib/services/admin-writes.ts
   }) =>
-    request<any>(`/api/bookings/reserve`, {
+    request<{
+      razorpayOrderId: string;
+      razorpayKeyId: string;
+      amountPaise: number;
+      amountRupees: number;
+      currency: string;
+    }>(`/api/bookings/reserve`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  // The booking is only actually created here, after the payment signature
+  // Razorpay Checkout returns has been verified server-side.
+  confirmBookingPayment: (payload: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  }) =>
+    request<any>(`/api/bookings/confirm-payment`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
@@ -394,6 +414,11 @@ export const api = {
     request<any>(`/api/users`, {
       method: "PATCH",
       body: JSON.stringify({ action: "update-profile", userId, patch }),
+    }),
+  deactivateAccount: (userId: string) =>
+    request<any>(`/api/users`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "deactivate-account", userId }),
     }),
   createListing: (draft: Record<string, any>) =>
     request<{ listing_id: number; title: string; warnings?: string[] }>(`/api/host/listings`, {
