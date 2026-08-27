@@ -72,12 +72,25 @@ export async function POST(req: NextRequest) {
       
       if (user) {
         const profile = await ensureProfile(user);
-        return NextResponse.json({ 
-          data: { 
-            user, 
+
+        // Supabase Auth itself is banned on deactivation (see
+        // deactivateUserAccount), which normally rejects this verifyOtp call
+        // outright -- this is the belt-and-suspenders check for the window
+        // right after a ban is lifted, or if the ban write failed. Deny the
+        // session client-side rather than handing back a working one.
+        if (profile.is_active === false) {
+          return NextResponse.json(
+            { error: "This account has been deactivated. Contact support to reactivate it." },
+            { status: 403 },
+          );
+        }
+
+        return NextResponse.json({
+          data: {
+            user,
             session,
-            profile 
-          } 
+            profile
+          }
         });
       }
 

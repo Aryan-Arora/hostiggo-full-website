@@ -395,6 +395,11 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify({ action: "update-profile", userId, patch }),
     }),
+  deactivateAccount: (userId: string) =>
+    request<any>(`/api/users`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "deactivate-account", userId }),
+    }),
   createListing: (draft: Record<string, any>) =>
     request<{ listing_id: number; title: string; warnings?: string[] }>(`/api/host/listings`, {
       method: "POST",
