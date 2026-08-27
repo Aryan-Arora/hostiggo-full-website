@@ -166,7 +166,7 @@ export async function upsertCalendarDay(input: {
 }
 
 // ── Bookings ─────────────────────────────────────────────────────────────────
-export async function createBooking(input: {
+type BookingInput = {
   listingId: number;
   userId: string;
   startDate: string;
@@ -177,10 +177,20 @@ export async function createBooking(input: {
   // looked up server-side from listing_addons below, never trusted from
   // the client, same reasoning as `amount` never being accepted directly.
   addonIds?: number[];
-  // `amount` is intentionally NOT accepted from the client anymore, the
+  // `amount` is intentionally NOT accepted from the client anywhere, the
   // charge is always recomputed here from the listing's real prices so a
   // guest can't submit an arbitrary (or zero) amount for a real booking.
-}) {
+};
+
+/**
+ * Availability checks + the real server-side charge for a prospective
+ * booking, with no DB writes. Split out of what used to be createBooking()
+ * so /api/bookings/reserve can price a Razorpay order for an amount that's
+ * guaranteed to match what finalizeBookingFromRazorpayOrder() below will
+ * insert once payment actually clears -- neither step trusts a client-sent
+ * amount, and both run this exact same calculation.
+ */
+export async function validateAndPriceBooking(input: BookingInput) {
   // Resolve the owning host + real pricing/capacity from the listing,
   // never trust client-supplied price or guest-count data for the charge.
   const { data: listing, error: lerr } = await supabaseAdmin
@@ -275,7 +285,31 @@ export async function createBooking(input: {
     breakfastPrice: breakfastTotal,
     otherServicesPrice: otherServicesTotal,
   });
-  const amount = invoice.grandTotalRupees;
+
+  return {
+    listing,
+    numAdults,
+    numChildren,
+    stayNights,
+    resolvedAddons,
+    invoice,
+    amountRupees: invoice.grandTotalRupees,
+    amountPaise: invoice.grandTotalPaise,
+  };
+}
+
+/**
+ * The actual booking write, run only after a Razorpay payment has been
+ * verified (see finalizeBookingFromRazorpayOrder below) -- this is the tail
+ * end of what used to be createBooking(): insert the CONFIRMED row, record
+ * the add-ons, lose gracefully to a same-dates race, block the calendar.
+ */
+async function insertConfirmedBooking(
+  input: BookingInput,
+  priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
+  razorpay: { orderId: string; paymentId: string },
+) {
+  const { listing, numAdults, numChildren, stayNights, resolvedAddons, amountRupees } = priced;
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
@@ -287,12 +321,16 @@ export async function createBooking(input: {
       num_adults: numAdults,
       num_children: numChildren,
       nom_guests: numAdults + numChildren,
-      amount,
-      // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row),
-      // so a new reservation is created as CONFIRMED.
+      amount: amountRupees,
+      // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row) --
+      // there's nothing to insert until payment is verified (see
+      // finalizeBookingFromRazorpayOrder), so every row that gets created
+      // here is, by construction, already paid for.
       status_id: 2,
       host_uuid: listing.host_uuid,
       booked_at: new Date().toISOString(),
+      razorpay_payment_id: razorpay.paymentId,
+      razorpay_order_id: razorpay.orderId,
     })
     .select()
     .single();
@@ -311,21 +349,24 @@ export async function createBooking(input: {
       })),
     );
     if (bookingAddonsErr) {
-      console.error("[createBooking] booking_addons insert failed:", bookingAddonsErr.message);
+      console.error("[insertConfirmedBooking] booking_addons insert failed:", bookingAddonsErr.message);
     }
   }
 
-  // Checks A/B above are check-then-insert, not atomic, two requests can
-  // both pass them and both insert a CONFIRMED booking for overlapping
-  // dates. There's no way to add a real DB-level exclusion constraint from
-  // here (would need direct schema access this service doesn't have), so
-  // instead re-check immediately after inserting: if another CONFIRMED
-  // booking for the same listing/dates already existed before ours
-  // (lower booking_id = arrived first), we lost the race, cancel the
-  // booking we just created rather than leave two guests both holding a
-  // "confirmed" reservation for the same nights. This shrinks the race
-  // window from the whole request round-trip down to just this recheck,
-  // it doesn't eliminate it outright.
+  // Check A/B in validateAndPriceBooking are check-then-insert, not atomic,
+  // two requests can both pass them and both insert a CONFIRMED booking for
+  // overlapping dates -- here that's two guests who *both actually paid*
+  // for the same nights, not just two idle form submissions, so losing this
+  // race means a real refund is owed, not just a status flip. There's no
+  // way to add a real DB-level exclusion constraint from here (would need
+  // direct schema access this service doesn't have), so instead re-check
+  // immediately after inserting: if another CONFIRMED booking for the same
+  // listing/dates already existed before ours (lower booking_id = arrived
+  // first), we lost the race -- cancel the booking we just created and
+  // refund the payment that paid for it, rather than leave two guests both
+  // holding a "confirmed" reservation for the same nights. This shrinks the
+  // race window from the whole request round-trip down to just this
+  // recheck, it doesn't eliminate it outright.
   const { data: raceLosers, error: raceErr } = await supabaseAdmin
     .from("bookings")
     .select("booking_id")
@@ -340,7 +381,26 @@ export async function createBooking(input: {
       .from("bookings")
       .update({ status_id: 3, cancellation_reason: "Dates were booked by another guest first" })
       .eq("booking_id", data.booking_id);
-    throw new Error("These dates were just booked by someone else. Please choose different dates.");
+    const { createRazorpayRefund } = await import("../billing/razorpay");
+    try {
+      await createRazorpayRefund({
+        razorpayPaymentId: razorpay.paymentId,
+        amountPaise: priced.amountPaise,
+        idempotencyKey: `refund:race-loss:${data.booking_id}`,
+        notes: { reason: "Dates were booked by another guest first", bookingId: String(data.booking_id) },
+      });
+    } catch (refundErr) {
+      // Surfacing this as a thrown error would tell the guest their payment
+      // is stuck with no refund in sight, which is worse than a booking
+      // that needs a manual refund follow-up -- log loudly for ops instead.
+      console.error(
+        `[insertConfirmedBooking] URGENT: race-loss refund failed for payment ${razorpay.paymentId}, booking ${data.booking_id} -- needs manual refund:`,
+        refundErr,
+      );
+    }
+    throw new Error(
+      "These dates were just booked by someone else. Your payment has been refunded.",
+    );
   }
 
   // Block all nights in the booked range so they can't be double-booked.
@@ -379,6 +439,73 @@ export async function createBooking(input: {
   }
 
   return data;
+}
+
+/**
+ * The only place a booking is ever inserted: called once a Razorpay
+ * payment's signature has already been verified by the caller (either the
+ * checkout-callback route or the webhook route -- see
+ * src/app/api/bookings/confirm-payment and src/app/api/webhooks/razorpay).
+ * Re-derives every booking field from the Razorpay order's own `notes`
+ * (set server-side at order-creation time in /api/bookings/reserve, never
+ * client-editable) rather than trusting anything the client sends alongside
+ * the payment IDs.
+ */
+export async function finalizeBookingFromRazorpayOrder(params: {
+  orderId: string;
+  paymentId: string;
+}) {
+  // Idempotency: the checkout-callback route and the payment.captured
+  // webhook can both fire for the same payment (or the callback route can
+  // get retried by a flaky client) -- without this, that double-fires the
+  // whole insert path, including a second real calendar block and a
+  // spurious race-loss refund of the guest's own successful payment.
+  const { data: existingBooking } = await supabaseAdmin
+    .from("bookings")
+    .select("*")
+    .eq("razorpay_payment_id", params.paymentId)
+    .maybeSingle();
+  if (existingBooking) return existingBooking;
+
+  const { getRazorpayClient } = await import("../billing/razorpay");
+  const order = await getRazorpayClient().orders.fetch(params.orderId);
+  const notes = (order.notes ?? {}) as Record<string, string>;
+  if (!notes.listingId || !notes.userId || !notes.startDate || !notes.endDate) {
+    throw new Error(`Razorpay order ${params.orderId} is missing booking notes.`);
+  }
+
+  const input: BookingInput = {
+    listingId: Number(notes.listingId),
+    userId: notes.userId,
+    startDate: notes.startDate,
+    endDate: notes.endDate,
+    numAdults: notes.numAdults ? Number(notes.numAdults) : undefined,
+    numChildren: notes.numChildren ? Number(notes.numChildren) : undefined,
+    addonIds: notes.addonIds ? JSON.parse(notes.addonIds) : undefined,
+  };
+
+  // Re-run the exact same availability + pricing check /api/bookings/reserve
+  // ran when the order was created -- dates can have been taken by someone
+  // else in the time it took this guest to pay, and prices are only ever
+  // trusted from this recomputation, never from the (already-verified, but
+  // now potentially stale) order amount.
+  const priced = await validateAndPriceBooking(input);
+
+  // The order was created for a specific amount; if the recomputed price
+  // has since drifted (e.g. the host changed nightly rates mid-checkout),
+  // inserting at the new price would silently charge or credit the guest
+  // for something they never actually paid. Order amount is paise; compare
+  // in the same unit.
+  if (Math.abs(priced.amountPaise - Number(order.amount)) > 1) {
+    console.error(
+      `[finalizeBookingFromRazorpayOrder] price drift for order ${params.orderId}: paid ${order.amount}, now prices at ${priced.amountPaise}`,
+    );
+    throw new Error(
+      "The price for these dates changed after payment. Contact support with your payment ID for a refund.",
+    );
+  }
+
+  return insertConfirmedBooking(input, priced, { orderId: params.orderId, paymentId: params.paymentId });
 }
 
 function eachDateInRange(startDate: string, endDate: string): string[] {
