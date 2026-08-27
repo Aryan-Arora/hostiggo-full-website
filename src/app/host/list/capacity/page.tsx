@@ -36,7 +36,7 @@ export default function CapacityPage() {
 
   return (
     <WizardShell
-      step={3}
+      step={5}
       title="Share some basics about your place"
       subtitle="You'll add more details later, like amenities and photos. For now, let's start with the essentials."
     >
