@@ -730,3 +730,36 @@ export async function updateUserProfile(
   if (error) throw error;
   return data;
 }
+
+// Deliberately its own function rather than another key in updateUserProfile's
+// allowlist: is_active also gates login (see /api/auth/otp and
+// /auth/callback), so letting it in through the generic profile-patch path
+// would let any caller of that endpoint flip it. This is the only write path
+// for it.
+export async function deactivateUserAccount(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  // Ban at the Supabase Auth layer too, not just our own users.is_active
+  // check: GoTrue rejects sign-in for a banned user outright (phone OTP,
+  // email OTP, and Google OAuth all route through it), so this blocks new
+  // logins even before our own app-level check runs. It doesn't kill an
+  // *already-issued* access token (those simply expire on their normal TTL,
+  // typically an hour) -- there's no per-user "revoke all sessions" call in
+  // this GoTrue Admin API version. A ~100-year ban_duration is Supabase's own
+  // idiom for "indefinite"; support can lift it by setting ban_duration back
+  // to 'none' if the user asks to reactivate.
+  const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    ban_duration: "876000h",
+  });
+  if (banError) {
+    console.error("[deactivateUserAccount] failed to ban auth user:", banError);
+  }
+
+  return data;
+}
