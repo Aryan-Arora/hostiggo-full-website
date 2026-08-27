@@ -97,8 +97,8 @@ export default function Footer() {
       {/* Full-width divider separating page content from the footer */}
       <div className="w-full h-px bg-[#E5E7EB]" />
 
-      {/* Main footer, white background, content in a centered 1100px container */}
-      <div className="bg-white">
+      {/* Main footer, figma-cream background, content in a centered 1100px container */}
+      <div className="bg-figma-cream">
         <div className="mx-auto max-w-[1100px] px-6 pt-10 pb-10">
           {/* 5 columns (4 link sections + Download App) → 3 on tablet → 2 → 1 (centered) on mobile */}
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-8 text-center sm:text-left">
@@ -160,9 +160,9 @@ export default function Footer() {
         </div>
       </div>
 
-      {/* Full-width dark blue copyright bar */}
-      <div className="w-full h-16 bg-figma-navy flex items-center justify-center px-4">
-        <p className="text-white text-[13px] font-medium text-center">
+      {/* Full-width copyright bar */}
+      <div className="w-full h-16 bg-figma-cream flex items-center justify-center px-4">
+        <p className="text-gray-500 text-[13px] font-medium text-center">
           © {new Date().getFullYear()} Hostiggo Trips Private Limited. Travel made simple.
         </p>
       </div>

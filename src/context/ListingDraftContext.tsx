@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 // so it survives step navigation and reloads, then POSTed on Finish.
 export type ListingDraft = {
   propertyType?: string;
+  stayType?: string;
   title?: string;
   description?: string;
   priceWeekday?: number;
@@ -34,8 +35,12 @@ export type ListingDraft = {
     quiet_hours?: boolean;
   };
   photoUrls?: string[];
+  country?: string;
   addressLine1?: string;
   landmark?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
   latitude?: number;
   longitude?: number;
   locationId?: number;
