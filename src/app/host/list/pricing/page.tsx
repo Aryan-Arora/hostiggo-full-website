@@ -32,75 +32,188 @@ const DEFAULT_DISCOUNT_PERCENT = { newListing: 20, weekly: 10, monthly: 15 };
 
 export default function PricingPage() {
   const { draft, update } = useListingDraft();
-  const [price, setPrice] = useState(draft.priceWeekday ?? 2999);
+  const [priceWeekday, setPriceWeekday] = useState<number>(draft.priceWeekday ?? 2999);
+  const [weekendOption, setWeekendOption] = useState<'same' | 'custom'>(
+    draft.priceWeekend && draft.priceWeekend !== draft.priceWeekday ? 'custom' : 'same',
+  );
+  const [priceWeekend, setPriceWeekend] = useState<number>(
+    draft.priceWeekend ?? Math.round((draft.priceWeekday ?? 2999) * 1.1),
+  );
+
   const [discounts, setDiscounts] = useState({
     newListing: draft.discounts?.find((d) => d.discount_type === 'new_listing')?.enabled ?? true,
     weekly: draft.discounts?.find((d) => d.discount_type === 'weekly')?.enabled ?? true,
     monthly: draft.discounts?.find((d) => d.discount_type === 'monthly')?.enabled ?? false,
   });
-  const [weeklyPercent, setWeeklyPercent] = useState(
+
+  const [newListingPercent, setNewListingPercent] = useState<number>(
+    draft.discounts?.find((d) => d.discount_type === 'new_listing')?.percent ?? DEFAULT_DISCOUNT_PERCENT.newListing,
+  );
+  const [weeklyPercent, setWeeklyPercent] = useState<number>(
     draft.discounts?.find((d) => d.discount_type === 'weekly')?.percent ?? DEFAULT_DISCOUNT_PERCENT.weekly,
   );
+  const [monthlyPercent, setMonthlyPercent] = useState<number>(
+    draft.discounts?.find((d) => d.discount_type === 'monthly')?.percent ?? DEFAULT_DISCOUNT_PERCENT.monthly,
+  );
 
+  // Sync pricing changes to draft
   useEffect(() => {
-    update({ priceWeekday: price, priceWeekend: price });
+    const finalWeekendPrice = weekendOption === 'same' ? priceWeekday : priceWeekend;
+    update({ priceWeekday, priceWeekend: finalWeekendPrice });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [price]);
+  }, [priceWeekday, priceWeekend, weekendOption]);
 
+  // Sync discount changes to draft
   useEffect(() => {
     update({
       discounts: [
-        { discount_type: 'new_listing', percent: DEFAULT_DISCOUNT_PERCENT.newListing, enabled: discounts.newListing },
+        { discount_type: 'new_listing', percent: newListingPercent, enabled: discounts.newListing },
         { discount_type: 'weekly', percent: weeklyPercent, enabled: discounts.weekly },
-        { discount_type: 'monthly', percent: DEFAULT_DISCOUNT_PERCENT.monthly, enabled: discounts.monthly },
+        { discount_type: 'monthly', percent: monthlyPercent, enabled: discounts.monthly },
       ],
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [discounts, weeklyPercent]);
+  }, [discounts, newListingPercent, weeklyPercent, monthlyPercent]);
 
-  const toggle = (k: keyof typeof discounts) =>
+  const toggleDiscount = (k: keyof typeof discounts) =>
     setDiscounts((d) => ({ ...d, [k]: !d[k] }));
 
-  const guestPrice = Math.round(price * 1.14);
-  const earn = Math.round(price * 0.97);
+  // Helper text calculation for weekend pricing
+  const diff = priceWeekday > 0 ? Math.round(((priceWeekend - priceWeekday) / priceWeekday) * 100) : 0;
+  const weekendHelperText =
+    diff > 0
+      ? `${diff}% higher than weekday price`
+      : diff < 0
+      ? `${Math.abs(diff)}% lower than weekday price`
+      : 'Same as weekday price';
+
+  // Payout preview, same formula the old single-price card showed -- kept
+  // here so a host still sees their actual take-home before publishing,
+  // just now broken out per weekday/weekend since those can differ.
   const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  const guestPrice = (base: number) => Math.round(base * 1.14);
+  const earn = (base: number) => Math.round(base * 0.97);
+  const effectiveWeekend = weekendOption === 'same' ? priceWeekday : priceWeekend;
 
   return (
     <WizardShell
       step={8}
       title="Now, set your price"
       subtitle="You can change it anytime after you publish your listing."
+      nextDisabled={priceWeekday <= 0 || (weekendOption === 'custom' && priceWeekend <= 0)}
     >
       <div className="max-w-4xl mx-auto">
         <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
           {/* Left: price */}
           <div className="md:col-span-7 space-y-6">
-            <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 transition-all hover:border-figma-navy/30">
-              <label className="block text-sm text-gray-500 mb-4">
-                Price per night
-              </label>
-              <div className="flex items-center gap-4">
-                <span className="text-4xl font-bold text-gray-900">₹</span>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(Number(e.target.value) || 0)}
-                  className="w-full text-4xl font-bold border-none p-0 bg-transparent focus:ring-0 outline-none text-gray-900"
-                />
+            <div className="bg-white rounded-2xl p-6 md:p-8 shadow-card border border-gray-200">
+              {/* Weekday Price */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Weekday price</h3>
+                <p className="text-xs text-gray-500 mt-1">Price per night from Monday to Thursday</p>
+
+                <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 mt-3 focus-within:ring-2 focus-within:ring-figma-navy focus-within:border-transparent transition-all">
+                  <span className="text-gray-500 font-semibold text-lg mr-2 select-none">₹</span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={priceWeekday || ''}
+                    onChange={(e) => {
+                      const val = Number(e.target.value) || 0;
+                      setPriceWeekday(val);
+                      if (weekendOption === 'same') {
+                        setPriceWeekend(val);
+                      }
+                    }}
+                    placeholder="0"
+                    className="w-full bg-transparent text-gray-900 font-bold text-lg outline-none"
+                  />
+                  <span className="text-gray-400 text-sm font-medium whitespace-nowrap ml-2 select-none">
+                    / Night
+                  </span>
+                </div>
               </div>
-              <div className="mt-8 pt-8 border-t border-gray-100 space-y-4">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Base price</span>
-                  <span className="text-sm font-semibold text-gray-800">{fmt(price)}</span>
+
+              {/* Dotted horizontal divider */}
+              <div className="border-t border-dotted border-gray-300 my-6" />
+
+              {/* Weekend Price */}
+              <div>
+                <h3 className="text-base font-bold text-gray-900">Weekend price</h3>
+                <p className="text-xs text-gray-500 mt-1">Price per night from Friday to Sunday</p>
+
+                <div className="space-y-2.5 mt-3">
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="weekendPricing"
+                      value="same"
+                      checked={weekendOption === 'same'}
+                      onChange={() => {
+                        setWeekendOption('same');
+                        setPriceWeekend(priceWeekday);
+                      }}
+                      className="w-4 h-4 text-figma-navy border-gray-300 focus:ring-figma-navy"
+                    />
+                    <span className="text-sm font-medium text-gray-800">Same as weekday</span>
+                  </label>
+
+                  <label className="flex items-center gap-3 cursor-pointer select-none">
+                    <input
+                      type="radio"
+                      name="weekendPricing"
+                      value="custom"
+                      checked={weekendOption === 'custom'}
+                      onChange={() => {
+                        setWeekendOption('custom');
+                        if (priceWeekend === priceWeekday) {
+                          setPriceWeekend(Math.round(priceWeekday * 1.1));
+                        }
+                      }}
+                      className="w-4 h-4 text-figma-navy border-gray-300 focus:ring-figma-navy"
+                    />
+                    <span className="text-sm font-medium text-gray-800">Set a different price</span>
+                  </label>
                 </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-gray-500">Guest price (before taxes)</span>
-                  <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice)}</span>
-                </div>
-                <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
-                  <span className="text-sm font-bold text-figma-navy">You earn</span>
-                  <span className="text-xl font-bold text-figma-navy">{fmt(earn)}</span>
-                </div>
+
+                {weekendOption === 'custom' && (
+                  <div className="mt-3">
+                    <div className="flex items-center w-full bg-white border border-gray-300 rounded-xl px-4 py-3.5 focus-within:ring-2 focus-within:ring-figma-navy focus-within:border-transparent transition-all">
+                      <span className="text-gray-500 font-semibold text-lg mr-2 select-none">₹</span>
+                      <input
+                        type="number"
+                        min={0}
+                        value={priceWeekend || ''}
+                        onChange={(e) => setPriceWeekend(Number(e.target.value) || 0)}
+                        placeholder="0"
+                        className="w-full bg-transparent text-gray-900 font-bold text-lg outline-none"
+                      />
+                      <span className="text-gray-400 text-sm font-medium whitespace-nowrap ml-2 select-none">
+                        / Night
+                      </span>
+                    </div>
+                    <div className="mt-1.5 pl-1">
+                      <span className="text-[10px] text-gray-500">{weekendHelperText}</span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Weekday: guest price (before taxes)</span>
+                <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice(priceWeekday))}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Weekend: guest price (before taxes)</span>
+                <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice(effectiveWeekend))}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
+                <span className="text-sm font-bold text-figma-navy">You earn (weekday / weekend)</span>
+                <span className="text-lg font-bold text-figma-navy">
+                  {fmt(earn(priceWeekday))} / {fmt(earn(effectiveWeekend))}
+                </span>
               </div>
             </div>
 
@@ -117,49 +230,143 @@ export default function PricingPage() {
           </div>
 
           {/* Right: discounts */}
-          <div className="md:col-span-5">
-            <div className="bg-white rounded-2xl p-8 shadow-card border border-gray-200 h-full">
-              <div className="flex items-center gap-2 mb-6">
+          <div className="md:col-span-5 space-y-4">
+            <div>
+              <div className="flex items-center gap-2 mb-1">
                 <Percent className="w-5 h-5 text-figma-navy" />
-                <h3 className="text-lg font-bold text-gray-800">Add discounts</h3>
+                <h3 className="text-lg font-bold text-gray-800">Add discounts (optional)</h3>
               </div>
-              <p className="text-sm text-gray-500 mb-8">
-                Increase your booking chances by offering these popular discounts.
+              <p className="text-xs text-gray-500">
+                Discounts help your place get booking faster, optional but useful
               </p>
-              <div className="space-y-8">
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-gray-800">New listing discount</h4>
-                    <p className="text-xs text-gray-500">
-                      Offer 20% off for your first 3 bookings to build reputation.
-                    </p>
-                  </div>
-                  <Toggle on={discounts.newListing} onClick={() => toggle('newListing')} />
-                </div>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-gray-800">Weekly discount</h4>
-                    <p className="text-xs text-gray-500">Offer for stays of 7 nights or more.</p>
-                    <div className="flex items-center gap-2 mt-2">
-                      <input
-                        type="number"
-                        min={1}
-                        max={100}
-                        value={weeklyPercent}
-                        onChange={(e) => setWeeklyPercent(Number(e.target.value) || 0)}
-                        className="w-16 border border-gray-200 rounded-lg p-1 text-center text-sm outline-none focus:ring-2 focus:ring-figma-navy"
-                      />
-                      <span className="text-sm text-gray-600">%</span>
+            </div>
+
+            <div>
+              <p className="text-[11px] font-bold text-gray-700 uppercase tracking-wide mb-2.5">
+                You can edit these discounts
+              </p>
+
+              <div className="space-y-3.5">
+                {/* New listing discount */}
+                <div
+                  className={cn(
+                    'p-5 rounded-2xl transition-all',
+                    discounts.newListing
+                      ? 'bg-white border border-gray-200 shadow-md'
+                      : 'border border-dashed border-gray-300 bg-gray-50/60 shadow-none',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 pr-2">
+                      <h4 className="text-sm font-bold text-gray-800">New listing discount</h4>
+                      <p className="text-xs text-gray-500">
+                        Offer 20% off for your first 3 bookings to build reputation.
+                      </p>
+                      {discounts.newListing && (
+                        <div className="pt-2">
+                          <div className="inline-flex items-center border border-blue-400 rounded-md px-2 py-1 bg-white">
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={newListingPercent}
+                              onChange={(e) =>
+                                setNewListingPercent(
+                                  Math.max(1, Math.min(99, Number(e.target.value) || 0)),
+                                )
+                              }
+                              className="w-10 text-center text-sm font-bold text-gray-800 outline-none bg-transparent"
+                            />
+                            <span className="text-sm font-bold text-gray-600">%</span>
+                          </div>
+                        </div>
+                      )}
                     </div>
+                    <Toggle
+                      on={discounts.newListing}
+                      onClick={() => toggleDiscount('newListing')}
+                    />
                   </div>
-                  <Toggle on={discounts.weekly} onClick={() => toggle('weekly')} />
                 </div>
-                <div className="flex items-start justify-between gap-4">
-                  <div className="space-y-1">
-                    <h4 className="text-sm font-bold text-gray-800">Monthly discount</h4>
-                    <p className="text-xs text-gray-500">Offer for stays of 28 nights or more.</p>
+
+                {/* Weekly discount */}
+                <div
+                  className={cn(
+                    'p-5 rounded-2xl transition-all',
+                    discounts.weekly
+                      ? 'bg-white border border-gray-200 shadow-md'
+                      : 'border border-dashed border-gray-300 bg-gray-50/60 shadow-none',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 pr-2">
+                      <h4 className="text-sm font-bold text-gray-800">Weekly discount</h4>
+                      <p className="text-xs text-gray-500">Offer for stays of 7 nights or more.</p>
+                      {discounts.weekly && (
+                        <div className="pt-2">
+                          <div className="inline-flex items-center border border-blue-400 rounded-md px-2 py-1 bg-white">
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={weeklyPercent}
+                              onChange={(e) =>
+                                setWeeklyPercent(
+                                  Math.max(1, Math.min(99, Number(e.target.value) || 0)),
+                                )
+                              }
+                              className="w-10 text-center text-sm font-bold text-gray-800 outline-none bg-transparent"
+                            />
+                            <span className="text-sm font-bold text-gray-600">%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <Toggle
+                      on={discounts.weekly}
+                      onClick={() => toggleDiscount('weekly')}
+                    />
                   </div>
-                  <Toggle on={discounts.monthly} onClick={() => toggle('monthly')} />
+                </div>
+
+                {/* Monthly discount */}
+                <div
+                  className={cn(
+                    'p-5 rounded-2xl transition-all',
+                    discounts.monthly
+                      ? 'bg-white border border-gray-200 shadow-md'
+                      : 'border border-dashed border-gray-300 bg-gray-50/60 shadow-none',
+                  )}
+                >
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="space-y-1 pr-2">
+                      <h4 className="text-sm font-bold text-gray-800">Monthly discount</h4>
+                      <p className="text-xs text-gray-500">Offer for stays of 28 nights or more.</p>
+                      {discounts.monthly && (
+                        <div className="pt-2">
+                          <div className="inline-flex items-center border border-blue-400 rounded-md px-2 py-1 bg-white">
+                            <input
+                              type="number"
+                              min={1}
+                              max={99}
+                              value={monthlyPercent}
+                              onChange={(e) =>
+                                setMonthlyPercent(
+                                  Math.max(1, Math.min(99, Number(e.target.value) || 0)),
+                                )
+                              }
+                              className="w-10 text-center text-sm font-bold text-gray-800 outline-none bg-transparent"
+                            />
+                            <span className="text-sm font-bold text-gray-600">%</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                    <Toggle
+                      on={discounts.monthly}
+                      onClick={() => toggleDiscount('monthly')}
+                    />
+                  </div>
                 </div>
               </div>
             </div>
