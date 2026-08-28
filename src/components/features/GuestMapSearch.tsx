@@ -45,6 +45,7 @@ export default function GuestMapSearch({
     lng: number;
   } | null>(null);
   const [selectedLabel, setSelectedLabel] = useState('');
+  const [mapUnavailable, setMapUnavailable] = useState(false);
   const [geocodingLabel, setGeocodingLabel] = useState(false);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const searchContainerRef = useRef<HTMLDivElement>(null);
@@ -260,15 +261,31 @@ export default function GuestMapSearch({
           -- mobile users tapping "Show Map" only ever saw the search/list
           panel above, with no map underneath it. */}
       <div className="flex flex-1 min-h-[280px] md:min-h-0 rounded-2xl overflow-hidden shadow-lg">
-        <InteractiveMap
-          properties={properties}
-          activeId={activeId}
-          onMarkerClick={onMarkerClick}
-          pointer={pointerCoords}
-          onPointerMoved={handleMarkerDrag}
-          reverseGeocodeEnabled={true}
-          className="w-full"
-        />
+        {mapUnavailable ? (
+          // The API key can fail for reasons entirely outside this app's
+          // code (dashboard restrictions, billing), and that used to crash
+          // the whole search page to Next's generic error screen -- this
+          // keeps the rest of the page (search, filters, listing cards)
+          // usable and tells the guest plainly what's missing instead.
+          <div className="w-full flex flex-col items-center justify-center gap-2 bg-gray-50 text-center px-6">
+            <MapPin className="w-8 h-8 text-gray-300" />
+            <p className="text-sm font-medium text-gray-700">Map is temporarily unavailable</p>
+            <p className="text-xs text-gray-500 max-w-xs">
+              You can still browse and book from the list view.
+            </p>
+          </div>
+        ) : (
+          <InteractiveMap
+            properties={properties}
+            activeId={activeId}
+            onMarkerClick={onMarkerClick}
+            pointer={pointerCoords}
+            onPointerMoved={handleMarkerDrag}
+            reverseGeocodeEnabled={true}
+            className="w-full"
+            onError={() => setMapUnavailable(true)}
+          />
+        )}
       </div>
     </div>
   );
