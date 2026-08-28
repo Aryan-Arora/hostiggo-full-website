@@ -64,8 +64,29 @@ export const wishlistAPI = {
           .select("id")
           .single();
 
-        if (createErr) throw createErr;
-        categoryId = created.id;
+        if (createErr) {
+          // 23505 here means another request for this same user created
+          // their "Saved" category in the gap between the lookup above and
+          // this insert (e.g. two tabs saving at once) -- the uniqueness is
+          // now correctly scoped to (user_id, name), so that's the only way
+          // this insert can still collide. Look the row up instead of
+          // failing the save outright.
+          if ((createErr as { code?: string }).code === "23505") {
+            const { data: raceWinner, error: raceErr } = await supabase
+              .from("categories")
+              .select("id")
+              .eq("user_id", user_id)
+              .eq("name", DEFAULT_CATEGORY_NAME)
+              .limit(1)
+              .single();
+            if (raceErr) throw raceErr;
+            categoryId = raceWinner.id;
+          } else {
+            throw createErr;
+          }
+        } else {
+          categoryId = created.id;
+        }
       }
     }
 
