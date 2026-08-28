@@ -1,7 +1,12 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-
+  // Turbopack otherwise walks up looking for a workspace root and finds a
+  // package-lock.json one level up (in the parent "Hostiggo-website" dir,
+  // outside this git repo) -- pin it explicitly to this project.
+  turbopack: {
+    root: __dirname,
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },

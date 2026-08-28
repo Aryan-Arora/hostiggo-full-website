@@ -14,7 +14,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         'relative w-12 h-7 rounded-full transition-colors shrink-0',
-        on ? 'bg-blue-600' : 'bg-gray-300',
+        on ? 'bg-figma-navy' : 'bg-gray-300',
       )}
       aria-pressed={on}
     >
@@ -86,6 +86,14 @@ export default function PricingPage() {
       : diff < 0
       ? `${Math.abs(diff)}% lower than weekday price`
       : 'Same as weekday price';
+
+  // Payout preview, same formula the old single-price card showed -- kept
+  // here so a host still sees their actual take-home before publishing,
+  // just now broken out per weekday/weekend since those can differ.
+  const fmt = (n: number) => `₹${n.toLocaleString('en-IN')}`;
+  const guestPrice = (base: number) => Math.round(base * 1.14);
+  const earn = (base: number) => Math.round(base * 0.97);
+  const effectiveWeekend = weekendOption === 'same' ? priceWeekday : priceWeekend;
 
   return (
     <WizardShell
@@ -189,6 +197,23 @@ export default function PricingPage() {
                     </div>
                   </div>
                 )}
+              </div>
+            </div>
+
+            <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 space-y-3">
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Weekday: guest price (before taxes)</span>
+                <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice(priceWeekday))}</span>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-gray-500">Weekend: guest price (before taxes)</span>
+                <span className="text-sm font-semibold text-gray-800">{fmt(guestPrice(effectiveWeekend))}</span>
+              </div>
+              <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
+                <span className="text-sm font-bold text-figma-navy">You earn (weekday / weekend)</span>
+                <span className="text-lg font-bold text-figma-navy">
+                  {fmt(earn(priceWeekday))} / {fmt(earn(effectiveWeekend))}
+                </span>
               </div>
             </div>
 

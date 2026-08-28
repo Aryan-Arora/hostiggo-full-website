@@ -1,8 +1,18 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import { Lightbulb, PlusCircle, Sparkles } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { useListingDraft } from '@/context/ListingDraftContext';
+
+const SUGGESTIONS = [
+  {
+    group: 'General',
+    titles: ['Cozy stay near the city centre', 'Comfortable home for relaxing stay'],
+  },
+  { group: 'Nature & Calm', titles: ['Serene stay surrounded by nature'] },
+  { group: 'Premium / Family', titles: ['Spacious home ideal for families'] },
+];
 
 export default function DetailsPage() {
   const { draft, update } = useListingDraft();
@@ -22,46 +32,91 @@ export default function DetailsPage() {
       subtitle="Share what guests can expect during their stay"
       nextDisabled={!title.trim()}
     >
-      <div className="w-full max-w-2xl flex flex-col gap-8">
-        {/* Property Title Section */}
-        <div className="flex flex-col gap-2">
-          <label htmlFor="property-title" className="text-sm font-medium text-gray-800">
-            Property Title
-          </label>
-          <input
-            id="property-title"
-            type="text"
-            maxLength={50}
-            value={title}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="e.g., Cozy Cottage near the mountains"
-            className="w-full bg-white border border-gray-300 rounded-xl p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none"
-          />
-          <div className="flex justify-end">
-            <span className="text-xs text-gray-400 font-medium">
-              {title.length}/50
-            </span>
+      <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
+        {/* Left: inputs */}
+        <div className="md:col-span-7 flex flex-col gap-8">
+          {/* Property Title Section */}
+          <div className="flex flex-col gap-2">
+            <label htmlFor="property-title" className="text-sm font-medium text-gray-800">
+              Property Title
+            </label>
+            <input
+              id="property-title"
+              type="text"
+              maxLength={50}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Cozy Cottage near the mountains"
+              className="w-full bg-white border border-gray-300 rounded-xl p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none"
+            />
+            <div className="flex justify-end">
+              <span className="text-xs text-gray-400 font-medium">
+                {title.length}/50
+              </span>
+            </div>
+          </div>
+
+          {/* Description Section */}
+          <div className="flex flex-col gap-2">
+            <label htmlFor="property-desc" className="text-sm font-medium text-gray-800">
+              Description
+            </label>
+            <textarea
+              id="property-desc"
+              rows={6}
+              maxLength={500}
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Tell guests about your space, neighborhood, and amenities..."
+              className="w-full bg-white border border-gray-300 rounded-xl p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none resize-none min-h-[150px]"
+            />
+            <div className="flex justify-end">
+              <span className="text-xs text-gray-400 font-medium">
+                {desc.length}/500
+              </span>
+            </div>
           </div>
         </div>
 
-        {/* Description Section */}
-        <div className="flex flex-col gap-2">
-          <label htmlFor="property-desc" className="text-sm font-medium text-gray-800">
-            Description
-          </label>
-          <textarea
-            id="property-desc"
-            rows={6}
-            maxLength={500}
-            value={desc}
-            onChange={(e) => setDesc(e.target.value)}
-            placeholder="Tell guests about your space, neighborhood, and amenities..."
-            className="w-full bg-white border border-gray-300 rounded-xl p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none resize-none min-h-[150px]"
-          />
-          <div className="flex justify-end">
-            <span className="text-xs text-gray-400 font-medium">
-              {desc.length}/500
-            </span>
+        {/* Right: suggestions */}
+        <div className="md:col-span-5">
+          <div className="bg-gray-50 rounded-2xl p-6 sticky top-28 border border-gray-200">
+            <div className="flex items-center gap-2 mb-4 text-figma-navy">
+              <Lightbulb className="w-5 h-5 fill-figma-navy" />
+              <h2 className="text-lg font-bold">Suggested Titles</h2>
+            </div>
+            <div className="flex flex-col gap-4">
+              {SUGGESTIONS.map((cat) => (
+                <div key={cat.group}>
+                  <p className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">
+                    {cat.group}
+                  </p>
+                  <div className="space-y-2">
+                    {cat.titles.map((t) => (
+                      <button
+                        key={t}
+                        onClick={() => setTitle(t.slice(0, 50))}
+                        className="w-full text-left p-3.5 rounded-xl bg-white hover:bg-figma-navy/5 transition-colors border border-gray-200 flex justify-between items-center group"
+                      >
+                        <span className="text-sm text-gray-800">{t}</span>
+                        <PlusCircle className="w-5 h-5 text-gray-300 group-hover:text-figma-navy transition-colors" />
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            <div className="mt-6 p-4 bg-figma-navy rounded-xl text-white relative overflow-hidden">
+              <div className="relative z-10">
+                <p className="text-sm font-bold mb-1">Pro Tip</p>
+                <p className="text-xs opacity-90 leading-relaxed">
+                  A detailed description helps guests know what to expect. Mention
+                  unique features like &quot;high-speed wifi&quot; or &quot;morning sun&quot;.
+                </p>
+              </div>
+              <Sparkles className="absolute -bottom-3 -right-3 w-20 h-20 opacity-20" />
+            </div>
           </div>
         </div>
       </div>
