@@ -28,43 +28,52 @@ export default function DetailsPage() {
   return (
     <WizardShell
       step={9}
-      title="Now, let's give your place a title and description"
-      subtitle="Short, catchy titles work best. Describe what makes your place special to attract more guests."
+      title="Describe your property"
+      subtitle="Share what guests can expect during their stay"
       nextDisabled={!title.trim()}
     >
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Left: inputs */}
-        <div className="md:col-span-7">
-          <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 flex flex-col gap-6">
-            <div className="flex flex-col gap-2">
-              <div className="flex justify-between items-center">
-                <label htmlFor="property-title" className="text-sm font-medium text-gray-800">
-                  Property Title
-                </label>
-                <span className="text-xs text-gray-400">{title.length} / 50</span>
-              </div>
-              <input
-                id="property-title"
-                type="text"
-                maxLength={50}
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="e.g., Cozy Cottage near the mountains"
-                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none"
-              />
+        <div className="md:col-span-7 flex flex-col gap-8">
+          {/* Property Title Section */}
+          <div className="flex flex-col gap-2">
+            <label htmlFor="property-title" className="text-sm font-medium text-gray-800">
+              Property Title
+            </label>
+            <input
+              id="property-title"
+              type="text"
+              maxLength={50}
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="e.g., Cozy Cottage near the mountains"
+              className="w-full bg-white border border-gray-300 rounded-xl p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none"
+            />
+            <div className="flex justify-end">
+              <span className="text-xs text-gray-400 font-medium">
+                {title.length}/50
+              </span>
             </div>
-            <div className="flex flex-col gap-2">
-              <label htmlFor="property-desc" className="text-sm font-medium text-gray-800">
-                Description
-              </label>
-              <textarea
-                id="property-desc"
-                rows={6}
-                value={desc}
-                onChange={(e) => setDesc(e.target.value)}
-                placeholder="Tell guests about your space, neighborhood, and amenities..."
-                className="w-full bg-white border border-gray-200 rounded-xl p-4 text-sm focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none resize-none"
-              />
+          </div>
+
+          {/* Description Section */}
+          <div className="flex flex-col gap-2">
+            <label htmlFor="property-desc" className="text-sm font-medium text-gray-800">
+              Description
+            </label>
+            <textarea
+              id="property-desc"
+              rows={6}
+              maxLength={500}
+              value={desc}
+              onChange={(e) => setDesc(e.target.value)}
+              placeholder="Tell guests about your space, neighborhood, and amenities..."
+              className="w-full bg-white border border-gray-300 rounded-xl p-4 text-sm text-gray-800 placeholder:text-gray-400 focus:ring-2 focus:ring-figma-navy focus:border-transparent transition-all outline-none resize-none min-h-[150px]"
+            />
+            <div className="flex justify-end">
+              <span className="text-xs text-gray-400 font-medium">
+                {desc.length}/500
+              </span>
             </div>
           </div>
         </div>

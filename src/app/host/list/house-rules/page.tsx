@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Cigarette, PawPrint, PartyPopper } from 'lucide-react';
+import { Cigarette, PawPrint, PartyPopper, Clock } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
 import { useListingDraft } from '@/context/ListingDraftContext';
@@ -13,7 +13,7 @@ function Checkbox({ on, onClick }: { on: boolean; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         'w-5 h-5 rounded-[4px] border flex items-center justify-center shrink-0 transition-colors',
-        on ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white',
+        on ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
       )}
     >
       {on && (
@@ -130,13 +130,13 @@ export default function HouseRulesPage() {
               <Checkbox on={rules.parties} onClick={() => {}} />
             </div>
 
-            {/* Parties between hours */}
+            {/* Quiet hours */}
             <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer" onClick={() => toggle('quietHours')}>
               <div className="flex items-center gap-4">
-                <PartyPopper className="w-5 h-5 text-gray-600" />
+                <Clock className="w-5 h-5 text-gray-600" />
                 <div className="flex flex-col">
-                  <span className="text-sm font-medium text-gray-900">Parties, events allowed</span>
-                  <span className="text-xs text-blue-500">Between 10:00 PM and 8:00 AM</span>
+                  <span className="text-sm font-medium text-gray-900">Quiet hours</span>
+                  <span className="text-xs text-figma-navy">Between 10:00 PM and 8:00 AM</span>
                 </div>
               </div>
               <Checkbox on={rules.quietHours} onClick={() => {}} />

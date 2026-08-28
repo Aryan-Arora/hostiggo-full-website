@@ -12,7 +12,7 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
       onClick={onClick}
       className={cn(
         'relative w-11 h-6 rounded-full transition-colors shrink-0',
-        on ? 'bg-blue-600' : 'bg-gray-200',
+        on ? 'bg-figma-navy' : 'bg-gray-200',
       )}
       aria-pressed={on}
     >
