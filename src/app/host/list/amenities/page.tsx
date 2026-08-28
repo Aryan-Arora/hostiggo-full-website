@@ -115,7 +115,7 @@ export default function AmenitiesPage() {
 
   return (
     <WizardShell
-      step={4}
+      step={6}
       title="Tell guests what your place has to offer"
       subtitle="Select all the amenities you provide. You can update these anytime after publishing."
     >

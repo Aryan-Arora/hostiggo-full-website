@@ -57,7 +57,7 @@ export default function PhotosPage() {
 
   return (
     <WizardShell
-      step={6}
+      step={8}
       title="Add some photos of your place"
       subtitle="Clear photos help guests book with confidence. The first photo is your cover."
     >

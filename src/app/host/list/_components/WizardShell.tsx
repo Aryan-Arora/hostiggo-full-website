@@ -29,6 +29,7 @@ export const WIZARD_STEPS = [
   { slug: 'photos', label: 'Photos' },
   { slug: 'details', label: 'Details' },
   { slug: 'pricing', label: 'Pricing' },
+  { slug: 'discount', label: 'Discounts' },
   { slug: 'house-rules', label: 'House rules' },
   { slug: 'verification', label: 'Verification' },
 ] as const;

@@ -27,7 +27,7 @@ export default function DetailsPage() {
 
   return (
     <WizardShell
-      step={7}
+      step={9}
       title="Describe your property"
       subtitle="Share what guests can expect during their stay"
       nextDisabled={!title.trim()}

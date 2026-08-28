@@ -99,7 +99,7 @@ export default function LocationPage() {
 
   return (
     <WizardShell
-      step={2}
+      step={3}
       title="Where is your property located?"
       subtitle="Your address is only shared with guests after they've made a reservation."
     >
