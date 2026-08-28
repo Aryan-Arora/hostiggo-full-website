@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation';
 import { StarIcon, X, CheckCircle, Navigation } from 'lucide-react';
 import type { Property } from '@/types';
 import { useListingState } from '@/context/ListingFilterContext';
-import { loadGoogleMaps } from '@/lib/services/googleMaps';
+import { loadGoogleMaps, onGoogleMapsAuthFailure } from '@/lib/services/googleMaps';
 
 const INDIA_CENTER = { lat: 22.5937, lng: 78.9629 };
 
@@ -17,6 +17,13 @@ interface InteractiveMapProps {
   pointer?: { lat: number; lng: number } | null;
   onPointerMoved?: (lat: number, lng: number) => void;
   reverseGeocodeEnabled?: boolean;
+  // Fired once if the map fails to initialize (bad/missing API key, Maps
+  // JS API not enabled, network block, etc.) so the parent can show a
+  // friendly fallback -- without this the Google Maps SDK's own runtime
+  // error (e.g. InvalidKeyMapError) was propagating up uncaught and
+  // crashing to Next's generic "Something went wrong" page, taking the
+  // entire search results view down with it, not just the map.
+  onError?: () => void;
 }
 
 export default function InteractiveMap({
@@ -26,6 +33,7 @@ export default function InteractiveMap({
   className = '',
   pointer,
   onPointerMoved,
+  onError,
 }: InteractiveMapProps) {
   const mapRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
@@ -190,6 +198,11 @@ export default function InteractiveMap({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [properties, allProperties, activeId, stateBounds, onMarkerClick]);
 
+  // Google reports a bad/restricted/unbilled key via this global callback,
+  // not by rejecting loadGoogleMaps() or throwing from `new google.maps.Map`
+  // -- see the comment on onGoogleMapsAuthFailure.
+  useEffect(() => onGoogleMapsAuthFailure(() => onError?.()), [onError]);
+
   // Initialize Google Map
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -199,27 +212,40 @@ export default function InteractiveMap({
       .then(() => {
         if (cancelled || !mapRef.current || mapInstanceRef.current) return;
 
-        const map = new google.maps.Map(mapRef.current, {
-          center: INDIA_CENTER,
-          zoom: 5,
-          streetViewControl: false,
-          mapTypeControl: false,
-          fullscreenControl: false,
-        });
+        // The Maps JS API doesn't reject loadGoogleMaps()'s promise for a
+        // bad/restricted key -- the script itself loads fine, and the SDK
+        // only throws once you actually try to construct a google.maps.Map
+        // with it (InvalidKeyMapError and friends). Without this try/catch
+        // that throw was uncaught, crashing the whole component tree up to
+        // Next's default error page -- one bad API key took down the
+        // entire search results view, not just the map panel.
+        try {
+          const map = new google.maps.Map(mapRef.current, {
+            center: INDIA_CENTER,
+            zoom: 5,
+            streetViewControl: false,
+            mapTypeControl: false,
+            fullscreenControl: false,
+          });
 
-        map.addListener('click', (e: google.maps.MapMouseEvent) => {
-          if (!e.latLng) return;
-          const lat = e.latLng.lat();
-          const lng = e.latLng.lng();
-          syncMapToPointer(lat, lng);
-          onPointerMoved?.(lat, lng);
-        });
+          map.addListener('click', (e: google.maps.MapMouseEvent) => {
+            if (!e.latLng) return;
+            const lat = e.latLng.lat();
+            const lng = e.latLng.lng();
+            syncMapToPointer(lat, lng);
+            onPointerMoved?.(lat, lng);
+          });
 
-        mapInstanceRef.current = map;
-        setMapLoaded(true);
+          mapInstanceRef.current = map;
+          setMapLoaded(true);
+        } catch (err) {
+          console.error('[InteractiveMap] Failed to initialize Google Maps:', err);
+          onError?.();
+        }
       })
       .catch((err) => {
         console.error('[InteractiveMap] Failed to load Google Maps:', err);
+        onError?.();
       });
 
     return () => {
