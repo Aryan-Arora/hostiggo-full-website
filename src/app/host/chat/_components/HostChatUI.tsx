@@ -98,6 +98,13 @@ export default function HostChatUI() {
   useEffect(() => {
     if (!userId) return;
 
+    // Realtime's `filter` only accepts a single `column=operator.value`
+    // predicate -- it's the Realtime server's own grammar, not PostgREST,
+    // and it doesn't understand `or(...)`. That used to be sent as one
+    // filter string, which the server rejected, erroring the whole
+    // subscription silently -- so new messages never pushed in live and
+    // this screen only ever showed what was there on load. Two bindings on
+    // the same channel (one per column) is the supported way to OR them.
     const channel = supabase
       .channel(`chat:host:${userId}`)
       .on(
@@ -106,7 +113,19 @@ export default function HostChatUI() {
           event: 'INSERT',
           schema: 'hostiggo_testing_schema',
           table: 'chat_messages',
-          filter: `or(user_id.eq.${userId},host_id.eq.${userId})`,
+          filter: `user_id=eq.${userId}`,
+        },
+        () => {
+          fetchConversations();
+        }
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'hostiggo_testing_schema',
+          table: 'chat_messages',
+          filter: `host_id=eq.${userId}`,
         },
         () => {
           fetchConversations();

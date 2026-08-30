@@ -607,6 +607,15 @@ export const api = {
         }),
       });
 
+      // Best-effort -- this session was established directly against
+      // Supabase Auth client-side, not through one of our own server
+      // routes, so there's no single server-side place that otherwise logs
+      // it. See /api/auth/log-login.
+      request("/api/auth/log-login", {
+        method: "POST",
+        body: JSON.stringify({ userId: user.id, method: "email_otp" }),
+      }).catch(() => {});
+
       return { user, session: data.session, profile };
     }
 
@@ -620,6 +629,30 @@ export const api = {
       }),
     });
   },
+  checkEmailExists: (email: string) =>
+    request<{ exists: boolean }>("/api/auth/check-email", {
+      method: "POST",
+      body: JSON.stringify({ email: normalizeEmail(email) }),
+    }),
+  loginEvents: (userId: string) =>
+    request<
+      { id: number; method: string; ip_address: string | null; user_agent: string | null; created_at: string }[]
+    >(`/api/auth/login-events?userId=${encodeURIComponent(userId)}`),
+  changePassword: (newPassword: string) =>
+    request<{ ok: true }>("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    }),
+  signInWithPassword: (email: string, password: string) =>
+    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ action: "signin", email: normalizeEmail(email), password }),
+    }),
+  signUpWithPassword: (email: string, password: string) =>
+    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ action: "signup", email: normalizeEmail(email), password }),
+    }),
   addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<any>("/api/wishlist", {
       method: "POST",
@@ -633,6 +666,10 @@ export const api = {
   wishlistIds: (userId: string) =>
     request<{ listing_id: string }[]>(
       `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
+    ),
+  wishlistCategoriesForListing: (userId: string, listingId: string | number) =>
+    request<string[]>(
+      `/api/wishlist?resource=listing-categories&userId=${encodeURIComponent(userId)}&listingId=${encodeURIComponent(String(listingId))}`,
     ),
   wishlistCategories: (userId: string) =>
     request<{ id: string; name: string }[]>(

@@ -59,7 +59,7 @@ const ACCOUNT_ITEMS: NavItem[] = [
   { id: 'email-phone', label: 'Email & Phone no', icon: Mail, href: '/account/profile' },
   { id: 'login-activity', label: 'Login activity', icon: Activity, href: '/account/login-activity' },
   { id: 'profile-verification', label: 'Profile verification', icon: ShieldCheck },
-  { id: 'password-security', label: 'Password & Security', icon: Key },
+  { id: 'password-security', label: 'Password & Security', icon: Key, href: '/account/password' },
 ];
 
 const NOTIFICATION_TOGGLES: ToggleItem[] = [

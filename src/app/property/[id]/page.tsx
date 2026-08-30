@@ -44,6 +44,7 @@ import type { Property, AmenityItem, Review, Host } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
 import { useAuth } from '@/context/AuthContext';
 import { useWishlist } from '@/hooks/useWishlist';
+import WishlistPicker from '@/components/features/WishlistPicker';
 import { toast } from 'sonner';
 import { calculateBookingInvoice } from '@/lib/billing/invoice';
 import { CANCELLATION_POLICY_DEFAULTS } from '@/lib/billing/refund';
@@ -1467,7 +1468,9 @@ function StickyBookingBar({
   onReserve,
   show,
   liked,
-  onToggleSave,
+  userId,
+  onSavedChange,
+  onRequireSignIn,
 }: {
   property: Property;
   nights: number;
@@ -1475,8 +1478,11 @@ function StickyBookingBar({
   onReserve: () => void;
   show: boolean;
   liked: boolean;
-  onToggleSave: () => void;
+  userId: string | null;
+  onSavedChange: (saved: boolean) => void;
+  onRequireSignIn: () => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div
       className={cn(
@@ -1525,18 +1531,29 @@ function StickyBookingBar({
           >
             <Share2 className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={onToggleSave}
-            className={cn(
-              'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
-              liked
-                ? 'border-rose-300 text-rose-500'
-                : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+          <div className="relative">
+            <button
+              onClick={() => (userId ? setPickerOpen((v) => !v) : onRequireSignIn())}
+              className={cn(
+                'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
+                liked
+                  ? 'border-rose-300 text-rose-500'
+                  : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+              )}
+              title="Save"
+            >
+              <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
+            </button>
+            {pickerOpen && userId && (
+              <WishlistPicker
+                userId={userId}
+                listingId={property.id}
+                onClose={() => setPickerOpen(false)}
+                onSavedChange={onSavedChange}
+                className="right-0 top-[calc(100%+6px)]"
+              />
             )}
-            title="Save"
-          >
-            <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
-          </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1551,8 +1568,10 @@ export default function PropertyDetailsPage() {
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
   const { isAuthenticated, userId } = useAuth();
-  const { isSaved, toggle: toggleWishlist } = useWishlist(userId);
-  const liked = property ? isSaved(property.id) : false;
+  const { isSaved } = useWishlist(userId);
+  const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
+  const liked = likedOverride ?? (property ? isSaved(property.id) : false);
+  const [savePickerOpen, setSavePickerOpen] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([]);
@@ -1679,18 +1698,9 @@ export default function PropertyDetailsPage() {
         onReserve={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
         show={stickyBar}
         liked={liked}
-        onToggleSave={async () => {
-          if (!isAuthenticated || !userId) {
-            router.push('/signin');
-            return;
-          }
-          try {
-            await toggleWishlist(property.id);
-          } catch (err) {
-            console.error('[property] wishlist toggle failed:', err);
-            toast.error('Could not update your wishlist. Please try again.');
-          }
-        }}
+        userId={isAuthenticated ? userId : null}
+        onSavedChange={setLikedOverride}
+        onRequireSignIn={() => router.push('/signin')}
       />
 
       <Navbar />
@@ -1715,29 +1725,35 @@ export default function PropertyDetailsPage() {
             >
               <Share2 className="w-3.5 h-3.5" /> Share
             </button>
-            <button
-              onClick={async () => {
-                if (!isAuthenticated || !userId || !property) {
-                  router.push('/signin');
-                  return;
-                }
-                try {
-                  await toggleWishlist(property.id);
-                } catch (err) {
-                  console.error('[property] wishlist toggle failed:', err);
-                  toast.error('Could not update your wishlist. Please try again.');
-                }
-              }}
-              className={cn(
-                'flex items-center gap-1.5 text-[12px] font-semibold bg-white border px-3 py-1.5 rounded-xl transition-all',
-                liked
-                  ? 'border-rose-300 text-rose-500 bg-rose-50'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300',
+            <div className="relative">
+              <button
+                onClick={() => {
+                  if (!isAuthenticated || !userId || !property) {
+                    router.push('/signin');
+                    return;
+                  }
+                  setSavePickerOpen((v) => !v);
+                }}
+                className={cn(
+                  'flex items-center gap-1.5 text-[12px] font-semibold bg-white border px-3 py-1.5 rounded-xl transition-all',
+                  liked
+                    ? 'border-rose-300 text-rose-500 bg-rose-50'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-300',
+                )}
+              >
+                <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
+                {liked ? 'Saved' : 'Save'}
+              </button>
+              {savePickerOpen && userId && property && (
+                <WishlistPicker
+                  userId={userId}
+                  listingId={property.id}
+                  onClose={() => setSavePickerOpen(false)}
+                  onSavedChange={setLikedOverride}
+                  className="right-0 top-[calc(100%+6px)]"
+                />
               )}
-            >
-              <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
-              {liked ? 'Saved' : 'Save'}
-            </button>
+            </div>
           </div>
         </div>
 
