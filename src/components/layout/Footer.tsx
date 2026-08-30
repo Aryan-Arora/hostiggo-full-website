@@ -25,10 +25,10 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
     title: "Support",
     links: [
       { label: "Help centre", href: "/support" },
-      { label: "Contact support", href: "mailto:support@hostiggo.com" },
-      { label: "Safety information", href: "/support" },
-      { label: "Report an issue", href: "/support" },
-      { label: "FAQs", href: "/support" },
+      { label: "Contact support", href: "/contact" },
+      { label: "Safety information", href: "/safety" },
+      { label: "Report an issue", href: "/report-issue" },
+      { label: "FAQs", href: "/faq" },
     ],
   },
   {
@@ -39,7 +39,7 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
       { label: "Cancellation & refunds", href: "/cancellation" },
       { label: "Shipping policy", href: "/shipping-policy" },
       { label: "Cookie policy", href: "/cookies" },
-      { label: "FAQs", href: "/support" },
+      { label: "FAQs", href: "/faq" },
     ],
   },
 ];

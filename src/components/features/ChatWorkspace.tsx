@@ -595,7 +595,62 @@ export default function ChatWorkspace({
 
     loadConversations();
 
-    // Subscribe to real-time updates
+    // Subscribe to real-time updates.
+    // Realtime's `filter` only accepts a single `column=operator.value`
+    // predicate -- it's the Realtime server's own grammar, not PostgREST,
+    // and it doesn't understand `or(...)`. That used to be sent as one
+    // filter string, which the server rejected, erroring the whole
+    // subscription silently -- so a guest never saw a host's reply show up
+    // live, only after a manual reload. Two bindings on the same channel
+    // (one per column, sharing this handler) is the supported way to OR them.
+    const handleNewMessage = (payload: any) => {
+      const newMsg = payload.new;
+      const participantId = newMsg.user_id === userId ? newMsg.host_id : newMsg.user_id;
+
+      setConversations((prev) => {
+        const updated = [...prev];
+        const convIndex = updated.findIndex(c => c.id === participantId);
+
+        if (convIndex >= 0) {
+          // Update existing conversation
+          const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
+          updated[convIndex].messages.push({
+            id: newMsg.id,
+            body: newMsg.content,
+            time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+            from: senderIsCurrentUser ? 'me' : 'them',
+          });
+          updated[convIndex].preview = newMsg.content;
+          updated[convIndex].date = 'Now';
+
+          // Move to top
+          const [conversation] = updated.splice(convIndex, 1);
+          updated.unshift(conversation);
+        } else {
+          // Create new conversation if it doesn't exist
+          const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
+          const newConversation: Conversation = {
+            id: participantId,
+            name: 'New conversation',
+            role: 'host',
+            avatar: 'https://i.pravatar.cc/150',
+            preview: newMsg.content,
+            date: 'Now',
+            subtitle: 'Property host',
+            messages: [{
+              id: newMsg.id,
+              body: newMsg.content,
+              time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+              from: senderIsCurrentUser ? 'me' : 'them',
+            }],
+          };
+          updated.unshift(newConversation);
+        }
+
+        return updated;
+      });
+    };
+
     const channel = supabase
       .channel(`chat:user:${userId}`)
       .on(
@@ -604,55 +659,19 @@ export default function ChatWorkspace({
           event: 'INSERT',
           schema: 'hostiggo_testing_schema',
           table: 'chat_messages',
-          filter: `or(user_id.eq.${userId},host_id.eq.${userId})`,
+          filter: `user_id=eq.${userId}`,
         },
-        (payload: any) => {
-          const newMsg = payload.new;
-          const participantId = newMsg.user_id === userId ? newMsg.host_id : newMsg.user_id;
-          
-          setConversations((prev) => {
-            const updated = [...prev];
-            const convIndex = updated.findIndex(c => c.id === participantId);
-            
-            if (convIndex >= 0) {
-              // Update existing conversation
-              const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
-              updated[convIndex].messages.push({
-                id: newMsg.id,
-                body: newMsg.content,
-                time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-                from: senderIsCurrentUser ? 'me' : 'them',
-              });
-              updated[convIndex].preview = newMsg.content;
-              updated[convIndex].date = 'Now';
-              
-              // Move to top
-              const [conversation] = updated.splice(convIndex, 1);
-              updated.unshift(conversation);
-            } else {
-              // Create new conversation if it doesn't exist
-              const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
-              const newConversation: Conversation = {
-                id: participantId,
-                name: 'New conversation',
-                role: 'host',
-                avatar: 'https://i.pravatar.cc/150',
-                preview: newMsg.content,
-                date: 'Now',
-                subtitle: 'Property host',
-                messages: [{
-                  id: newMsg.id,
-                  body: newMsg.content,
-                  time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-                  from: senderIsCurrentUser ? 'me' : 'them',
-                }],
-              };
-              updated.unshift(newConversation);
-            }
-            
-            return updated;
-          });
-        }
+        handleNewMessage,
+      )
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'hostiggo_testing_schema',
+          table: 'chat_messages',
+          filter: `host_id=eq.${userId}`,
+        },
+        handleNewMessage,
       )
       .subscribe();
 

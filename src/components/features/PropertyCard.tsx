@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import WishlistPicker from "./WishlistPicker";
 
 interface PropertyCardProps {
   property: Property;
@@ -19,12 +20,14 @@ const FALLBACK =
 
 export default function PropertyCard({ property }: PropertyCardProps) {
   const [imgErr, setImgErr] = useState(false);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
   const router = useRouter();
   const { isAuthenticated, userId } = useAuth();
-  const { isSaved, toggle } = useWishlist(userId);
-  const liked = isSaved(property.id);
+  const { isSaved } = useWishlist(userId);
+  const liked = likedOverride ?? isSaved(property.id);
 
-  const handleToggleLike = async (e: React.MouseEvent) => {
+  const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
       toast("Sign in to save properties to your wishlist.");
@@ -33,11 +36,7 @@ export default function PropertyCard({ property }: PropertyCardProps) {
       );
       return;
     }
-    try {
-      await toggle(property.id);
-    } catch {
-      toast.error("Could not update your wishlist. Please try again.");
-    }
+    setPickerOpen((v) => !v);
   };
 
   return (
@@ -59,18 +58,29 @@ export default function PropertyCard({ property }: PropertyCardProps) {
           sizes="(max-width: 640px) 50vw, (max-width: 1024px) 33vw, 25vw"
           className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
-        <button
-          onClick={handleToggleLike}
-          aria-label={liked ? "Remove from favourites" : "Add to favourites"}
-          className={cn(
-            "absolute top-3 right-3 w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
-            liked
-              ? "bg-white text-rose-500"
-              : "bg-white/95 text-gray-600 hover:text-rose-400",
+        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={handleToggleLike}
+            aria-label={liked ? "Manage wishlists" : "Add to wishlist"}
+            className={cn(
+              "w-9 h-9 rounded-full flex items-center justify-center transition-all duration-200 shadow-md",
+              liked
+                ? "bg-white text-rose-500"
+                : "bg-white/95 text-gray-600 hover:text-rose-400",
+            )}
+          >
+            <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
+          </button>
+          {pickerOpen && userId && (
+            <WishlistPicker
+              userId={userId}
+              listingId={property.id}
+              onClose={() => setPickerOpen(false)}
+              onSavedChange={setLikedOverride}
+              className="right-0 top-[calc(100%+6px)]"
+            />
           )}
-        >
-          <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
-        </button>
+        </div>
         {property.isNew && (
           <span className="absolute top-2.5 left-2.5 bg-figma-success text-white text-[9px] font-bold px-2 py-0.5 rounded-full tracking-wide shadow">
             NEW

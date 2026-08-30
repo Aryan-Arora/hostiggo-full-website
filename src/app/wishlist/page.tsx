@@ -50,12 +50,17 @@ interface WishlistGroup {
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
+// "All" is the only real default group -- every saved item is a member of
+// it. The rest of this list used to be hardcoded fake groups ("Recently
+// viewed", "Homestays", "Services", "Manali trip") that nothing in the app
+// ever assigns an item to (no heart/save button anywhere lets a guest pick
+// a group, and there's no view-tracking feature at all), so they always
+// rendered as permanently-empty tabs. Worse, "Manali trip" wasn't even a
+// real category row -- it was marked editable, and clicking Remove on it
+// threw a raw Postgres error ("invalid input syntax for type uuid") since
+// its id was never a real category id to begin with.
 const DEFAULT_GROUPS: WishlistGroup[] = [
-  { id: 'recently_viewed', name: 'Recently viewed', isDefault: true },
   { id: 'all', name: 'All', isDefault: true },
-  { id: 'homestays', name: 'Homestays', isDefault: true },
-  { id: 'services', name: 'Services', isDefault: true },
-  { id: 'manali_trip', name: 'Manali trip', isDefault: false },
 ];
 
 // ── Confirmation Modal ────────────────────────────────────────────────────────
@@ -542,14 +547,10 @@ export default function WishlistPage() {
     };
   }, [userId, selectedGroup]);
 
-  // Filter visible properties
+  // Filter visible properties -- "all" shows everything, any other
+  // selection is a real user-created category id (see DEFAULT_GROUPS).
   const visibleProperties = properties.filter((p) => {
     if (selectedGroup === 'all') return p.liked;
-    if (selectedGroup === 'recently_viewed')
-      return p.liked && p.group === 'recently_viewed';
-    if (selectedGroup === 'homestays')
-      return p.liked && p.group === 'homestays';
-    if (selectedGroup === 'services') return p.liked && p.group === 'services';
     return p.liked && p.group === selectedGroup;
   });
 
@@ -818,19 +819,19 @@ export default function WishlistPage() {
         )}
 
         {/* End of list section */}
-        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-12 pt-4 pb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between w-full gap-6 sm:gap-12 pt-4 pb-6">
           <img
             src="/images/empty-states/woman-beach.png"
             alt="Vacation illustration"
             loading="lazy"
             decoding="async"
-            className="w-[140px] sm:w-[175px] object-contain flex-shrink-0 drop-shadow-sm animate-floating"
+            className="w-[200px] sm:w-[260px] object-contain flex-shrink-0 drop-shadow-sm animate-floating ml-0 sm:ml-16"
           />
-          <div className="text-center sm:text-left">
-            <h3 className="text-[24px] sm:text-[28px] font-bold text-gray-900 mb-2 leading-tight">
+          <div className="text-center sm:text-left sm:mr-16">
+            <h3 className="text-[32px] sm:text-[40px] font-bold text-gray-900 mb-3 leading-tight">
               End of list
             </h3>
-            <p className="text-[15px] text-gray-500 leading-relaxed max-w-[280px]">
+            <p className="text-[18px] text-gray-500 leading-relaxed max-w-[360px]">
               Stay where comfort becomes an experience.
             </p>
           </div>
