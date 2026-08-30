@@ -117,8 +117,8 @@ export default function CookiesPage() {
           </p>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-10">
-          <aside className="hidden lg:block">
+        <div className="grid grid-cols-1 md:grid-cols-[240px_1fr] gap-10">
+          <aside className="hidden md:block">
             <nav className="sticky top-24">
               <p className="text-xs font-semibold uppercase tracking-wide text-figma-ink/60 mb-3">
                 On this page
@@ -138,7 +138,7 @@ export default function CookiesPage() {
             </nav>
           </aside>
 
-          <article className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10">
+          <article className="bg-white rounded-3xl border border-figma-border p-6 md:p-10">
             {sections.map((s) => (
               <section key={s.id} id={s.id} className="mb-8 scroll-mt-24">
                 <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">

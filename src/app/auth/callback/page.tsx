@@ -65,6 +65,13 @@ function AuthCallbackContent() {
       if (!active) return;
       await signIn(user.id);
       if (!active) return;
+      // Best-effort -- see /api/auth/log-login for why this can't be logged
+      // server-side the way OTP/password sign-ins are.
+      fetch('/api/auth/log-login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: user.id, method: 'google' }),
+      }).catch(() => {});
       router.push(redirectTarget);
     };
 

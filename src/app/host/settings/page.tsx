@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { toast } from 'sonner';
 import {
   User,
@@ -14,6 +15,12 @@ import {
   ShieldCheck,
   CheckCircle2,
   Loader2,
+  Key,
+  Activity,
+  ChevronRight,
+  Mail,
+  ShieldAlert,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
@@ -41,6 +48,31 @@ interface ProfileData {
     reviews: number;
     listings: number;
   };
+}
+
+function SettingsLinkRow({
+  href,
+  icon: Icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link href={href} className="flex items-center gap-4 p-6 hover:bg-gray-50 transition-colors">
+      <div className="w-11 h-11 rounded-xl bg-figma-navy/5 flex items-center justify-center text-figma-navy shrink-0">
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
+        <p className="text-sm text-gray-500">{desc}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+    </Link>
+  );
 }
 
 export default function HostSettingsPage() {
@@ -303,11 +335,60 @@ export default function HostSettingsPage() {
             </>
           )}
 
-          {(tab === 'security' || tab === 'feedback' || tab === 'support') && (
-            <div className="bg-white rounded-2xl p-10 shadow-card border border-gray-200 text-center">
-              <p className="text-gray-500">
-                {NAV.find((n) => n.id === tab)?.label} settings coming soon.
-              </p>
+          {tab === 'security' && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              <SettingsLinkRow
+                href="/account/password"
+                icon={Key}
+                title="Password & Security"
+                desc="Set or change the password used to sign in with your email."
+              />
+              <SettingsLinkRow
+                href="/account/login-activity"
+                icon={Activity}
+                title="Login Activity"
+                desc="Review recent sign-ins to your account."
+              />
+            </div>
+          )}
+
+          {tab === 'feedback' && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              <SettingsLinkRow
+                href="/support"
+                icon={MessageSquareText}
+                title="Share feedback"
+                desc="Report an issue, suggest an improvement, or share your hosting experience."
+              />
+            </div>
+          )}
+
+          {tab === 'support' && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              <SettingsLinkRow
+                href="/contact"
+                icon={Mail}
+                title="Contact us"
+                desc="Reach our support team for booking, payment, or account questions."
+              />
+              <SettingsLinkRow
+                href="/report-issue"
+                icon={LifeBuoy}
+                title="Report an issue"
+                desc="Something not working right? Let us know the details."
+              />
+              <SettingsLinkRow
+                href="/safety"
+                icon={ShieldAlert}
+                title="Safety information"
+                desc="How Hostiggo keeps hosts and guests safe."
+              />
+              <SettingsLinkRow
+                href="/faq"
+                icon={HelpCircle}
+                title="FAQs"
+                desc="Answers to common questions about hosting, payouts, and bookings."
+              />
             </div>
           )}
         </div>

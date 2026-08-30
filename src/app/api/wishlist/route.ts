@@ -19,14 +19,20 @@ export async function GET(req: NextRequest) {
     if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
 
     const categoryId = req.nextUrl.searchParams.get("categoryId") ?? undefined;
+    const listingId = req.nextUrl.searchParams.get("listingId") ?? undefined;
+    if (resource === "listing-categories" && !listingId) {
+      return NextResponse.json({ error: "listingId is required" }, { status: 400 });
+    }
     const data =
       resource === "categories"
         ? await wishlistAPI.getWishlistCategories(userId)
         : resource === "listings"
           ? await wishlistAPI.fetchCategoricalWishlistListing(userId, categoryId)
-          : resource === "ids"
-            ? await wishlistAPI.getWishlistListingIds(userId)
-            : await wishlistAPI.getWishlist(userId);
+          : resource === "listing-categories"
+            ? await wishlistAPI.getCategoriesForListing(userId, listingId as string)
+            : resource === "ids"
+              ? await wishlistAPI.getWishlistListingIds(userId)
+              : await wishlistAPI.getWishlist(userId);
 
     return NextResponse.json({ data });
   } catch (err) {
