@@ -9,6 +9,7 @@ import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { toast } from "sonner";
+import WishlistPicker from "./WishlistPicker";
 
 interface PropertyCardListProps {
   property: Property;
@@ -39,10 +40,12 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
     invoice.grandTotalPaise / 100 - property.price,
   );
   const { isAuthenticated, userId } = useAuth();
-  const { isSaved, toggle } = useWishlist(userId);
-  const liked = isSaved(property.id);
+  const { isSaved } = useWishlist(userId);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
+  const liked = likedOverride ?? isSaved(property.id);
 
-  const handleToggleLike = async (e: React.MouseEvent) => {
+  const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
       toast("Sign in to save properties to your wishlist.");
@@ -51,11 +54,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
       );
       return;
     }
-    try {
-      await toggle(property.id);
-    } catch {
-      toast.error("Could not update your wishlist. Please try again.");
-    }
+    setPickerOpen((v) => !v);
   };
 
   const handleNavigate = () => {
@@ -103,17 +102,28 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
           className="object-cover group-hover:scale-105 transition-transform duration-700"
         />
         {/* Heart button */}
-        <button
-          onClick={handleToggleLike}
-          className={cn(
-            "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
-            liked
-              ? "text-rose-500"
-              : "text-gray-500 hover:text-rose-400 hover:scale-110",
+        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={handleToggleLike}
+            className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
+              liked
+                ? "text-rose-500"
+                : "text-gray-500 hover:text-rose-400 hover:scale-110",
+            )}
+          >
+            <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
+          </button>
+          {pickerOpen && userId && (
+            <WishlistPicker
+              userId={userId}
+              listingId={property.id}
+              onClose={() => setPickerOpen(false)}
+              onSavedChange={setLikedOverride}
+              className="right-0 top-[calc(100%+6px)]"
+            />
           )}
-        >
-          <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
-        </button>
+        </div>
       </div>
 
       {/* Content Container */}

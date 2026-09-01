@@ -1,127 +1,217 @@
 "use client";
 
-import Footer from "@/components/layout/Footer";
-import Navbar from "@/components/layout/Navbar";
-import { useAuth } from "@/context/AuthContext";
-import { api } from "@/lib/api";
-import { cn } from "@/lib/utils";
+import { useEffect, useState } from 'react';
+import Link from 'next/link';
+import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 import {
+  ArrowLeft,
+  User,
+  Mail,
+  Activity,
+  ShieldCheck,
+  Key,
+  MessageSquare,
+  Megaphone,
   Bell,
-  CreditCard,
+  Radar,
   Globe,
+  DollarSign,
+  AlertTriangle,
+  ChevronRight,
+  Trash2,
   Loader2,
-  Lock,
   type LucideIcon,
-} from "lucide-react";
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { toast } from "sonner";
+} from 'lucide-react';
+import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
+import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
 
-const NAV: { id: string; label: string; icon: LucideIcon }[] = [
-  { id: "notifications", label: "Notifications", icon: Bell },
-  { id: "privacy", label: "Privacy", icon: Lock },
-  { id: "payment", label: "Payment", icon: CreditCard },
-  { id: "language", label: "Language & Region", icon: Globe },
+interface NavItem {
+  id: string;
+  label: string;
+  icon: LucideIcon;
+  href?: string;
+}
+
+// Real users-table columns, read/written via api.updateProfile -- these
+// actually persist, unlike the nav items below which have no backing data.
+type PrefKey =
+  | 'email_notifications'
+  | 'sms_alerts'
+  | 'promo_notifications'
+  | 'host_message_notifications'
+  | 'show_profile_to_hosts'
+  | 'include_in_search'
+  | 'activity_status';
+
+interface ToggleItem {
+  key: PrefKey;
+  label: string;
+  desc: string;
+  icon: LucideIcon;
+}
+
+const ACCOUNT_ITEMS: NavItem[] = [
+  { id: 'personal-info', label: 'Personal information', icon: User, href: '/account/profile' },
+  { id: 'email-phone', label: 'Email & Phone no', icon: Mail, href: '/account/profile' },
+  { id: 'login-activity', label: 'Login activity', icon: Activity, href: '/account/login-activity' },
+  { id: 'profile-verification', label: 'Profile verification', icon: ShieldCheck },
+  { id: 'password-security', label: 'Password & Security', icon: Key, href: '/account/password' },
 ];
 
-type PrefKey =
-  | "email_notifications"
-  | "sms_alerts"
-  | "promo_notifications"
-  | "host_message_notifications"
-  | "show_profile_to_hosts"
-  | "include_in_search"
-  | "activity_status";
+const NOTIFICATION_TOGGLES: ToggleItem[] = [
+  {
+    key: 'host_message_notifications',
+    label: 'Message notifications',
+    desc: 'New messages from your hosts',
+    icon: MessageSquare,
+  },
+  {
+    key: 'promo_notifications',
+    label: 'Promotional emails',
+    desc: 'Deals, discounts, and Hostiggo news',
+    icon: Megaphone,
+  },
+  {
+    key: 'email_notifications',
+    label: 'Email notifications',
+    desc: 'Booking confirmations, receipts, and reminders',
+    icon: Mail,
+  },
+  {
+    key: 'sms_alerts',
+    label: 'SMS alerts',
+    desc: 'Time-sensitive trip updates',
+    icon: Bell,
+  },
+];
 
-const ROWS: Record<
-  "notifications" | "privacy",
-  { key: PrefKey; label: string; desc: string }[]
-> = {
-  notifications: [
-    {
-      key: "email_notifications",
-      label: "Email notifications",
-      desc: "Booking confirmations, receipts, and reminders",
-    },
-    {
-      key: "sms_alerts",
-      label: "SMS alerts",
-      desc: "Time-sensitive trip updates",
-    },
-    {
-      key: "promo_notifications",
-      label: "Promotions & offers",
-      desc: "Deals, discounts, and Hostiggo news",
-    },
-    {
-      key: "host_message_notifications",
-      label: "Host messages",
-      desc: "New messages from your hosts",
-    },
-  ],
-  privacy: [
-    {
-      key: "show_profile_to_hosts",
-      label: "Show profile to hosts",
-      desc: "Let hosts see your public profile before booking",
-    },
-    {
-      key: "include_in_search",
-      label: "Include in search",
-      desc: "Allow your reviews to appear on listings",
-    },
-    {
-      key: "activity_status",
-      label: "Activity status",
-      desc: "Show when you were last active",
-    },
-  ],
-};
+const PRIVACY_TOGGLES: ToggleItem[] = [
+  {
+    key: 'show_profile_to_hosts',
+    label: 'Show profile to hosts',
+    desc: 'Let hosts see your public profile before booking',
+    icon: User,
+  },
+  {
+    key: 'include_in_search',
+    label: 'Include in search',
+    desc: 'Allow your reviews to appear on listings',
+    icon: Radar,
+  },
+  {
+    key: 'activity_status',
+    label: 'Activity status',
+    desc: 'Show when you were last active',
+    icon: Activity,
+  },
+];
 
-// Payment and Language & Region have no backing data anywhere in the
-// schema (no saved-payment-methods table, no locale/currency preference
-// column) -- shown honestly as "coming soon" rather than fake toggles.
+const PRIVACY_NAV_ITEMS: NavItem[] = [
+  { id: 'reported-issues', label: 'Reported issues', icon: AlertTriangle },
+];
 
-function Toggle({
-  on,
-  onToggle,
-  saving,
-}: {
-  on: boolean;
-  onToggle: () => void;
-  saving: boolean;
-}) {
+const APP_PREF_ITEMS: NavItem[] = [
+  { id: 'language', label: 'Language', icon: Globe },
+  { id: 'currency', label: 'Currency', icon: DollarSign },
+];
+
+function NavPill({ item }: { item: NavItem }) {
+  const Icon = item.icon;
+
+  const content = (
+    <>
+      <Icon className="w-5 h-5 text-gray-500 shrink-0 group-hover:text-gray-700 transition-colors" />
+      <span className="text-gray-900 font-medium text-sm sm:text-[15px] truncate">
+        {item.label}
+      </span>
+      <ChevronRight className="w-4 h-4 text-gray-400 ml-auto shrink-0 group-hover:text-gray-600 group-hover:translate-x-0.5 transition-all" />
+    </>
+  );
+
+  const pillClasses =
+    'flex items-center gap-3.5 w-full px-5 py-4 bg-white border border-gray-200 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)] hover:shadow-md hover:border-gray-300 transition-all duration-200 text-left group cursor-pointer';
+
+  if (item.href) {
+    return (
+      <Link href={item.href} className={pillClasses}>
+        {content}
+      </Link>
+    );
+  }
+
   return (
     <button
+      type="button"
+      onClick={() => toast.info(`${item.label} settings coming soon`)}
+      className={pillClasses}
+    >
+      {content}
+    </button>
+  );
+}
+
+function Toggle({ on, onToggle, saving }: { on: boolean; onToggle: () => void; saving: boolean }) {
+  return (
+    <button
+      type="button"
       onClick={onToggle}
       disabled={saving}
       aria-pressed={on}
       className={cn(
-        "relative w-12 h-7 rounded-full transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed",
-        on ? "bg-figma-navy" : "bg-gray-300",
+        'relative w-11 h-6 rounded-full transition-colors shrink-0 disabled:opacity-60 disabled:cursor-not-allowed',
+        on ? 'bg-figma-navy' : 'bg-gray-300',
       )}
     >
       <span
         className={cn(
-          "absolute top-0.5 left-0.5 w-6 h-6 rounded-full bg-white shadow transition-transform",
-          on ? "translate-x-5" : "translate-x-0",
+          'absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform',
+          on ? 'translate-x-5' : 'translate-x-0',
         )}
       />
     </button>
   );
 }
 
+function TogglePill({
+  item,
+  on,
+  saving,
+  onToggle,
+}: {
+  item: ToggleItem;
+  on: boolean;
+  saving: boolean;
+  onToggle: () => void;
+}) {
+  const Icon = item.icon;
+  return (
+    <div className="flex items-center gap-3.5 w-full px-5 py-4 bg-white border border-gray-200 rounded-xl shadow-[0_1px_3px_rgba(0,0,0,0.04)]">
+      <Icon className="w-5 h-5 text-gray-500 shrink-0" />
+      <div className="min-w-0 flex-1">
+        <p className="text-gray-900 font-medium text-sm sm:text-[15px] truncate">{item.label}</p>
+        <p className="text-xs text-gray-500 truncate">{item.desc}</p>
+      </div>
+      <Toggle on={on} onToggle={onToggle} saving={saving} />
+    </div>
+  );
+}
+
 export default function GuestSettingsPage() {
-  const [tab, setTab] = useState<
-    "notifications" | "privacy" | "payment" | "language"
-  >("notifications");
+  const router = useRouter();
   const {
     user,
     userId,
     isAuthenticated,
     loading: authLoading,
     refresh,
+    signOut,
   } = useAuth();
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const [prefs, setPrefs] = useState<Partial<Record<PrefKey, boolean>>>({});
   const [savingKey, setSavingKey] = useState<PrefKey | null>(null);
@@ -148,29 +238,55 @@ export default function GuestSettingsPage() {
       await api.updateProfile(userId, { [key]: next });
       await refresh();
     } catch (err) {
-      console.error("[account/settings] toggle failed:", err);
+      console.error('[account/settings] toggle failed:', err);
       setPrefs((p) => ({ ...p, [key]: !next }));
-      toast.error(
-        err instanceof Error ? err.message : "Could not save that preference.",
-      );
+      toast.error(err instanceof Error ? err.message : 'Could not save that preference.');
     } finally {
       setSavingKey(null);
     }
   };
 
-  const rows = tab === "notifications" || tab === "privacy" ? ROWS[tab] : null;
+  const handleBack = () => {
+    if (typeof window !== 'undefined' && window.history.length > 1) {
+      router.back();
+    } else {
+      router.push('/');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!userId || deleting) return;
+    setDeleting(true);
+    try {
+      await api.deactivateAccount(userId);
+      toast.success('Your account has been deactivated.');
+      setShowDeleteConfirm(false);
+      await signOut();
+    } catch (err) {
+      console.error('[account/settings] deactivate failed:', err);
+      toast.error(
+        err instanceof Error ? err.message : 'Could not deactivate your account. Please try again.',
+      );
+      setDeleting(false);
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-figma-cream">
+    <div className="min-h-screen bg-figma-cream flex flex-col">
       <Navbar />
-      <main className="container-main py-10">
-        <div className="mb-8">
-          <h1 className="text-type-poppins-medium-28-128-03 text-gray-900 mb-2">
-            Account Settings
-          </h1>
-          <p className="text-gray-500">
-            Manage your notifications, privacy, and preferences.
-          </p>
+
+      <main className="container-main max-w-4xl py-10 flex-1 w-full">
+        {/* Header with Circular Back Button & Large Title */}
+        <div className="flex items-center gap-4 mb-8">
+          <button
+            type="button"
+            onClick={handleBack}
+            className="w-10 h-10 rounded-full bg-white border border-gray-200 shadow-sm hover:shadow transition-all flex items-center justify-center text-gray-700 hover:text-gray-900 shrink-0"
+            aria-label="Go back"
+          >
+            <ArrowLeft className="w-5 h-5" />
+          </button>
+          <h1 className="text-2xl font-bold text-gray-900">My Settings</h1>
         </div>
 
         {authLoading ? (
@@ -194,69 +310,115 @@ export default function GuestSettingsPage() {
             </Link>
           </div>
         ) : (
-          <div className="flex flex-col md:flex-row gap-6">
-            <div className="w-full md:w-64 shrink-0">
-              <div className="bg-white rounded-2xl p-2 shadow-card border border-gray-200">
-                <nav className="flex flex-col space-y-1">
-                  {NAV.map((n) => {
-                    const Icon = n.icon;
-                    const on = tab === n.id;
-                    return (
-                      <button
-                        key={n.id}
-                        onClick={() => setTab(n.id as typeof tab)}
-                        className={cn(
-                          "flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm",
-                          on
-                            ? "bg-figma-navy text-white font-semibold"
-                            : "text-gray-500 hover:bg-gray-100",
-                        )}
-                      >
-                        <Icon className="w-4 h-4" />
-                        {n.label}
-                      </button>
-                    );
-                  })}
-                </nav>
-              </div>
+          <div>
+            {/* Single main column layout with subtle vertical gray line connecting the sections */}
+            <div className="border-l-2 border-gray-100 ml-4 pl-6 space-y-8">
+              <section>
+                <h2 className="text-gray-500 font-medium text-[15px] mb-4">Account Settings</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {ACCOUNT_ITEMS.map((item) => (
+                    <NavPill key={item.id} item={item} />
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-gray-500 font-medium text-[15px] mb-4">Notifications</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {NOTIFICATION_TOGGLES.map((item) => (
+                    <TogglePill
+                      key={item.key}
+                      item={item}
+                      on={!!prefs[item.key]}
+                      saving={savingKey === item.key}
+                      onToggle={() => handleToggle(item.key)}
+                    />
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-gray-500 font-medium text-[15px] mb-4">App preferences</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {APP_PREF_ITEMS.map((item) => (
+                    <NavPill key={item.id} item={item} />
+                  ))}
+                </div>
+              </section>
+
+              <section>
+                <h2 className="text-gray-500 font-medium text-[15px] mb-4">Privacy & Security</h2>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {PRIVACY_TOGGLES.map((item) => (
+                    <TogglePill
+                      key={item.key}
+                      item={item}
+                      on={!!prefs[item.key]}
+                      saving={savingKey === item.key}
+                      onToggle={() => handleToggle(item.key)}
+                    />
+                  ))}
+                  {PRIVACY_NAV_ITEMS.map((item) => (
+                    <NavPill key={item.id} item={item} />
+                  ))}
+                </div>
+              </section>
             </div>
 
-            <div className="flex-1">
-              <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-                <h2 className="text-lg font-bold text-gray-800 mb-6">
-                  {NAV.find((n) => n.id === tab)?.label}
-                </h2>
-                {rows ? (
-                  <div className="divide-y divide-gray-100">
-                    {rows.map((r) => (
-                      <div
-                        key={r.key}
-                        className="flex items-center justify-between py-4"
-                      >
-                        <div>
-                          <p className="text-sm font-bold text-gray-800">
-                            {r.label}
-                          </p>
-                          <p className="text-xs text-gray-500">{r.desc}</p>
-                        </div>
-                        <Toggle
-                          on={!!prefs[r.key]}
-                          onToggle={() => handleToggle(r.key)}
-                          saving={savingKey === r.key}
-                        />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-gray-500 py-6 text-center">
-                    {NAV.find((n) => n.id === tab)?.label} settings coming soon.
-                  </p>
-                )}
+            {/* Dotted horizontal separator at the bottom of the sections */}
+            <div className="border-t border-dashed border-gray-300 my-8 w-full" />
+
+            {/* Centered Delete Account Button */}
+            <div className="flex justify-center">
+              <button
+                type="button"
+                onClick={() => setShowDeleteConfirm(true)}
+                className="inline-flex items-center justify-center gap-2.5 bg-red-50 hover:bg-red-100 text-red-500 font-semibold px-10 py-3 rounded-xl border border-red-200/70 shadow-sm hover:shadow transition-all duration-200 cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4 text-red-500 shrink-0" />
+                <span>Delete Account</span>
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Delete Confirmation Modal */}
+        {showDeleteConfirm && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-xs p-4">
+            <div className="bg-white rounded-2xl p-6 max-w-sm w-full shadow-2xl border border-gray-100 text-center animate-in fade-in zoom-in-95 duration-150">
+              <div className="w-12 h-12 rounded-full bg-red-50 text-red-500 flex items-center justify-center mx-auto mb-4 border border-red-100">
+                <Trash2 className="w-6 h-6" />
+              </div>
+              <h3 className="text-lg font-bold text-gray-900 mb-2">Delete Account?</h3>
+              <p className="text-sm text-gray-500 mb-6">
+                Are you sure you want to delete your account? You&apos;ll be signed out
+                immediately and blocked from signing back in until support restores it.
+                This can&apos;t be undone from here.
+              </p>
+              <div className="flex gap-3">
+                <button
+                  type="button"
+                  onClick={() => setShowDeleteConfirm(false)}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 px-4 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-colors text-sm disabled:opacity-60"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="button"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting}
+                  className="flex-1 py-2.5 px-4 rounded-xl bg-red-600 hover:bg-red-700 text-white font-medium transition-colors text-sm shadow-sm disabled:opacity-60 inline-flex items-center justify-center gap-2"
+                >
+                  {deleting && <Loader2 className="w-4 h-4 animate-spin" />}
+                  Delete
+                </button>
               </div>
             </div>
           </div>
         )}
       </main>
+
       <Footer />
     </div>
   );

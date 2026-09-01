@@ -11,6 +11,8 @@ import { CANCELLATION_POLICY_DEFAULTS } from "@/lib/billing/refund";
 import { loadGoogleMaps } from "@/lib/services/googleMaps";
 import { cn, toISODate } from "@/lib/utils";
 import type { Host, Property, Review } from "@/types";
+import { openRazorpayCheckout } from '@/lib/services/razorpayCheckout';
+import WishlistPicker from '@/components/features/WishlistPicker';
 import {
   AlertTriangle,
   Award,
@@ -39,6 +41,7 @@ import {
   Wind,
   X,
   Zap,
+  Filter
 } from "lucide-react";
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
@@ -798,7 +801,7 @@ function BookingWidget({
   selectedAddonIds: number[];
 }) {
   const searchParams = useSearchParams();
-  const { isAuthenticated, userId } = useAuth();
+  const { isAuthenticated, userId, user } = useAuth();
   const router = useRouter();
 
   // Seed dates from URL params (passed by search results)
@@ -1011,7 +1014,9 @@ function BookingWidget({
     }
     setStatus("booking");
     try {
-      const created = await api.createBooking({
+      // Step 1: price the stay and open a Razorpay order -- no booking
+      // exists yet at this point.
+      const order = await api.reserveBooking({
         listingId: property.id,
         userId,
         startDate: toISODate(checkIn)!,
@@ -1020,8 +1025,40 @@ function BookingWidget({
         numChildren: 0,
         addonIds: selectedAddonIds,
       });
-      setStatus("confirmed");
-      toast.success("Booking confirmed!");
+      // Step 2: guest actually pays via the Razorpay Checkout widget.
+      let payment;
+      try {
+        payment = await openRazorpayCheckout({
+          key: order.razorpayKeyId,
+          amount: order.amountPaise,
+          currency: order.currency,
+          order_id: order.razorpayOrderId,
+          name: 'Hostiggo',
+          description: property.propertyName,
+          prefill: {
+            name: user?.name ?? undefined,
+            email: user?.email ?? undefined,
+            contact: user?.phone ?? undefined,
+          },
+          theme: { color: '#0B2C4D' },
+        });
+      } catch {
+        // Guest closed the checkout widget without paying -- nothing was
+        // ever created (see /api/bookings/reserve), so there's nothing to
+        // roll back, just let them try again.
+        setStatus('available');
+        return;
+      }
+
+      // Step 3: the booking is only actually created here, after the
+      // payment signature is verified server-side.
+      const created = await api.confirmBookingPayment({
+        razorpayOrderId: payment.razorpay_order_id,
+        razorpayPaymentId: payment.razorpay_payment_id,
+        razorpaySignature: payment.razorpay_signature,
+      });
+      setStatus('confirmed');
+      toast.success('Booking confirmed!');
       if (created?.booking_id) {
         router.push(`/booking-confirmation/${created.booking_id}`);
       }
@@ -1538,7 +1575,9 @@ function StickyBookingBar({
   onReserve,
   show,
   liked,
-  onToggleSave,
+  userId,
+  onSavedChange,
+  onRequireSignIn,
 }: {
   property: Property;
   nights: number;
@@ -1546,8 +1585,11 @@ function StickyBookingBar({
   onReserve: () => void;
   show: boolean;
   liked: boolean;
-  onToggleSave: () => void;
+  userId: string | null;
+  onSavedChange: (saved: boolean) => void;
+  onRequireSignIn: () => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div
       className={cn(
@@ -1596,18 +1638,29 @@ function StickyBookingBar({
           >
             <Share2 className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={onToggleSave}
-            className={cn(
-              "w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors",
-              liked
-                ? "border-rose-300 text-rose-500"
-                : "border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500",
+          <div className="relative">
+            <button
+              onClick={() => (userId ? setPickerOpen((v) => !v) : onRequireSignIn())}
+              className={cn(
+                'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
+                liked
+                  ? 'border-rose-300 text-rose-500'
+                  : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+              )}
+              title="Save"
+            >
+              <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
+            </button>
+            {pickerOpen && userId && (
+              <WishlistPicker
+                userId={userId}
+                listingId={property.id}
+                onClose={() => setPickerOpen(false)}
+                onSavedChange={onSavedChange}
+                className="right-0 top-[calc(100%+6px)]"
+              />
             )}
-            title="Save"
-          >
-            <Heart className={cn("w-3.5 h-3.5", liked && "fill-rose-500")} />
-          </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1621,9 +1674,11 @@ export default function PropertyDetailsPage() {
   const router = useRouter();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isAuthenticated, userId } = useAuth();
-  const { isSaved, toggle: toggleWishlist } = useWishlist(userId);
-  const liked = property ? isSaved(property.id) : false;
+  const { isAuthenticated, userId, user } = useAuth();
+  const { isSaved } = useWishlist(userId);
+  const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
+  const liked = likedOverride ?? (property ? isSaved(property.id) : false);
+  const [savePickerOpen, setSavePickerOpen] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([]);
@@ -1758,18 +1813,9 @@ export default function PropertyDetailsPage() {
         onReserve={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         show={stickyBar}
         liked={liked}
-        onToggleSave={async () => {
-          if (!isAuthenticated || !userId) {
-            router.push("/signin");
-            return;
-          }
-          try {
-            await toggleWishlist(property.id);
-          } catch (err) {
-            console.error("[property] wishlist toggle failed:", err);
-            toast.error("Could not update your wishlist. Please try again.");
-          }
-        }}
+        userId={isAuthenticated ? userId : null}
+        onSavedChange={setLikedOverride}
+        onRequireSignIn={() => router.push('/signin')}
       />
 
       <Navbar />

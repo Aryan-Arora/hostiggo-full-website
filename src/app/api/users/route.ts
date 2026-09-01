@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
-import { updateUserProfile } from "@/lib/services/admin-writes";
+import { updateUserProfile, deactivateUserAccount } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +35,14 @@ export async function POST(req: NextRequest) {
     if (age != null && (!Number.isInteger(age) || age < 1 || age > 150)) {
       return NextResponse.json({ error: "age must be between 1 and 150" }, { status: 400 });
     }
+    // This runs on every Google/OTP sign-in (see auth/callback and
+    // /api/auth/otp's ensureProfile), always asking for is_active: true --
+    // for a brand-new profile that's correct, but honoring it unconditionally
+    // would silently reactivate an account someone deactivated from account
+    // settings the moment they signed back in. Only apply is_active when
+    // this is actually an insert; an existing row keeps whatever
+    // deactivateUserAccount last set.
+    const existing = await usersAPI.getUserById(String(body.user_id));
     // Optional fields are only included when actually sent, so an upsert
     // that omits them can't null out values a previous save wrote.
     const data = await usersAPI.upsertUser({
@@ -52,7 +60,7 @@ export async function POST(req: NextRequest) {
         profile_pic_url: body.profile_pic_url ? String(body.profile_pic_url) : null,
       }),
       ...(body.is_verified !== undefined && { is_verified: body.is_verified === true }),
-      ...(body.is_active !== undefined && { is_active: body.is_active === true }),
+      ...(body.is_active !== undefined && !existing && { is_active: body.is_active === true }),
     });
     return NextResponse.json({ data });
   } catch (err) {
@@ -79,6 +87,12 @@ export async function PATCH(req: NextRequest) {
     if (action === "verify-phone-change") {
       await usersAPI.verifyPhoneChangeOtp(phone, token);
       return NextResponse.json({ data: true });
+    }
+
+    if (action === "deactivate-account") {
+      if (!body.userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+      const data = await deactivateUserAccount(body.userId);
+      return NextResponse.json({ data });
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });

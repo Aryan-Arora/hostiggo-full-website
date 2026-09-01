@@ -79,7 +79,7 @@ export default function ContactPage() {
           })}
         </section>
 
-        <section className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10 mb-10">
+        <section className="bg-white rounded-3xl border border-figma-border p-6 md:p-10 mb-10">
           <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
             Response times
           </h2>
@@ -95,7 +95,7 @@ export default function ContactPage() {
           </p>
         </section>
 
-        <section className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10">
+        <section className="bg-white rounded-3xl border border-figma-border p-6 md:p-10">
           <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
             Registered business details
           </h2>

@@ -366,7 +366,10 @@ export const api = {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
-  createBooking: (payload: {
+  // Opens a Razorpay order for the priced booking -- no booking exists yet.
+  // Pass the response into window.Razorpay's checkout, then call
+  // confirmBookingPayment() with what its success handler returns.
+  reserveBooking: (payload: {
     listingId: string | number;
     userId: string;
     startDate: string;
@@ -375,10 +378,27 @@ export const api = {
     numChildren?: number;
     addonIds?: number[];
     // amount is intentionally not accepted here, the server recomputes the
-    // real charge from the listing's own prices, see createBooking() in
-    // src/lib/services/admin-writes.ts
+    // real charge from the listing's own prices, see
+    // validateAndPriceBooking() in src/lib/services/admin-writes.ts
   }) =>
-    request<any>(`/api/bookings/reserve`, {
+    request<{
+      razorpayOrderId: string;
+      razorpayKeyId: string;
+      amountPaise: number;
+      amountRupees: number;
+      currency: string;
+    }>(`/api/bookings/reserve`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  // The booking is only actually created here, after the payment signature
+  // Razorpay Checkout returns has been verified server-side.
+  confirmBookingPayment: (payload: {
+    razorpayOrderId: string;
+    razorpayPaymentId: string;
+    razorpaySignature: string;
+  }) =>
+    request<any>(`/api/bookings/confirm-payment`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
@@ -394,6 +414,11 @@ export const api = {
     request<any>(`/api/users`, {
       method: "PATCH",
       body: JSON.stringify({ action: "update-profile", userId, patch }),
+    }),
+  deactivateAccount: (userId: string) =>
+    request<any>(`/api/users`, {
+      method: "PATCH",
+      body: JSON.stringify({ action: "deactivate-account", userId }),
     }),
   createListing: (draft: Record<string, any>) =>
     request<{ listing_id: number; title: string; warnings?: string[] }>(`/api/host/listings`, {
@@ -582,6 +607,15 @@ export const api = {
         }),
       });
 
+      // Best-effort -- this session was established directly against
+      // Supabase Auth client-side, not through one of our own server
+      // routes, so there's no single server-side place that otherwise logs
+      // it. See /api/auth/log-login.
+      request("/api/auth/log-login", {
+        method: "POST",
+        body: JSON.stringify({ userId: user.id, method: "email_otp" }),
+      }).catch(() => {});
+
       return { user, session: data.session, profile };
     }
 
@@ -595,6 +629,30 @@ export const api = {
       }),
     });
   },
+  checkEmailExists: (email: string) =>
+    request<{ exists: boolean }>("/api/auth/check-email", {
+      method: "POST",
+      body: JSON.stringify({ email: normalizeEmail(email) }),
+    }),
+  loginEvents: (userId: string) =>
+    request<
+      { id: number; method: string; ip_address: string | null; user_agent: string | null; created_at: string }[]
+    >(`/api/auth/login-events?userId=${encodeURIComponent(userId)}`),
+  changePassword: (newPassword: string) =>
+    request<{ ok: true }>("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    }),
+  signInWithPassword: (email: string, password: string) =>
+    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ action: "signin", email: normalizeEmail(email), password }),
+    }),
+  signUpWithPassword: (email: string, password: string) =>
+    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ action: "signup", email: normalizeEmail(email), password }),
+    }),
   addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<any>("/api/wishlist", {
       method: "POST",
@@ -608,6 +666,10 @@ export const api = {
   wishlistIds: (userId: string) =>
     request<{ listing_id: string }[]>(
       `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
+    ),
+  wishlistCategoriesForListing: (userId: string, listingId: string | number) =>
+    request<string[]>(
+      `/api/wishlist?resource=listing-categories&userId=${encodeURIComponent(userId)}&listingId=${encodeURIComponent(String(listingId))}`,
     ),
   wishlistCategories: (userId: string) =>
     request<{ id: string; name: string }[]>(

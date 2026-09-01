@@ -1,12 +1,15 @@
 'use client';
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Download,
   LayoutGrid,
   List,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
+  Search,
+  Check,
   CalendarDays,
   Info,
   RotateCcw,
@@ -52,9 +55,134 @@ const STATUS_META: Record<DayStatus, { label: string; dot: string; cell: string;
   none: { label: 'No rate set', dot: 'bg-gray-200', cell: 'hover:bg-gray-50', text: 'text-gray-300' },
 };
 
+type ListingOption = { id: string; title: string; location: string; image: string | null };
+
+// Replaces a plain native <select> that listed every one of a host's
+// properties as flat text -- fine for a couple of listings, but hosts with
+// dozens (many sharing the exact same title, e.g. several "Mahadev Niwas")
+// had no way to search, and no way to tell identically-named listings
+// apart. This adds a search box and shows each listing's location + a
+// thumbnail so hosts can actually find the right one.
+function ListingPicker({
+  listings,
+  selectedId,
+  onSelect,
+  loading,
+}: {
+  listings: ListingOption[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  loading: boolean;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState('');
+  const ref = useRef<HTMLDivElement>(null);
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  const selected = listings.find((l) => l.id === selectedId);
+
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) {
+        setOpen(false);
+        setQuery('');
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  useEffect(() => {
+    if (open) searchRef.current?.focus();
+  }, [open]);
+
+  const filtered = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return listings;
+    return listings.filter(
+      (l) => l.title.toLowerCase().includes(q) || l.location.toLowerCase().includes(q),
+    );
+  }, [listings, query]);
+
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        disabled={loading || !listings.length}
+        className="flex items-center gap-2 max-w-[240px] w-full sm:w-auto px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 hover:border-gray-300 transition-all disabled:opacity-60"
+      >
+        <span className="truncate">
+          {loading ? 'Loading…' : selected ? selected.title : 'No listings'}
+        </span>
+        <ChevronDown
+          className={cn('w-4 h-4 text-gray-400 flex-shrink-0 ml-auto transition-transform', open && 'rotate-180')}
+        />
+      </button>
+
+      {open && (
+        <div className="absolute left-0 top-[calc(100%+6px)] w-[300px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in-down">
+          <div className="p-2 border-b border-gray-100">
+            <div className="flex items-center gap-2 bg-gray-50 px-3 py-2 rounded-lg">
+              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
+              <input
+                ref={searchRef}
+                type="text"
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search your properties…"
+                className="flex-1 bg-transparent text-sm outline-none placeholder:text-gray-400"
+              />
+            </div>
+          </div>
+          <div className="max-h-[320px] overflow-y-auto py-1">
+            {filtered.length === 0 ? (
+              <p className="px-4 py-6 text-center text-sm text-gray-400">No properties match.</p>
+            ) : (
+              filtered.map((l) => (
+                <button
+                  key={l.id}
+                  type="button"
+                  onClick={() => {
+                    onSelect(l.id);
+                    setOpen(false);
+                    setQuery('');
+                  }}
+                  className={cn(
+                    'w-full flex items-center gap-3 px-3 py-2.5 text-left hover:bg-gray-50 transition-colors',
+                    l.id === selectedId && 'bg-figma-navy/5',
+                  )}
+                >
+                  <div className="w-10 h-10 rounded-lg bg-gray-100 flex-shrink-0 overflow-hidden">
+                    {l.image && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={l.image} alt="" className="w-full h-full object-cover" />
+                    )}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-sm font-semibold text-gray-800 truncate">{l.title}</p>
+                    {l.location && (
+                      <p className="text-xs text-gray-400 truncate">{l.location}</p>
+                    )}
+                  </div>
+                  {l.id === selectedId && (
+                    <Check className="w-4 h-4 text-figma-navy flex-shrink-0" strokeWidth={2.5} />
+                  )}
+                </button>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function CalendarPage() {
   const { userId } = useAuth();
-  const [listings, setListings] = useState<{ id: string; title: string }[]>([]);
+  const [listings, setListings] = useState<
+    { id: string; title: string; location: string; image: string | null }[]
+  >([]);
   const [listingId, setListingId] = useState<string>('');
   const [monthDate, setMonthDate] = useState(() => {
     const n = new Date();
@@ -89,10 +217,17 @@ export default function CalendarPage() {
       .hostListings(userId, 0, 500)
       .then(({ data: rows }) => {
         if (!active) return;
-        const mapped = rows.map((r: any) => ({
-          id: String(r.listing_id),
-          title: r.title?.trim() || `Listing ${r.listing_id}`,
-        }));
+        const mapped = rows.map((r: any) => {
+          const loc = Array.isArray(r.locations) ? r.locations[0] : r.locations;
+          const media = Array.isArray(r.listing_media) ? r.listing_media : [];
+          const cover = media.find((m: any) => m.is_cover) ?? media[0];
+          return {
+            id: String(r.listing_id),
+            title: r.title?.trim() || `Listing ${r.listing_id}`,
+            location: [loc?.district, loc?.state].filter(Boolean).join(', '),
+            image: cover?.media_url ?? null,
+          };
+        });
         setListings(mapped);
         if (mapped.length) setListingId((cur) => cur || mapped[0].id);
       })
@@ -122,19 +257,32 @@ export default function CalendarPage() {
     }
   }, [listingId, year, month]);
 
-  // Load iCal sync status for the current listing
+  // Load iCal sync status for the current listing. Switching listings
+  // quickly (or a slow response for one that's no longer selected) used to
+  // let an older request resolve after a newer one and overwrite icalStatus
+  // with a *different listing's* data -- the "Import iCal" / "Manage iCal"
+  // button would then show whichever listing's request happened to land
+  // last, not the one actually selected. Confirmed live: registering a feed
+  // for listing 215 while listing 323 (inactive) was still in flight left
+  // the button reading "Import iCal" even though 215 really was active.
+  // Guard by only applying a response if its listing is still the one
+  // selected when it comes back.
+  const icalRequestListingRef = useRef<string>('');
   const loadICalStatus = useCallback(async () => {
     if (!listingId || !userId) return;
+    icalRequestListingRef.current = listingId;
+    const requestedFor = listingId;
     setIcalLoading(true);
     try {
       const data = await api.getICalStatus(listingId, userId);
+      if (icalRequestListingRef.current !== requestedFor) return;
       setIcalStatus(data);
       if (data.icalUrl) setIcalUrl(data.icalUrl);
     } catch (err) {
       console.error('[host/calendar] iCal status load failed:', err);
-      setIcalStatus(null);
+      if (icalRequestListingRef.current === requestedFor) setIcalStatus(null);
     } finally {
-      setIcalLoading(false);
+      if (icalRequestListingRef.current === requestedFor) setIcalLoading(false);
     }
   }, [listingId, userId]);
 
@@ -299,25 +447,12 @@ export default function CalendarPage() {
             </div>
             <div className="flex flex-wrap items-center gap-3">
               {/* Listing picker */}
-              <select
-                value={listingId}
-                onChange={(e) => setListingId(e.target.value)}
-                disabled={loadingListings || !listings.length}
-                className="max-w-[220px] w-full sm:w-auto px-3 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-gray-700 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none"
-                aria-label="Select listing"
-              >
-                {loadingListings ? (
-                  <option>Loading…</option>
-                ) : listings.length === 0 ? (
-                  <option>No listings</option>
-                ) : (
-                  listings.map((l) => (
-                    <option key={l.id} value={l.id}>
-                      {l.title}
-                    </option>
-                  ))
-                )}
-              </select>
+              <ListingPicker
+                listings={listings}
+                selectedId={listingId}
+                onSelect={setListingId}
+                loading={loadingListings}
+              />
               <button
                 onClick={() => setShowICalModal(true)}
                 disabled={icalLoading}
@@ -332,7 +467,7 @@ export default function CalendarPage() {
                 ) : (
                   <Download className="w-4 h-4" />
                 )}
-                {icalLoading ? 'Loading...' : 'Import iCal'}
+                {icalLoading ? 'Loading...' : icalStatus?.isActive ? 'Manage iCal' : 'Import iCal'}
               </button>
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button className="p-2 bg-white shadow-sm rounded-md text-figma-navy" aria-label="Grid view">
