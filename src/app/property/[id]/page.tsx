@@ -1901,20 +1901,14 @@ export default function PropertyDetailsPage() {
               >
                 <Share2 className="w-4 h-4" /> Share
               </button>
+            <div className="relative">
               <button
-                onClick={async () => {
+                onClick={() => {
                   if (!isAuthenticated || !userId || !property) {
                     router.push("/signin");
                     return;
                   }
-                  try {
-                    await toggleWishlist(property.id);
-                  } catch (err) {
-                    console.error("[property] wishlist toggle failed:", err);
-                    toast.error(
-                      "Could not update your wishlist. Please try again.",
-                    );
-                  }
+                  setSavePickerOpen((v) => !v);
                 }}
                 className={cn(
                   "flex items-center gap-2 px-4 py-2 rounded-full border bg-white transition-colors shadow-sm text-[13px] font-bold",
@@ -1926,7 +1920,17 @@ export default function PropertyDetailsPage() {
                 <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />{" "}
                 {liked ? "Saved" : "Save"}
               </button>
+              {savePickerOpen && userId && property && (
+                <WishlistPicker
+                  userId={userId}
+                  listingId={property.id}
+                  onClose={() => setSavePickerOpen(false)}
+                  onSavedChange={setLikedOverride}
+                  className="right-0 top-[calc(100%+8px)]"
+                />
+              )}
             </div>
+          </div>
           </div>
 
           {/* ── 1. IMAGE GALLERY ── */}
