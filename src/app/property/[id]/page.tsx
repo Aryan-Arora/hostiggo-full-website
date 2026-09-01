@@ -1000,10 +1000,7 @@ function BookingWidget({
     d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Add date';
 
   return (
-    <div
-      className="bg-white rounded-2xl p-5 sticky top-28"
-      style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
-    >
+    <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm w-full">
       {/* Price header */}
       <div className="flex items-baseline gap-2 mb-1">
         {property.originalPrice && (
@@ -1659,529 +1656,218 @@ export default function PropertyDetailsPage() {
 
       <Navbar />
 
-      <div className="container-main py-6 max-w-6xl mx-auto px-4 sm:px-6">
-        {/* Back + Actions */}
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-figma-navy font-medium text-sm transition-colors group"
-          >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Back to results
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText(window.location.href);
-                alert('Link copied!');
-              }}
-              className="flex items-center gap-1.5 text-[12px] text-gray-600 hover:text-figma-navy font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
-            >
-              <Share2 className="w-3.5 h-3.5" /> Share
-            </button>
-            <button
-              onClick={async () => {
-                if (!isAuthenticated || !userId || !property) {
-                  router.push('/signin');
-                  return;
-                }
-                try {
-                  await toggleWishlist(property.id);
-                } catch (err) {
-                  console.error('[property] wishlist toggle failed:', err);
-                  toast.error('Could not update your wishlist. Please try again.');
-                }
-              }}
-              className={cn(
-                'flex items-center gap-1.5 text-[12px] font-semibold bg-white border px-3 py-1.5 rounded-xl transition-all',
-                liked
-                  ? 'border-rose-300 text-rose-500 bg-rose-50'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300',
-              )}
-            >
-              <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
-              {liked ? 'Saved' : 'Save'}
-            </button>
+      {/* ── Sub-navigation Header ── */}
+      <div className="sticky top-0 z-[40] bg-figma-cream border-b border-gray-200 hidden md:block">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div className="flex items-center gap-6 overflow-x-auto whitespace-nowrap py-4 text-[13px] font-bold text-gray-500" style={{ scrollbarWidth: 'none' }}>
+            <a href="#overview" className="text-gray-900 border-b-2 border-gray-900 pb-1 -mb-[18px]">Overview</a>
+            <a href="#facilities" className="hover:text-gray-900 transition-colors">Facilities</a>
+            <a href="#availability" className="hover:text-gray-900 transition-colors">Availability</a>
+            <a href="#location" className="hover:text-gray-900 transition-colors">Location</a>
+            <a href="#reviews" className="hover:text-gray-900 transition-colors">Ratings & reviews</a>
+            <a href="#addons" className="hover:text-gray-900 transition-colors">Add-ons</a>
+            <a href="#rules" className="hover:text-gray-900 transition-colors">House rules</a>
           </div>
         </div>
+      </div>
 
-        {/* ── 1. IMAGE GALLERY ── */}
-        <div ref={galleryRef}>
-          <ImageGallery images={images} propertyName={property.propertyName} />
-        </div>
-
-        {/* ── Main grid ── */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {/* ══ LEFT COLUMN ══ */}
-          <div className="flex-1 min-w-0 w-full space-y-4">
-            {/* ── 2. PROPERTY OVERVIEW ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              {/* Badges */}
-              <div className="flex items-center gap-2 flex-wrap mb-2">
+      <div className="container-main py-8 max-w-5xl mx-auto px-4 sm:px-6 space-y-10">
+        
+        {/* Title Section */}
+        <div id="overview">
+          <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
                 <span className="text-[11px] font-bold text-figma-navy bg-figma-navy/5 px-2.5 py-0.5 rounded-full">
                   {property.propertyType}
                 </span>
                 {property.isInstantBook && (
                   <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <Zap className="w-2.5 h-2.5" />
-                    Instant Book
-                  </span>
-                )}
-                {property.freeCancellation && (
-                  <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle className="w-2.5 h-2.5" />
-                    Free Cancellation
+                    <Zap className="w-2.5 h-2.5" /> Instant Book
                   </span>
                 )}
               </div>
-
-              <h1 className="text-[20px] sm:text-[22px] font-extrabold text-gray-800 leading-tight mb-1">
+              <h1 className="text-[28px] sm:text-[36px] font-extrabold text-gray-900 leading-tight mb-2">
                 {property.propertyName}
               </h1>
-              <p className="text-[13px] text-gray-500 flex items-center gap-1 mb-3">
-                <MapPin className="w-3.5 h-3.5 text-figma-navy flex-shrink-0" />
-                {property.city}, {property.state}
-              </p>
-
-              {/* Host line */}
-              {property.host && (
-                <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-gray-100">
-                  <img
-                    src={property.host.avatar}
-                    alt={property.host.name}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                  <span className="text-[13px] text-gray-600">
-                    Hosted by{' '}
-                    <strong className="text-gray-800">
-                      {property.host.name}
-                    </strong>
-                    {property.host.isSuperhost && (
-                      <span className="ml-1.5 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
-                        Superhost
-                      </span>
-                    )}
-                  </span>
-                </div>
-              )}
-
-              {/* Quick stats */}
-              <div className="flex items-center gap-4 flex-wrap mb-4">
-                <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <span className="text-[14px] font-extrabold text-amber-700">
-                    {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
-                  </span>
-                  <span className="text-[12px] text-amber-600">
-                    ({property.reviewCount} reviews)
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-[13px] text-gray-500">
-                  <Users className="w-3.5 h-3.5 text-gray-400" /> Up to{' '}
-                  {property.maxGuests} guests
-                </div>
-                {property.bedType && (
-                  <div className="flex items-center gap-1 text-[13px] text-gray-500">
-                    <BedDouble className="w-3.5 h-3.5 text-gray-400" />{' '}
-                    {property.bedType}
-                  </div>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <p className="text-[13px] text-gray-600 leading-relaxed">
-                  {descIsLong && !descExpanded
-                    ? `${(property.description ?? '').slice(0, 200)}…`
-                    : (property.description ??
-                      `Experience the charm of ${property.city} in this beautifully curated ${property.propertyType.toLowerCase()}.`)}
-                </p>
-                {descIsLong && (
-                  <button
-                    onClick={() => setDescExpanded((v) => !v)}
-                    className="flex items-center gap-1 text-[13px] font-bold text-gray-800 underline mt-2 hover:text-figma-navy transition-colors"
-                  >
-                    {descExpanded ? 'Show less' : 'Read more'}
-                    <ChevronDown
-                      className={cn(
-                        'w-3.5 h-3.5 transition-transform',
-                        descExpanded && 'rotate-180',
-                      )}
-                    />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* ── 3. AMENITIES / FACILITIES ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-4">
-                Facilities
-              </h2>
-              {visibleAmenities.length === 0 && (
-                <p className="text-[13px] text-gray-400">
-                  The host hasn&apos;t listed any facilities yet.
-                </p>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {visibleAmenities.map((am, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      'flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors',
-                      am.available
-                        ? 'bg-gray-50 border-gray-100'
-                        : 'bg-gray-50/50 border-dashed border-gray-200 opacity-50',
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                        am.available
-                          ? 'bg-figma-navy/10 text-figma-navy'
-                          : 'bg-gray-100 text-gray-400',
-                      )}
-                    >
-                      {AMENITY_ICON_MAP[am.icon] ?? (
-                        <CheckCircle className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        'text-[12px] font-semibold',
-                        am.available
-                          ? 'text-gray-700'
-                          : 'text-gray-400 line-through',
-                      )}
-                    >
-                      {am.name}
-                    </span>
-                    {!am.available && (
-                      <X className="w-3 h-3 text-gray-300 ml-auto flex-shrink-0" />
-                    )}
-                  </div>
-                ))}
-              </div>
-              {amenities.length > 8 && (
-                <button
-                  onClick={() => setShowAllAmenities((v) => !v)}
-                  className="mt-3 text-[13px] font-bold text-gray-800 underline hover:text-figma-navy transition-colors flex items-center gap-1"
-                >
-                  {showAllAmenities
-                    ? 'Show less'
-                    : `Show all ${amenities.length} amenities`}
-                  <ChevronDown
-                    className={cn(
-                      'w-3.5 h-3.5 transition-transform',
-                      showAllAmenities && 'rotate-180',
-                    )}
-                  />
-                </button>
-              )}
-            </div>
-
-            {/* ── 3b. ADD-ONS ── */}
-            {property.addons && property.addons.length > 0 && (
-              <div
-                className="bg-white rounded-2xl p-5"
-                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-              >
-                <h2 className="text-[15px] font-bold text-gray-800 mb-4">
-                  Available add-ons
-                </h2>
-                <div className="space-y-2.5">
-                  {property.addons.map((addon) => {
-                    const checked = selectedAddonIds.includes(addon.addonId);
-                    return (
-                      <button
-                        key={addon.addonId}
-                        type="button"
-                        onClick={() => toggleAddon(addon.addonId)}
-                        className={cn(
-                          'w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors',
-                          checked ? 'bg-figma-navy/5 border-figma-navy/30' : 'bg-gray-50 border-gray-100 hover:border-gray-200',
-                        )}
-                      >
-                        <div className="flex items-start gap-3 min-w-0">
-                          <span
-                            className={cn(
-                              'mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0',
-                              checked ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
-                            )}
-                          >
-                            {checked && (
-                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
-                                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-bold text-gray-800">{addon.name}</p>
-                            {addon.includes && (
-                              <p className="text-[11px] text-gray-500 mt-0.5">{addon.includes}</p>
-                            )}
-                            {addon.timingFrom && addon.timingTo && (
-                              <p className="text-[11px] text-gray-400 mt-0.5">
-                                {addon.timingFrom.slice(0, 5)} – {addon.timingTo.slice(0, 5)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-[13px] font-bold text-figma-navy/90 flex-shrink-0">
-                          +₹{addon.price.toLocaleString('en-IN')}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-3">
-                  Selected add-ons are added to your total at checkout.
-                </p>
-              </div>
-            )}
-
-            {/* ── 3c. HOUSE RULES ── */}
-            {property.houseRules && property.houseRules.length > 0 && (
-              <div
-                className="bg-white rounded-2xl p-5"
-                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-              >
-                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gray-500" /> House rules
-                </h2>
-                <ul className="space-y-2">
-                  {property.houseRules.map((rule, i) => (
-                    <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
-                      {rule}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* ── 3c-2. CANCELLATION POLICY ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-gray-500" /> Cancellation policy
-              </h2>
-
-              {property.cancellationPolicy === 'strict' ? (
-                <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[14px] font-bold text-red-700">
-                      Strict policy: only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
-                    </p>
-                    <p className="text-[12.5px] text-red-600 mt-1 leading-snug">
-                      Cancel {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays}+ days before check-in and get back
-                      only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% of what you paid. Cancel
-                      within {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days of check-in and you get{' '}
-                      <span className="font-bold">no refund at all</span>.
-                    </p>
-                  </div>
-                </div>
-              ) : property.cancellationPolicy === 'flexible' ? (
-                <div className="bg-figma-navy/5 border border-figma-navy/20 rounded-xl p-4">
-                  <p className="text-[13.5px] font-semibold text-figma-navy">Flexible policy</p>
-                  <p className="text-[12.5px] text-figma-navy/90 mt-1 leading-snug">
-                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours
-                    before check-in. No refund after that.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                  <p className="text-[13.5px] font-semibold text-gray-800">Moderate policy</p>
-                  <p className="text-[12.5px] text-gray-600 mt-1 leading-snug">
-                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays} days
-                    before check-in. After that, you&apos;re refunded everything except the Hostiggo service fee.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ── 3d. SAFETY & PROPERTY ── */}
-            {property.safetyFeatures && property.safetyFeatures.length > 0 && (
-              <div
-                className="bg-white rounded-2xl p-5"
-                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-              >
-                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-gray-500" /> Safety & property
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {property.safetyFeatures.map((f, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 border border-gray-100"
-                    >
-                      <span className="text-[16px] flex-shrink-0">{f.icon || '🛡️'}</span>
-                      <span className="text-[12px] font-semibold text-gray-700">{f.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 5. MAP LOCATION ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-3">
-                Location
-              </h2>
-              <PropertyMap property={property} />
-              <p className="text-[12px] text-gray-400 mt-2 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-figma-navy" />
+              <p className="text-[15px] text-gray-500 flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-figma-navy flex-shrink-0" />
                 {property.city}, {property.state}
               </p>
             </div>
-
-            {/* ── 6. RATINGS & REVIEWS ── */}
-            <div
-              id="write-review"
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-4">
-                Ratings &amp; reviews
-              </h2>
-
-              {/* Empty state when this property has no reviews yet */}
-              {reviews.length === 0 && (
-                <div className="py-8 text-center">
-                  <Star className="w-8 h-8 text-gray-200 fill-gray-200 mx-auto mb-3" />
-                  <p className="text-[14px] font-semibold text-gray-700">
-                    No reviews yet
-                  </p>
-                  <p className="text-[12px] text-gray-400 mt-1">
-                    Be the first to stay and share your experience.
-                  </p>
-                </div>
-              )}
-
-              {/* Overall rating, no per-category breakdown is shown here
-                  because the database only stores one rating per review;
-                  there's no real cleanliness/accuracy/communication/location/
-                  check-in/value sub-score anywhere to break it down into. */}
-              {reviews.length > 0 && (
-              <div className="flex items-start gap-5 mb-5">
-                <div className="text-center flex-shrink-0">
-                  <p className="text-[42px] font-extrabold text-gray-800 leading-none">
-                    {property.rating.toFixed(1)}
-                  </p>
-                  <div className="flex justify-center mt-1.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          'w-3.5 h-3.5',
-                          i < Math.round(property.rating)
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-gray-200 fill-gray-200',
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-1 font-medium">
-                    {property.reviewCount} reviews
-                  </p>
-                </div>
-              </div>
-              )}
-
-              {/* Preview reviews (3-column card layout) */}
-              {reviews.length > 0 && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    {previewReviews.map((review) => (
-                      <div
-                        key={review.id}
-                        className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col gap-3"
-                      >
-                        {/* User info */}
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src={review.userAvatar}
-                            alt={review.userName}
-                            className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                            loading="lazy"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-bold text-gray-800 truncate">
-                              {review.userName}
-                            </p>
-                            <p className="text-[10px] text-gray-400">
-                              {review.reviewDate}
-                            </p>
-                          </div>
-                        </div>
-                        {/* Stars */}
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={cn(
-                                'w-3 h-3',
-                                i < review.rating
-                                  ? 'text-amber-400 fill-amber-400'
-                                  : 'text-gray-200 fill-gray-200',
-                              )}
-                            />
-                          ))}
-                        </div>
-                        {/* Text */}
-                        <p className="text-[12px] text-gray-600 leading-relaxed line-clamp-4 flex-1">
-                          {review.reviewText}
-                        </p>
-                        <button
-                          onClick={() => setReviewsModalOpen(true)}
-                          className="text-[12px] font-bold text-gray-700 underline underline-offset-2 hover:text-figma-navy transition-colors text-left"
-                        >
-                          Read more
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Next arrow row */}
-                  <div className="flex items-center gap-3">
-                    {reviews.length > 3 && (
-                      <button
-                        onClick={() => setReviewsModalOpen(true)}
-                        className="flex items-center gap-2 border border-gray-300 hover:border-figma-navy/40 hover:text-figma-navy text-gray-700 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
-                      >
-                        View all {reviews.length} reviews
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Leave a review */}
-              <WriteReview listingId={property.id} />
+            
+            <div className="flex items-center gap-2 flex-shrink-0 md:mt-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(window.location.href);
+                  toast.success('Link copied!');
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-[13px] font-bold"
+              >
+                <Share2 className="w-4 h-4" /> Share
+              </button>
+              <button
+                onClick={async () => {
+                  if (!isAuthenticated || !userId || !property) {
+                    router.push('/signin');
+                    return;
+                  }
+                  try {
+                    await toggleWishlist(property.id);
+                  } catch (err) {
+                    console.error('[property] wishlist toggle failed:', err);
+                    toast.error('Could not update your wishlist. Please try again.');
+                  }
+                }}
+                className={cn(
+                  'flex items-center gap-2 px-4 py-2 rounded-full border bg-white transition-colors shadow-sm text-[13px] font-bold',
+                  liked
+                    ? 'border-rose-300 text-rose-500 bg-rose-50'
+                    : 'border-gray-200 text-gray-700 hover:bg-gray-50',
+                )}
+              >
+                <Heart className={cn('w-4 h-4', liked && 'fill-rose-500')} /> {liked ? 'Saved' : 'Save'}
+              </button>
             </div>
-
-            {/* ── 7. SUGGESTED STAYS ── */}
-            <SuggestedStays current={property} />
-
-            {/* ── 8. HOST INFORMATION ── */}
-            {property.host && <HostCard host={property.host} />}
           </div>
 
-          {/* ══ RIGHT COLUMN: Booking Widget ══ */}
-          <div className="lg:w-[310px] xl:w-[330px] flex-shrink-0 w-full">
+          {/* ── 1. IMAGE GALLERY ── */}
+          <div ref={galleryRef} className="mt-6 mb-8">
+            <ImageGallery images={images} propertyName={property.propertyName} />
+          </div>
+
+          {/* Host line & Quick stats */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-6 border-y border-gray-200 mb-8">
+            {property.host && (
+              <div className="flex items-center gap-4">
+                <img
+                  src={property.host.avatar}
+                  alt={property.host.name}
+                  className="w-14 h-14 rounded-full object-cover shadow-sm"
+                />
+                <div>
+                  <p className="text-[16px] font-bold text-gray-900">
+                    Hosted by {property.host.name}
+                  </p>
+                  <p className="text-[13px] text-gray-500 mt-0.5 flex items-center gap-1.5">
+                    {property.host.isSuperhost && (
+                      <span className="font-bold text-rose-600 flex items-center gap-1">
+                        <Award className="w-3.5 h-3.5" /> Superhost
+                      </span>
+                    )}
+                    {property.host.isSuperhost && <span>·</span>}
+                    <span>{property.host.tripsHosted} trips hosted</span>
+                  </p>
+                </div>
+              </div>
+            )}
+            
+            <div className="flex items-center gap-6 md:ml-auto">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                <span className="text-[16px] font-extrabold text-gray-900">
+                  {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
+                </span>
+                <span className="text-[13px] text-gray-500 underline underline-offset-2">
+                  {property.reviewCount} reviews
+                </span>
+              </div>
+              <div className="w-px h-10 bg-gray-200 hidden md:block" />
+              <div className="flex flex-col text-[13px] font-medium text-gray-600 gap-1">
+                <span className="flex items-center gap-1.5"><Users className="w-4 h-4 text-gray-400"/> {property.maxGuests} Guests</span>
+                <span className="flex items-center gap-1.5"><BedDouble className="w-4 h-4 text-gray-400"/> {property.bedType || '1 Bedroom'}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <h2 className="text-[22px] font-bold text-gray-900 mb-4">About this space</h2>
+            <p className="text-[15px] text-gray-600 leading-relaxed max-w-4xl">
+              {descIsLong && !descExpanded
+                ? `${(property.description ?? '').slice(0, 400)}…`
+                : (property.description ??
+                  `Experience the charm of ${property.city} in this beautifully curated ${property.propertyType.toLowerCase()}.`)}
+            </p>
+            {descIsLong && (
+              <button
+                onClick={() => setDescExpanded((v) => !v)}
+                className="flex items-center gap-1 text-[15px] font-bold text-gray-900 underline underline-offset-4 mt-4 hover:text-figma-navy transition-colors"
+              >
+                {descExpanded ? 'Show less' : 'Read more'}
+                <ChevronDown
+                  className={cn(
+                    'w-4 h-4 transition-transform',
+                    descExpanded && 'rotate-180',
+                  )}
+                />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── 2. FACILITIES ── */}
+        <div id="facilities" className="pt-8 border-t border-gray-200">
+          <h2 className="text-[22px] font-bold text-gray-900 mb-6">
+            Facilities
+          </h2>
+          {visibleAmenities.length === 0 && (
+            <p className="text-[15px] text-gray-500">
+              The host hasn&apos;t listed any facilities yet.
+            </p>
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-y-6 gap-x-4">
+            {visibleAmenities.map((am, i) => (
+              <div
+                key={i}
+                className={cn(
+                  'flex items-center gap-4',
+                  !am.available && 'opacity-50',
+                )}
+              >
+                <div
+                  className={cn(
+                    'w-12 h-12 rounded-full flex items-center justify-center flex-shrink-0',
+                    am.available
+                      ? 'bg-figma-navy/5 text-figma-navy'
+                      : 'bg-gray-100 text-gray-400',
+                  )}
+                >
+                  {AMENITY_ICON_MAP[am.icon] ?? (
+                    <CheckCircle className="w-5 h-5" />
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    'text-[16px] font-medium',
+                    am.available
+                      ? 'text-gray-800'
+                      : 'text-gray-400 line-through',
+                  )}
+                >
+                  {am.name}
+                </span>
+              </div>
+            ))}
+          </div>
+          {amenities.length > 8 && (
+            <button
+              onClick={() => setShowAllAmenities((v) => !v)}
+              className="mt-8 px-6 py-3 border border-gray-900 rounded-xl text-[15px] font-bold text-gray-900 hover:bg-gray-50 transition-colors"
+            >
+              {showAllAmenities
+                ? 'Show less'
+                : `Show all ${amenities.length} amenities`}
+            </button>
+          )}
+        </div>
+
+        {/* ── 3. AVAILABILITY ── */}
+        <div id="availability" className="pt-8 border-t border-gray-200">
+          <h2 className="text-[22px] font-bold text-gray-900 mb-6">
+            Availability
+          </h2>
+          <div className="w-full max-w-4xl">
             <BookingWidget
               property={property}
               onNightsChange={setBarNights}
@@ -2191,40 +1877,304 @@ export default function PropertyDetailsPage() {
           </div>
         </div>
 
-        {/* Mobile booking bar (fixed bottom) */}
-        <div
-          className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-50"
-          style={{ boxShadow: '0 -4px 16px rgba(0,0,0,0.08)' }}
-        >
-          <div className="flex items-center justify-between">
+        {/* ── 4. MAP LOCATION ── */}
+        <div id="location" className="pt-8 border-t border-gray-200">
+          <h2 className="text-[22px] font-bold text-gray-900 mb-6">
+            Location
+          </h2>
+          <div className="bg-white rounded-3xl overflow-hidden border border-gray-200 shadow-sm">
+            <PropertyMap property={property} />
+          </div>
+          <p className="text-[15px] text-gray-700 mt-4 flex items-center gap-2 font-medium">
+            <MapPin className="w-5 h-5 text-figma-navy" />
+            {property.city}, {property.state}
+          </p>
+        </div>
+
+        {/* ── 5. RATINGS & REVIEWS ── */}
+        <div id="reviews" className="pt-8 border-t border-gray-200">
+          <div className="flex items-end justify-between mb-8">
             <div>
-              <span className="text-[18px] font-extrabold text-figma-navy/90">
-                ₹{property.price.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[12px] text-gray-400 ml-1">/night</span>
-              {property.rating > 0 && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  <span className="text-[11px] font-bold text-gray-600">
+              <h2 className="text-[22px] font-bold text-gray-900 flex items-center gap-2">
+                Ratings &amp; reviews
+              </h2>
+              {reviews.length > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+                  <span className="text-[28px] font-extrabold text-gray-900 leading-none">
                     {property.rating.toFixed(1)}
                   </span>
-                  <span className="text-[11px] text-gray-400">
-                    ({property.reviewCount})
+                  <span className="text-[15px] text-gray-500 font-medium">
+                    ({property.reviewCount} reviews)
                   </span>
                 </div>
               )}
             </div>
+            
+            {reviews.length > 3 && (
+              <button
+                onClick={() => setReviewsModalOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 text-[15px] font-bold text-figma-navy hover:underline underline-offset-4"
+              >
+                View all reviews <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="py-10 text-center bg-gray-50 rounded-3xl border border-gray-200">
+              <Star className="w-10 h-10 text-gray-300 fill-gray-200 mx-auto mb-4" />
+              <p className="text-[16px] font-bold text-gray-800">No reviews yet</p>
+              <p className="text-[15px] text-gray-500 mt-1">Be the first to stay and share your experience.</p>
+            </div>
+          ) : (
+            <div className="flex gap-5 overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0" style={{ scrollbarWidth: 'none' }}>
+              {previewReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="bg-white rounded-3xl p-6 border border-gray-200 flex-shrink-0 w-[300px] sm:w-[340px] flex flex-col gap-4 shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={review.userAvatar}
+                      alt={review.userName}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-[15px] font-bold text-gray-900 truncate">
+                        {review.userName}
+                      </p>
+                      <p className="text-[13px] text-gray-500">
+                        {review.reviewDate}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          'w-4 h-4',
+                          i < review.rating
+                            ? 'text-amber-400 fill-amber-400'
+                            : 'text-gray-200 fill-gray-200',
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-[15px] text-gray-600 leading-relaxed line-clamp-4 flex-1">
+                    {review.reviewText}
+                  </p>
+                  <button
+                    onClick={() => setReviewsModalOpen(true)}
+                    className="text-[14px] font-bold text-gray-900 underline underline-offset-4 hover:text-figma-navy transition-colors text-left mt-2"
+                  >
+                    Read more
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reviews.length > 3 && (
             <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="bg-figma-navy hover:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20"
+              onClick={() => setReviewsModalOpen(true)}
+              className="mt-4 sm:hidden w-full flex items-center justify-center gap-1.5 border border-gray-900 text-gray-900 px-6 py-3.5 rounded-xl text-[15px] font-bold transition-all hover:bg-gray-50"
             >
-              Reserve
+              View all {reviews.length} reviews
             </button>
+          )}
+
+          <div className="mt-8 max-w-2xl">
+            <WriteReview listingId={property.id} />
           </div>
         </div>
 
-        {/* Spacer for mobile fixed bar */}
-        <div className="lg:hidden h-20" />
+        {/* ── 6. ADD-ONS ── */}
+        {property.addons && property.addons.length > 0 && (
+          <div id="addons" className="pt-8 border-t border-gray-200">
+            <h2 className="text-[22px] font-bold text-gray-900 mb-6">
+              Suggested Add-ons
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+              {property.addons.map((addon) => {
+                const checked = selectedAddonIds.includes(addon.addonId);
+                return (
+                  <div
+                    key={addon.addonId}
+                    className={cn(
+                      'flex flex-col p-5 rounded-3xl border-2 transition-all',
+                      checked ? 'border-figma-navy bg-figma-navy/5 shadow-md shadow-figma-navy/10' : 'border-dashed border-gray-300 bg-white hover:border-figma-navy/30',
+                    )}
+                  >
+                    <div className="flex-1 min-w-0 mb-4">
+                      <p className="text-[16px] font-bold text-gray-900 leading-tight mb-2">{addon.name}</p>
+                      {addon.includes && (
+                        <p className="text-[13px] text-gray-500 line-clamp-2">{addon.includes}</p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-auto">
+                      <span className="text-[16px] font-extrabold text-figma-navy">
+                        +₹{addon.price.toLocaleString('en-IN')}
+                      </span>
+                      <button
+                        onClick={() => toggleAddon(addon.addonId)}
+                        className={cn(
+                          'px-4 py-2 rounded-full text-[13px] font-bold transition-all',
+                          checked ? 'bg-figma-navy text-white' : 'bg-gray-100 text-gray-800 hover:bg-gray-200'
+                        )}
+                      >
+                        {checked ? 'Added' : 'Add +'}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── 7. HOST INFORMATION ── */}
+        <div className="pt-8 border-t border-gray-200">
+          <h2 className="text-[22px] font-bold text-gray-900 mb-6">
+            Contact host
+          </h2>
+          {property.host && (
+            <div className="bg-gray-50 rounded-3xl p-8 border border-gray-200 flex flex-col md:flex-row gap-10 items-start">
+              <div className="flex-shrink-0 flex flex-col items-center text-center">
+                <img
+                  src={property.host.avatar}
+                  alt={property.host.name}
+                  className="w-28 h-28 rounded-full object-cover border-4 border-white shadow-md mb-4"
+                />
+                <h3 className="text-[20px] font-extrabold text-gray-900">
+                  {property.host.name}
+                </h3>
+                {property.host.isSuperhost && (
+                  <span className="text-[13px] font-bold text-rose-600 flex items-center justify-center gap-1.5 mt-1">
+                    <Award className="w-4 h-4" /> Superhost
+                  </span>
+                )}
+                <div className="flex items-center gap-5 mt-5 text-[14px] text-gray-600 font-medium">
+                  <div className="flex flex-col items-center">
+                    <span className="text-[18px] font-extrabold text-gray-900">{property.host.rating}</span>
+                    <span className="text-[12px] text-gray-500 uppercase tracking-wider mt-0.5">Rating</span>
+                  </div>
+                  <div className="w-px h-10 bg-gray-300" />
+                  <div className="flex flex-col items-center">
+                    <span className="text-[18px] font-extrabold text-gray-900">{property.host.tripsHosted}</span>
+                    <span className="text-[12px] text-gray-500 uppercase tracking-wider mt-0.5">Reviews</span>
+                  </div>
+                </div>
+              </div>
+              
+              <div className="flex-1 min-w-0">
+                <div className="mb-8">
+                  <h4 className="text-[16px] font-bold text-gray-900 mb-3">About {property.host.name.split(' ')[0]}</h4>
+                  <p className="text-[15px] text-gray-600 leading-relaxed">
+                    {property.host.bio || `I'm a passionate host who loves meeting new people and sharing the best of my city with them. I'm always available to help you with anything you need during your stay.`}
+                  </p>
+                </div>
+                
+                <div className="flex flex-col sm:flex-row gap-4">
+                  <button
+                    onClick={() => {
+                      if (!isAuthenticated || !userId) {
+                        toast.error('Please sign in to message the host');
+                        router.push(`/signin?redirect=${encodeURIComponent(window.location.href)}`);
+                        return;
+                      }
+                      router.push(`/chat?hostId=${encodeURIComponent(property.host!.id)}`);
+                    }}
+                    className="flex-1 bg-gray-900 hover:bg-gray-800 text-white px-6 py-3.5 rounded-xl text-[15px] font-bold flex items-center justify-center gap-2.5 transition-colors shadow-md"
+                  >
+                    <MessageSquare className="w-5 h-5" /> Message Host
+                  </button>
+                  <button
+                    className="flex-1 border-2 border-gray-900 text-gray-900 hover:bg-gray-100 px-6 py-3.5 rounded-xl text-[15px] font-bold flex items-center justify-center gap-2.5 transition-colors opacity-50 cursor-not-allowed"
+                    title="Coming soon"
+                  >
+                    View Profile
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── 8. HOUSE RULES & CANCELLATION ── */}
+        <div id="rules" className="pt-8 border-t border-gray-200 pb-12">
+          <h2 className="text-[22px] font-bold text-gray-900 mb-8">
+            Things to know
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
+            {/* House Rules */}
+            <div>
+              <h3 className="text-[18px] font-bold text-gray-900 mb-5 flex items-center gap-2">
+                <Clock className="w-5 h-5 text-gray-500" /> House rules
+              </h3>
+              {property.houseRules && property.houseRules.length > 0 ? (
+                <ul className="space-y-4">
+                  {property.houseRules.map((rule, i) => (
+                    <li key={i} className="text-[15px] text-gray-700 flex items-start gap-3">
+                      <span className="w-2 h-2 rounded-full bg-gray-400 mt-2 flex-shrink-0" />
+                      {rule}
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <p className="text-[15px] text-gray-500">No special house rules listed.</p>
+              )}
+            </div>
+
+            {/* Cancellation Policy */}
+            <div>
+              <h3 className="text-[18px] font-bold text-gray-900 mb-5 flex items-center gap-2">
+                <Shield className="w-5 h-5 text-gray-500" /> Cancellation policy
+              </h3>
+              
+              {property.cancellationPolicy === 'strict' ? (
+                <div className="flex items-start gap-4">
+                  <AlertTriangle className="w-6 h-6 text-red-600 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <p className="text-[16px] font-bold text-gray-900">
+                      Strict policy: only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
+                    </p>
+                    <p className="text-[15px] text-gray-600 mt-2 leading-relaxed">
+                      Cancel {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays}+ days before check-in and get back
+                      only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% of what you paid. Cancel
+                      within {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days of check-in and you get{' '}
+                      <strong className="text-gray-900 font-semibold">no refund at all</strong>.
+                    </p>
+                  </div>
+                </div>
+              ) : property.cancellationPolicy === 'flexible' ? (
+                <div>
+                  <p className="text-[16px] font-bold text-gray-900">Flexible policy</p>
+                  <p className="text-[15px] text-gray-600 mt-2 leading-relaxed">
+                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours
+                    before check-in. No refund after that.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <p className="text-[16px] font-bold text-gray-900">Moderate policy</p>
+                  <p className="text-[15px] text-gray-600 mt-2 leading-relaxed">
+                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays} days
+                    before check-in. After that, you&apos;re refunded everything except the Hostiggo service fee.
+                  </p>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+        
+        {/* ── 9. SUGGESTED STAYS ── */}
+        <div className="pt-8 border-t border-gray-200">
+           <SuggestedStays current={property} />
+        </div>
+
       </div>
 
       <Footer />
@@ -2242,6 +2192,7 @@ export default function PropertyDetailsPage() {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
         @keyframes modalSlideUp { from { opacity: 0; transform: translateY(24px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        html { scroll-behavior: smooth; }
       `}</style>
     </div>
   );
