@@ -39,6 +39,8 @@ export interface Host {
   responseRate?: number;
   responseTime?: string;
   isSuperhost?: boolean;
+  occupation?: string;
+  hobbies?: string;
 }
 
 export interface Property {
@@ -89,6 +91,8 @@ export interface Property {
     timingTo: string | null;
     notes: string | null;
   }[];
+  address?: string;
+  nearbyLandmarks?: { name: string; distance: string }[];
 }
 
 export interface SearchFilters {
