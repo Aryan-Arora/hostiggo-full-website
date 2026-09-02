@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -13,15 +13,12 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 export default function HostLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, signIn } = useAuth();
   const router = useRouter();
+  // usePathname (not useSearchParams -- that requires a Suspense boundary
+  // and this layout wraps statically-prerendered pages like /host/account)
+  // is enough to preserve where the visitor was actually headed through the
+  // sign-in flow, instead of dropping them on a generic page after auth.
   const pathname = usePathname();
-  const searchParams = useSearchParams();
-
-  // Preserve where the visitor was actually headed (e.g. /host/list/method)
-  // through the sign-in flow, instead of dropping them on a generic page
-  // after they authenticate.
-  const search = searchParams?.toString();
-  const destination = `${pathname || '/host'}${search ? `?${search}` : ''}`;
-  const signInHref = `/signin?redirect=${encodeURIComponent(destination)}`;
+  const signInHref = `/signin?redirect=${encodeURIComponent(pathname || '/host')}`;
 
   if (loading) {
     return (
