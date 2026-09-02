@@ -30,6 +30,16 @@ export default function LocationPage() {
         if (result) {
           setDisplayAddress(result.displayName);
           setAddress(result.displayName);
+          // Without this, the next step (Confirm Address) requires city,
+          // state and postal code that were never actually captured here --
+          // its Next button just sits disabled with nothing telling the
+          // host why, since as far as they know they already "confirmed"
+          // the address by picking the pin.
+          update({
+            city: result.address.city,
+            state: result.address.state,
+            postalCode: result.address.postcode,
+          });
         }
       }
       // A draft can already have coordinates (e.g. resumed from
@@ -88,11 +98,19 @@ export default function LocationPage() {
     });
 
     // Resolve which curated location this pin falls under, so the listing
-    // isn't left with no location_id (see resolveLocationId above).
+    // isn't left with no location_id (see resolveLocationId above), and
+    // fill in city/state/postal code -- the Confirm Address step needs all
+    // three to enable Next, and they'd otherwise never get set from a
+    // search pick or a dragged pin, only from typing them in by hand.
     reverseGeocode(lat, lng).then((result) => {
       if (!result) return;
       resolveLocationId(result.address.city, result.address.county).then((locationId) => {
         if (locationId) update({ locationId });
+      });
+      update({
+        city: result.address.city,
+        state: result.address.state,
+        postalCode: result.address.postcode,
       });
     });
   };

@@ -17,7 +17,7 @@ const sections = [
       {
         id: "flexible",
         title: "2.1 Flexible Cancellation Policy",
-        body: `Under the Flexible Cancellation Policy, guests are eligible for a full refund if the booking is canceled at least forty-eight (48) hours before the scheduled check-in date. Cancellations made within forty-eight (48) hours of check-in are non-refundable. This policy is designed for hosts who prefer higher booking flexibility and guest confidence.`,
+        body: `Under the Flexible Cancellation Policy, guests are eligible for a full refund if the booking is canceled at least twenty-four (24) hours before the scheduled check-in date. Cancellations made within twenty-four (24) hours of check-in are non-refundable. This policy is designed for hosts who prefer higher booking flexibility and guest confidence.`,
       },
       {
         id: "moderate",
@@ -81,7 +81,7 @@ export default function CancellationPage() {
             Cancellation &amp; Refund Policy
           </h1>
           <p className="text-sm text-figma-ink/60 mb-6">
-            Last updated: December 1, 2025
+            Last updated: September 2, 2026
           </p>
           <p className="text-[15px] leading-7 text-figma-ink/80 max-w-3xl">
             Hostiggo follows a standardized, platform-defined cancellation

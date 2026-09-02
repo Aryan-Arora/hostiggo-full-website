@@ -77,9 +77,10 @@ export interface CancellationPolicyConfig {
   /** Days before check-in required for a partial refund under the Strict policy. Default 7. */
   strictPartialRefundDays?: number;
   /**
-   * Refund percentage applied under Strict when cancelled >= strictPartialRefundDays before
-   * check-in. NOT specified anywhere in the source spec -- defaults to 50% but this is a guess
-   * and should be confirmed / made per-listing configurable before relying on it.
+   * Refund fraction (0-1) applied under Strict when cancelled >= strictPartialRefundDays before
+   * check-in. Per-listing (listings.strict_partial_refund_percent) -- a host sets this when
+   * choosing the Strict policy in the listing wizard. Undefined/null falls back to the platform
+   * default (CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent, 50%).
    */
   strictPartialRefundPercent?: number;
   /** Any additional non-refundable charges (rupees) configured for this booking/listing, excluded from Moderate partial refunds. */

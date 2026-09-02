@@ -1,8 +1,52 @@
 'use client';
 
-import { ShieldCheck } from 'lucide-react';
+import { useEffect } from 'react';
+import { AlertCircle, ShieldCheck } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { useListingDraft } from '@/context/ListingDraftContext';
+
+// All 28 states + 8 union territories -- the previous list only had 5
+// states, which meant a host anywhere else literally couldn't select their
+// real state (and if it happened to get auto-filled from the map pin with a
+// value not on the list, the dropdown just looked blank).
+const STATES_AND_UTS = [
+  'Andhra Pradesh',
+  'Arunachal Pradesh',
+  'Assam',
+  'Bihar',
+  'Chhattisgarh',
+  'Goa',
+  'Gujarat',
+  'Haryana',
+  'Himachal Pradesh',
+  'Jharkhand',
+  'Karnataka',
+  'Kerala',
+  'Madhya Pradesh',
+  'Maharashtra',
+  'Manipur',
+  'Meghalaya',
+  'Mizoram',
+  'Nagaland',
+  'Odisha',
+  'Punjab',
+  'Rajasthan',
+  'Sikkim',
+  'Tamil Nadu',
+  'Telangana',
+  'Tripura',
+  'Uttar Pradesh',
+  'Uttarakhand',
+  'West Bengal',
+  'Andaman and Nicobar Islands',
+  'Chandigarh',
+  'Dadra and Nagar Haveli and Daman and Diu',
+  'Delhi',
+  'Jammu and Kashmir',
+  'Ladakh',
+  'Lakshadweep',
+  'Puducherry',
+] as const;
 
 export default function AddressPage() {
   const { draft, update } = useListingDraft();
@@ -11,12 +55,22 @@ export default function AddressPage() {
     update({ [field]: value });
   };
 
-  const isComplete =
-    draft.country &&
-    draft.addressLine1 &&
-    draft.city &&
-    draft.state &&
-    draft.postalCode;
+  // "Country" is a single-option select (India is the only choice) -- its
+  // onChange never fires since there's nothing else to pick, so draft.country
+  // would otherwise never actually get set despite always *displaying*
+  // "India". Seed it once so it isn't silently missing from isComplete.
+  useEffect(() => {
+    if (!draft.country) update({ country: 'India' });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const missingFields = [
+    !draft.addressLine1 && 'street address',
+    !draft.city && 'city',
+    !draft.state && 'state',
+    !draft.postalCode && 'postal code',
+  ].filter((f): f is string => Boolean(f));
+  const isComplete = missingFields.length === 0;
 
   return (
     <WizardShell
@@ -90,11 +144,11 @@ export default function AddressPage() {
                 className="w-full px-4 py-3 rounded-xl border border-gray-200 bg-white focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm appearance-none"
               >
                 <option value="" disabled>Select State</option>
-                <option value="Delhi">Delhi</option>
-                <option value="Maharashtra">Maharashtra</option>
-                <option value="Karnataka">Karnataka</option>
-                <option value="Madhya Pradesh">Madhya Pradesh</option>
-                <option value="Gujarat">Gujarat</option>
+                {STATES_AND_UTS.map((s) => (
+                  <option key={s} value={s}>
+                    {s}
+                  </option>
+                ))}
               </select>
             </div>
             <div>
@@ -110,6 +164,20 @@ export default function AddressPage() {
               />
             </div>
           </div>
+
+          {/* The map pin on the previous step usually fills in city/state/
+              postal code automatically, but reverse-geocoding doesn't always
+              return all three -- this tells the host exactly what's still
+              missing instead of leaving them staring at a disabled Next
+              button with no explanation. */}
+          {missingFields.length > 0 && (
+            <div className="flex gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+              <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-sm text-amber-800">
+                Please fill in {missingFields.join(', ')} before continuing.
+              </p>
+            </div>
+          )}
 
           <div className="mt-6 flex gap-3 p-4 bg-green-50/50 border border-green-100 rounded-xl">
             <ShieldCheck className="w-5 h-5 text-green-700 shrink-0 mt-0.5" />

@@ -677,6 +677,8 @@ export type ListingDraft = {
   currency?: string;
   latitude?: number;
   longitude?: number;
+  cancellationPolicy?: "flexible" | "moderate" | "strict";
+  strictPartialRefundPercent?: number;
 };
 
 export async function createListing(draft: ListingDraft) {
@@ -703,6 +705,13 @@ export async function createListing(draft: ListingDraft) {
     landmark: draft.landmark ?? null,
     latitude: draft.latitude ?? null,
     longitude: draft.longitude ?? null,
+    cancellation_policy: draft.cancellationPolicy ?? "moderate",
+    // Only stored for the Strict policy -- null otherwise, so the refund
+    // engine's platform-default fallback (50%) applies cleanly rather than
+    // a stray value lingering from a listing that later switched away from
+    // Strict.
+    strict_partial_refund_percent:
+      draft.cancellationPolicy === "strict" ? draft.strictPartialRefundPercent ?? null : null,
     created_at: now,
     updated_at: now,
   };

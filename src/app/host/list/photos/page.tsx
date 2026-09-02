@@ -2,7 +2,7 @@
 
 import { useRef, useState } from 'react';
 import Image from 'next/image';
-import { ImagePlus, Lightbulb, Trash2, Loader2, Star } from 'lucide-react';
+import { ImagePlus, Lightbulb, Trash2, Loader2, Star, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import WizardShell from '../_components/WizardShell';
 import { useListingDraft } from '@/context/ListingDraftContext';
@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const MAX_PHOTOS = 10;
+const MIN_PHOTOS = 3;
 
 export default function PhotosPage() {
   const { draft, update } = useListingDraft();
@@ -60,6 +61,7 @@ export default function PhotosPage() {
       step={8}
       title="Add some photos of your place"
       subtitle="Clear photos help guests book with confidence. The first photo is your cover."
+      nextDisabled={photos.length < MIN_PHOTOS}
     >
       <div className="max-w-4xl mx-auto">
         <input
@@ -114,6 +116,15 @@ export default function PhotosPage() {
           </span>
           <p className="text-sm text-gray-500">{photos.length} / {MAX_PHOTOS} photos uploaded</p>
         </div>
+
+        {photos.length < MIN_PHOTOS && (
+          <div className="flex gap-3 p-4 mb-6 bg-amber-50 border border-amber-200 rounded-xl">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              Upload at least {MIN_PHOTOS} photos to continue -- you have {photos.length} so far.
+            </p>
+          </div>
+        )}
 
         {/* Grid */}
         {photos.length === 0 ? (
