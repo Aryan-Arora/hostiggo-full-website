@@ -64,6 +64,10 @@ export interface Property {
   isInstantBook?: boolean;
   freeCancellation?: boolean;
   cancellationPolicy?: "flexible" | "moderate" | "strict";
+  // Only meaningful when cancellationPolicy === "strict" -- per-listing
+  // override of CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent.
+  // Undefined means this listing uses the platform default (50%).
+  strictPartialRefundPercent?: number;
   breakfast?: boolean;
   parking?: boolean;
   wifi?: boolean;

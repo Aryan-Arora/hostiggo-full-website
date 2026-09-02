@@ -22,34 +22,34 @@ function cancelAt(msBeforeCheckIn: number): Date {
   return new Date(CHECK_IN.getTime() - msBeforeCheckIn);
 }
 
-describe("calculateRefund -- Flexible policy (48h boundary)", () => {
+describe("calculateRefund -- Flexible policy (24h boundary, matches Airbnb's Flexible tier)", () => {
   const policyConfig: CancellationPolicyConfig = { policy: "flexible" };
 
-  it("full refund at exactly 48 hours before check-in", () => {
+  it("full refund at exactly 24 hours before check-in", () => {
     const result = calculateRefund({
       invoice,
       checkIn: CHECK_IN,
-      cancellationTime: cancelAt(48 * HOUR_MS),
+      cancellationTime: cancelAt(24 * HOUR_MS),
       policyConfig,
     });
     expect(result.refundAmountPaise).toBe(refundableBasePaise);
   });
 
-  it("full refund just outside the window (48h 1min before)", () => {
+  it("full refund just outside the window (24h 1min before)", () => {
     const result = calculateRefund({
       invoice,
       checkIn: CHECK_IN,
-      cancellationTime: cancelAt(48 * HOUR_MS + 60_000),
+      cancellationTime: cancelAt(24 * HOUR_MS + 60_000),
       policyConfig,
     });
     expect(result.refundAmountPaise).toBe(refundableBasePaise);
   });
 
-  it("no refund just inside the window (47h 59min before)", () => {
+  it("no refund just inside the window (23h 59min before)", () => {
     const result = calculateRefund({
       invoice,
       checkIn: CHECK_IN,
-      cancellationTime: cancelAt(48 * HOUR_MS - 60_000),
+      cancellationTime: cancelAt(24 * HOUR_MS - 60_000),
       policyConfig,
     });
     expect(result.refundAmountPaise).toBe(0);
