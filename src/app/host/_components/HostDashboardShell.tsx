@@ -191,7 +191,7 @@ export default function HostDashboardShell({
         <div className="hidden lg:block" />
         <div className="flex items-center gap-2 md:gap-3">
           <Link
-            href="/host/list/property-type"
+            href="/host/list/method"
             className="flex items-center gap-2 bg-figma-navy text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-figma-navy/90 transition-all active:scale-[0.99]"
           >
             <Plus className="w-5 h-5" />
