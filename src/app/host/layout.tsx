@@ -1,7 +1,7 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { Building2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
@@ -13,6 +13,15 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 export default function HostLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, signIn } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
+  const searchParams = useSearchParams();
+
+  // Preserve where the visitor was actually headed (e.g. /host/list/method)
+  // through the sign-in flow, instead of dropping them on a generic page
+  // after they authenticate.
+  const search = searchParams?.toString();
+  const destination = `${pathname || '/host'}${search ? `?${search}` : ''}`;
+  const signInHref = `/signin?redirect=${encodeURIComponent(destination)}`;
 
   if (loading) {
     return (
@@ -36,7 +45,7 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
             Your listings, bookings, and earnings live here. Sign in to continue.
           </p>
           <Link
-            href="/signin"
+            href={signInHref}
             className="block w-full bg-figma-navy text-white font-semibold py-3 rounded-xl hover:bg-figma-navy/90 transition-all"
           >
             Sign in
