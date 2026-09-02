@@ -427,6 +427,34 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
+  getPayoutMethod: () =>
+    request<{
+      account_holder_name: string;
+      bank_account_number: string; // masked, e.g. "••••1234"
+      bank_ifsc: string;
+      pan_number: string;
+      address_line1: string;
+      city: string;
+      state: string;
+      postal_code: string;
+      status: "submitted" | "onboarding" | "active" | "rejected";
+      created_at: string;
+      updated_at: string;
+    } | null>(`/api/host/payout-methods`),
+  savePayoutMethod: (payload: {
+    accountHolderName: string;
+    bankAccountNumber: string;
+    bankIfsc: string;
+    panNumber: string;
+    addressLine1: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  }) =>
+    request<{ status: string }>(`/api/host/payout-methods`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   cancelBooking: (bookingId: string | number, userId: string, reason?: string) =>
     request<any>(`/api/bookings/cancel`, {
       method: "POST",
