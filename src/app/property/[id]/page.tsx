@@ -2416,7 +2416,10 @@ export default function PropertyDetailsPage() {
                   <ul className="space-y-3 text-type-poppins-regular-16-128-03">
                     <li className="flex items-center gap-2.5 text-amber-700 font-medium">
                       <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
-                      {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refundable before {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days
+                      {Math.round(
+                        (property.strictPartialRefundPercent ??
+                          CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent) * 100,
+                      )}% refundable before {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days
                     </li>
                     <li className="flex items-center gap-2.5 text-rose-700 font-medium">
                       <X className="w-4 h-4 text-rose-500 flex-shrink-0" />

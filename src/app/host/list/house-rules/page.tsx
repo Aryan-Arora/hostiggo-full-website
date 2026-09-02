@@ -71,7 +71,7 @@ export default function HouseRulesPage() {
 
   return (
     <WizardShell
-      step={12}
+      step={13}
       title="Set house rules"
       subtitle="Clear rules help avoid misunderstandings with guests"
     >

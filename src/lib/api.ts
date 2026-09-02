@@ -150,6 +150,8 @@ export function mapListingToProperty(input: any): Property {
     isInstantBook: row.booking_mode === "auto" || Boolean(row.isInstantBook),
     freeCancellation: Boolean(row.freeCancellation),
     cancellationPolicy: (row.cancellation_policy ?? "moderate") as Property["cancellationPolicy"],
+    strictPartialRefundPercent:
+      row.strict_partial_refund_percent != null ? Number(row.strict_partial_refund_percent) : undefined,
     breakfast: boolFromAmenity(amenities, "breakfast"),
     parking: boolFromAmenity(amenities, "parking"),
     wifi: boolFromAmenity(amenities, "wifi"),

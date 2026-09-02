@@ -36,6 +36,12 @@ export type ListingDraft = {
     quiet_hours?: boolean;
   };
   photoUrls?: string[];
+  cancellationPolicy?: 'flexible' | 'moderate' | 'strict';
+  // Only meaningful when cancellationPolicy === 'strict' -- the fraction
+  // (0-1) refunded when a guest cancels at/beyond the policy's partial-
+  // refund window. Per-listing override of the platform default (50%, see
+  // CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent).
+  strictPartialRefundPercent?: number;
   country?: string;
   addressLine1?: string;
   landmark?: string;
