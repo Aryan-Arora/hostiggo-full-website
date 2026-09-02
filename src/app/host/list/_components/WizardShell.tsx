@@ -6,6 +6,8 @@ import { useRouter } from 'next/navigation';
 import { HelpCircle, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useListingDraft } from '@/context/ListingDraftContext';
+import { useAuth } from '@/context/AuthContext';
+import { clearAadhaarKycSkip } from '@/lib/aadhaar';
 import {
   AlertDialog,
   AlertDialogAction,
@@ -52,6 +54,7 @@ export default function WizardShell({
   nextDisabled?: boolean;
 }) {
   const router = useRouter();
+  const { userId } = useAuth();
   const { submit, submitting } = useListingDraft();
   const idx = step - 1;
   const prev = WIZARD_STEPS[idx - 1];
@@ -167,7 +170,12 @@ export default function WizardShell({
           <AlertDialogFooter>
             <AlertDialogCancel>Keep editing</AlertDialogCancel>
             <AlertDialogAction
-              onClick={() => router.push('/host/listings')}
+              onClick={() => {
+                // Abandoning this attempt -- next attempt should be gated
+                // for KYC again, same as a successful publish.
+                if (userId) clearAadhaarKycSkip(userId);
+                router.push('/host/listings');
+              }}
               className="bg-figma-navy hover:bg-figma-navy/90"
             >
               Yes, leave

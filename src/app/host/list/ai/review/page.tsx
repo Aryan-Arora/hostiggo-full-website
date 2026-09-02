@@ -5,6 +5,8 @@ import { useRouter } from 'next/navigation';
 import { AlertTriangle, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useListingDraft } from '@/context/ListingDraftContext';
+import { useAuth } from '@/context/AuthContext';
+import { clearAadhaarKycSkip } from '@/lib/aadhaar';
 import AiFlowShell from '../_components/AiFlowShell';
 import { loadGeneratedListing, type AiGeneratedListing } from '../_lib/aiImportDraft';
 
@@ -21,6 +23,7 @@ type Section = (typeof SECTIONS)[number];
 
 export default function AiReviewPage() {
   const router = useRouter();
+  const { userId } = useAuth();
   const { update } = useListingDraft();
   const [generated, setGenerated] = useState<AiGeneratedListing | null>(null);
   const [activeSection, setActiveSection] = useState<Section>('Basic Information');
@@ -278,7 +281,12 @@ export default function AiReviewPage() {
       <div className="fixed bottom-0 left-0 w-full z-50 flex justify-between items-center px-6 md:px-16 lg:px-20 py-5 bg-white border-t border-gray-200 shadow-lg">
         <button
           type="button"
-          onClick={() => router.push('/host/listings')}
+          onClick={() => {
+            // Abandoning this attempt -- next attempt should be gated for
+            // KYC again, same as a successful publish.
+            if (userId) clearAadhaarKycSkip(userId);
+            router.push('/host/listings');
+          }}
           className="px-6 py-2.5 border border-gray-300 rounded-xl text-sm font-semibold text-gray-600 hover:bg-gray-50 transition-all active:scale-95"
         >
           Discard
