@@ -11,7 +11,6 @@ import {
   MessageSquareText,
   LifeBuoy,
   Pencil,
-  Plus,
   ShieldCheck,
   CheckCircle2,
   Loader2,
@@ -85,6 +84,54 @@ export default function HostSettingsPage() {
   const [phone, setPhone] = useState('');
   const [about, setAbout] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Payouts & Taxes tab.
+  const [payoutMethod, setPayoutMethod] = useState<Awaited<
+    ReturnType<typeof api.getPayoutMethod>
+  > | null>(null);
+  const [loadingPayoutMethod, setLoadingPayoutMethod] = useState(true);
+  const [editingPayoutMethod, setEditingPayoutMethod] = useState(false);
+  const [payoutForm, setPayoutForm] = useState({
+    accountHolderName: '',
+    bankAccountNumber: '',
+    bankIfsc: '',
+    panNumber: '',
+    addressLine1: '',
+    city: '',
+    state: '',
+    postalCode: '',
+  });
+  const [savingPayoutMethod, setSavingPayoutMethod] = useState(false);
+
+  const loadPayoutMethod = async () => {
+    setLoadingPayoutMethod(true);
+    try {
+      const data = await api.getPayoutMethod();
+      setPayoutMethod(data);
+      setEditingPayoutMethod(!data);
+    } catch (err) {
+      console.error('[host/settings] payout method load failed:', err);
+    } finally {
+      setLoadingPayoutMethod(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPayoutMethod();
+  }, []);
+
+  const handleSavePayoutMethod = async () => {
+    setSavingPayoutMethod(true);
+    try {
+      await api.savePayoutMethod(payoutForm);
+      toast.success('Payout details saved.');
+      await loadPayoutMethod();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save payout details.');
+    } finally {
+      setSavingPayoutMethod(false);
+    }
+  };
 
   const loadProfile = async () => {
     if (!userId) return;
@@ -297,19 +344,198 @@ export default function HostSettingsPage() {
                       Manage how you receive your hosting earnings.
                     </p>
                   </div>
-                  <button
-                    disabled
-                    title="Coming soon"
-                    className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-400 rounded-xl font-bold cursor-not-allowed"
-                  >
-                    <Plus className="w-4 h-4" /> Add method
-                  </button>
+                  {!editingPayoutMethod && payoutMethod && (
+                    <button
+                      onClick={() => {
+                        setPayoutForm({
+                          accountHolderName: payoutMethod.account_holder_name,
+                          bankAccountNumber: '', // never re-shown in full; re-enter to change
+                          bankIfsc: payoutMethod.bank_ifsc,
+                          panNumber: payoutMethod.pan_number,
+                          addressLine1: payoutMethod.address_line1,
+                          city: payoutMethod.city,
+                          state: payoutMethod.state,
+                          postalCode: payoutMethod.postal_code,
+                        });
+                        setEditingPayoutMethod(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
+                    </button>
+                  )}
                 </div>
-                <div className="p-8 rounded-xl border border-dashed border-gray-200 text-center">
-                  <Landmark className="w-6 h-6 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">No payout method on file yet.</p>
-                  <p className="text-xs text-gray-400 mt-1">Payout management is coming soon.</p>
-                </div>
+
+                {loadingPayoutMethod ? (
+                  <div className="p-8 flex justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  </div>
+                ) : !editingPayoutMethod && payoutMethod ? (
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-xl border border-gray-200 grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Account holder</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.account_holder_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Bank account</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.bank_account_number}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">IFSC</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.bank_ifsc}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">PAN</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.pan_number}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                      <Landmark className="w-4 h-4 text-amber-600 shrink-0" />
+                      <p className="text-xs text-amber-800">
+                        {payoutMethod.status === 'submitted' &&
+                          "Your details are saved. We're setting up automatic payouts and will notify you once this account is ready to receive money."}
+                        {payoutMethod.status === 'onboarding' &&
+                          'Your payout account is being verified.'}
+                        {payoutMethod.status === 'active' &&
+                          'This account is active and ready to receive payouts.'}
+                        {payoutMethod.status === 'rejected' &&
+                          'This account could not be verified -- please review and resubmit your details.'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">
+                          Account holder name (as per bank/PAN)
+                        </label>
+                        <input
+                          type="text"
+                          value={payoutForm.accountHolderName}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, accountHolderName: e.target.value }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">
+                          Bank account number
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={payoutForm.bankAccountNumber}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({
+                              ...f,
+                              bankAccountNumber: e.target.value.replace(/\D/g, ''),
+                            }))
+                          }
+                          placeholder={payoutMethod ? 'Re-enter to change' : undefined}
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">IFSC code</label>
+                        <input
+                          type="text"
+                          value={payoutForm.bankIfsc}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, bankIfsc: e.target.value.toUpperCase() }))
+                          }
+                          placeholder="HDFC0001234"
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">PAN</label>
+                        <input
+                          type="text"
+                          value={payoutForm.panNumber}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, panNumber: e.target.value.toUpperCase() }))
+                          }
+                          placeholder="ABCDE1234F"
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Postal code</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={payoutForm.postalCode}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({
+                              ...f,
+                              postalCode: e.target.value.replace(/\D/g, '').slice(0, 6),
+                            }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Address</label>
+                        <input
+                          type="text"
+                          value={payoutForm.addressLine1}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, addressLine1: e.target.value }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">City</label>
+                        <input
+                          type="text"
+                          value={payoutForm.city}
+                          onChange={(e) => setPayoutForm((f) => ({ ...f, city: e.target.value }))}
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">State</label>
+                        <input
+                          type="text"
+                          value={payoutForm.state}
+                          onChange={(e) => setPayoutForm((f) => ({ ...f, state: e.target.value }))}
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 p-4 rounded-xl bg-figma-navy/5 border border-figma-navy/10">
+                      <Landmark className="w-4 h-4 text-figma-navy shrink-0" />
+                      <p className="text-xs text-gray-600">
+                        Automatic payouts aren&apos;t live yet -- saving your details now means you
+                        won&apos;t need to re-enter them once they are.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleSavePayoutMethod}
+                        disabled={savingPayoutMethod}
+                        className="px-6 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {savingPayoutMethod && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {savingPayoutMethod ? 'Saving…' : 'Save payout details'}
+                      </button>
+                      {payoutMethod && (
+                        <button
+                          onClick={() => setEditingPayoutMethod(false)}
+                          className="px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-6">
