@@ -7,13 +7,22 @@ export const dynamic = 'force-dynamic';
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, fullName, aadhaarNumber } = await req.json();
+    const { userId, fullName, aadhaarNumber, frontImagePath, backImagePath } = await req.json();
 
     if (!userId || typeof userId !== 'string') {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
     if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
       return NextResponse.json({ error: 'fullName is required' }, { status: 400 });
+    }
+    // Both sides required -- a single-side submission isn't enough to
+    // actually verify identity against, same reasoning real Aadhaar
+    // verification flows use.
+    if (typeof frontImagePath !== 'string' || !frontImagePath) {
+      return NextResponse.json({ error: 'Front photo of Aadhaar is required' }, { status: 400 });
+    }
+    if (typeof backImagePath !== 'string' || !backImagePath) {
+      return NextResponse.json({ error: 'Back photo of Aadhaar is required' }, { status: 400 });
     }
 
     const digits = String(aadhaarNumber ?? '').replace(/\s+/g, '');
@@ -34,6 +43,8 @@ export async function POST(req: NextRequest) {
           full_name: fullName.trim(),
           aadhaar_last4: last4,
           aadhaar_hash: hash,
+          front_image_path: frontImagePath,
+          back_image_path: backImagePath,
           status: 'pending',
           updated_at: new Date().toISOString(),
         },
