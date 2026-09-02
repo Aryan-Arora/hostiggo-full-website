@@ -27,7 +27,7 @@ export default function CTABanner() {
           </p>
 
           <Link
-            href="/host/list/property-type"
+            href="/host/list/method"
             className="mt-6 inline-flex items-center gap-2 bg-figma-navy hover:bg-figma-navy active:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-figma-navy/30 group"
           >
             Get started
