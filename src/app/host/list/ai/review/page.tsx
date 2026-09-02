@@ -74,6 +74,9 @@ export default function AiReviewPage() {
       numBathrooms,
       priceWeekday,
       priceWeekend,
+      // Real re-hosted photo URLs from the AI import, if any mirrored
+      // successfully -- see AiGeneratedListing.photoUrls.
+      photoUrls: generated.photoUrls,
       // Sensible defaults for fields this flow doesn't collect -- a host
       // publishing via AI import hasn't gone through the manual wizard's
       // property-type/stay-type steps, so createListing needs something.

@@ -8,56 +8,110 @@ import { loadAiImportDraft, saveGeneratedListing, type AiGeneratedListing } from
 
 type Outcome = 'loading' | 'success' | 'failure';
 
-// There is no real scraping/AI-generation backend yet -- this simulates the
-// call with a timeout and seeds a placeholder listing. Swap this function
-// out for a real API call once one exists; nothing else in the flow needs
-// to change (Review reads whatever saveGeneratedListing() wrote).
-function simulateGeneration(): Promise<AiGeneratedListing> {
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        title: 'Mountain Retreat Villa',
-        description:
-          'A serene mountain getaway with panoramic views, modern amenities, and easy access to local trails. Perfect for families and groups looking for a peaceful escape.',
-        numGuests: 6,
-        numBedrooms: 3,
-        numBeds: 4,
-        numBathrooms: 2,
-        amenityIds: [],
-        priceWeekday: 4500,
-        priceWeekend: 5800,
-        photosImported: 18,
-        amenitiesFound: 24,
-        aiScore: 94,
-      });
-    }, 2200);
+// A job whose status is still 'queued'/'processing' after this many polls
+// (~1.5s apart) is treated as failed rather than polled forever.
+const MAX_POLLS = 30;
+const POLL_INTERVAL_MS = 1500;
+
+function sleep(ms: number) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Maps a real AI-lister job result onto this flow's AiGeneratedListing
+ * shape. NOTE on the multi-listing case: only the first listing with a URL
+ * is imported here -- the "Add Another" / batch-import UI on Setup exists,
+ * but wiring N jobs through Review (which only ever edits one listing) is
+ * a separate piece of work; multiMode still saves every URL to the draft
+ * for whenever that's built.
+ */
+async function runRealImport(url: string): Promise<{ ok: true; listing: AiGeneratedListing } | { ok: false; error: string }> {
+  const createRes = await fetch('/api/host/ai-import/jobs', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
   });
+  const createBody = await createRes.json().catch(() => ({}));
+  if (!createRes.ok) {
+    return { ok: false, error: createBody?.error || 'Could not start the import.' };
+  }
+
+  let job = createBody.data;
+  let polls = 0;
+  while ((job.status === 'queued' || job.status === 'processing') && polls < MAX_POLLS) {
+    await sleep(POLL_INTERVAL_MS);
+    const pollRes = await fetch(`/api/host/ai-import/jobs/${job.id}`);
+    const pollBody = await pollRes.json().catch(() => ({}));
+    if (!pollRes.ok) {
+      return { ok: false, error: pollBody?.error || 'Lost track of the import job.' };
+    }
+    job = pollBody.data;
+    polls += 1;
+  }
+
+  if (job.status !== 'succeeded' || !job.validated_draft) {
+    return { ok: false, error: job.error || 'The source page could not be processed.' };
+  }
+
+  const draft = job.validated_draft;
+  const successfulPhotos = (job.photos ?? []).filter((p: any) => p.public_url);
+
+  return {
+    ok: true,
+    listing: {
+      title: draft.title || 'Untitled listing',
+      description: draft.description || '',
+      numGuests: draft.capacity?.max_guests ?? 2,
+      numBedrooms: draft.capacity?.bedrooms ?? 1,
+      numBeds: draft.capacity?.beds ?? 1,
+      numBathrooms: draft.capacity?.bathrooms ?? 1,
+      // AI-lister's amenities are free-text strings from the source site;
+      // mapping them onto this app's internal amenity_id enum isn't done
+      // yet, so amenitiesFound below reflects the real count even though
+      // amenityIds stays empty (same as the manual wizard leaves it until
+      // a host picks amenities themselves).
+      amenityIds: [],
+      priceWeekday: draft.pricing?.nightly_amount ?? 0,
+      priceWeekend: draft.pricing?.nightly_amount ?? 0,
+      photosImported: successfulPhotos.length,
+      amenitiesFound: draft.amenities?.length ?? 0,
+      aiScore: job.coverage?.summary?.percent_prefilled ?? 0,
+      photoUrls: successfulPhotos.map((p: any) => p.public_url as string),
+    },
+  };
 }
 
 function ProcessingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  // Debug-only affordance to view the failure state without a real backend
-  // to actually fail against: /host/list/ai/processing?fail=1
+  // Debug-only affordance to view the failure state on demand:
+  // /host/list/ai/processing?fail=1
   const forceFail = searchParams?.get('fail') === '1';
 
   const [outcome, setOutcome] = useState<Outcome>('loading');
+  const [errorMessage, setErrorMessage] = useState('');
   const [stats, setStats] = useState<AiGeneratedListing | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   const run = useCallback(async () => {
     setOutcome('loading');
     const draft = loadAiImportDraft();
-    const hasSourceUrl = draft.listings.some((l) => l.airbnbUrl.trim().length > 0);
+    const firstUrl = draft.listings.find((l) => l.airbnbUrl.trim().length > 0)?.airbnbUrl.trim();
 
-    if (forceFail || !hasSourceUrl) {
+    if (forceFail || !firstUrl) {
+      setErrorMessage('No source URL was provided.');
       setOutcome('failure');
       return;
     }
 
-    const generated = await simulateGeneration();
-    saveGeneratedListing(generated);
-    setStats(generated);
+    const result = await runRealImport(firstUrl);
+    if (!result.ok) {
+      setErrorMessage(result.error);
+      setOutcome('failure');
+      return;
+    }
+    saveGeneratedListing(result.listing);
+    setStats(result.listing);
     setOutcome('success');
   }, [forceFail]);
 
@@ -129,8 +183,7 @@ function ProcessingContent() {
                 is temporarily unavailable.
               </p>
               <div className="bg-red-50 border border-red-100 rounded-xl px-4 py-2.5 text-xs text-red-600 font-medium mb-6">
-                Error: Unable to access listing at the provided URL. Please verify the link and
-                try again.
+                Error: {errorMessage}
               </div>
               <button
                 type="button"

@@ -4,10 +4,9 @@
 // per-import toggles) that have no column to persist into and aren't part
 // of what actually gets sent to createListing.
 //
-// NOTE: there is no real scraping/AI-generation backend yet -- Processing
-// simulates it client-side (see ai/processing/page.tsx). Once a real
-// service exists, swap the simulation there for an actual API call; nothing
-// else in this flow needs to change.
+// Processing calls the real AI-lister backend (github.com/Hostiggo-Codebase/
+// AI-lister, deployed on Railway) via /api/host/ai-import/jobs -- see
+// src/lib/services/aiLister.ts and ai/processing/page.tsx.
 
 export type AiListingImport = {
   airbnbUrl: string;
@@ -59,9 +58,8 @@ export function clearAiImportDraft(): void {
   }
 }
 
-// The AI-"generated" listing content a host reviews/edits before publishing.
-// Seeded with placeholder content by Processing (since there's no real AI
-// backend yet) -- see the note above.
+// The AI-generated listing content a host reviews/edits before publishing.
+// Populated by Processing from the real AI-lister job result.
 export type AiGeneratedListing = {
   title: string;
   description: string;
@@ -75,6 +73,11 @@ export type AiGeneratedListing = {
   photosImported: number;
   amenitiesFound: number;
   aiScore: number;
+  // Real re-hosted photo URLs from AI-lister's photo_mirror stage (only
+  // ones that actually succeeded -- source photos it couldn't mirror, e.g.
+  // unsupported formats, are left out rather than linking back to the
+  // original site).
+  photoUrls: string[];
 };
 
 const GENERATED_KEY = 'hostiggo:ai-listing-generated';
