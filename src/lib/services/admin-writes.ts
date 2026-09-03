@@ -87,6 +87,40 @@ export async function uploadListingPhoto(
   return data.publicUrl;
 }
 
+const MIRROR_ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MIRROR_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Downloads a remote image URL and re-uploads it into our own
+ * "homestay photos" bucket, returning the public URL of the copy. Used by
+ * the AI-import flow, whose upstream service returns photos hosted on its
+ * own storage -- linking those directly would break as soon as that
+ * storage is purged and trips next/image's remote-host allowlist. Throws
+ * on a non-image, an oversize file, or a failed fetch so the caller can
+ * skip that one photo.
+ */
+export async function mirrorRemoteImageToListingBucket(url: string): Promise<string> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+
+  const type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (!MIRROR_ALLOWED_TYPES.has(type)) {
+    throw new Error(`unsupported content-type: ${type || "unknown"}`);
+  }
+  const declaredLen = Number(res.headers.get("content-length") || 0);
+  if (declaredLen && declaredLen > MIRROR_MAX_BYTES) {
+    throw new Error(`image too large: ${declaredLen} bytes`);
+  }
+
+  const data = await res.arrayBuffer();
+  if (data.byteLength > MIRROR_MAX_BYTES) {
+    throw new Error(`image too large: ${data.byteLength} bytes`);
+  }
+
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  return uploadListingPhoto({ data, name: `ai-import.${ext}`, type }, "listings/ai-import");
+}
+
 // ── Calendar ─────────────────────────────────────────────────────────────────
 /**
  * Throws unless `requestingUserId` is the host who owns `listingId`.

@@ -5,6 +5,9 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import AiFlowShell from '../_components/AiFlowShell';
 import { loadAiImportDraft, saveGeneratedListing, type AiGeneratedListing } from '../_lib/aiImportDraft';
+import { api } from '@/lib/api';
+import { matchAmenityNames } from '@/lib/services/amenityMatch';
+import { resolveLocationId } from '@/lib/services/geocoding';
 
 type Outcome = 'loading' | 'success' | 'failure';
 
@@ -25,7 +28,10 @@ function sleep(ms: number) {
  * a separate piece of work; multiMode still saves every URL to the draft
  * for whenever that's built.
  */
-async function runRealImport(url: string): Promise<{ ok: true; listing: AiGeneratedListing } | { ok: false; error: string }> {
+async function runRealImport(
+  url: string,
+  onPhase?: (phase: 'importing' | 'photos') => void,
+): Promise<{ ok: true; listing: AiGeneratedListing } | { ok: false; error: string }> {
   const createRes = await fetch('/api/host/ai-import/jobs', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -55,6 +61,49 @@ async function runRealImport(url: string): Promise<{ ok: true; listing: AiGenera
 
   const draft = job.validated_draft;
   const successfulPhotos = (job.photos ?? []).filter((p: any) => p.public_url);
+  const amenityLabels: string[] = Array.isArray(draft.amenities) ? draft.amenities : [];
+
+  // Fuzzy-match the source site's free-text amenities onto our amenity_id
+  // enum, and resolve the scraped city to a curated location_id. Both are
+  // best-effort -- the host confirms/adjusts them in the review screen.
+  let amenityIds: number[] = [];
+  try {
+    const catalog = await api.amenities();
+    amenityIds = matchAmenityNames(amenityLabels, catalog);
+  } catch (e) {
+    console.error('[ai-import] amenity match failed:', e);
+  }
+
+  let locationId: number | undefined;
+  try {
+    locationId = await resolveLocationId(draft.address?.city ?? undefined, draft.address?.state ?? undefined);
+  } catch (e) {
+    console.error('[ai-import] location resolve failed:', e);
+  }
+
+  // Copy the upstream-hosted photos into our own bucket before the review
+  // screen renders them (the source URLs aren't on an allow-listed image
+  // host and would break if that service purges its storage).
+  let photoUrls: string[] = [];
+  const sourceUrls = successfulPhotos.map((p: any) => p.public_url as string);
+  if (sourceUrls.length) {
+    onPhase?.('photos');
+    try {
+      const rehostRes = await fetch('/api/host/ai-import/rehost-photos', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ urls: sourceUrls }),
+      });
+      const rehostBody = await rehostRes.json().catch(() => ({}));
+      if (rehostRes.ok && Array.isArray(rehostBody?.data?.urls)) {
+        photoUrls = (rehostBody.data.urls as (string | null)[]).filter(
+          (u): u is string => typeof u === 'string',
+        );
+      }
+    } catch (e) {
+      console.error('[ai-import] photo re-host failed:', e);
+    }
+  }
 
   return {
     ok: true,
@@ -65,18 +114,24 @@ async function runRealImport(url: string): Promise<{ ok: true; listing: AiGenera
       numBedrooms: draft.capacity?.bedrooms ?? 1,
       numBeds: draft.capacity?.beds ?? 1,
       numBathrooms: draft.capacity?.bathrooms ?? 1,
-      // AI-lister's amenities are free-text strings from the source site;
-      // mapping them onto this app's internal amenity_id enum isn't done
-      // yet, so amenitiesFound below reflects the real count even though
-      // amenityIds stays empty (same as the manual wizard leaves it until
-      // a host picks amenities themselves).
-      amenityIds: [],
+      amenityIds,
+      amenityLabels,
       priceWeekday: draft.pricing?.nightly_amount ?? 0,
       priceWeekend: draft.pricing?.nightly_amount ?? 0,
-      photosImported: successfulPhotos.length,
-      amenitiesFound: draft.amenities?.length ?? 0,
+      photosImported: photoUrls.length,
+      amenitiesFound: amenityLabels.length,
       aiScore: job.coverage?.summary?.percent_prefilled ?? 0,
-      photoUrls: successfulPhotos.map((p: any) => p.public_url as string),
+      photoUrls,
+      latitude: draft.location?.lat ?? undefined,
+      longitude: draft.location?.lng ?? undefined,
+      locationId,
+      addressLine1: draft.address?.line ?? undefined,
+      city: draft.address?.city ?? undefined,
+      state: draft.address?.state ?? undefined,
+      postalCode: draft.address?.postal_code ?? undefined,
+      country: draft.address?.country ?? undefined,
+      propertyType: draft.property_type ?? undefined,
+      roomType: draft.room_type ?? undefined,
     },
   };
 }
@@ -89,12 +144,14 @@ function ProcessingContent() {
   const forceFail = searchParams?.get('fail') === '1';
 
   const [outcome, setOutcome] = useState<Outcome>('loading');
+  const [phase, setPhase] = useState<'importing' | 'photos'>('importing');
   const [errorMessage, setErrorMessage] = useState('');
   const [stats, setStats] = useState<AiGeneratedListing | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   const run = useCallback(async () => {
     setOutcome('loading');
+    setPhase('importing');
     const draft = loadAiImportDraft();
     const firstUrl = draft.listings.find((l) => l.airbnbUrl.trim().length > 0)?.airbnbUrl.trim();
 
@@ -104,7 +161,7 @@ function ProcessingContent() {
       return;
     }
 
-    const result = await runRealImport(firstUrl);
+    const result = await runRealImport(firstUrl, setPhase);
     if (!result.ok) {
       setErrorMessage(result.error);
       setOutcome('failure');
@@ -127,10 +184,13 @@ function ProcessingContent() {
           {outcome === 'loading' && (
             <>
               <Loader2 className="w-12 h-12 text-figma-navy animate-spin mx-auto mb-6" />
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Generating your listing…</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                {phase === 'photos' ? 'Saving photos to your library…' : 'Generating your listing…'}
+              </h2>
               <p className="text-sm text-gray-500">
-                Our AI is reading the listing, importing photos, and detecting amenities. This
-                usually takes under a minute.
+                {phase === 'photos'
+                  ? 'Copying the imported photos into your Hostiggo account so they stay put.'
+                  : 'Our AI is reading the listing, importing photos, and detecting amenities. This usually takes under a minute.'}
               </p>
             </>
           )}

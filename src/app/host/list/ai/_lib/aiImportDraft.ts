@@ -10,7 +10,6 @@
 
 export type AiListingImport = {
   airbnbUrl: string;
-  icalUrl: string;
   importAllPhotosA: boolean; // literal duplicate toggle, matches the provided design
   importAllPhotosB: boolean;
 };
@@ -24,7 +23,6 @@ const STORAGE_KEY = 'hostiggo:ai-listing-import';
 
 export const emptyImport = (): AiListingImport => ({
   airbnbUrl: '',
-  icalUrl: '',
   importAllPhotosA: true,
   importAllPhotosB: true,
 });
@@ -67,17 +65,33 @@ export type AiGeneratedListing = {
   numBedrooms: number;
   numBeds: number;
   numBathrooms: number;
+  // DB amenity_id[], fuzzy-matched from `amenityLabels` at import time and
+  // then editable by the host in the review screen.
   amenityIds: number[];
+  // Raw free-text amenity names the source site listed, kept for display
+  // ("detected from source") and re-matching.
+  amenityLabels: string[];
   priceWeekday: number;
   priceWeekend: number;
   photosImported: number;
   amenitiesFound: number;
   aiScore: number;
-  // Real re-hosted photo URLs from AI-lister's photo_mirror stage (only
-  // ones that actually succeeded -- source photos it couldn't mirror, e.g.
-  // unsupported formats, are left out rather than linking back to the
-  // original site).
+  // Photo URLs re-hosted into our own "homestay photos" bucket (only ones
+  // that mirrored successfully -- source photos we couldn't fetch/convert
+  // are dropped rather than linking back to the original site).
   photoUrls: string[];
+  // Location captured from the AI job, adjustable in review.
+  latitude?: number;
+  longitude?: number;
+  locationId?: number;
+  addressLine1?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  country?: string;
+  // Source property/room type strings (mapped to our enums at publish).
+  propertyType?: string;
+  roomType?: string;
 };
 
 const GENERATED_KEY = 'hostiggo:ai-listing-generated';

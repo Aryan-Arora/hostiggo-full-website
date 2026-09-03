@@ -29,6 +29,8 @@ import SafetyDetailsForm from '@/components/features/SafetyDetailsForm';
 import AddonsForm from '@/components/features/AddonsForm';
 import DiscountsForm from '@/components/features/DiscountsForm';
 import ListingPhotosManager from '@/components/features/ListingPhotosManager';
+import AmenitiesForm from '@/components/features/AmenitiesForm';
+import ListingLocationMap from '@/components/features/ListingLocationMap';
 import AddressSearch from '../../list/_components/AddressSearch';
 import { reverseGeocode, resolveLocationId } from '@/lib/services/geocoding';
 import { cn } from '@/lib/utils';
@@ -61,16 +63,17 @@ interface Location {
   pincode: string;
 }
 
-type SectionType = 
-  | 'overview' 
-  | 'description' 
-  | 'pricing' 
-  | 'discounts' 
-  | 'addons' 
-  | 'house-rules' 
-  | 'safety' 
-  | 'location' 
+type SectionType =
+  | 'overview'
+  | 'description'
+  | 'pricing'
+  | 'discounts'
+  | 'addons'
+  | 'house-rules'
+  | 'safety'
+  | 'location'
   | 'capacity'
+  | 'amenities'
   | 'photos';
 
 const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode; group: 'main' | 'monetization' }[] = [
@@ -78,6 +81,7 @@ const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode; group: 
   { id: 'overview', label: 'Listing Title', icon: <FileText className="w-5 h-5" />, group: 'main' },
   { id: 'description', label: 'Description', icon: <FileText className="w-5 h-5" />, group: 'main' },
   { id: 'capacity', label: 'Room & Capacity', icon: <Building2 className="w-5 h-5" />, group: 'main' },
+  { id: 'amenities', label: 'Amenities', icon: <Home className="w-5 h-5" />, group: 'main' },
   { id: 'location', label: 'Location', icon: <MapPinIcon className="w-5 h-5" />, group: 'main' },
   { id: 'pricing', label: 'Base & Weekend Price', icon: <DollarSign className="w-5 h-5" />, group: 'monetization' },
   { id: 'discounts', label: 'Discounts', icon: <Percent className="w-5 h-5" />, group: 'monetization' },
@@ -477,6 +481,10 @@ function SectionRenderer({
       title: 'Room & Capacity',
       description: 'Define your property specifications and room details',
     },
+    amenities: {
+      title: 'Amenities',
+      description: 'Tell guests what your place offers. Guests filter by these.',
+    },
   };
 
   const config = sectionConfig[section];
@@ -491,6 +499,10 @@ function SectionRenderer({
       <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-6 shadow-sm">
         {section === 'photos' && listingId ? (
           <ListingPhotosManager listingId={listingId} />
+        ) : null}
+
+        {section === 'amenities' && listingId ? (
+          <AmenitiesForm listingId={listingId} />
         ) : null}
 
         {section === 'overview' && (
@@ -691,6 +703,12 @@ function LocationSection({
 
   return (
     <div className="space-y-4">
+      <ListingLocationMap
+        latitude={formData?.latitude}
+        longitude={formData?.longitude}
+        heightClass="h-56"
+      />
+
       <div>
         <label className={labelClasses}>Address</label>
         <AddressSearch

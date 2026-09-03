@@ -145,7 +145,12 @@ export async function reverseGeocode(
     };
     cacheSet(cacheKey, geocoded);
     return geocoded;
-  } catch (error) {
+  } catch (error: any) {
+    // Silently fail for billing/authorization errors
+    if (error?.message?.includes('REQUEST_DENIED') || 
+        error?.message?.includes('BillingNotEnabled')) {
+      return null;
+    }
     console.error('[reverseGeocode] Error:', error);
     return null;
   }

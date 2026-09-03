@@ -114,7 +114,7 @@ function OnboardingContent() {
             <span className="text-white font-bold text-[16px]">H</span>
           </div>
           <span className="font-black text-gray-800 text-[16px] tracking-wider uppercase">
-            HOSTI<span className="text-figma-accent">GO</span>
+            HOSTI<span className="text-figma-accent">GGO</span>
           </span>
         </div>
 

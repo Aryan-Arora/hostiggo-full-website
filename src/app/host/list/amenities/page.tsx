@@ -2,107 +2,21 @@
 
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
-import {
-  Wifi,
-  UtensilsCrossed,
-  Snowflake,
-  Thermometer,
-  Tv,
-  WashingMachine,
-  Car,
-  PawPrint,
-  Waves,
-  Bath,
-  DoorOpen,
-  Sun,
-  Trees,
-  Flame,
-  Dumbbell,
-  ShieldAlert,
-  FireExtinguisher,
-  BriefcaseMedical,
-  Siren,
-  LayoutGrid,
-  Star,
-  ShieldCheck,
-  MapPin,
-  Lightbulb,
-  Check,
-  type LucideIcon,
-} from 'lucide-react';
+import { Check, Lightbulb, MapPin } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
-import { cn } from '@/lib/utils';
+import AmenityGrid from '@/components/features/AmenityGrid';
+import { LABELS, dbIdsFromStringIds, stringIdsFromDbIds } from '@/lib/amenityCatalog';
 import { useListingDraft } from '@/context/ListingDraftContext';
-
-type Amenity = { id: string; label: string; icon: LucideIcon };
-
-const CATEGORIES: { title: string; icon: LucideIcon; items: Amenity[] }[] = [
-  {
-    title: 'Essentials',
-    icon: LayoutGrid,
-    items: [
-      { id: 'wifi', label: 'WiFi', icon: Wifi },
-      { id: 'kitchen', label: 'Kitchen', icon: UtensilsCrossed },
-      { id: 'ac', label: 'Air Conditioning', icon: Snowflake },
-      { id: 'heating', label: 'Heating', icon: Thermometer },
-      { id: 'tv', label: 'TV', icon: Tv },
-      { id: 'washer', label: 'Washing Machine', icon: WashingMachine },
-      { id: 'parking', label: 'Free Parking', icon: Car },
-      { id: 'pets', label: 'Pets Allowed', icon: PawPrint },
-    ],
-  },
-  {
-    title: 'Features',
-    icon: Star,
-    items: [
-      { id: 'pool', label: 'Pool', icon: Waves },
-      { id: 'hottub', label: 'Hot Tub', icon: Bath },
-      { id: 'balcony', label: 'Balcony', icon: DoorOpen },
-      { id: 'deck', label: 'Deck', icon: Sun },
-      { id: 'garden', label: 'Garden', icon: Trees },
-      { id: 'bbq', label: 'BBQ Grill', icon: Flame },
-      { id: 'fireplace', label: 'Indoor Fireplace', icon: Flame },
-      { id: 'gym', label: 'Gym', icon: Dumbbell },
-    ],
-  },
-  {
-    title: 'Safety',
-    icon: ShieldCheck,
-    items: [
-      { id: 'smoke', label: 'Smoke Alarm', icon: ShieldAlert },
-      { id: 'extinguisher', label: 'Fire Extinguisher', icon: FireExtinguisher },
-      { id: 'firstaid', label: 'First Aid Kit', icon: BriefcaseMedical },
-      { id: 'emergency', label: 'Emergency Plan', icon: Siren },
-    ],
-  },
-];
-
-const LABELS = Object.fromEntries(
-  CATEGORIES.flatMap((c) => c.items).map((i) => [i.id, i.label]),
-);
-
-// Maps the wizard's amenity ids to the DB amenities table's amenity_id.
-const AMENITY_DB_ID: Record<string, number> = {
-  wifi: 1, ac: 2, heating: 3, kitchen: 4, washer: 5, parking: 7, tv: 8,
-  pool: 11, gym: 12, hottub: 13, balcony: 14, smoke: 16, extinguisher: 17,
-  firstaid: 18, pets: 19, bbq: 21, garden: 22,
-};
 
 export default function AmenitiesPage() {
   const { draft, update } = useListingDraft();
   const [selected, setSelected] = useState<Set<string>>(() => {
-    if (draft.amenityIds?.length) {
-      const fromDraft = Object.entries(AMENITY_DB_ID)
-        .filter(([, id]) => draft.amenityIds!.includes(id))
-        .map(([key]) => key);
-      return new Set(fromDraft);
-    }
-    return new Set(['wifi', 'kitchen']);
+    const fromDraft = stringIdsFromDbIds(draft.amenityIds);
+    return fromDraft.size > 0 ? fromDraft : new Set(['wifi', 'kitchen']);
   });
 
   useEffect(() => {
-    const ids = [...selected].map((k) => AMENITY_DB_ID[k]).filter(Boolean);
-    update({ amenityIds: ids });
+    update({ amenityIds: dbIdsFromStringIds(selected) });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selected]);
 
@@ -121,46 +35,8 @@ export default function AmenitiesPage() {
     >
       <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
         {/* Left: categories */}
-        <div className="md:col-span-8 space-y-8">
-          {CATEGORIES.map((cat) => {
-            const CatIcon = cat.icon;
-            return (
-              <section key={cat.title}>
-                <h2 className="text-lg font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <CatIcon className="w-5 h-5 text-figma-navy" />
-                  {cat.title}
-                </h2>
-                <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                  {cat.items.map((item) => {
-                    const Icon = item.icon;
-                    const active = selected.has(item.id);
-                    return (
-                      <button
-                        key={item.id}
-                        onClick={() => toggle(item.id)}
-                        className={cn(
-                          'flex flex-col items-center justify-center p-6 bg-white border rounded-xl h-full text-center transition-all hover:-translate-y-0.5',
-                          active
-                            ? 'border-figma-navy ring-1 ring-figma-navy bg-figma-navy/4'
-                            : 'border-gray-200 hover:border-gray-300',
-                        )}
-                      >
-                        <Icon
-                          className={cn(
-                            'w-7 h-7 mb-3',
-                            active ? 'text-figma-navy' : 'text-gray-500',
-                          )}
-                        />
-                        <span className="text-sm font-medium text-gray-700">
-                          {item.label}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-              </section>
-            );
-          })}
+        <div className="md:col-span-8">
+          <AmenityGrid selected={selected} onToggle={toggle} />
         </div>
 
         {/* Right: sticky preview */}

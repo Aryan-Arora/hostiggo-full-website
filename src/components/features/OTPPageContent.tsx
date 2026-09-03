@@ -197,7 +197,7 @@ export default function OTPPageContent() {
           <span className="text-white font-bold text-[16px]">H</span>
         </div>
         <span className="font-black text-white text-[16px] tracking-wider uppercase drop-shadow">
-          HOSTI<span className="text-figma-accent">GO</span>
+          HOSTI<span className="text-figma-accent">GGO</span>
         </span>
       </div>
 

@@ -8,11 +8,11 @@ import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import {
+  deferAadhaarKyc,
   formatAadhaarInput,
   hasSubmittedAadhaarKyc,
   isValidAadhaarNumber,
   markAadhaarKycSubmitted,
-  skipAadhaarKycThisAttempt,
 } from '@/lib/aadhaar';
 
 const authBg = '/auth-bg.jpg';
@@ -160,11 +160,12 @@ function AadhaarKycContent() {
     !!back.path &&
     !submitting;
 
-  // Doesn't mark KYC as submitted -- just lets this one listing attempt
-  // through. The gate re-applies the next time they start a new listing.
+  // KYC is optional. Deferring is a permanent choice -- the listing flow
+  // won't prompt again. The host can come back and finish verification
+  // anytime from Host Settings -> Identity Verification.
   const handleSkip = () => {
     if (!userId) return;
-    skipAadhaarKycThisAttempt(userId);
+    deferAadhaarKyc(userId);
     router.push(redirect);
   };
 
@@ -209,7 +210,7 @@ function AadhaarKycContent() {
           <span className="text-white font-bold text-[16px]">H</span>
         </div>
         <span className="font-black text-white text-[16px] tracking-wider uppercase drop-shadow">
-          HOSTI<span className="text-figma-accent">GO</span>
+          HOSTI<span className="text-figma-accent">GGO</span>
         </span>
       </div>
 
@@ -219,9 +220,10 @@ function AadhaarKycContent() {
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-1.5">Verify your identity</h1>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-          To keep bookings safe for everyone, we ask every host to upload a
-          photo of their Aadhaar card once before listing a property. This is
-          a one-time step -- we&apos;ll use it only for identity verification.
+          Verified hosts earn more guest trust and bookings. It&apos;s optional
+          and takes a minute -- upload a photo of your Aadhaar card once. You
+          can also do this later from Settings. We use it only for identity
+          verification.
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-5">
@@ -316,7 +318,7 @@ function AadhaarKycContent() {
           onClick={handleSkip}
           className="w-full text-center text-xs font-semibold text-gray-500 hover:text-gray-700 mt-4 transition-colors"
         >
-          Do KYC verification later
+          Skip for now — I&apos;ll verify later
         </button>
       </div>
     </div>

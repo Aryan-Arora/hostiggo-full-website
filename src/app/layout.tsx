@@ -26,7 +26,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en" className={poppins.variable}>
+    <html lang="en" className={poppins.variable} data-scroll-behavior="smooth">
       <body className={poppins.className}>
         <AuthProvider>
           <ListingFilterProvider>

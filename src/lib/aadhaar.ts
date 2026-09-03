@@ -68,29 +68,31 @@ export function hasSubmittedAadhaarKyc(userId: string): boolean {
 export function markAadhaarKycSubmitted(userId: string): void {
   if (typeof window === 'undefined') return;
   window.localStorage.setItem(kycFlagKey(userId), '1');
-  // A real submission always wins -- clear any "do it later" deferral so it
-  // can't linger and mask a future, unrelated skip check.
-  clearAadhaarKycSkip(userId);
+  // A real submission always wins -- clear any "do it later" deferral.
+  clearAadhaarKycDeferral(userId);
 }
 
-// "Do KYC verification later" -- deliberately sessionStorage, not
-// localStorage: it should only hold off the gate for the rest of *this*
-// listing attempt, not permanently. The gate itself clears this the moment
-// the host starts a new attempt (lands on /host/list/method again), so
-// skipping just means "not now", not "never ask again".
-const kycSkipKey = (userId: string) => `hostiggo:aadhaar-kyc-skip:${userId}`;
+// "Do KYC verification later" -- KYC is optional, so this is a *persistent*
+// localStorage flag, not a per-attempt one: once a host chooses to defer,
+// the listing flow never interrupts them for it again. They can still
+// complete verification whenever they want from Host Settings -> Identity
+// Verification (which links to /kyc/aadhaar), and doing so clears this via
+// markAadhaarKycSubmitted().
+const kycDeferKey = (userId: string) => `hostiggo:aadhaar-kyc-deferred:${userId}`;
 
-export function hasSkippedAadhaarKycThisAttempt(userId: string): boolean {
+export function hasDeferredAadhaarKyc(userId: string): boolean {
   if (typeof window === 'undefined') return false;
-  return window.sessionStorage.getItem(kycSkipKey(userId)) === '1';
+  return window.localStorage.getItem(kycDeferKey(userId)) === '1';
 }
 
-export function skipAadhaarKycThisAttempt(userId: string): void {
+export function deferAadhaarKyc(userId: string): void {
   if (typeof window === 'undefined') return;
-  window.sessionStorage.setItem(kycSkipKey(userId), '1');
+  window.localStorage.setItem(kycDeferKey(userId), '1');
 }
 
-export function clearAadhaarKycSkip(userId: string): void {
+export function clearAadhaarKycDeferral(userId: string): void {
   if (typeof window === 'undefined') return;
-  window.sessionStorage.removeItem(kycSkipKey(userId));
+  window.localStorage.removeItem(kycDeferKey(userId));
+  // Migrate away from the old per-session key if it's still around.
+  window.sessionStorage.removeItem(`hostiggo:aadhaar-kyc-skip:${userId}`);
 }
