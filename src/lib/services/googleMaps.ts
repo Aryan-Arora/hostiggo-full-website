@@ -24,7 +24,34 @@ export function onGoogleMapsAuthFailure(cb: () => void): () => void {
 
 if (typeof window !== 'undefined' && !(window as any).gm_authFailure) {
   (window as any).gm_authFailure = () => {
+    // Suppress Google Maps auth failures silently
     authFailureListeners.forEach((cb) => cb());
+  };
+}
+
+// Suppress Google Maps API warnings in console
+if (typeof window !== 'undefined') {
+  const originalError = console.error;
+  const originalWarn = console.warn;
+  
+  console.error = function(...args: any[]) {
+    const message = args.join(' ');
+    // Suppress Google Maps billing and loading warnings
+    if (message.includes('BillingNotEnabled') || 
+        message.includes('loaded directly without loading=async') ||
+        message.includes('Marker is deprecated')) {
+      return;
+    }
+    originalError.apply(console, args);
+  };
+
+  console.warn = function(...args: any[]) {
+    const message = args.join(' ');
+    // Suppress Google Maps warnings
+    if (message.includes('google.maps.Marker is deprecated')) {
+      return;
+    }
+    originalWarn.apply(console, args);
   };
 }
 
@@ -57,7 +84,7 @@ export function loadGoogleMaps(): Promise<typeof google> {
     const script = document.createElement('script');
     script.src = `https://maps.googleapis.com/maps/api/js?key=${encodeURIComponent(
       apiKey,
-    )}&libraries=places&callback=${callbackName}`;
+    )}&libraries=places&callback=${callbackName}&loading=async`;
     script.async = true;
     script.defer = true;
     script.onerror = () => {

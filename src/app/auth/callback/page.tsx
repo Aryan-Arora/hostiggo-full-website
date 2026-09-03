@@ -7,6 +7,8 @@ import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 
+const POST_AUTH_REDIRECT_KEY = 'hostiggo:post-auth-redirect';
+
 function AuthCallbackContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -16,8 +18,28 @@ function AuthCallbackContent() {
   useEffect(() => {
     let active = true;
     let timeoutId: ReturnType<typeof setTimeout>;
+    let subscription: { unsubscribe: () => void } | undefined;
 
-    const redirectTarget = searchParams?.get('redirect') || '/onboarding?mode=google';
+    // Where to land once signed in. The sign-in page stashes this in
+    // sessionStorage (so redirectTo can stay a bare, allow-listed URL); the
+    // old `?redirect=` query param is still honored as a fallback.
+    let redirectTarget = '/onboarding?mode=google';
+    try {
+      const stashed = window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
+      if (stashed) redirectTarget = stashed;
+    } catch {
+      /* storage disabled -- use default */
+    }
+    const queryRedirect = searchParams?.get('redirect');
+    if (queryRedirect) redirectTarget = queryRedirect;
+
+    const clearStash = () => {
+      try {
+        window.sessionStorage.removeItem(POST_AUTH_REDIRECT_KEY);
+      } catch {
+        /* ignore */
+      }
+    };
 
     const finish = async (session: Session) => {
       if (!active) return;
@@ -55,6 +77,7 @@ function AuthCallbackContent() {
         if (profile && profile.is_active === false) {
           await supabase.auth.signOut().catch(() => {});
           if (!active) return;
+          clearStash();
           router.replace('/signin?error=account_deactivated');
           return;
         }
@@ -65,6 +88,7 @@ function AuthCallbackContent() {
       if (!active) return;
       await signIn(user.id);
       if (!active) return;
+      clearStash();
       // Best-effort -- see /api/auth/log-login for why this can't be logged
       // server-side the way OTP/password sign-ins are.
       fetch('/api/auth/log-login', {
@@ -72,30 +96,56 @@ function AuthCallbackContent() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ userId: user.id, method: 'google' }),
       }).catch(() => {});
-      router.push(redirectTarget);
+      router.replace(redirectTarget);
     };
 
-    // A provider-side denial (e.g. "Cancel" on Google's consent screen)
-    // comes back as ?error=... on this page, not as a Supabase session --
-    // detectSessionInUrl won't produce one. Forward it to the sign-in page,
-    // which already has toast handling for this (previously dead code,
-    // since nothing routed errors there).
+    // A provider-side denial (e.g. "Cancel" on Google's consent screen) or a
+    // Supabase-side failure comes back as an error on this URL, not as a
+    // session. With the PKCE flow it's a `?error=...&error_description=...`
+    // query param; the implicit flow used to put it in the hash. Handle both
+    // and forward to the sign-in page, which has the toast handling for it.
     const hashParams = new URLSearchParams(window.location.hash.replace(/^#/, ''));
-    const oauthError = searchParams?.get('error') || hashParams.get('error');
+    const oauthError =
+      searchParams?.get('error') ||
+      searchParams?.get('error_code') ||
+      hashParams.get('error') ||
+      hashParams.get('error_code');
+    const oauthErrorDescription =
+      searchParams?.get('error_description') || hashParams.get('error_description');
     if (oauthError) {
+      console.error('[auth/callback] OAuth error:', oauthError, oauthErrorDescription);
+      clearStash();
       router.replace(`/signin?error=${encodeURIComponent(oauthError)}`);
       return;
     }
 
+    // Neither a code (PKCE), a token fragment (implicit / magic link), nor an
+    // error -- this page was opened directly or the provider redirect was
+    // misconfigured (e.g. redirectTo not on the Supabase "Redirect URLs"
+    // allow list, so Supabase bounced to the Site URL instead of here).
+    const hasCode = Boolean(searchParams?.get('code'));
+    const hasTokenFragment = hashParams.has('access_token');
+    if (!hasCode && !hasTokenFragment) {
+      console.error('[auth/callback] Opened with no auth code, token or error param');
+      clearStash();
+      router.replace('/signin?error=no_oauth_response');
+      return;
+    }
+
     (async () => {
-      // Supabase client is configured with detectSessionInUrl: true -- it
-      // exchanges the OAuth code from the URL automatically.
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
+      // detectSessionInUrl (set in src/lib/supabase.ts) exchanges the `?code=`
+      // for a session during client init; getSession() awaits that init, so a
+      // successful exchange is already reflected here.
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabase.auth.getSession();
       if (!active) return;
 
       if (sessionError) {
         console.error('[auth/callback] Session error:', sessionError);
-        setError(sessionError.message);
+        clearStash();
+        setError('Could not complete sign-in. Please try again.');
         return;
       }
 
@@ -104,27 +154,30 @@ function AuthCallbackContent() {
         return;
       }
 
-      // Session not established yet -- the URL exchange may still be in
-      // flight. Listen for it instead of polling.
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+      // Exchange may still be in flight -- listen for it rather than poll,
+      // with a bounded timeout so a stuck exchange surfaces an error instead
+      // of spinning forever.
+      const { data } = supabase.auth.onAuthStateChange((event, newSession) => {
         if (event === 'SIGNED_IN' && newSession?.user?.id) {
-          subscription.unsubscribe();
+          subscription?.unsubscribe();
           clearTimeout(timeoutId);
           finish(newSession);
         }
       });
+      subscription = data.subscription;
 
       timeoutId = setTimeout(() => {
-        subscription.unsubscribe();
-        if (active) setError('Authentication timed out. Please try again.');
-      }, 10000);
-
-      return () => subscription.unsubscribe();
+        subscription?.unsubscribe();
+        if (!active) return;
+        clearStash();
+        setError('Sign-in timed out. Please try again.');
+      }, 8000);
     })();
 
     return () => {
       active = false;
       clearTimeout(timeoutId);
+      subscription?.unsubscribe();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [router]);

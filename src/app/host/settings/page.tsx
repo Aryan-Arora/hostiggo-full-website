@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
+import { hasSubmittedAadhaarKyc } from '@/lib/aadhaar';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 
@@ -77,6 +78,7 @@ function SettingsLinkRow({
 export default function HostSettingsPage() {
   const { userId } = useAuth();
   const [tab, setTab] = useState('personal');
+  const [kycSubmitted, setKycSubmitted] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [name, setName] = useState('');
@@ -156,6 +158,10 @@ export default function HostSettingsPage() {
   useEffect(() => {
     loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) setKycSubmitted(hasSubmittedAadhaarKyc(userId));
   }, [userId]);
 
   const handleSave = async () => {
@@ -545,18 +551,30 @@ export default function HostSettingsPage() {
                   <div>
                     <h3 className="text-base font-bold text-gray-800">Identity Verification</h3>
                     <p className="text-sm text-gray-500">
-                      Your identity has been {profile?.isVerified ? 'successfully verified' : 'not yet verified'}.
+                      {profile?.isVerified
+                        ? 'Your identity has been successfully verified.'
+                        : kycSubmitted
+                          ? 'Your documents are in -- verification is in progress.'
+                          : 'Optional. Verified hosts get more guest trust and bookings.'}
                     </p>
                   </div>
                 </div>
-                <span
-                  className={cn(
-                    'flex items-center gap-2 font-bold',
-                    profile?.isVerified ? 'text-green-600' : 'text-gray-400',
-                  )}
-                >
-                  <CheckCircle2 className="w-5 h-5" /> {profile?.isVerified ? 'Verified' : 'Pending'}
-                </span>
+                {profile?.isVerified ? (
+                  <span className="flex items-center gap-2 font-bold text-green-600">
+                    <CheckCircle2 className="w-5 h-5" /> Verified
+                  </span>
+                ) : kycSubmitted ? (
+                  <span className="flex items-center gap-2 font-bold text-gray-400">
+                    <CheckCircle2 className="w-5 h-5" /> Pending
+                  </span>
+                ) : (
+                  <Link
+                    href="/kyc/aadhaar?redirect=/host/settings"
+                    className="px-5 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all whitespace-nowrap"
+                  >
+                    Verify now
+                  </Link>
+                )}
               </div>
             </>
           )}

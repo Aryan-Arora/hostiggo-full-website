@@ -30,13 +30,32 @@ const customFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   }
 };
 
+// PKCE is the flow Supabase documents for anything with a server side (this
+// app upserts the profile and verifies bearer tokens in /app/api/*). The
+// previous default, "implicit", is what dumped the raw
+// access_token/refresh_token into the URL fragment after Google sign-in.
+// With PKCE the provider redirects back with `?code=` and
+// detectSessionInUrl exchanges it for a session client-side, into the same
+// localStorage store every other flow here already uses. Only affects the
+// OAuth and email-magic-link redirects; the 6-digit email OTP, phone OTP and
+// password flows return a session directly and are unchanged.
+const authOptions = {
+  autoRefreshToken: true,
+  persistSession: true,
+  detectSessionInUrl: true,
+  flowType: "pkce" as const,
+};
+
+// Plain `createClient(...)` here (no wrapping getter/singleton) is
+// deliberate: Next.js only evaluates a module once per process, so this
+// already only runs once, and it lets TypeScript infer the client's schema
+// types from the literal call-site arguments. Wrapping it behind a
+// `ReturnType<typeof createClient>`-typed variable loses that inference and
+// collapses every `.from(table)` row type to `never` across the app --
+// don't reintroduce that.
 export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   global: { fetch: customFetch },
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
+  auth: authOptions,
   db: {
     schema: "hostiggo_testing_schema",
   },
@@ -51,11 +70,7 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // the homepage in production (it couldn't be prerendered/ISR'd at all).
 // Everywhere else in the app should keep using the `supabase` export above.
 export const supabaseCacheable = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: {
-    autoRefreshToken: true,
-    persistSession: true,
-    detectSessionInUrl: true,
-  },
+  auth: authOptions,
   db: {
     schema: "hostiggo_testing_schema",
   },

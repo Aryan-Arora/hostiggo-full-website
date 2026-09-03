@@ -1,17 +1,14 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
-  // Turbopack otherwise walks up looking for a workspace root and finds a
-  // package-lock.json one level up (in the parent "Hostiggo-website" dir,
-  // outside this git repo) -- pin it explicitly to this project.
-  turbopack: {
-    root: __dirname,
-  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
       { protocol: 'https', hostname: 'i.pravatar.cc' },
       { protocol: 'https', hostname: 'jhihqmkqvbwfniwculhk.supabase.co' },
+      // Google account profile photos (user_metadata.avatar_url / picture
+      // from Google OAuth) -- shown on the onboarding screen and profile.
+      { protocol: 'https', hostname: 'lh3.googleusercontent.com' },
     ],
     // Next 16 requires local images to be explicitly allow-listed,
     // especially ones with a query string (e.g. the hero photo's cache-

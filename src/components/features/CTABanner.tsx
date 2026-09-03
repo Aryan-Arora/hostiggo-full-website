@@ -23,7 +23,7 @@ export default function CTABanner() {
             Do you want to earn<br />effortlessly?
           </h2>
           <p className="text-slate-400 text-sm leading-relaxed">
-            List your homestay or property and start earning by hosting travellers from across India. Join thousands of hosts already earning on HostiGo.
+            List your homestay or property and start earning by hosting travellers from across India. Join thousands of hosts already earning on Hostiggo.
           </p>
 
           <Link

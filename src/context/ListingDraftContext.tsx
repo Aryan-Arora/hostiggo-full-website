@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { clearAadhaarKycSkip } from '@/lib/aadhaar';
 
 // The draft a host builds across the 9 wizard steps. Persisted to localStorage
 // so it survives step navigation and reloads, then POSTed on Finish.
@@ -123,9 +122,6 @@ export function ListingDraftProvider({ children }: { children: ReactNode }) {
     try {
       const result = await api.createListing({ userId, ...draft });
       reset();
-      // The listing attempt this deferral covered is over -- next time this
-      // host tries to list a property, the KYC gate should ask again.
-      clearAadhaarKycSkip(userId);
       if (result.warnings?.length) {
         toast.success('Listing created, but with some issues.');
         result.warnings.forEach((w) => toast.error(w));

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Link2, Plus, Sparkles, Info, X } from 'lucide-react';
+import { Link2, Plus, Sparkles, X } from 'lucide-react';
 import { Switch } from '@/components/ui/switch';
 import AiFlowShell from '../_components/AiFlowShell';
 import {
@@ -110,33 +110,18 @@ export default function AiSetupPage() {
 
                 <div>
                   <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
-                    Source Links
+                    Source Link
                   </p>
                   <label className="block text-sm font-semibold text-gray-800 mb-1.5">
                     Airbnb or Agoda Listing URL<span className="text-red-500">*</span>
                   </label>
-                  <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3.5 py-3 mb-4 focus-within:border-figma-navy focus-within:ring-1 focus-within:ring-figma-navy transition-all">
+                  <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3.5 py-3 focus-within:border-figma-navy focus-within:ring-1 focus-within:ring-figma-navy transition-all">
                     <Link2 className="w-4 h-4 text-gray-400 shrink-0" />
                     <input
                       type="url"
                       value={listing.airbnbUrl}
                       onChange={(e) => updateListing(idx, { airbnbUrl: e.target.value })}
                       placeholder="Example - airbnb.com/rooms/12345678"
-                      className="flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400"
-                    />
-                  </div>
-
-                  <label className="flex items-center gap-1.5 text-sm font-semibold text-gray-800 mb-1.5">
-                    ICA Link<span className="text-red-500">*</span>
-                    <Info className="w-3.5 h-3.5 text-gray-400" />
-                  </label>
-                  <div className="flex items-center gap-2 border border-gray-200 rounded-xl px-3.5 py-3 focus-within:border-figma-navy focus-within:ring-1 focus-within:ring-figma-navy transition-all">
-                    <Link2 className="w-4 h-4 text-gray-400 shrink-0" />
-                    <input
-                      type="url"
-                      value={listing.icalUrl}
-                      onChange={(e) => updateListing(idx, { icalUrl: e.target.value })}
-                      placeholder="ica.stayra.com/v1/link/abc"
                       className="flex-1 outline-none text-sm text-gray-900 placeholder:text-gray-400"
                     />
                   </div>
