@@ -668,6 +668,10 @@ export type ListingDraft = {
     quiet_hours?: boolean;
   };
   photoUrls?: string[];
+  // Index into photoUrls of the host's chosen cover. Falls back to the first
+  // photo when omitted (Rule A). Lets any path that supplies photos not
+  // cover-first (imports, admin tools) still land the right cover.
+  coverIndex?: number;
   checkInTime?: string;
   checkOutTime?: string;
   addressLine1?: string;
@@ -789,13 +793,21 @@ export async function createListing(draft: ListingDraft) {
     }
   }
 
-  // Photos (media rows). First photo is the cover.
+  // Photos (media rows). Persist the host's chosen cover explicitly (Rule A):
+  // derive is_cover from coverIndex, falling back to the first photo only when
+  // no valid index is supplied -- never leave the cover to array position alone.
   if (draft.photoUrls?.length) {
+    const coverIdx =
+      draft.coverIndex != null &&
+      draft.coverIndex >= 0 &&
+      draft.coverIndex < draft.photoUrls.length
+        ? draft.coverIndex
+        : 0;
     const mediaRows = draft.photoUrls.map((media_url, i) => ({
       listing_id: listingId,
       media_url,
       media_type: "image",
-      is_cover: i === 0,
+      is_cover: i === coverIdx,
     }));
     const { error: merr } = await supabaseAdmin.from("listing_media").insert(mediaRows);
     if (merr) {
@@ -805,6 +817,40 @@ export async function createListing(draft: ListingDraft) {
   }
 
   return { listing_id: listingId, title: listing.title, warnings };
+}
+
+// ── Cover photo ──────────────────────────────────────────────────────────────
+// Rule B (single source of truth): clear the listing's existing cover(s), then
+// flag the chosen media row -- so there is always exactly one is_cover per
+// listing. Scoped to the listing so a stale or foreign mediaId can never flip
+// another listing's cover.
+export async function setCoverPhoto(listingId: number, mediaId: string) {
+  // Confirm the target photo actually belongs to this listing before writing.
+  const { data: target, error: findErr } = await supabaseAdmin
+    .from("listing_media")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("id", mediaId)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (!target) throw new Error("Photo not found for this listing");
+
+  // Clear the current cover(s) for the listing.
+  const { error: clearErr } = await supabaseAdmin
+    .from("listing_media")
+    .update({ is_cover: false })
+    .eq("listing_id", listingId)
+    .eq("is_cover", true);
+  if (clearErr) throw clearErr;
+
+  // Flag the chosen row as the new cover.
+  const { error: setErr } = await supabaseAdmin
+    .from("listing_media")
+    .update({ is_cover: true })
+    .eq("id", mediaId);
+  if (setErr) throw setErr;
+
+  return { success: true };
 }
 
 // ── User profile ─────────────────────────────────────────────────────────────
