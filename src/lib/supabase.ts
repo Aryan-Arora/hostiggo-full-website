@@ -69,8 +69,22 @@ export const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
 // Next's static-generation pass throws "Dynamic server usage", which broke
 // the homepage in production (it couldn't be prerendered/ISR'd at all).
 // Everywhere else in the app should keep using the `supabase` export above.
+//
+// This client only ever does anonymous reads for cached reference data
+// (see src/lib/services/hotel.ts) -- it never needs to manage a user
+// session. GoTrue registers a client under its storage key regardless of
+// `persistSession`/`detectSessionInUrl`, so two clients built from the same
+// URL (and therefore the same default "sb-<project-ref>-auth-token" key)
+// still trip Supabase's "Multiple GoTrueClient instances detected" warning
+// even with both of those disabled. Giving this one its own storageKey is
+// the actual fix, not just disabling persistence.
 export const supabaseCacheable = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
-  auth: authOptions,
+  auth: {
+    ...authOptions,
+    persistSession: false,
+    detectSessionInUrl: false,
+    storageKey: "sb-hostiggo-cacheable-noop",
+  },
   db: {
     schema: "hostiggo_testing_schema",
   },
