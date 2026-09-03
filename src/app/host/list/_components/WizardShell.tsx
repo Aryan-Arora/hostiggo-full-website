@@ -69,9 +69,9 @@ export default function WizardShell({
       <header className="fixed top-0 left-0 w-full z-50 flex justify-between items-center px-6 md:px-16 lg:px-20 h-20 bg-white shadow-sm border-b border-gray-100">
         <Link
           href="/"
-          className="text-xl font-extrabold tracking-tight text-gray-900 flex items-center gap-2"
+          className="text-xl font-extrabold tracking-tight text-gray-900 flex items-center"
         >
-          HOSTI<span className="text-figma-navy">GGO</span>
+          <span>HOSTI<span className="text-figma-navy">GGO</span></span>
         </Link>
         <div className="flex items-center gap-4">
           <Link
