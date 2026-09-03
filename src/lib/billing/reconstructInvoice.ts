@@ -24,6 +24,7 @@ export function reconstructInvoice(
   endDate: string,
   priceWeekday: number,
   priceWeekend: number,
+  addonPrices?: { breakfastPrice?: number; otherServicesPrice?: number },
 ) {
   const nights = eachDateInRange(startDate, endDate);
   const subtotal = nights.reduce((sum, date) => {
@@ -37,6 +38,11 @@ export function reconstructInvoice(
   const gstRateBasisPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : priceWeekday;
   return {
     nights,
-    invoice: calculateBookingInvoice({ basePropertyPrice: subtotal, gstRateBasisPrice }),
+    invoice: calculateBookingInvoice({
+      basePropertyPrice: subtotal,
+      gstRateBasisPrice,
+      breakfastPrice: addonPrices?.breakfastPrice ?? 0,
+      otherServicesPrice: addonPrices?.otherServicesPrice ?? 0,
+    }),
   };
 }

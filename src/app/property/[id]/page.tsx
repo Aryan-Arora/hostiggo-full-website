@@ -1,55 +1,60 @@
-'use client';
+"use client";
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import Image from 'next/image';
-import DateRangePicker from '@/components/features/DateRangePicker';
-import { loadGoogleMaps } from '@/lib/services/googleMaps';
+import DateRangePicker from "@/components/features/DateRangePicker";
+import Footer from "@/components/layout/Footer";
+import Navbar from "@/components/layout/Navbar";
+import { useAuth } from "@/context/AuthContext";
+import { useWishlist } from "@/hooks/useWishlist";
+import { api, mapListingToProperty } from "@/lib/api";
+import { calculateBookingInvoice } from "@/lib/billing/invoice";
+import { CANCELLATION_POLICY_DEFAULTS } from "@/lib/billing/refund";
+import { loadGoogleMaps } from "@/lib/services/googleMaps";
+import { cn, toISODate } from "@/lib/utils";
+import type { Host, Property, Review } from "@/types";
 import { openRazorpayCheckout } from '@/lib/services/razorpayCheckout';
+import WishlistPicker from '@/components/features/WishlistPicker';
 import {
-  Star,
-  Heart,
-  MapPin,
-  Wifi,
-  Car,
-  Coffee,
-  Zap,
-  Droplets,
-  UtensilsCrossed,
-  ArrowLeft,
-  Mountain,
-  CheckCircle,
-  Users,
+  AlertTriangle,
+  Award,
   BedDouble,
+  CalendarDays,
+  Car,
+  CheckCircle,
+  ChevronDown,
   ChevronLeft,
   ChevronRight,
-  X,
-  CalendarDays,
-  Wind,
-  MessageSquare,
-  Award,
-  Shield,
   Clock,
-  ChevronDown,
-  Share2,
+  Coffee,
+  Droplets,
   ExternalLink,
   Grid3x3,
-  Filter,
-  AlertTriangle,
-} from 'lucide-react';
-import Navbar from '@/components/layout/Navbar';
-import Footer from '@/components/layout/Footer';
-import { cn, toISODate } from '@/lib/utils';
-import type { Property, AmenityItem, Review, Host } from '@/types';
-import { api, mapListingToProperty } from '@/lib/api';
-import { useAuth } from '@/context/AuthContext';
-import { useWishlist } from '@/hooks/useWishlist';
-import { toast } from 'sonner';
-import { calculateBookingInvoice } from '@/lib/billing/invoice';
-import { CANCELLATION_POLICY_DEFAULTS } from '@/lib/billing/refund';
+  Heart,
+  MapPin,
+  MessageSquare,
+  Mountain,
+  Share2,
+  Shield,
+  Star,
+  Users,
+  UtensilsCrossed,
+  Wifi,
+  Wind,
+  X,
+  Zap,
+  Filter
+} from "lucide-react";
+import Image from "next/image";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { toast } from "sonner";
 
 const FALLBACK =
-  'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
+  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
+
+// Site-wide kill switch for the real booking CTA -- flip back to false to
+// re-enable. The button stays visible (greyed out, non-clickable) so the
+// page layout doesn't shift.
+const BOOKING_DISABLED = true;
 
 // ── Amenity Icon Map ─────────────────────────────────────────────────
 const AMENITY_ICON_MAP: Record<string, React.ReactNode> = {
@@ -87,12 +92,12 @@ function GalleryModal({
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
-      if (e.key === 'ArrowLeft') prev();
-      if (e.key === 'ArrowRight') next();
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [onClose, prev, next]);
 
   return (
@@ -135,7 +140,7 @@ function GalleryModal({
           src={images[idx] || FALLBACK}
           alt={`Photo ${idx + 1}`}
           className="max-w-full max-h-full object-contain rounded-lg select-none"
-          style={{ animation: 'fadeIn 0.2s ease' }}
+          style={{ animation: "fadeIn 0.2s ease" }}
           draggable={false}
         />
         <button
@@ -164,10 +169,10 @@ function GalleryModal({
               onClick={() => setIdx(i)}
               aria-label={`View photo ${i + 1}`}
               className={cn(
-                'w-14 h-10 rounded-md overflow-hidden flex-shrink-0 border-2 transition-all',
+                "w-14 h-10 rounded-md overflow-hidden flex-shrink-0 border-2 transition-all",
                 i === idx
-                  ? 'border-white opacity-100 scale-105'
-                  : 'border-transparent opacity-50 hover:opacity-80',
+                  ? "border-white opacity-100 scale-105"
+                  : "border-transparent opacity-50 hover:opacity-80",
               )}
             >
               <img
@@ -209,7 +214,7 @@ function ImageGallery({
       {/* Grid: 1 large + 4 small */}
       <div
         className="relative rounded-2xl overflow-hidden mb-6"
-        style={{ height: 'clamp(260px, 44vw, 440px)' }}
+        style={{ height: "clamp(260px, 44vw, 440px)" }}
       >
         <div className="grid grid-cols-2 grid-rows-2 gap-1.5 h-full">
           {/* Primary large image */}
@@ -234,8 +239,8 @@ function ImageGallery({
               <div
                 key={i}
                 className={cn(
-                  'relative overflow-hidden cursor-pointer group',
-                  i === 3 && 'relative',
+                  "relative overflow-hidden cursor-pointer group",
+                  i === 3 && "relative",
                 )}
                 onClick={() => open(i + 1)}
               >
@@ -290,7 +295,7 @@ function PropertyMap({ property }: { property: Property }) {
   const [loaded, setLoaded] = useState(false);
 
   const CITY_CENTERS: Record<string, { lat: number; lng: number }> = {
-    'New Delhi': { lat: 28.6139, lng: 77.209 },
+    "New Delhi": { lat: 28.6139, lng: 77.209 },
     Manali: { lat: 32.2396, lng: 77.1887 },
     Shimla: { lat: 31.1048, lng: 77.1734 },
     Jaipur: { lat: 26.9124, lng: 75.7873 },
@@ -335,8 +340,8 @@ function PropertyMap({ property }: { property: Property }) {
           map,
           title: property.propertyName,
           icon: {
-            path: 'M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z',
-            fillColor: '#ef4444',
+            path: "M12 2C7.58 2 4 5.58 4 10c0 5.25 8 13 8 13s8-7.75 8-13c0-4.42-3.58-8-8-8zm0 11c-1.66 0-3-1.34-3-3s1.34-3 3-3 3 1.34 3 3-1.34 3-3 3z",
+            fillColor: "#ef4444",
             fillOpacity: 1,
             strokeWeight: 0,
             scale: 1.6,
@@ -344,15 +349,19 @@ function PropertyMap({ property }: { property: Property }) {
           },
         });
 
-        const infoWindow = new google.maps.InfoWindow({ content: property.propertyName });
-        marker.addListener('click', () => infoWindow.open({ map, anchor: marker }));
+        const infoWindow = new google.maps.InfoWindow({
+          content: property.propertyName,
+        });
+        marker.addListener("click", () =>
+          infoWindow.open({ map, anchor: marker }),
+        );
 
         mapInstanceRef.current = map;
         markerRef.current = marker;
         setLoaded(true);
       })
       .catch((err) => {
-        console.error('[PropertyMap] Failed to load Google Maps:', err);
+        console.error("[PropertyMap] Failed to load Google Maps:", err);
       });
 
     return () => {
@@ -421,10 +430,10 @@ function ReviewCard({ review }: { review: Review }) {
             <Star
               key={i}
               className={cn(
-                'w-3 h-3',
+                "w-3 h-3",
                 i < review.rating
-                  ? 'text-amber-400 fill-amber-400'
-                  : 'text-gray-200 fill-gray-200',
+                  ? "text-amber-400 fill-amber-400"
+                  : "text-gray-200 fill-gray-200",
               )}
             />
           ))}
@@ -440,7 +449,7 @@ function ReviewCard({ review }: { review: Review }) {
           onClick={() => setExpanded((v) => !v)}
           className="text-[12px] text-gray-800 font-bold underline mt-1 hover:text-figma-navy transition-colors"
         >
-          {expanded ? 'Show less' : 'Read more'}
+          {expanded ? "Show less" : "Read more"}
         </button>
       )}
     </div>
@@ -453,7 +462,7 @@ function WriteReview({ listingId }: { listingId: string }) {
   const router = useRouter();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
-  const [comment, setComment] = useState('');
+  const [comment, setComment] = useState("");
   const [submitting, setSubmitting] = useState(false);
 
   if (!isAuthenticated) {
@@ -461,11 +470,13 @@ function WriteReview({ listingId }: { listingId: string }) {
       <div className="mt-5 pt-5 border-t border-gray-100 text-center">
         <p className="text-[13px] text-gray-500">
           <button
-            onClick={() => router.push(`/signin?redirect=/property/${listingId}`)}
+            onClick={() =>
+              router.push(`/signin?redirect=/property/${listingId}`)
+            }
             className="text-figma-navy font-bold hover:underline"
           >
             Sign in
-          </button>{' '}
+          </button>{" "}
           to leave a review.
         </p>
       </div>
@@ -474,7 +485,7 @@ function WriteReview({ listingId }: { listingId: string }) {
 
   const submit = async () => {
     if (!rating) {
-      toast.error('Please pick a star rating.');
+      toast.error("Please pick a star rating.");
       return;
     }
     setSubmitting(true);
@@ -485,12 +496,14 @@ function WriteReview({ listingId }: { listingId: string }) {
         rating,
         comment: comment.trim() || undefined,
       });
-      toast.success('Thanks for your review!');
+      toast.success("Thanks for your review!");
       setRating(0);
-      setComment('');
+      setComment("");
       setTimeout(() => router.refresh(), 700);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Could not submit your review.');
+      toast.error(
+        err instanceof Error ? err.message : "Could not submit your review.",
+      );
     } finally {
       setSubmitting(false);
     }
@@ -509,14 +522,14 @@ function WriteReview({ listingId }: { listingId: string }) {
               onMouseEnter={() => setHover(v)}
               onMouseLeave={() => setHover(0)}
               onClick={() => setRating(v)}
-              aria-label={`${v} star${v > 1 ? 's' : ''}`}
+              aria-label={`${v} star${v > 1 ? "s" : ""}`}
             >
               <Star
                 className={cn(
-                  'w-6 h-6 transition-colors',
+                  "w-6 h-6 transition-colors",
                   (hover || rating) >= v
-                    ? 'text-amber-400 fill-amber-400'
-                    : 'text-gray-200 fill-gray-200',
+                    ? "text-amber-400 fill-amber-400"
+                    : "text-gray-200 fill-gray-200",
                 )}
               />
             </button>
@@ -537,7 +550,7 @@ function WriteReview({ listingId }: { listingId: string }) {
           disabled={submitting}
           className="px-6 py-2.5 bg-figma-navy text-white rounded-xl font-bold text-[13px] hover:bg-figma-navy/90 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
         >
-          {submitting ? 'Submitting…' : 'Submit review'}
+          {submitting ? "Submitting…" : "Submit review"}
         </button>
       </div>
     </div>
@@ -551,8 +564,10 @@ function HostCard({ host }: { host: Host }) {
 
   const handleMessageHost = () => {
     if (!isAuthenticated || !userId) {
-      toast.error('Please sign in to message the host');
-      router.push(`/signin?redirect=${encodeURIComponent(window.location.href)}`);
+      toast.error("Please sign in to message the host");
+      router.push(
+        `/signin?redirect=${encodeURIComponent(window.location.href)}`,
+      );
       return;
     }
 
@@ -563,7 +578,7 @@ function HostCard({ host }: { host: Host }) {
   return (
     <div
       className="bg-white rounded-2xl p-5"
-      style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+      style={{ boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}
     >
       <h2 className="text-[15px] font-bold text-gray-800 mb-4">
         Meet your host
@@ -692,7 +707,7 @@ function SuggestedStays({ current }: { current: Property }) {
             .slice(0, 8),
         );
       } catch (error) {
-        console.error('[property] failed to load suggested stays:', error);
+        console.error("[property] failed to load suggested stays:", error);
         if (mounted) setSuggested([]);
       }
     };
@@ -709,20 +724,20 @@ function SuggestedStays({ current }: { current: Property }) {
   return (
     <div
       className="bg-white rounded-2xl p-5"
-      style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+      style={{ boxShadow: "0 1px 8px rgba(0,0,0,0.07)" }}
     >
       <h2 className="text-[15px] font-bold text-gray-800 mb-4">
         You might also like
       </h2>
       <div
         className="flex gap-3 overflow-x-auto pb-1 -mx-1 px-1"
-        style={{ scrollbarWidth: 'none' }}
+        style={{ scrollbarWidth: "none" }}
       >
         {suggested.map((p) => (
           <div
             key={p.id}
             className="flex-shrink-0 w-[200px] bg-gray-50 rounded-xl overflow-hidden cursor-pointer group hover:-translate-y-0.5 transition-transform"
-            style={{ boxShadow: '0 1px 6px rgba(0,0,0,0.08)' }}
+            style={{ boxShadow: "0 1px 6px rgba(0,0,0,0.08)" }}
             onClick={() => {
               router.push(`/property/${p.id}`);
               window.scrollTo(0, 0);
@@ -760,7 +775,7 @@ function SuggestedStays({ current }: { current: Property }) {
                 <div className="flex items-center gap-1">
                   <Star className="w-2.5 h-2.5 text-amber-400 fill-amber-400" />
                   <span className="text-[10px] font-bold text-gray-700">
-                    {p.rating > 0 ? p.rating.toFixed(1) : 'New'}
+                    {p.rating > 0 ? p.rating.toFixed(1) : "New"}
                   </span>
                 </div>
                 <div>
@@ -795,9 +810,9 @@ function BookingWidget({
   const router = useRouter();
 
   // Seed dates from URL params (passed by search results)
-  const paramCheckIn = searchParams.get('checkIn');
-  const paramCheckOut = searchParams.get('checkOut');
-  const toDate = (s: string | null) => s ? new Date(s + 'T00:00:00') : null;
+  const paramCheckIn = searchParams.get("checkIn");
+  const paramCheckOut = searchParams.get("checkOut");
+  const toDate = (s: string | null) => (s ? new Date(s + "T00:00:00") : null);
 
   const [checkIn, setCheckIn] = useState<Date | null>(toDate(paramCheckIn));
   const [checkOut, setCheckOut] = useState<Date | null>(toDate(paramCheckOut));
@@ -817,7 +832,7 @@ function BookingWidget({
       end.setMonth(end.getMonth() + 12);
       try {
         const res = await fetch(
-          `/api/calendar?listingId=${property.id}&startDate=${toISODate(start)}&endDate=${toISODate(end)}`
+          `/api/calendar?listingId=${property.id}&startDate=${toISODate(start)}&endDate=${toISODate(end)}`,
         );
         const json = await res.json();
         if (cancelled || !res.ok) return;
@@ -827,8 +842,8 @@ function BookingWidget({
         }
         for (const b of json.data?.bookings ?? []) {
           if (b.status_id !== 2) continue;
-          const cur = new Date(b.start_date + 'T00:00:00');
-          const bookingEnd = new Date(b.end_date + 'T00:00:00');
+          const cur = new Date(b.start_date + "T00:00:00");
+          const bookingEnd = new Date(b.end_date + "T00:00:00");
           while (cur < bookingEnd) {
             blocked.add(toISODate(cur)!);
             cur.setDate(cur.getDate() + 1);
@@ -840,7 +855,9 @@ function BookingWidget({
       }
     };
     load();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [property.id]);
 
   // The booking card is `sticky`, so it only sits near the top of the
@@ -851,32 +868,42 @@ function BookingWidget({
   // whenever it opens so it's never invisible.
   useEffect(() => {
     if (showPicker) {
-      pickerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      pickerRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
     }
   }, [showPicker]);
 
   // 'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'
-  const [status, setStatus] = useState<'idle' | 'checking' | 'available' | 'unavailable' | 'booking' | 'confirmed'>(
-    paramCheckIn && paramCheckOut ? 'available' : 'idle'
+  const [status, setStatus] = useState<
+    "idle" | "checking" | "available" | "unavailable" | "booking" | "confirmed"
+  >(paramCheckIn && paramCheckOut ? "available" : "idle");
+  const [unavailableReason, setUnavailableReason] = useState("");
+  const selectedAddons = (property.addons ?? []).filter((a) =>
+    selectedAddonIds.includes(a.addonId),
   );
-  const [unavailableReason, setUnavailableReason] = useState('');
-  const selectedAddons = (property.addons ?? []).filter((a) => selectedAddonIds.includes(a.addonId));
   // Breakfast gets 5% GST, everything else selected gets 18% -- split the
   // selection by category so calculateBookingInvoice applies the right rate.
   const breakfastAddonsTotal = selectedAddons
-    .filter((a) => a.category?.toLowerCase().includes('breakfast'))
+    .filter((a) => a.category?.toLowerCase().includes("breakfast"))
     .reduce((sum, a) => sum + a.price, 0);
   const otherAddonsTotal = selectedAddons
-    .filter((a) => !a.category?.toLowerCase().includes('breakfast'))
+    .filter((a) => !a.category?.toLowerCase().includes("breakfast"))
     .reduce((sum, a) => sum + a.price, 0);
   const addonsTotal = breakfastAddonsTotal + otherAddonsTotal;
 
-  const nights = checkIn && checkOut
-    ? Math.max(0, Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000))
-    : 0;
+  const nights =
+    checkIn && checkOut
+      ? Math.max(
+          0,
+          Math.ceil((checkOut.getTime() - checkIn.getTime()) / 86400000),
+        )
+      : 0;
 
-  useEffect(() => { onNightsChange?.(nights); }, [nights]);
-  useEffect(() => { onGuestsChange?.(guests); }, [guests]);
+  useEffect(() => {
+    onNightsChange?.(nights);
+  }, [nights]);
+  useEffect(() => {
+    onGuestsChange?.(guests);
+  }, [guests]);
 
   // Mirrors the server-side calc in createBooking(), weekend nights
   // (Fri/Sat) bill at priceWeekend, everything else at the weekday price,
@@ -887,7 +914,12 @@ function BookingWidget({
   // is in the stay and bills at the weekend rate.
   const { subtotal, weekdayNights, weekendNights, checkInNightPrice } = (() => {
     if (!checkIn || !checkOut || nights === 0) {
-      return { subtotal: property.price, weekdayNights: 0, weekendNights: 0, checkInNightPrice: property.price };
+      return {
+        subtotal: property.price,
+        weekdayNights: 0,
+        weekendNights: 0,
+        checkInNightPrice: property.price,
+      };
     }
     const priceWeekend = property.priceWeekend ?? property.price;
     let sum = 0;
@@ -898,12 +930,19 @@ function BookingWidget({
       const dow = cur.getDay();
       const isWeekend = dow === 5 || dow === 6;
       sum += isWeekend ? priceWeekend : property.price;
-      if (isWeekend) weekend++; else weekday++;
+      if (isWeekend) weekend++;
+      else weekday++;
       cur.setDate(cur.getDate() + 1);
     }
     const checkInDow = checkIn.getDay();
-    const checkInNightPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : property.price;
-    return { subtotal: sum, weekdayNights: weekday, weekendNights: weekend, checkInNightPrice };
+    const checkInNightPrice =
+      checkInDow === 5 || checkInDow === 6 ? priceWeekend : property.price;
+    return {
+      subtotal: sum,
+      weekdayNights: weekday,
+      weekendNights: weekend,
+      checkInNightPrice,
+    };
   })();
   // Real GST/service-fee invoice from src/lib/billing/invoice.ts, replacing
   // the old flat 8%/12% estimate. `subtotal` (the weekend-aware sum across
@@ -922,8 +961,8 @@ function BookingWidget({
   const handleDatesChange = (ci: Date | null, co: Date | null) => {
     setCheckIn(ci);
     setCheckOut(co);
-    setStatus('idle');
-    setUnavailableReason('');
+    setStatus("idle");
+    setUnavailableReason("");
     if (ci && co) setShowPicker(false);
   };
 
@@ -936,45 +975,49 @@ function BookingWidget({
     // a malformed date to the API (it would otherwise interpolate as the
     // literal string "null" and fail confusingly server-side).
     if (!isoStart || !isoEnd) {
-      toast.error('Please select valid check-in and check-out dates.');
+      toast.error("Please select valid check-in and check-out dates.");
       return;
     }
-    setStatus('checking');
-    setUnavailableReason('');
+    setStatus("checking");
+    setUnavailableReason("");
     try {
       const res = await fetch(
-        `/api/bookings/check-availability?listingId=${property.id}&startDate=${isoStart}&endDate=${isoEnd}`
+        `/api/bookings/check-availability?listingId=${property.id}&startDate=${isoStart}&endDate=${isoEnd}`,
       );
       const data = await res.json();
       if (!res.ok || data.error) {
-        setStatus('idle');
-        toast.error(data.error ?? 'Could not check availability. Please try again.');
+        setStatus("idle");
+        toast.error(
+          data.error ?? "Could not check availability. Please try again.",
+        );
         return;
       }
       if (data.available) {
-        setStatus('available');
+        setStatus("available");
       } else {
-        setStatus('unavailable');
-        setUnavailableReason(data.reason ?? 'Property is not available on these dates.');
+        setStatus("unavailable");
+        setUnavailableReason(
+          data.reason ?? "Property is not available on these dates.",
+        );
       }
     } catch {
-      setStatus('idle');
-      toast.error('Could not check availability. Please try again.');
+      setStatus("idle");
+      toast.error("Could not check availability. Please try again.");
     }
   };
 
   const book = async () => {
     if (!isAuthenticated || !userId) {
-      toast('Please sign in to book this stay.');
+      toast("Please sign in to book this stay.");
       const params = new URLSearchParams();
-      if (checkIn) params.set('checkIn', toISODate(checkIn)!);
-      if (checkOut) params.set('checkOut', toISODate(checkOut)!);
+      if (checkIn) params.set("checkIn", toISODate(checkIn)!);
+      if (checkOut) params.set("checkOut", toISODate(checkOut)!);
       const qs = params.toString();
-      const returnTo = `/property/${property.id}${qs ? `?${qs}` : ''}`;
+      const returnTo = `/property/${property.id}${qs ? `?${qs}` : ""}`;
       router.push(`/signin?redirect=${encodeURIComponent(returnTo)}`);
       return;
     }
-    setStatus('booking');
+    setStatus("booking");
     try {
       // Step 1: price the stay and open a Razorpay order -- no booking
       // exists yet at this point.
@@ -987,7 +1030,6 @@ function BookingWidget({
         numChildren: 0,
         addonIds: selectedAddonIds,
       });
-
       // Step 2: guest actually pays via the Razorpay Checkout widget.
       let payment;
       try {
@@ -1026,34 +1068,40 @@ function BookingWidget({
         router.push(`/booking-confirmation/${created.booking_id}`);
       }
     } catch (err) {
-      console.error('[property] booking failed:', err);
-      toast.error(err instanceof Error ? err.message : 'Could not complete the booking.');
-      setStatus('available');
+      console.error("[property] booking failed:", err);
+      toast.error(
+        err instanceof Error ? err.message : "Could not complete the booking.",
+      );
+      setStatus("available");
     }
   };
 
   const formatDate = (d: Date | null) =>
-    d ? d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' }) : 'Add date';
+    d
+      ? d.toLocaleDateString("en-IN", { day: "numeric", month: "short" })
+      : "Add date";
 
   return (
-    <div
-      className="bg-white rounded-2xl p-5 sticky top-28"
-      style={{ boxShadow: '0 4px 24px rgba(0,0,0,0.10)' }}
-    >
+    <div className="bg-white rounded-3xl p-6 border border-gray-200 shadow-sm w-full">
       {/* Price header */}
       <div className="flex items-baseline gap-2 mb-1">
         {property.originalPrice && (
           <span className="text-[13px] text-gray-400 line-through">
-            ₹{property.originalPrice.toLocaleString('en-IN')}
+            ₹{property.originalPrice.toLocaleString("en-IN")}
           </span>
         )}
         <span className="text-[24px] font-extrabold text-figma-navy/90">
-          ₹{property.price.toLocaleString('en-IN')}
+          ₹{property.price.toLocaleString("en-IN")}
         </span>
         <span className="text-[12px] text-gray-400">/night</span>
         {property.originalPrice && (
           <span className="ml-auto text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full">
-            {Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)}% off
+            {Math.round(
+              ((property.originalPrice - property.price) /
+                property.originalPrice) *
+                100,
+            )}
+            % off
           </span>
         )}
       </div>
@@ -1063,7 +1111,7 @@ function BookingWidget({
           than baked into the displayed/charged price. */}
       <p className="text-[11px] font-bold text-emerald-600 mb-4 min-h-[14px]">
         {property.activeDiscount &&
-          `🏷️ ${property.activeDiscount.percent}% off: ${property.activeDiscount.type.replace(/_/g, ' ')}`}
+          `🏷️ ${property.activeDiscount.percent}% off: ${property.activeDiscount.type.replace(/_/g, " ")}`}
       </p>
 
       {/* Date selector, displays selected dates, opens picker on click.
@@ -1072,155 +1120,228 @@ function BookingWidget({
           container (sticky also establishes a positioning context, which
           was making the calendar render detached/misplaced). */}
       <div className="relative">
-      <div
-        className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-figma-navy/40 transition-colors"
-        onClick={() => setShowPicker((v) => !v)}
-      >
-        <div className="grid grid-cols-2 divide-x divide-gray-200">
-          <div className="p-2.5">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Check in</p>
-            <p className={`text-[13px] font-semibold ${checkIn ? 'text-gray-800' : 'text-gray-400'}`}>
-              {formatDate(checkIn)}
-            </p>
+        <div
+          className="border border-gray-200 rounded-xl overflow-hidden mb-2 cursor-pointer hover:border-figma-navy/40 transition-colors"
+          onClick={() => setShowPicker((v) => !v)}
+        >
+          <div className="grid grid-cols-2 divide-x divide-gray-200">
+            <div className="p-2.5">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Check in
+              </p>
+              <p
+                className={`text-[13px] font-semibold ${checkIn ? "text-gray-800" : "text-gray-400"}`}
+              >
+                {formatDate(checkIn)}
+              </p>
+            </div>
+            <div className="p-2.5">
+              <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                Check out
+              </p>
+              <p
+                className={`text-[13px] font-semibold ${checkOut ? "text-gray-800" : "text-gray-400"}`}
+              >
+                {formatDate(checkOut)}
+              </p>
+            </div>
           </div>
-          <div className="p-2.5">
-            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Check out</p>
-            <p className={`text-[13px] font-semibold ${checkOut ? 'text-gray-800' : 'text-gray-400'}`}>
-              {formatDate(checkOut)}
+
+          {/* Guests row */}
+          <div
+            className="border-t border-gray-200 p-2.5"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+              Guests
             </p>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setGuests((g) => Math.max(1, g - 1))}
+                className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:border-gray-400 transition-colors text-sm"
+              >
+                −
+              </button>
+              <span className="flex-1 text-center text-[13px] font-bold text-gray-800">
+                {guests} Guest{guests !== 1 ? "s" : ""}
+              </span>
+              <button
+                onClick={() =>
+                  setGuests((g) => Math.min(property.maxGuests, g + 1))
+                }
+                className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:border-gray-400 transition-colors text-sm"
+              >
+                +
+              </button>
+            </div>
           </div>
         </div>
 
-        {/* Guests row */}
-        <div className="border-t border-gray-200 p-2.5" onClick={(e) => e.stopPropagation()}>
-          <p className="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">Guests</p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setGuests((g) => Math.max(1, g - 1))}
-              className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:border-gray-400 transition-colors text-sm"
-            >
-              −
-            </button>
-            <span className="flex-1 text-center text-[13px] font-bold text-gray-800">
-              {guests} Guest{guests !== 1 ? 's' : ''}
-            </span>
-            <button
-              onClick={() =>
-                setGuests((g) => Math.min(property.maxGuests, g + 1))
-              }
-              className="w-7 h-7 rounded-full border border-gray-300 flex items-center justify-center text-gray-600 hover:border-gray-400 transition-colors text-sm"
-            >
-              +
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* DateRangePicker dropdown, anchored to the *right* edge of this
+        {/* DateRangePicker dropdown, anchored to the *right* edge of this
           narrow sidebar card. DateRangePicker overrides .dropdown-panel's
           default `position: absolute` with `!relative` and sets its own
           min(720px, 95vw) width, so this wrapper naturally shrink-to-fits
           around it and `right-0` correctly anchors the box's right edge. */}
-      {showPicker && (
-        <div
-          className="absolute top-[calc(100%+8px)] right-0 z-50"
-          style={{ scrollMarginTop: '90px' }}
-          ref={pickerRef}
-        >
-          <DateRangePicker
-            checkIn={checkIn}
-            checkOut={checkOut}
-            onChange={handleDatesChange}
-            onClose={() => setShowPicker(false)}
-            blockedDates={blockedDates}
-          />
-        </div>
-      )}
+        {showPicker && (
+          <div
+            className="absolute top-[calc(100%+8px)] right-0 z-50"
+            style={{ scrollMarginTop: "90px" }}
+            ref={pickerRef}
+          >
+            <DateRangePicker
+              checkIn={checkIn}
+              checkOut={checkOut}
+              onChange={handleDatesChange}
+              onClose={() => setShowPicker(false)}
+              blockedDates={blockedDates}
+            />
+          </div>
+        )}
       </div>
 
       {/* Unavailable message */}
-      {status === 'unavailable' && (
+      {status === "unavailable" && (
         <p className="text-[11px] text-red-500 font-medium mb-2 flex items-center gap-1">
           <X className="w-3 h-3" /> {unavailableReason}
         </p>
       )}
 
       {/* Price breakdown, only show when available/confirmed */}
-      {nights > 0 && (status === 'available' || status === 'confirmed' || status === 'booking') && (
-        <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
-          <div className="flex justify-between text-gray-600">
-            <span>
-              {weekendNights === 0 || weekdayNights === 0 ? (
-                <>
-                  ₹{(weekendNights > 0 ? (property.priceWeekend ?? property.price) : property.price).toLocaleString('en-IN')} × {nights} night{nights > 1 ? 's' : ''}
-                </>
-              ) : (
-                <>
-                  ₹{property.price.toLocaleString('en-IN')} × {weekdayNights} night{weekdayNights > 1 ? 's' : ''} + ₹{(property.priceWeekend ?? property.price).toLocaleString('en-IN')} × {weekendNights} night{weekendNights > 1 ? 's' : ''}
-                </>
-              )}
-            </span>
-            <span className="font-semibold">₹{subtotal.toLocaleString('en-IN')}</span>
-          </div>
-          {selectedAddons.map((a) => (
-            <div key={a.addonId} className="flex justify-between text-gray-600">
-              <span>{a.name}</span>
-              <span className="font-semibold">₹{a.price.toLocaleString('en-IN')}</span>
-            </div>
-          ))}
-          <div className="flex justify-between text-gray-600">
-            <span>GST on property ({(invoice.propertyGstRate * 100).toFixed(0)}%)</span>
-            <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-            <span>Hostiggo service fee ({(invoice.hostiggoServiceFeeRate * 100).toFixed(0)}%)</span>
-            <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
-          </div>
-          <div className="flex justify-between text-gray-600">
-            <span>GST on service fee (18%)</span>
-            <span className="font-semibold">₹{(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString('en-IN')}</span>
-          </div>
-          {invoice.breakfastGstPaise > 0 && (
+      {nights > 0 &&
+        (status === "available" ||
+          status === "confirmed" ||
+          status === "booking") && (
+          <div className="mb-4 bg-gray-50 rounded-xl p-3 space-y-2 text-[12px]">
             <div className="flex justify-between text-gray-600">
-              <span>GST on breakfast (5%)</span>
-              <span className="font-semibold">₹{(invoice.breakfastGstPaise / 100).toLocaleString('en-IN')}</span>
+              <span>
+                {weekendNights === 0 || weekdayNights === 0 ? (
+                  <>
+                    ₹
+                    {(weekendNights > 0
+                      ? (property.priceWeekend ?? property.price)
+                      : property.price
+                    ).toLocaleString("en-IN")}{" "}
+                    × {nights} night{nights > 1 ? "s" : ""}
+                  </>
+                ) : (
+                  <>
+                    ₹{property.price.toLocaleString("en-IN")} × {weekdayNights}{" "}
+                    night{weekdayNights > 1 ? "s" : ""} + ₹
+                    {(property.priceWeekend ?? property.price).toLocaleString(
+                      "en-IN",
+                    )}{" "}
+                    × {weekendNights} night{weekendNights > 1 ? "s" : ""}
+                  </>
+                )}
+              </span>
+              <span className="font-semibold">
+                ₹{subtotal.toLocaleString("en-IN")}
+              </span>
             </div>
-          )}
-          {invoice.otherServicesGstPaise > 0 && (
+            {selectedAddons.map((a) => (
+              <div
+                key={a.addonId}
+                className="flex justify-between text-gray-600"
+              >
+                <span>{a.name}</span>
+                <span className="font-semibold">
+                  ₹{a.price.toLocaleString("en-IN")}
+                </span>
+              </div>
+            ))}
             <div className="flex justify-between text-gray-600">
-              <span>GST on other services (18%)</span>
-              <span className="font-semibold">₹{(invoice.otherServicesGstPaise / 100).toLocaleString('en-IN')}</span>
+              <span>
+                GST on property ({(invoice.propertyGstRate * 100).toFixed(0)}%)
+              </span>
+              <span className="font-semibold">
+                ₹{(invoice.gstOnPropertyPaise / 100).toLocaleString("en-IN")}
+              </span>
             </div>
-          )}
-          <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
-            <span>Total</span>
-            <span className="text-figma-navy/90">₹{total.toLocaleString('en-IN')}</span>
+            <div className="flex justify-between text-gray-600">
+              <span>
+                Hostiggo service fee (
+                {(invoice.hostiggoServiceFeeRate * 100).toFixed(0)}%)
+              </span>
+              <span className="font-semibold">
+                ₹{serviceFee.toLocaleString("en-IN")}
+              </span>
+            </div>
+            <div className="flex justify-between text-gray-600">
+              <span>GST on service fee (18%)</span>
+              <span className="font-semibold">
+                ₹
+                {(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString(
+                  "en-IN",
+                )}
+              </span>
+            </div>
+            {invoice.breakfastGstPaise > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>GST on breakfast (5%)</span>
+                <span className="font-semibold">
+                  ₹{(invoice.breakfastGstPaise / 100).toLocaleString("en-IN")}
+                </span>
+              </div>
+            )}
+            {invoice.otherServicesGstPaise > 0 && (
+              <div className="flex justify-between text-gray-600">
+                <span>GST on other services (18%)</span>
+                <span className="font-semibold">
+                  ₹
+                  {(invoice.otherServicesGstPaise / 100).toLocaleString(
+                    "en-IN",
+                  )}
+                </span>
+              </div>
+            )}
+            <div className="flex justify-between font-bold text-gray-800 pt-2 border-t border-gray-200 text-[13px]">
+              <span>Total</span>
+              <span className="text-figma-navy/90">
+                ₹{total.toLocaleString("en-IN")}
+              </span>
+            </div>
           </div>
-        </div>
-      )}
+        )}
 
       {/* CTA button */}
-      {status === 'confirmed' ? (
+      {status === "confirmed" ? (
         <div className="w-full bg-emerald-500 text-white py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2">
           <CheckCircle className="w-5 h-5" /> Booking confirmed!
         </div>
-      ) : status === 'available' || status === 'booking' ? (
-        <button
-          onClick={book}
-          disabled={status === 'booking'}
-          className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <CalendarDays className="w-4 h-4" />
-          {status === 'booking' ? 'Booking…' : `Book for ${nights} Night${nights > 1 ? 's' : ''}`}
-        </button>
+      ) : status === "available" || status === "booking" ? (
+        // Bookings are temporarily disabled site-wide -- button stays
+        // visible so the page layout/flow is unchanged, but is inert.
+        BOOKING_DISABLED ? (
+          <div className="w-full bg-gray-100 text-gray-400 py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 cursor-not-allowed">
+            <CalendarDays className="w-4 h-4" />
+            Bookings temporarily unavailable
+          </div>
+        ) : (
+          <button
+            onClick={book}
+            disabled={status === "booking"}
+            className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <CalendarDays className="w-4 h-4" />
+            {status === "booking"
+              ? "Booking…"
+              : `Book for ${nights} Night${nights > 1 ? "s" : ""}`}
+          </button>
+        )
       ) : (
         <button
-          onClick={checkIn && checkOut ? checkAvailability : () => setShowPicker(true)}
-          disabled={status === 'checking'}
+          onClick={
+            checkIn && checkOut ? checkAvailability : () => setShowPicker(true)
+          }
+          disabled={status === "checking"}
           className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
         >
           <CalendarDays className="w-4 h-4" />
-          {status === 'checking' ? 'Checking…' : checkIn && checkOut ? 'Check Availability' : 'Select Dates'}
+          {status === "checking"
+            ? "Checking…"
+            : checkIn && checkOut
+              ? "Check Availability"
+              : "Select Dates"}
         </button>
       )}
 
@@ -1245,12 +1366,12 @@ function BookingWidget({
 
 // ── Reviews Modal ───────────────────────────────────────────────────
 const STAR_FILTERS = [
-  { label: 'All', value: 0 },
-  { label: '5 stars', value: 5 },
-  { label: '4 stars', value: 4 },
-  { label: '3 stars', value: 3 },
-  { label: '2 stars', value: 2 },
-  { label: '1 star', value: 1 },
+  { label: "All", value: 0 },
+  { label: "5 stars", value: 5 },
+  { label: "4 stars", value: 4 },
+  { label: "3 stars", value: 3 },
+  { label: "2 stars", value: 2 },
+  { label: "1 star", value: 1 },
 ];
 
 function ReviewsModal({
@@ -1270,39 +1391,39 @@ function ReviewsModal({
 
   // Lock body scroll
   useEffect(() => {
-    document.body.style.overflow = 'hidden';
+    document.body.style.overflow = "hidden";
     return () => {
-      document.body.style.overflow = '';
+      document.body.style.overflow = "";
     };
   }, []);
 
   // Close on Escape
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose();
+      if (e.key === "Escape") onClose();
     };
-    window.addEventListener('keydown', handler);
-    return () => window.removeEventListener('keydown', handler);
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
   }, [onClose]);
 
   const filtered =
     starFilter === 0 ? reviews : reviews.filter((r) => r.rating === starFilter);
 
   const currentLabel =
-    STAR_FILTERS.find((f) => f.value === starFilter)?.label ?? 'All';
+    STAR_FILTERS.find((f) => f.value === starFilter)?.label ?? "All";
 
   return (
     <div
       className="fixed inset-0 z-[9998] flex items-center justify-center p-4"
-      style={{ background: 'rgba(0,0,0,0.45)', backdropFilter: 'blur(4px)' }}
+      style={{ background: "rgba(0,0,0,0.45)", backdropFilter: "blur(4px)" }}
       onClick={onClose}
     >
       <div
         className="bg-white rounded-2xl w-full max-w-lg flex flex-col"
         style={{
-          boxShadow: '0 24px 80px rgba(0,0,0,0.28)',
-          maxHeight: '82vh',
-          animation: 'modalSlideUp 0.22s ease',
+          boxShadow: "0 24px 80px rgba(0,0,0,0.28)",
+          maxHeight: "82vh",
+          animation: "modalSlideUp 0.22s ease",
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1312,7 +1433,7 @@ function ReviewsModal({
           <div className="flex items-center gap-1.5 bg-emerald-500 text-white px-2.5 py-1 rounded-lg">
             <Star className="w-3.5 h-3.5 fill-white" />
             <span className="text-[14px] font-extrabold">
-              {rating > 0 ? rating.toFixed(1) : 'New'}
+              {rating > 0 ? rating.toFixed(1) : "New"}
             </span>
           </div>
           <div>
@@ -1326,24 +1447,24 @@ function ReviewsModal({
             <button
               onClick={() => setFilterOpen((o) => !o)}
               className={cn(
-                'flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-all',
+                "flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border text-[12px] font-semibold transition-all",
                 filterOpen
-                  ? 'border-figma-navy/40 bg-figma-navy/5 text-figma-navy/90'
-                  : 'border-gray-200 bg-white text-gray-700 hover:border-gray-300',
+                  ? "border-figma-navy/40 bg-figma-navy/5 text-figma-navy/90"
+                  : "border-gray-200 bg-white text-gray-700 hover:border-gray-300",
               )}
             >
               {currentLabel}
               <ChevronDown
                 className={cn(
-                  'w-3 h-3 transition-transform',
-                  filterOpen && 'rotate-180',
+                  "w-3 h-3 transition-transform",
+                  filterOpen && "rotate-180",
                 )}
               />
             </button>
             {filterOpen && (
               <div
                 className="absolute top-full left-0 mt-1 bg-white rounded-xl border border-gray-100 py-1 z-10 min-w-[120px]"
-                style={{ boxShadow: '0 8px 24px rgba(0,0,0,0.12)' }}
+                style={{ boxShadow: "0 8px 24px rgba(0,0,0,0.12)" }}
               >
                 {STAR_FILTERS.map((f) => (
                   <button
@@ -1353,10 +1474,10 @@ function ReviewsModal({
                       setFilterOpen(false);
                     }}
                     className={cn(
-                      'w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center gap-2',
+                      "w-full text-left px-4 py-2 text-[13px] transition-colors flex items-center gap-2",
                       starFilter === f.value
-                        ? 'text-figma-navy font-semibold bg-figma-navy/5'
-                        : 'text-gray-700 hover:bg-gray-50',
+                        ? "text-figma-navy font-semibold bg-figma-navy/5"
+                        : "text-gray-700 hover:bg-gray-50",
                     )}
                   >
                     {f.value > 0 && (
@@ -1379,7 +1500,7 @@ function ReviewsModal({
           {/* Count badge */}
           {starFilter !== 0 && (
             <span className="text-[11px] text-gray-400 font-medium ml-1">
-              {filtered.length} result{filtered.length !== 1 ? 's' : ''}
+              {filtered.length} result{filtered.length !== 1 ? "s" : ""}
             </span>
           )}
 
@@ -1429,7 +1550,8 @@ function ReviewsModal({
                         {review.userName}
                       </span>
                       <span className="text-gray-400 font-medium">
-                        {' '}&middot; {review.reviewDate}
+                        {" "}
+                        &middot; {review.reviewDate}
                       </span>
                     </p>
                     <div className="flex items-center gap-0.5 mt-1.5">
@@ -1437,10 +1559,10 @@ function ReviewsModal({
                         <Star
                           key={i}
                           className={cn(
-                            'w-3 h-3',
+                            "w-3 h-3",
                             i < review.rating
-                              ? 'text-amber-400 fill-amber-400'
-                              : 'text-gray-200 fill-gray-200',
+                              ? "text-amber-400 fill-amber-400"
+                              : "text-gray-200 fill-gray-200",
                           )}
                         />
                       ))}
@@ -1467,7 +1589,9 @@ function StickyBookingBar({
   onReserve,
   show,
   liked,
-  onToggleSave,
+  userId,
+  onSavedChange,
+  onRequireSignIn,
 }: {
   property: Property;
   nights: number;
@@ -1475,41 +1599,51 @@ function StickyBookingBar({
   onReserve: () => void;
   show: boolean;
   liked: boolean;
-  onToggleSave: () => void;
+  userId: string | null;
+  onSavedChange: (saved: boolean) => void;
+  onRequireSignIn: () => void;
 }) {
+  const [pickerOpen, setPickerOpen] = useState(false);
   return (
     <div
       className={cn(
-        'fixed top-0 inset-x-0 z-[999] bg-white border-b border-gray-200 transition-all duration-300',
+        "fixed top-0 inset-x-0 z-[999] bg-white border-b border-gray-200 transition-all duration-300",
         show
-          ? 'translate-y-0 opacity-100'
-          : '-translate-y-full opacity-0 pointer-events-none',
+          ? "translate-y-0 opacity-100"
+          : "-translate-y-full opacity-0 pointer-events-none",
       )}
-      style={{ boxShadow: '0 2px 16px rgba(0,0,0,0.10)' }}
+      style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.10)" }}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-        {/* Reserve button */}
-        <button
-          onClick={onReserve}
-          className="bg-figma-navy hover:bg-figma-navy/90 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
-        >
-          Reserve
-        </button>
+        {/* Reserve button -- just scrolls to the real booking widget below,
+            so it follows the same site-wide disabled state for consistency. */}
+        {BOOKING_DISABLED ? (
+          <div className="bg-gray-100 text-gray-400 px-5 py-2 rounded-xl font-bold text-[13px] flex-shrink-0 cursor-not-allowed">
+            Reserve
+          </div>
+        ) : (
+          <button
+            onClick={onReserve}
+            className="bg-figma-navy hover:bg-figma-navy/90 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
+          >
+            Reserve
+          </button>
+        )}
 
         {/* Price + info */}
         <div className="flex items-center gap-1.5 min-w-0">
           <span className="text-[15px] font-extrabold text-gray-800">
-            ₹{property.price.toLocaleString('en-IN')}
+            ₹{property.price.toLocaleString("en-IN")}
           </span>
           <span className="text-[12px] text-gray-400">/night</span>
           {nights > 0 && (
             <span className="text-[12px] text-gray-500 ml-2 font-medium">
-              · for {nights} night{nights !== 1 ? 's' : ''}
+              · for {nights} night{nights !== 1 ? "s" : ""}
             </span>
           )}
           {guests > 0 && (
             <span className="text-[12px] text-gray-500 font-medium">
-              · {guests} Adult{guests !== 1 ? 's' : ''}
+              · {guests} Adult{guests !== 1 ? "s" : ""}
             </span>
           )}
         </div>
@@ -1525,18 +1659,29 @@ function StickyBookingBar({
           >
             <Share2 className="w-3.5 h-3.5" />
           </button>
-          <button
-            onClick={onToggleSave}
-            className={cn(
-              'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
-              liked
-                ? 'border-rose-300 text-rose-500'
-                : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+          <div className="relative">
+            <button
+              onClick={() => (userId ? setPickerOpen((v) => !v) : onRequireSignIn())}
+              className={cn(
+                'w-8 h-8 rounded-full border bg-white flex items-center justify-center transition-colors',
+                liked
+                  ? 'border-rose-300 text-rose-500'
+                  : 'border-gray-200 hover:border-rose-300 text-gray-400 hover:text-rose-500',
+              )}
+              title="Save"
+            >
+              <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
+            </button>
+            {pickerOpen && userId && (
+              <WishlistPicker
+                userId={userId}
+                listingId={property.id}
+                onClose={() => setPickerOpen(false)}
+                onSavedChange={onSavedChange}
+                className="right-0 top-[calc(100%+6px)]"
+              />
             )}
-            title="Save"
-          >
-            <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
-          </button>
+          </div>
         </div>
       </div>
     </div>
@@ -1550,15 +1695,19 @@ export default function PropertyDetailsPage() {
   const router = useRouter();
   const [property, setProperty] = useState<Property | null>(null);
   const [loading, setLoading] = useState(true);
-  const { isAuthenticated, userId } = useAuth();
-  const { isSaved, toggle: toggleWishlist } = useWishlist(userId);
-  const liked = property ? isSaved(property.id) : false;
+  const { isAuthenticated, userId, user } = useAuth();
+  const { isSaved } = useWishlist(userId);
+  const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
+  const liked = likedOverride ?? (property ? isSaved(property.id) : false);
+  const [savePickerOpen, setSavePickerOpen] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
   const [reviewsModalOpen, setReviewsModalOpen] = useState(false);
   const [selectedAddonIds, setSelectedAddonIds] = useState<number[]>([]);
   const toggleAddon = (addonId: number) => {
     setSelectedAddonIds((prev) =>
-      prev.includes(addonId) ? prev.filter((id) => id !== addonId) : [...prev, addonId],
+      prev.includes(addonId)
+        ? prev.filter((id) => id !== addonId)
+        : [...prev, addonId],
     );
   };
   const [descExpanded, setDescExpanded] = useState(false);
@@ -1583,7 +1732,7 @@ export default function PropertyDetailsPage() {
         const mapped = row ? mapListingToProperty(row) : null;
         setProperty(mapped);
       } catch (error) {
-        console.error('[property] failed to load detail:', error);
+        console.error("[property] failed to load detail:", error);
         if (mounted) setProperty(null);
       } finally {
         if (mounted) setLoading(false);
@@ -1602,9 +1751,15 @@ export default function PropertyDetailsPage() {
   // the top instead of the review form -- scroll to it manually once the
   // page (and therefore the target element) has actually rendered.
   useEffect(() => {
-    if (loading || !property || typeof window === 'undefined' || !window.location.hash) return;
+    if (
+      loading ||
+      !property ||
+      typeof window === "undefined" ||
+      !window.location.hash
+    )
+      return;
     const el = document.getElementById(window.location.hash.slice(1));
-    el?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    el?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, [loading, property]);
 
   // Show sticky bar after scrolling past gallery
@@ -1615,8 +1770,8 @@ export default function PropertyDetailsPage() {
         : 500;
       setStickyBar(galleryBottom < 0);
     };
-    window.addEventListener('scroll', handleScroll, { passive: true });
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll, { passive: true });
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
@@ -1662,7 +1817,7 @@ export default function PropertyDetailsPage() {
   const images = property.images.length > 0 ? property.images : [FALLBACK];
   const amenities =
     property.amenityDetails ??
-    property.amenities.map((a) => ({ name: a, icon: 'wifi', available: true }));
+    property.amenities.map((a) => ({ name: a, icon: "wifi", available: true }));
   const visibleAmenities = showAllAmenities ? amenities : amenities.slice(0, 8);
   const reviews = property.reviews ?? [];
   const previewReviews = reviews.slice(0, 3);
@@ -1676,548 +1831,277 @@ export default function PropertyDetailsPage() {
         property={property}
         nights={barNights}
         guests={barGuests}
-        onReserve={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+        onReserve={() => window.scrollTo({ top: 0, behavior: "smooth" })}
         show={stickyBar}
         liked={liked}
-        onToggleSave={async () => {
-          if (!isAuthenticated || !userId) {
-            router.push('/signin');
-            return;
-          }
-          try {
-            await toggleWishlist(property.id);
-          } catch (err) {
-            console.error('[property] wishlist toggle failed:', err);
-            toast.error('Could not update your wishlist. Please try again.');
-          }
-        }}
+        userId={isAuthenticated ? userId : null}
+        onSavedChange={setLikedOverride}
+        onRequireSignIn={() => router.push('/signin')}
       />
 
       <Navbar />
 
-      <div className="container-main py-6 max-w-6xl mx-auto px-4 sm:px-6">
-        {/* Back + Actions */}
-        <div className="flex items-center justify-between mb-4">
-          <button
-            onClick={() => router.back()}
-            className="flex items-center gap-2 text-gray-600 hover:text-figma-navy font-medium text-sm transition-colors group"
+      {/* ── Sub-navigation Header ── */}
+      <div className="sticky top-0 z-[40] bg-figma-cream border-b border-gray-200 hidden md:block">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6">
+          <div
+            className="flex items-center gap-6 overflow-x-auto whitespace-nowrap py-4 text-[13px] font-bold text-gray-500"
+            style={{ scrollbarWidth: "none" }}
           >
-            <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            Back to results
-          </button>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => {
-                navigator.clipboard?.writeText(window.location.href);
-                alert('Link copied!');
-              }}
-              className="flex items-center gap-1.5 text-[12px] text-gray-600 hover:text-figma-navy font-semibold bg-white border border-gray-200 px-3 py-1.5 rounded-xl transition-colors"
+            <a
+              href="#overview"
+              className="text-gray-900 border-b-2 border-gray-900 pb-1 -mb-[18px]"
             >
-              <Share2 className="w-3.5 h-3.5" /> Share
-            </button>
-            <button
-              onClick={async () => {
-                if (!isAuthenticated || !userId || !property) {
-                  router.push('/signin');
-                  return;
-                }
-                try {
-                  await toggleWishlist(property.id);
-                } catch (err) {
-                  console.error('[property] wishlist toggle failed:', err);
-                  toast.error('Could not update your wishlist. Please try again.');
-                }
-              }}
-              className={cn(
-                'flex items-center gap-1.5 text-[12px] font-semibold bg-white border px-3 py-1.5 rounded-xl transition-all',
-                liked
-                  ? 'border-rose-300 text-rose-500 bg-rose-50'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-300',
-              )}
+              Overview
+            </a>
+            <a
+              href="#facilities"
+              className="hover:text-gray-900 transition-colors"
             >
-              <Heart className={cn('w-3.5 h-3.5', liked && 'fill-rose-500')} />
-              {liked ? 'Saved' : 'Save'}
-            </button>
+              Facilities
+            </a>
+            <a
+              href="#availability"
+              className="hover:text-gray-900 transition-colors"
+            >
+              Availability
+            </a>
+            <a
+              href="#location"
+              className="hover:text-gray-900 transition-colors"
+            >
+              Location
+            </a>
+            <a
+              href="#reviews"
+              className="hover:text-gray-900 transition-colors"
+            >
+              Ratings & reviews
+            </a>
+            <a href="#addons" className="hover:text-gray-900 transition-colors">
+              Add-ons
+            </a>
+            <a href="#rules" className="hover:text-gray-900 transition-colors">
+              House rules
+            </a>
           </div>
         </div>
+      </div>
 
-        {/* ── 1. IMAGE GALLERY ── */}
-        <div ref={galleryRef}>
-          <ImageGallery images={images} propertyName={property.propertyName} />
-        </div>
-
-        {/* ── Main grid ── */}
-        <div className="flex flex-col lg:flex-row gap-6 items-start">
-          {/* ══ LEFT COLUMN ══ */}
-          <div className="flex-1 min-w-0 w-full space-y-4">
-            {/* ── 2. PROPERTY OVERVIEW ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              {/* Badges */}
-              <div className="flex items-center gap-2 flex-wrap mb-2">
+      <div className="container-main py-8 max-w-5xl mx-auto px-4 sm:px-6 space-y-10">
+        {/* Title Section */}
+        <div id="overview">
+          <div className="flex flex-col md:flex-row md:items-start justify-between mb-4 gap-4">
+            <div>
+              <div className="flex items-center gap-2 mb-2">
                 <span className="text-[11px] font-bold text-figma-navy bg-figma-navy/5 px-2.5 py-0.5 rounded-full">
                   {property.propertyType}
                 </span>
                 {property.isInstantBook && (
                   <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <Zap className="w-2.5 h-2.5" />
-                    Instant Book
-                  </span>
-                )}
-                {property.freeCancellation && (
-                  <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-0.5 rounded-full flex items-center gap-1">
-                    <CheckCircle className="w-2.5 h-2.5" />
-                    Free Cancellation
+                    <Zap className="w-2.5 h-2.5" /> Instant Book
                   </span>
                 )}
               </div>
-
-              <h1 className="text-[20px] sm:text-[22px] font-extrabold text-gray-800 leading-tight mb-1">
+              <h1 className="text-[30px] sm:text-[36px] font-semibold text-gray-900 leading-[128%] tracking-[0.003em] mb-2">
                 {property.propertyName}
               </h1>
-              <p className="text-[13px] text-gray-500 flex items-center gap-1 mb-3">
-                <MapPin className="w-3.5 h-3.5 text-figma-navy flex-shrink-0" />
-                {property.city}, {property.state}
-              </p>
-
-              {/* Host line */}
-              {property.host && (
-                <div className="flex items-center gap-2.5 mb-3 pb-3 border-b border-gray-100">
-                  <img
-                    src={property.host.avatar}
-                    alt={property.host.name}
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
-                  <span className="text-[13px] text-gray-600">
-                    Hosted by{' '}
-                    <strong className="text-gray-800">
-                      {property.host.name}
-                    </strong>
-                    {property.host.isSuperhost && (
-                      <span className="ml-1.5 text-[10px] font-bold text-rose-600 bg-rose-50 px-1.5 py-0.5 rounded-full">
-                        Superhost
-                      </span>
-                    )}
-                  </span>
-                </div>
-              )}
-
-              {/* Quick stats */}
-              <div className="flex items-center gap-4 flex-wrap mb-4">
-                <div className="flex items-center gap-1.5 bg-amber-50 border border-amber-200 rounded-xl px-3 py-1.5">
-                  <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
-                  <span className="text-[14px] font-extrabold text-amber-700">
-                    {property.rating > 0 ? property.rating.toFixed(1) : 'New'}
-                  </span>
-                  <span className="text-[12px] text-amber-600">
-                    ({property.reviewCount} reviews)
-                  </span>
-                </div>
-                <div className="flex items-center gap-1 text-[13px] text-gray-500">
-                  <Users className="w-3.5 h-3.5 text-gray-400" /> Up to{' '}
-                  {property.maxGuests} guests
-                </div>
-                {property.bedType && (
-                  <div className="flex items-center gap-1 text-[13px] text-gray-500">
-                    <BedDouble className="w-3.5 h-3.5 text-gray-400" />{' '}
-                    {property.bedType}
-                  </div>
-                )}
-              </div>
-
-              {/* Description */}
-              <div>
-                <p className="text-[13px] text-gray-600 leading-relaxed">
-                  {descIsLong && !descExpanded
-                    ? `${(property.description ?? '').slice(0, 200)}…`
-                    : (property.description ??
-                      `Experience the charm of ${property.city} in this beautifully curated ${property.propertyType.toLowerCase()}.`)}
-                </p>
-                {descIsLong && (
-                  <button
-                    onClick={() => setDescExpanded((v) => !v)}
-                    className="flex items-center gap-1 text-[13px] font-bold text-gray-800 underline mt-2 hover:text-figma-navy transition-colors"
-                  >
-                    {descExpanded ? 'Show less' : 'Read more'}
-                    <ChevronDown
-                      className={cn(
-                        'w-3.5 h-3.5 transition-transform',
-                        descExpanded && 'rotate-180',
-                      )}
-                    />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* ── 3. AMENITIES / FACILITIES ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-4">
-                Facilities
-              </h2>
-              {visibleAmenities.length === 0 && (
-                <p className="text-[13px] text-gray-400">
-                  The host hasn&apos;t listed any facilities yet.
-                </p>
-              )}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5">
-                {visibleAmenities.map((am, i) => (
-                  <div
-                    key={i}
-                    className={cn(
-                      'flex items-center gap-2.5 p-2.5 rounded-xl border transition-colors',
-                      am.available
-                        ? 'bg-gray-50 border-gray-100'
-                        : 'bg-gray-50/50 border-dashed border-gray-200 opacity-50',
-                    )}
-                  >
-                    <div
-                      className={cn(
-                        'w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0',
-                        am.available
-                          ? 'bg-figma-navy/10 text-figma-navy'
-                          : 'bg-gray-100 text-gray-400',
-                      )}
-                    >
-                      {AMENITY_ICON_MAP[am.icon] ?? (
-                        <CheckCircle className="w-4 h-4" />
-                      )}
-                    </div>
-                    <span
-                      className={cn(
-                        'text-[12px] font-semibold',
-                        am.available
-                          ? 'text-gray-700'
-                          : 'text-gray-400 line-through',
-                      )}
-                    >
-                      {am.name}
-                    </span>
-                    {!am.available && (
-                      <X className="w-3 h-3 text-gray-300 ml-auto flex-shrink-0" />
-                    )}
-                  </div>
-                ))}
-              </div>
-              {amenities.length > 8 && (
-                <button
-                  onClick={() => setShowAllAmenities((v) => !v)}
-                  className="mt-3 text-[13px] font-bold text-gray-800 underline hover:text-figma-navy transition-colors flex items-center gap-1"
-                >
-                  {showAllAmenities
-                    ? 'Show less'
-                    : `Show all ${amenities.length} amenities`}
-                  <ChevronDown
-                    className={cn(
-                      'w-3.5 h-3.5 transition-transform',
-                      showAllAmenities && 'rotate-180',
-                    )}
-                  />
-                </button>
-              )}
-            </div>
-
-            {/* ── 3b. ADD-ONS ── */}
-            {property.addons && property.addons.length > 0 && (
-              <div
-                className="bg-white rounded-2xl p-5"
-                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-              >
-                <h2 className="text-[15px] font-bold text-gray-800 mb-4">
-                  Available add-ons
-                </h2>
-                <div className="space-y-2.5">
-                  {property.addons.map((addon) => {
-                    const checked = selectedAddonIds.includes(addon.addonId);
-                    return (
-                      <button
-                        key={addon.addonId}
-                        type="button"
-                        onClick={() => toggleAddon(addon.addonId)}
-                        className={cn(
-                          'w-full flex items-start justify-between gap-3 p-3 rounded-xl border text-left transition-colors',
-                          checked ? 'bg-figma-navy/5 border-figma-navy/30' : 'bg-gray-50 border-gray-100 hover:border-gray-200',
-                        )}
-                      >
-                        <div className="flex items-start gap-3 min-w-0">
-                          <span
-                            className={cn(
-                              'mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center shrink-0',
-                              checked ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
-                            )}
-                          >
-                            {checked && (
-                              <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
-                                <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
-                              </svg>
-                            )}
-                          </span>
-                          <div className="min-w-0">
-                            <p className="text-[13px] font-bold text-gray-800">{addon.name}</p>
-                            {addon.includes && (
-                              <p className="text-[11px] text-gray-500 mt-0.5">{addon.includes}</p>
-                            )}
-                            {addon.timingFrom && addon.timingTo && (
-                              <p className="text-[11px] text-gray-400 mt-0.5">
-                                {addon.timingFrom.slice(0, 5)} – {addon.timingTo.slice(0, 5)}
-                              </p>
-                            )}
-                          </div>
-                        </div>
-                        <span className="text-[13px] font-bold text-figma-navy/90 flex-shrink-0">
-                          +₹{addon.price.toLocaleString('en-IN')}
-                        </span>
-                      </button>
-                    );
-                  })}
-                </div>
-                <p className="text-[11px] text-gray-400 mt-3">
-                  Selected add-ons are added to your total at checkout.
-                </p>
-              </div>
-            )}
-
-            {/* ── 3c. HOUSE RULES ── */}
-            {property.houseRules && property.houseRules.length > 0 && (
-              <div
-                className="bg-white rounded-2xl p-5"
-                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-              >
-                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Clock className="w-4 h-4 text-gray-500" /> House rules
-                </h2>
-                <ul className="space-y-2">
-                  {property.houseRules.map((rule, i) => (
-                    <li key={i} className="text-[13px] text-gray-700 flex items-start gap-2">
-                      <span className="w-1.5 h-1.5 rounded-full bg-gray-400 mt-1.5 flex-shrink-0" />
-                      {rule}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* ── 3c-2. CANCELLATION POLICY ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
-                <Shield className="w-4 h-4 text-gray-500" /> Cancellation policy
-              </h2>
-
-              {property.cancellationPolicy === 'strict' ? (
-                <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4 flex items-start gap-3">
-                  <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-[14px] font-bold text-red-700">
-                      Strict policy: only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% refunded
-                    </p>
-                    <p className="text-[12.5px] text-red-600 mt-1 leading-snug">
-                      Cancel {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays}+ days before check-in and get back
-                      only {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent * 100}% of what you paid. Cancel
-                      within {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days of check-in and you get{' '}
-                      <span className="font-bold">no refund at all</span>.
-                    </p>
-                  </div>
-                </div>
-              ) : property.cancellationPolicy === 'flexible' ? (
-                <div className="bg-figma-navy/5 border border-figma-navy/20 rounded-xl p-4">
-                  <p className="text-[13.5px] font-semibold text-figma-navy">Flexible policy</p>
-                  <p className="text-[12.5px] text-figma-navy/90 mt-1 leading-snug">
-                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours
-                    before check-in. No refund after that.
-                  </p>
-                </div>
-              ) : (
-                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
-                  <p className="text-[13.5px] font-semibold text-gray-800">Moderate policy</p>
-                  <p className="text-[12.5px] text-gray-600 mt-1 leading-snug">
-                    Full refund if you cancel at least {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays} days
-                    before check-in. After that, you&apos;re refunded everything except the Hostiggo service fee.
-                  </p>
-                </div>
-              )}
-            </div>
-
-            {/* ── 3d. SAFETY & PROPERTY ── */}
-            {property.safetyFeatures && property.safetyFeatures.length > 0 && (
-              <div
-                className="bg-white rounded-2xl p-5"
-                style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-              >
-                <h2 className="text-[15px] font-bold text-gray-800 mb-4 flex items-center gap-2">
-                  <Shield className="w-4 h-4 text-gray-500" /> Safety & property
-                </h2>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                  {property.safetyFeatures.map((f, i) => (
-                    <div
-                      key={i}
-                      className="flex items-center gap-2.5 p-2.5 rounded-xl bg-gray-50 border border-gray-100"
-                    >
-                      <span className="text-[16px] flex-shrink-0">{f.icon || '🛡️'}</span>
-                      <span className="text-[12px] font-semibold text-gray-700">{f.name}</span>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* ── 5. MAP LOCATION ── */}
-            <div
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-3">
-                Location
-              </h2>
-              <PropertyMap property={property} />
-              <p className="text-[12px] text-gray-400 mt-2 flex items-center gap-1">
-                <MapPin className="w-3 h-3 text-figma-navy" />
+              <p className="text-type-poppins-regular-16-128-03 text-gray-500 flex items-center gap-1.5">
+                <MapPin className="w-4 h-4 text-figma-navy flex-shrink-0" />
                 {property.city}, {property.state}
               </p>
             </div>
 
-            {/* ── 6. RATINGS & REVIEWS ── */}
-            <div
-              id="write-review"
-              className="bg-white rounded-2xl p-5"
-              style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
-            >
-              <h2 className="text-[15px] font-bold text-gray-800 mb-4">
-                Ratings &amp; reviews
-              </h2>
-
-              {/* Empty state when this property has no reviews yet */}
-              {reviews.length === 0 && (
-                <div className="py-8 text-center">
-                  <Star className="w-8 h-8 text-gray-200 fill-gray-200 mx-auto mb-3" />
-                  <p className="text-[14px] font-semibold text-gray-700">
-                    No reviews yet
-                  </p>
-                  <p className="text-[12px] text-gray-400 mt-1">
-                    Be the first to stay and share your experience.
-                  </p>
-                </div>
+            <div className="flex items-center gap-2 flex-shrink-0 md:mt-2">
+              <button
+                onClick={() => {
+                  navigator.clipboard?.writeText(window.location.href);
+                  toast.success("Link copied!");
+                }}
+                className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-[13px] font-bold"
+              >
+                <Share2 className="w-4 h-4" /> Share
+              </button>
+            <div className="relative">
+              <button
+                onClick={() => {
+                  if (!isAuthenticated || !userId || !property) {
+                    router.push("/signin");
+                    return;
+                  }
+                  setSavePickerOpen((v) => !v);
+                }}
+                className={cn(
+                  "flex items-center gap-2 px-4 py-2 rounded-full border bg-white transition-colors shadow-sm text-[13px] font-bold",
+                  liked
+                    ? "border-rose-300 text-rose-500 bg-rose-50"
+                    : "border-gray-200 text-gray-700 hover:bg-gray-50",
+                )}
+              >
+                <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />{" "}
+                {liked ? "Saved" : "Save"}
+              </button>
+              {savePickerOpen && userId && property && (
+                <WishlistPicker
+                  userId={userId}
+                  listingId={property.id}
+                  onClose={() => setSavePickerOpen(false)}
+                  onSavedChange={setLikedOverride}
+                  className="right-0 top-[calc(100%+8px)]"
+                />
               )}
-
-              {/* Overall rating, no per-category breakdown is shown here
-                  because the database only stores one rating per review;
-                  there's no real cleanliness/accuracy/communication/location/
-                  check-in/value sub-score anywhere to break it down into. */}
-              {reviews.length > 0 && (
-              <div className="flex items-start gap-5 mb-5">
-                <div className="text-center flex-shrink-0">
-                  <p className="text-[42px] font-extrabold text-gray-800 leading-none">
-                    {property.rating.toFixed(1)}
-                  </p>
-                  <div className="flex justify-center mt-1.5">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star
-                        key={i}
-                        className={cn(
-                          'w-3.5 h-3.5',
-                          i < Math.round(property.rating)
-                            ? 'text-amber-400 fill-amber-400'
-                            : 'text-gray-200 fill-gray-200',
-                        )}
-                      />
-                    ))}
-                  </div>
-                  <p className="text-[11px] text-gray-400 mt-1 font-medium">
-                    {property.reviewCount} reviews
-                  </p>
-                </div>
-              </div>
-              )}
-
-              {/* Preview reviews (3-column card layout) */}
-              {reviews.length > 0 && (
-                <>
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
-                    {previewReviews.map((review) => (
-                      <div
-                        key={review.id}
-                        className="bg-gray-50 rounded-2xl p-4 border border-gray-100 flex flex-col gap-3"
-                      >
-                        {/* User info */}
-                        <div className="flex items-center gap-2.5">
-                          <img
-                            src={review.userAvatar}
-                            alt={review.userName}
-                            className="w-9 h-9 rounded-full object-cover flex-shrink-0"
-                            loading="lazy"
-                          />
-                          <div className="min-w-0">
-                            <p className="text-[12px] font-bold text-gray-800 truncate">
-                              {review.userName}
-                            </p>
-                            <p className="text-[10px] text-gray-400">
-                              {review.reviewDate}
-                            </p>
-                          </div>
-                        </div>
-                        {/* Stars */}
-                        <div className="flex gap-0.5">
-                          {Array.from({ length: 5 }).map((_, i) => (
-                            <Star
-                              key={i}
-                              className={cn(
-                                'w-3 h-3',
-                                i < review.rating
-                                  ? 'text-amber-400 fill-amber-400'
-                                  : 'text-gray-200 fill-gray-200',
-                              )}
-                            />
-                          ))}
-                        </div>
-                        {/* Text */}
-                        <p className="text-[12px] text-gray-600 leading-relaxed line-clamp-4 flex-1">
-                          {review.reviewText}
-                        </p>
-                        <button
-                          onClick={() => setReviewsModalOpen(true)}
-                          className="text-[12px] font-bold text-gray-700 underline underline-offset-2 hover:text-figma-navy transition-colors text-left"
-                        >
-                          Read more
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-
-                  {/* Next arrow row */}
-                  <div className="flex items-center gap-3">
-                    {reviews.length > 3 && (
-                      <button
-                        onClick={() => setReviewsModalOpen(true)}
-                        className="flex items-center gap-2 border border-gray-300 hover:border-figma-navy/40 hover:text-figma-navy text-gray-700 px-5 py-2.5 rounded-xl text-[13px] font-bold transition-all"
-                      >
-                        View all {reviews.length} reviews
-                        <ChevronRight className="w-4 h-4" />
-                      </button>
-                    )}
-                  </div>
-                </>
-              )}
-
-              {/* Leave a review */}
-              <WriteReview listingId={property.id} />
             </div>
-
-            {/* ── 7. SUGGESTED STAYS ── */}
-            <SuggestedStays current={property} />
-
-            {/* ── 8. HOST INFORMATION ── */}
-            {property.host && <HostCard host={property.host} />}
+          </div>
           </div>
 
-          {/* ══ RIGHT COLUMN: Booking Widget ══ */}
-          <div className="lg:w-[310px] xl:w-[330px] flex-shrink-0 w-full">
+          {/* ── 1. IMAGE GALLERY ── */}
+          <div ref={galleryRef} className="mt-6 mb-8">
+            <ImageGallery
+              images={images}
+              propertyName={property.propertyName}
+            />
+          </div>
+
+          {/* Host line & Quick stats */}
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 py-6 border-y border-gray-200 mb-8">
+            {property.host && (
+              <div className="flex items-center gap-4">
+                <img
+                  src={property.host.avatar}
+                  alt={property.host.name}
+                  className="w-14 h-14 rounded-full object-cover shadow-sm"
+                />
+                <div>
+                  <p className="text-[16px] font-bold text-gray-900">
+                    Hosted by {property.host.name}
+                  </p>
+                  <p className="text-[13px] text-gray-500 mt-0.5 flex items-center gap-1.5">
+                    {property.host.isSuperhost && (
+                      <span className="font-bold text-rose-600 flex items-center gap-1">
+                        <Award className="w-3.5 h-3.5" /> Superhost
+                      </span>
+                    )}
+                    {property.host.isSuperhost && <span>·</span>}
+                    <span>{property.host.tripsHosted} trips hosted</span>
+                  </p>
+                </div>
+              </div>
+            )}
+
+            <div className="flex items-center gap-6 md:ml-auto">
+              <div className="flex items-center gap-2">
+                <Star className="w-5 h-5 text-amber-500 fill-amber-500" />
+                <span className="text-type-poppins-medium-18-128-03 text-gray-900">
+                  {property.rating > 0 ? property.rating.toFixed(1) : "New"}
+                </span>
+                <span className="text-type-poppins-regular-15-128-03 text-gray-500 underline underline-offset-2">
+                  {property.reviewCount} reviews
+                </span>
+              </div>
+              <div className="w-px h-10 bg-gray-200 hidden md:block" />
+              <div className="flex flex-col text-type-poppins-regular-15-128-03 text-gray-600 gap-1">
+                <span className="flex items-center gap-1.5">
+                  <Users className="w-4 h-4 text-gray-400" />{" "}
+                  {property.maxGuests} Guests
+                </span>
+                <span className="flex items-center gap-1.5">
+                  <BedDouble className="w-4 h-4 text-gray-400" />{" "}
+                  {property.bedType || "1 Bedroom"}
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Description */}
+          <div>
+            <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-4">
+              About this space
+            </h2>
+            <p className="text-type-poppins-regular-16-128-03 text-gray-600 leading-relaxed max-w-4xl">
+              {descIsLong && !descExpanded
+                ? `${(property.description ?? "").slice(0, 400)}…`
+                : (property.description ??
+                  `Experience the charm of ${property.city} in this beautifully curated ${property.propertyType.toLowerCase()}.`)}
+            </p>
+            {descIsLong && (
+              <button
+                onClick={() => setDescExpanded((v) => !v)}
+                className="flex items-center gap-1 text-type-poppins-medium-18-128-03 text-gray-900 underline underline-offset-4 mt-4 hover:text-figma-navy transition-colors"
+              >
+                {descExpanded ? "Show less" : "Read more"}
+                <ChevronDown
+                  className={cn(
+                    "w-4 h-4 transition-transform",
+                    descExpanded && "rotate-180",
+                  )}
+                />
+              </button>
+            )}
+          </div>
+        </div>
+
+        {/* ── 2. FACILITIES ── */}
+        <div id="facilities" className="pt-8 border-t border-gray-200">
+          <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-6">
+            Facilities
+          </h2>
+          {visibleAmenities.length === 0 && (
+            <p className="text-type-poppins-regular-16-128-03 text-gray-500">
+              The host hasn&apos;t listed any facilities yet.
+            </p>
+          )}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-5 gap-x-8 max-w-4xl">
+            {visibleAmenities.map((am, i) => (
+              <div
+                key={i}
+                className={cn(
+                  "flex items-center gap-3",
+                  !am.available && "opacity-50",
+                )}
+              >
+                <div
+                  className={cn(
+                    "w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0",
+                    am.available
+                      ? "bg-[#f8f7f6] text-gray-700"
+                      : "bg-gray-100 text-gray-400",
+                  )}
+                >
+                  {AMENITY_ICON_MAP[am.icon] ?? (
+                    <CheckCircle className="w-4 h-4" />
+                  )}
+                </div>
+                <span
+                  className={cn(
+                    "text-type-poppins-regular-16-128-03",
+                    am.available
+                      ? "text-gray-800"
+                      : "text-gray-400 line-through",
+                  )}
+                >
+                  {am.name}
+                </span>
+              </div>
+            ))}
+          </div>
+          {amenities.length > 8 && (
+            <button
+              onClick={() => setShowAllAmenities((v) => !v)}
+              className="mt-6 px-5 py-2.5 border border-gray-900 rounded-full text-type-poppins-medium-12-140-03 text-gray-900 hover:bg-gray-50 transition-colors"
+            >
+              {showAllAmenities
+                ? "Show less"
+                : `Show all ${amenities.length} amenities`}
+            </button>
+          )}
+        </div>
+
+        {/* ── 3. AVAILABILITY ── */}
+        <div id="availability" className="pt-8 border-t border-gray-200">
+          <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-6">
+            Availability
+          </h2>
+          <div className="w-full max-w-4xl">
             <BookingWidget
               property={property}
               onNightsChange={setBarNights}
@@ -2227,40 +2111,416 @@ export default function PropertyDetailsPage() {
           </div>
         </div>
 
-        {/* Mobile booking bar (fixed bottom) */}
-        <div
-          className="lg:hidden fixed bottom-0 inset-x-0 bg-white border-t border-gray-200 px-4 py-3 z-50"
-          style={{ boxShadow: '0 -4px 16px rgba(0,0,0,0.08)' }}
-        >
-          <div className="flex items-center justify-between">
+        {/* ── 4. MAP LOCATION ── */}
+        <div id="location" className="pt-8 border-t border-gray-200">
+          <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-2">
+            Location
+          </h2>
+          <p className="text-type-poppins-regular-16-128-03 text-gray-700 mb-4">
+            {property.address || `${property.city}, ${property.state}`}
+          </p>
+
+          {/* Nearby landmarks */}
+          {property.nearbyLandmarks && property.nearbyLandmarks.length > 0 && (
+            <div className="mb-6">
+              <p className="text-type-poppins-medium-12-140-03 text-gray-900 mb-2">
+                Nearby Locations -
+              </p>
+              <ul className="space-y-1.5 text-type-poppins-regular-15-128-03 text-gray-600">
+                {property.nearbyLandmarks.map((lm, i) => (
+                  <li key={i} className="flex items-center gap-2">
+                    <MapPin className="w-3.5 h-3.5 text-gray-500 flex-shrink-0" />
+                    {lm.name} – {lm.distance}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          <div className="bg-white rounded-[28px] overflow-hidden border border-gray-200 shadow-sm">
+            <PropertyMap property={property} />
+          </div>
+        </div>
+
+        {/* ── 5. RATINGS & REVIEWS ── */}
+        <div id="reviews" className="pt-8 border-t border-gray-200">
+          <div className="flex items-end justify-between mb-8">
             <div>
-              <span className="text-[18px] font-extrabold text-figma-navy/90">
-                ₹{property.price.toLocaleString('en-IN')}
-              </span>
-              <span className="text-[12px] text-gray-400 ml-1">/night</span>
-              {property.rating > 0 && (
-                <div className="flex items-center gap-1 mt-0.5">
-                  <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
-                  <span className="text-[11px] font-bold text-gray-600">
+              <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 flex items-center gap-2">
+                Ratings &amp; reviews
+              </h2>
+              {reviews.length > 0 && (
+                <div className="flex items-center gap-2 mt-2">
+                  <Star className="w-6 h-6 text-amber-500 fill-amber-500" />
+                  <span className="text-type-poppins-medium-28-128-03 text-gray-900 leading-none">
                     {property.rating.toFixed(1)}
                   </span>
-                  <span className="text-[11px] text-gray-400">
-                    ({property.reviewCount})
+                  <span className="text-type-poppins-regular-16-128-03 text-gray-500">
+                    ({property.reviewCount} reviews)
                   </span>
                 </div>
               )}
             </div>
-            <button
-              onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-              className="bg-figma-navy hover:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20"
+
+            {reviews.length > 3 && (
+              <button
+                onClick={() => setReviewsModalOpen(true)}
+                className="hidden sm:flex items-center gap-1.5 text-type-poppins-medium-18-128-03 text-figma-navy hover:underline underline-offset-4"
+              >
+                View all reviews <ChevronRight className="w-4 h-4" />
+              </button>
+            )}
+          </div>
+
+          {reviews.length === 0 ? (
+            <div className="py-10 text-center bg-gray-50 rounded-3xl border border-gray-200">
+              <Star className="w-10 h-10 text-gray-300 fill-gray-200 mx-auto mb-4" />
+              <p className="text-type-poppins-medium-18-128-03 text-gray-800">
+                No reviews yet
+              </p>
+              <p className="text-type-poppins-regular-16-128-03 text-gray-500 mt-1">
+                Be the first to stay and share your experience.
+              </p>
+            </div>
+          ) : (
+            <div
+              className="flex gap-5 overflow-x-auto pb-6 -mx-4 px-4 sm:mx-0 sm:px-0"
+              style={{ scrollbarWidth: "none" }}
             >
-              Reserve
+              {previewReviews.map((review) => (
+                <div
+                  key={review.id}
+                  className="bg-white rounded-3xl p-6 border border-gray-200 flex-shrink-0 w-[300px] sm:w-[340px] flex flex-col gap-4 shadow-sm"
+                >
+                  <div className="flex items-center gap-4">
+                    <img
+                      src={review.userAvatar}
+                      alt={review.userName}
+                      className="w-12 h-12 rounded-full object-cover flex-shrink-0 border border-gray-100"
+                      loading="lazy"
+                    />
+                    <div className="min-w-0">
+                      <p className="text-type-poppins-medium-18-128-03 text-gray-900 truncate">
+                        {review.userName}
+                      </p>
+                      <p className="text-type-poppins-regular-15-128-03 text-gray-500">
+                        {review.reviewDate}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="flex gap-1">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star
+                        key={i}
+                        className={cn(
+                          "w-4 h-4",
+                          i < review.rating
+                            ? "text-amber-400 fill-amber-400"
+                            : "text-gray-200 fill-gray-200",
+                        )}
+                      />
+                    ))}
+                  </div>
+                  <p className="text-type-poppins-regular-16-128-03 text-gray-600 leading-relaxed line-clamp-4 flex-1">
+                    {review.reviewText}
+                  </p>
+                  <button
+                    onClick={() => setReviewsModalOpen(true)}
+                    className="text-type-poppins-medium-12-140-03 text-gray-900 underline underline-offset-4 hover:text-figma-navy transition-colors text-left mt-2"
+                  >
+                    Read more
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {reviews.length > 3 && (
+            <button
+              onClick={() => setReviewsModalOpen(true)}
+              className="mt-4 sm:hidden w-full flex items-center justify-center gap-1.5 border border-gray-900 text-gray-900 px-6 py-3.5 rounded-xl text-type-poppins-medium-18-128-03 transition-all hover:bg-gray-50"
+            >
+              View all {reviews.length} reviews
             </button>
+          )}
+
+          <div className="mt-8 max-w-2xl">
+            <WriteReview listingId={property.id} />
           </div>
         </div>
 
-        {/* Spacer for mobile fixed bar */}
-        <div className="lg:hidden h-20" />
+        {/* ── 6. ADD-ONS ── */}
+        {property.addons && property.addons.length > 0 && (
+          <div id="addons" className="pt-8 border-t border-gray-200">
+            <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-6">
+              Suggested Add-ons
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-5">
+              {property.addons.map((addon) => {
+                const checked = selectedAddonIds.includes(addon.addonId);
+                return (
+                  <div
+                    key={addon.addonId}
+                    className={cn(
+                      "flex flex-col p-5 rounded-3xl border-2 transition-all",
+                      checked
+                        ? "border-figma-navy bg-figma-navy/5 shadow-md shadow-figma-navy/10"
+                        : "border-dashed border-gray-300 bg-white hover:border-figma-navy/30",
+                    )}
+                  >
+                    <div className="flex-1 min-w-0 mb-4">
+                      <p className="text-type-poppins-medium-18-128-03 text-gray-900 leading-tight mb-2">
+                        {addon.name}
+                      </p>
+                      {addon.includes && (
+                        <p className="text-type-poppins-regular-15-128-03 text-gray-500 line-clamp-2">
+                          {addon.includes}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between mt-auto">
+                      <span className="text-type-poppins-medium-18-128-03 text-figma-navy">
+                        +₹{addon.price.toLocaleString("en-IN")}
+                      </span>
+                      <button
+                        onClick={() => toggleAddon(addon.addonId)}
+                        className={cn(
+                          "px-4 py-2 rounded-full text-type-poppins-medium-12-140-03 transition-all",
+                          checked
+                            ? "bg-figma-navy text-white"
+                            : "bg-gray-100 text-gray-800 hover:bg-gray-200",
+                        )}
+                      >
+                        {checked ? "Added" : "Add +"}
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── 7. HOST INFORMATION ── */}
+        <div className="pt-8 border-t border-gray-200">
+          <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-6">
+            Contact host
+          </h2>
+          {property.host && (
+            <div className="flex flex-col md:flex-row gap-8 items-start">
+              {/* Left: Compact Host Card */}
+              <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm w-full md:w-[280px] flex flex-col items-center text-center flex-shrink-0">
+                <img
+                  src={property.host.avatar}
+                  alt={property.host.name}
+                  className="w-20 h-20 rounded-full object-cover shadow-sm mb-3"
+                />
+                <h3 className="text-type-poppins-medium-18-128-03 text-gray-900">
+                  {property.host.name}
+                </h3>
+                {property.host.isSuperhost && (
+                  <span className="text-type-poppins-medium-12-140-03 text-rose-600 flex items-center justify-center gap-1 mt-0.5">
+                    <Award className="w-3.5 h-3.5" /> Superhost
+                  </span>
+                )}
+                <p className="text-type-poppins-medium-12-140-03 text-gray-400 mt-0.5">Joined 1 year ago</p>
+
+                <div className="flex items-center gap-1 mt-2 text-type-poppins-medium-12-140-03 text-gray-800">
+                  <Star className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
+                  <span>{property.host.rating}</span>
+                  <span className="text-gray-400 font-normal">· {property.host.tripsHosted} reviews</span>
+                </div>
+
+                <div className="w-full border-t border-gray-100 my-4 pt-3 space-y-1.5 text-type-poppins-medium-12-140-03 text-gray-600 text-left">
+                  <p>
+                    <span className="font-semibold text-gray-800">Response Rate:</span>{" "}
+                    {property.host.responseRate ? `${property.host.responseRate}%` : "98%"}
+                  </p>
+                  <p>
+                    <span className="font-semibold text-gray-800">Avg response time:</span>{" "}
+                    within 1 hour
+                  </p>
+                </div>
+
+                <button
+                  onClick={() => {
+                    if (!isAuthenticated || !userId) {
+                      toast.error("Please sign in to message the host");
+                      router.push(
+                        `/signin?redirect=${encodeURIComponent(window.location.href)}`,
+                      );
+                      return;
+                    }
+                    router.push(
+                      `/chat?hostId=${encodeURIComponent(property.host!.id)}`,
+                    );
+                  }}
+                  className="w-full py-2 border border-gray-900 text-gray-900 rounded-full text-type-poppins-medium-12-140-03 hover:bg-gray-50 transition-colors"
+                >
+                  Contact Me
+                </button>
+              </div>
+
+              {/* Right: Host Bio + Occupation/Hobbies */}
+              <div className="space-y-4 max-w-2xl text-type-poppins-regular-16-128-03 leading-relaxed text-gray-700 flex-1">
+                <p>
+                  {property.host.bio ||
+                    `Hey there! As the host of our property, I'm here to make your stay amazing! Whether it's providing helpful tips, suggesting local spots, or making sure you have everything you need, I've got you covered.`}
+                </p>
+
+                <div className="space-y-2 pt-2 text-type-poppins-regular-16-128-03">
+                  {property.host.occupation && (
+                    <p className="flex items-center gap-2">
+                      <span>💼</span>
+                      <span className="font-bold text-gray-900">Occupation</span>
+                      <span className="text-gray-500">– {property.host.occupation}</span>
+                    </p>
+                  )}
+                  {property.host.hobbies && (
+                    <p className="flex items-center gap-2">
+                      <span>🎮</span>
+                      <span className="font-bold text-gray-900">Hobbies</span>
+                      <span className="text-gray-500">– {property.host.hobbies}</span>
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* ── 8. HOUSE RULES & CANCELLATION ── */}
+        <div id="rules" className="pt-8 border-t border-gray-200 pb-12">
+          <h2 className="text-type-poppins-semibold-24-140-03 text-gray-900 mb-8">
+            House rules and cancellation details
+          </h2>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-start max-w-4xl">
+            {/* House Rules */}
+            <div>
+              <h3 className="text-type-poppins-medium-18-128-03 text-gray-900 mb-4">
+                House Rules
+              </h3>
+              {property.houseRules && property.houseRules.length > 0 ? (
+                <ul className="space-y-3.5 text-type-poppins-regular-16-128-03 text-gray-700">
+                  {property.houseRules.map((rule, i) => (
+                    <li
+                      key={i}
+                      className="flex items-center gap-3"
+                    >
+                      <Clock className="w-4 h-4 text-gray-500 flex-shrink-0" />
+                      <span>{rule}</span>
+                    </li>
+                  ))}
+                </ul>
+              ) : (
+                <ul className="space-y-3.5 text-type-poppins-regular-16-128-03 text-gray-700">
+                  <li className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-gray-500" />
+                    <span>Check in time – 1 pm</span>
+                  </li>
+                  <li className="flex items-center gap-3">
+                    <Clock className="w-4 h-4 text-gray-500" />
+                    <span>Check out time – 11 am</span>
+                  </li>
+                </ul>
+              )}
+            </div>
+
+            {/* Cancellation Rules */}
+            <div>
+              <h3 className="text-type-poppins-medium-18-128-03 text-gray-900 mb-4">
+                Cancellation Rules
+              </h3>
+
+              {property.cancellationPolicy === "strict" ? (
+                <div className="space-y-3">
+                  <ul className="space-y-3 text-type-poppins-regular-16-128-03">
+                    <li className="flex items-center gap-2.5 text-amber-700 font-medium">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      {Math.round(
+                        (property.strictPartialRefundPercent ??
+                          CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent) * 100,
+                      )}% refundable before {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days
+                    </li>
+                    <li className="flex items-center gap-2.5 text-rose-700 font-medium">
+                      <X className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                      Non-refundable after {CANCELLATION_POLICY_DEFAULTS.strictPartialRefundDays} days before check-in
+                    </li>
+                  </ul>
+                  <div className="border border-rose-300 bg-rose-50/50 rounded-xl p-4 mt-4">
+                    <h4 className="text-type-poppins-medium-12-140-03 text-rose-900 mb-1">
+                      Failure to Arrive Policy
+                    </h4>
+                    <p className="text-type-poppins-medium-12-140-03 text-rose-800 leading-relaxed">
+                      In case of a no-show without prior notice, the full booking amount will be charged and the reservation will be canceled.
+                    </p>
+                  </div>
+                </div>
+              ) : property.cancellationPolicy === "flexible" ? (
+                <div className="space-y-3">
+                  <ul className="space-y-3 text-type-poppins-regular-16-128-03">
+                    <li className="flex items-center gap-2.5 text-emerald-700 font-medium">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      Free Cancellation before {CANCELLATION_POLICY_DEFAULTS.flexibleFullRefundHours} hours of check-in
+                    </li>
+                    <li className="flex items-center gap-2.5 text-rose-700 font-medium">
+                      <X className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                      Non-refundable after that
+                    </li>
+                  </ul>
+                  <div className="border border-rose-300 bg-rose-50/50 rounded-xl p-4 mt-4">
+                    <h4 className="text-type-poppins-medium-12-140-03 text-rose-900 mb-1">
+                      Failure to Arrive Policy
+                    </h4>
+                    <p className="text-type-poppins-medium-12-140-03 text-rose-800 leading-relaxed">
+                      In case of a no-show without prior notice, the full booking amount will be charged and the reservation will be canceled.
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  <ul className="space-y-3 text-type-poppins-regular-16-128-03">
+                    <li className="flex items-center gap-2.5 text-emerald-700 font-medium">
+                      <CheckCircle className="w-4 h-4 text-emerald-600 flex-shrink-0" />
+                      Free Cancellation {CANCELLATION_POLICY_DEFAULTS.moderateFullRefundDays}+ days before check-in
+                    </li>
+                    <li className="flex items-center gap-2.5 text-amber-700 font-medium">
+                      <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0" />
+                      50% refundable before 24 hours
+                    </li>
+                    <li className="flex items-center gap-2.5 text-rose-700 font-medium">
+                      <X className="w-4 h-4 text-rose-500 flex-shrink-0" />
+                      Non-refundable after check-in
+                    </li>
+                  </ul>
+                  <div className="border border-rose-300 bg-rose-50/50 rounded-xl p-4 mt-4">
+                    <h4 className="text-type-poppins-medium-12-140-03 text-rose-900 mb-1">
+                      Failure to Arrive Policy
+                    </h4>
+                    <p className="text-type-poppins-medium-12-140-03 text-rose-800 leading-relaxed">
+                      In case of a no-show without prior notice, the full booking amount will be charged and the reservation will be canceled.
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Report an issue footer */}
+          <div className="mt-12 text-center pt-8 border-t border-gray-100">
+            <button className="text-type-poppins-regular-16-128-03 font-bold text-gray-900 underline underline-offset-4 hover:text-figma-navy transition-colors">
+              Report an issue
+            </button>
+            <p className="text-type-poppins-medium-12-140-03 text-gray-500 mt-1">
+              Let us know if you faced any issue during your stay or with the host.
+            </p>
+          </div>
+        </div>
+
+        {/* ── 9. SUGGESTED STAYS ── */}
+        <div className="pt-8 border-t border-gray-200">
+          <SuggestedStays current={property} />
+        </div>
       </div>
 
       <Footer />
@@ -2278,6 +2538,7 @@ export default function PropertyDetailsPage() {
       <style>{`
         @keyframes fadeIn { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
         @keyframes modalSlideUp { from { opacity: 0; transform: translateY(24px) scale(0.98); } to { opacity: 1; transform: translateY(0) scale(1); } }
+        html { scroll-behavior: smooth; }
       `}</style>
     </div>
   );

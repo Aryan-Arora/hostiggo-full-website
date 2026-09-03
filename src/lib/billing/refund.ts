@@ -5,14 +5,17 @@ const HOUR_MS = 60 * 60 * 1000;
 const DAY_MS = 24 * HOUR_MS;
 
 export const CANCELLATION_POLICY_DEFAULTS = {
-  flexibleFullRefundHours: 48,
+  // Matches Airbnb's Flexible policy (24hr full-refund window). Moderate
+  // (5 days) and Strict (7 days, 50%) already matched Airbnb's Moderate/
+  // Firm cutoffs and were left as-is.
+  flexibleFullRefundHours: 24,
   moderateFullRefundDays: 5,
   strictPartialRefundDays: 7,
-  // NOT specified in the source spec for the Strict policy's "partial
-  // refund (per configured %)" case when cancelled >= 7 days out --
-  // defaulting to 50% but this is a guess, not a documented rule. Make
-  // this configurable per listing/policy and confirm the real number
-  // before relying on it in production.
+  // Platform-wide fallback for the Strict policy's partial refund when
+  // cancelled >= strictPartialRefundDays out. Hosts can override this per
+  // listing (listings.strict_partial_refund_percent, set in the wizard's
+  // Cancellation Policy step) -- this default only applies when a listing
+  // hasn't set one.
   strictPartialRefundPercent: 0.5,
 } as const;
 

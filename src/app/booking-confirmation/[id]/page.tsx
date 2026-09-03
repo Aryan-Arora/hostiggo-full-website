@@ -23,6 +23,7 @@ interface BookingDetail {
   end_date: string;
   nom_guests: number | null;
   amount: number | null;
+  addons?: { name: string; price: number; type: string | null }[];
   property: {
     listing_id: number;
     title: string;
@@ -108,11 +109,19 @@ export default function BookingConfirmationPage() {
 
   const priceWeekday = property?.price_weekday ?? 0;
   const priceWeekend = property?.price_weekend ?? priceWeekday;
+  const addons = booking.addons ?? [];
+  const breakfastPrice = addons
+    .filter((a) => a.type?.toLowerCase().includes('breakfast'))
+    .reduce((sum, a) => sum + Number(a.price ?? 0), 0);
+  const otherServicesPrice = addons
+    .filter((a) => !a.type?.toLowerCase().includes('breakfast'))
+    .reduce((sum, a) => sum + Number(a.price ?? 0), 0);
   const { nights: nightDates, invoice } = reconstructInvoice(
     booking.start_date,
     booking.end_date,
     priceWeekday,
     priceWeekend,
+    { breakfastPrice, otherServicesPrice },
   );
   const nights = nightDates.length;
   const grandTotal = booking.amount ?? invoice.grandTotalRupees;
@@ -216,6 +225,38 @@ export default function BookingConfirmationPage() {
                 ₹{(invoice.gstOnHostiggoServiceFeePaise / 100).toLocaleString('en-IN')}
               </span>
             </div>
+            {invoice.breakfastPricePaise > 0 && (
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>Breakfast</span>
+                  <span className="font-semibold">
+                    ₹{(invoice.breakfastPricePaise / 100).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>GST on breakfast ({(invoice.breakfastGstRate * 100).toFixed(0)}%)</span>
+                  <span className="font-semibold">
+                    ₹{(invoice.breakfastGstPaise / 100).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </>
+            )}
+            {invoice.otherServicesPricePaise > 0 && (
+              <>
+                <div className="flex justify-between text-gray-600">
+                  <span>Other services</span>
+                  <span className="font-semibold">
+                    ₹{(invoice.otherServicesPricePaise / 100).toLocaleString('en-IN')}
+                  </span>
+                </div>
+                <div className="flex justify-between text-gray-600">
+                  <span>GST on other services ({(invoice.otherServicesGstRate * 100).toFixed(0)}%)</span>
+                  <span className="font-semibold">
+                    ₹{(invoice.otherServicesGstPaise / 100).toLocaleString('en-IN')}
+                  </span>
+                </div>
+              </>
+            )}
             <div className="flex justify-between font-bold text-gray-900 pt-3 mt-1 border-t border-gray-200 text-[15px]">
               <span>Total paid</span>
               <span>₹{grandTotal.toLocaleString('en-IN')}</span>

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { MapPin } from 'lucide-react';
-import { loadGoogleMaps } from '@/lib/services/googleMaps';
+import { loadGoogleMaps, onGoogleMapsAuthFailure } from '@/lib/services/googleMaps';
 
 const CITY_COORDINATES: Record<string, { lat: number; lng: number }> = {
   'New Delhi': { lat: 28.6139, lng: 77.209 },
@@ -37,6 +37,7 @@ export default function MapPreview({
   const mapInstanceRef = useRef<google.maps.Map | null>(null);
   const markerRef = useRef<google.maps.Marker | null>(null);
   const [mapLoaded, setMapLoaded] = useState(false);
+  const [mapUnavailable, setMapUnavailable] = useState(false);
 
   const getCenter = () => {
     if (coordinates) return { lat: coordinates.lat, lng: coordinates.lng };
@@ -46,6 +47,11 @@ export default function MapPreview({
     }
     return INDIA_CENTER;
   };
+
+  // See InteractiveMap's identical hook for why this is needed: a bad or
+  // restricted API key reports through this global callback, not by
+  // rejecting loadGoogleMaps() or throwing synchronously.
+  useEffect(() => onGoogleMapsAuthFailure(() => setMapUnavailable(true)), []);
 
   useEffect(() => {
     if (!mapRef.current || mapInstanceRef.current) return;
@@ -57,33 +63,43 @@ export default function MapPreview({
 
         const center = getCenter();
 
-        const map = new google.maps.Map(mapRef.current, {
-          center,
-          zoom: 11,
-          disableDefaultUI: true,
-          draggable: false,
-          scrollwheel: false,
-          keyboardShortcuts: false,
-        });
+        // Previously unguarded -- a bad key made this throw and left
+        // mapLoaded stuck at false forever, so every one of these previews
+        // spun its loading indicator indefinitely instead of ever showing
+        // an end state.
+        try {
+          const map = new google.maps.Map(mapRef.current, {
+            center,
+            zoom: 11,
+            disableDefaultUI: true,
+            draggable: false,
+            scrollwheel: false,
+            keyboardShortcuts: false,
+          });
 
-        markerRef.current = new google.maps.Marker({
-          position: center,
-          map,
-          icon: {
-            path: PIN_PATH,
-            fillColor: '#ef4444',
-            fillOpacity: 1,
-            strokeWeight: 0,
-            scale: 1.6,
-            anchor: new google.maps.Point(12, 22),
-          },
-        });
+          markerRef.current = new google.maps.Marker({
+            position: center,
+            map,
+            icon: {
+              path: PIN_PATH,
+              fillColor: '#ef4444',
+              fillOpacity: 1,
+              strokeWeight: 0,
+              scale: 1.6,
+              anchor: new google.maps.Point(12, 22),
+            },
+          });
 
-        mapInstanceRef.current = map;
-        setMapLoaded(true);
+          mapInstanceRef.current = map;
+          setMapLoaded(true);
+        } catch (err) {
+          console.error('[MapPreview] Failed to initialize Google Maps:', err);
+          setMapUnavailable(true);
+        }
       })
       .catch((err) => {
         console.error('[MapPreview] Failed to load Google Maps:', err);
+        setMapUnavailable(true);
       });
 
     return () => {
@@ -110,11 +126,20 @@ export default function MapPreview({
     >
       <div ref={mapRef} className="w-full h-full" />
 
-      {!mapLoaded && (
+      {!mapLoaded && !mapUnavailable && (
         <div className="absolute inset-0 bg-figma-navy/5 flex items-center justify-center">
           <div className="text-center">
             <div className="w-6 h-6 border-2 border-figma-navy/40 border-t-transparent rounded-full animate-spin mx-auto mb-1.5" />
             <p className="text-[11px] text-figma-navy font-medium">Loading…</p>
+          </div>
+        </div>
+      )}
+
+      {mapUnavailable && (
+        <div className="absolute inset-0 bg-gray-50 flex items-center justify-center">
+          <div className="text-center px-4">
+            <MapPin className="w-5 h-5 text-gray-300 mx-auto mb-1" />
+            <p className="text-[11px] text-gray-500 font-medium">Map preview unavailable</p>
           </div>
         </div>
       )}

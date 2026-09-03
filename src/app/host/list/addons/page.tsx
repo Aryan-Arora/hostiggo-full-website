@@ -69,7 +69,7 @@ export default function AddonsPage() {
 
   return (
     <WizardShell
-      step={5}
+      step={7}
       title="Offer extra add-ons"
       subtitle="Optional paid extras guests can add to their booking, like breakfast or airport pickup. You can add, remove, or reprice these anytime after publishing from your listing settings."
     >

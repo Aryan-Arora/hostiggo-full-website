@@ -75,7 +75,7 @@ export default function AboutPage() {
           })}
         </section>
 
-        <section className="max-w-3xl bg-white rounded-3xl border border-figma-border p-6 md:p-10 mb-10">
+        <section className="bg-white rounded-3xl border border-figma-border p-6 md:p-10 mb-10">
           <h2 className="text-xl md:text-2xl font-semibold text-figma-ink mb-3">
             What we do
           </h2>
@@ -105,7 +105,7 @@ export default function AboutPage() {
           </p>
         </section>
 
-        <div className="max-w-3xl rounded-2xl bg-figma-navy px-6 py-8 text-center">
+        <div className="rounded-2xl bg-figma-navy px-6 py-8 text-center">
           <h3 className="text-lg md:text-xl font-bold text-white mb-2">
             Want to list your property?
           </h3>

@@ -6,18 +6,22 @@ import {
   AUTH_PHONE_KEY,
   normalizeEmail,
   normalizePhone,
+  setStoredSession,
 } from "@/lib/api";
 import { supabase } from "@/lib/supabase";
-import { ArrowLeft, ChevronDown, Compass, Mail, Phone } from "lucide-react";
+import { useAuth } from "@/context/AuthContext";
+import { ArrowLeft, ChevronDown, Compass, Eye, EyeOff, Mail, Phone } from "lucide-react";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 const authBg = "/auth-bg.jpg";
 
-type Mode = "phone" | "email";
+type Mode = "phone" | "email" | "password";
 
 function SignInContent() {
+  // Phone OTP is the primary/default path -- password and email OTP are
+  // still fully supported, just reached via the "instead" links below.
   const [mode, setMode] = useState<Mode>("phone");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
@@ -26,6 +30,23 @@ function SignInContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirect = searchParams?.get("redirect") || "";
+  const { signIn } = useAuth();
+
+  // Password mode -- separate from `email` (OTP) since it branches on
+  // whether the email is already a Hostiggo account:
+  //   'email'  -- ask for the email first, figure out which of the below applies
+  //   'signin' -- known account: ask for their password
+  // A brand-new email never gets a password form here at all -- it's sent
+  // an OTP instead (see handlePwContinue), and only gets to set a password
+  // after that OTP is verified (redirected to /account/password). Same for
+  // "Forgot password?" on the signin step.
+  type PwStep = "email" | "signin";
+  const [pwStep, setPwStep] = useState<PwStep>("email");
+  const [pwEmail, setPwEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [checkingEmail, setCheckingEmail] = useState(false);
+  const [pwSubmitting, setPwSubmitting] = useState(false);
 
   const errorParam = searchParams?.get("error");
 
@@ -33,7 +54,7 @@ function SignInContent() {
     if (!errorParam) return;
     toast.error(
       errorParam === "access_denied"
-        ? "Google sign-in was cancelled."
+        ? "Sign-in was cancelled."
         : errorParam === "account_deactivated"
           ? "This account has been deactivated. Contact support to reactivate it."
           : `Sign-in error. Please try again.`,
@@ -86,23 +107,106 @@ function SignInContent() {
     }
   };
 
-  const handleGoogleSignIn = async () => {
+  // Step 1 of password mode: figure out whether this email already has an
+  // account. New email -> verify they own the inbox via OTP first, then
+  // they set a password on the other side (see /otp's `next` handling and
+  // /account/password). Existing email -> just ask for the password.
+  const handlePwContinue = async () => {
+    if (!pwEmail.includes("@") || checkingEmail) return;
+    setCheckingEmail(true);
+    try {
+      const normalizedEmail = normalizeEmail(pwEmail);
+      const { exists } = await api.checkEmailExists(normalizedEmail);
+      if (exists) {
+        setPwStep("signin");
+        return;
+      }
+      await api.sendEmailOtp(normalizedEmail);
+      window.localStorage.setItem(AUTH_EMAIL_KEY, normalizedEmail);
+      router.push(
+        `/otp?mode=email&value=${encodeURIComponent(normalizedEmail)}&next=create-password${
+          redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
+        }`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Something went wrong");
+    } finally {
+      setCheckingEmail(false);
+    }
+  };
+
+  // Step 2 (existing account): actual password sign-in.
+  const handlePasswordSignIn = async () => {
+    if (password.length < 8) return;
+    setPwSubmitting(true);
+    try {
+      const normalizedEmail = normalizeEmail(pwEmail);
+      const result = await api.signInWithPassword(normalizedEmail, password);
+      if (!result.session || !result.user) {
+        toast.error("Could not sign in. Please try again.");
+        return;
+      }
+      setStoredSession(result.session.access_token, result.session.refresh_token);
+      await signIn(result.user.id);
+      toast.success("Signed in!");
+      router.push(redirect || "/");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Incorrect email or password.");
+    } finally {
+      setPwSubmitting(false);
+    }
+  };
+
+  // "Forgot password?" -- same OTP-then-set-password path as a new email,
+  // just with different copy on the other side (reason=reset-password).
+  const handleForgotPassword = async () => {
+    if (!pwEmail.includes("@") || sendingRef.current) return;
+    sendingRef.current = true;
+    setSending(true);
+    try {
+      const normalizedEmail = normalizeEmail(pwEmail);
+      await api.sendEmailOtp(normalizedEmail);
+      window.localStorage.setItem(AUTH_EMAIL_KEY, normalizedEmail);
+      router.push(
+        `/otp?mode=email&value=${encodeURIComponent(normalizedEmail)}&next=reset-password${
+          redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
+        }`,
+      );
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to send code");
+    } finally {
+      sendingRef.current = false;
+      setSending(false);
+    }
+  };
+
+  // Shared by both social buttons -- Supabase's signInWithOAuth handles the
+  // redirect to the provider's consent screen; the actual session gets
+  // established back on /auth/callback once the provider redirects here.
+  const handleOAuthSignIn = async (provider: "google" | "apple") => {
     try {
       const { error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
+        provider,
         options: {
           redirectTo: `${window.location.origin}/auth/callback${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`,
-          queryParams: {
-            access_type: "offline",
-            prompt: "consent",
-          },
+          ...(provider === "google" && {
+            queryParams: { access_type: "offline", prompt: "consent" },
+          }),
         },
       });
       if (error) {
-        toast.error("Google sign-in failed. Please try again.");
+        toast.error(
+          provider === "google"
+            ? "Google sign-in failed. Please try again."
+            : "Apple sign-in failed. Please try again.",
+        );
       }
-    } catch (err) {
-      toast.error("Google sign-in failed. Please try again.");
+    } catch {
+      toast.error(
+        provider === "google"
+          ? "Google sign-in failed. Please try again."
+          : "Apple sign-in failed. Please try again.",
+      );
     }
   };
 
@@ -131,10 +235,17 @@ function SignInContent() {
 
       {/* Card */}
       <div className="relative z-10 w-full max-w-[360px] mx-4 bg-white rounded-3xl shadow-2xl p-8">
-        {/* Back arrow on email mode */}
-        {mode === "email" && (
+        {/* Back arrow -- phone OTP is the landing screen now, so no back
+            arrow there; everything else backs up to it. */}
+        {mode !== "phone" && (
           <button
-            onClick={() => setMode("phone")}
+            onClick={() => {
+              if (mode === "password" && pwStep === "signin") {
+                setPwStep("email");
+              } else {
+                setMode("phone");
+              }
+            }}
             className="mb-4 p-1 rounded-full hover:bg-gray-100 transition-colors inline-flex"
           >
             <ArrowLeft className="w-5 h-5 text-gray-700" />
@@ -145,10 +256,18 @@ function SignInContent() {
           className="text-[24px] font-normal text-gray-900 mb-1"
           style={{ fontFamily: "Andika New Basic, serif" }}
         >
-          {mode === "phone" ? "Sign in with mobile no." : "Sign in with email"}
+          {mode === "phone"
+            ? "Sign in with mobile no."
+            : mode === "email"
+              ? "Sign in with email"
+              : pwStep === "email"
+                ? "Sign in with a password"
+                : "Enter your password"}
         </h2>
         <p className="text-[13px] text-gray-500 mb-6">
-          Sign in to access personalized travel plans made for you
+          {mode === "password" && pwStep === "signin"
+            ? pwEmail
+            : "Sign in to access personalized travel plans made for you"}
         </p>
 
         {/* Phone input */}
@@ -184,44 +303,115 @@ function SignInContent() {
           </div>
         )}
 
-        {/* Send OTP button */}
-        <button
-          onClick={handleSendOTP}
-          disabled={sending}
-          className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-normal rounded-xl transition-all text-[16px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
-          style={{ fontFamily: "Albert Sans, sans-serif" }}
-        >
-          {sending ? "Sending..." : "Send OTP"}
-        </button>
+        {/* Password mode, step 1 -- just the email, to figure out whether
+            this is an existing account (ask for password) or a new one
+            (send an OTP, set a password after verifying it). */}
+        {mode === "password" && pwStep === "email" && (
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl overflow-hidden mb-4 focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
+            <Mail className="w-4 h-4 text-gray-400 ml-4 flex-shrink-0" />
+            <input
+              type="email"
+              placeholder="Enter email id"
+              value={pwEmail}
+              onChange={(e) => setPwEmail(e.target.value)}
+              className="flex-1 px-2 py-3 text-[14px] text-gray-800 outline-none bg-white placeholder:text-gray-400"
+            />
+          </div>
+        )}
 
-        {/* Divider */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="flex-1 h-px bg-gray-200" />
-          <span
-            className="text-[16px] text-gray-400 font-medium"
+        {/* Password mode, step 2 -- known account, just needs the password. */}
+        {mode === "password" && pwStep === "signin" && (
+          <div className="flex items-center gap-2 border border-gray-200 rounded-xl overflow-hidden mb-2 focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
+            <input
+              type={showPassword ? "text" : "password"}
+              placeholder="Password"
+              autoFocus
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="flex-1 pl-4 pr-2 py-3 text-[14px] text-gray-800 outline-none bg-white placeholder:text-gray-400"
+            />
+            <button
+              type="button"
+              onClick={() => setShowPassword((v) => !v)}
+              className="mr-3 text-gray-400 hover:text-gray-600 flex-shrink-0"
+              aria-label={showPassword ? "Hide password" : "Show password"}
+            >
+              {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+        )}
+        {mode === "password" && pwStep === "signin" && (
+          <p className="text-right mb-4">
+            <button
+              onClick={handleForgotPassword}
+              disabled={sending}
+              className="text-[12px] text-figma-navy hover:underline font-medium disabled:opacity-50"
+            >
+              {sending ? "Sending code..." : "Forgot password?"}
+            </button>
+          </p>
+        )}
+
+        {/* Send OTP / password submit button */}
+        {mode === "password" && pwStep === "email" ? (
+          <button
+            onClick={handlePwContinue}
+            disabled={checkingEmail}
+            className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-normal rounded-xl transition-all text-[16px] shadow-sm mb-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
             style={{ fontFamily: "Albert Sans, sans-serif" }}
           >
-            OR
-          </span>
-          <div className="flex-1 h-px bg-gray-200" />
-        </div>
+            {checkingEmail ? "Checking..." : "Continue"}
+          </button>
+        ) : mode === "password" && pwStep === "signin" ? (
+          <button
+            onClick={handlePasswordSignIn}
+            disabled={pwSubmitting || password.length < 8}
+            className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-normal rounded-xl transition-all text-[16px] shadow-sm mb-3 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+            style={{ fontFamily: "Albert Sans, sans-serif" }}
+          >
+            {pwSubmitting ? "Signing in..." : "Sign in"}
+          </button>
+        ) : (
+          <button
+            onClick={handleSendOTP}
+            disabled={sending}
+            className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-normal rounded-xl transition-all text-[16px] shadow-sm mb-5 disabled:opacity-50 disabled:cursor-not-allowed disabled:hover:bg-[#004772] disabled:active:scale-100"
+            style={{ fontFamily: "Albert Sans, sans-serif" }}
+          >
+            {sending ? "Sending..." : "Send OTP"}
+          </button>
+        )}
+
+        {/* Divider -- hidden only on the focused single-field password-entry step */}
+        {!(mode === "password" && pwStep === "signin") && (
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex-1 h-px bg-gray-200" />
+            <span
+              className="text-[16px] text-gray-400 font-medium"
+              style={{ fontFamily: "Albert Sans, sans-serif" }}
+            >
+              OR
+            </span>
+            <div className="flex-1 h-px bg-gray-200" />
+          </div>
+        )}
 
         {/* Social buttons */}
+        {!(mode === "password" && pwStep === "signin") && (
         <div className="flex items-center justify-center gap-5 mb-6">
-          {mode === "phone" ? (
+          {mode === "phone" || (mode === "password" && pwStep === "email") ? (
             <>
               {/* Google */}
               <button
-                onClick={handleGoogleSignIn}
+                onClick={() => handleOAuthSignIn("google")}
                 className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm hover:shadow-md"
               >
                 <GoogleIcon />
               </button>
               {/* Apple */}
               <button
-                disabled
-                title="Coming soon"
-                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center shadow-sm opacity-50 cursor-not-allowed"
+                onClick={() => handleOAuthSignIn("apple")}
+                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm hover:shadow-md"
               >
                 <AppleIcon />
               </button>
@@ -237,24 +427,50 @@ function SignInContent() {
               </button>
               {/* Apple */}
               <button
-                disabled
-                title="Coming soon"
-                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center shadow-sm opacity-50 cursor-not-allowed"
+                onClick={() => handleOAuthSignIn("apple")}
+                className="w-14 h-14 rounded-full border border-gray-200 flex items-center justify-center hover:bg-gray-50 transition-colors shadow-sm hover:shadow-md"
               >
                 <AppleIcon />
               </button>
             </>
           )}
         </div>
+        )}
 
         {/* Switch mode */}
         {mode === "phone" && (
           <p className="text-center text-[13px] text-gray-500 mb-4">
             <button
-              onClick={() => setMode("email")}
+              onClick={() => {
+                setPwStep("email");
+                setMode("password");
+              }}
               className="text-figma-navy hover:underline font-medium"
             >
-              Sign in with email instead
+              Sign in with a password instead
+            </button>
+          </p>
+        )}
+        {mode === "email" && (
+          <p className="text-center text-[13px] text-gray-500 mb-4">
+            <button
+              onClick={() => {
+                setPwStep("email");
+                setMode("password");
+              }}
+              className="text-figma-navy hover:underline font-medium"
+            >
+              Sign in with a password instead
+            </button>
+          </p>
+        )}
+        {mode === "password" && pwStep === "email" && (
+          <p className="text-center text-[13px] text-gray-500 mb-4">
+            <button
+              onClick={() => setMode("phone")}
+              className="text-figma-navy hover:underline font-medium"
+            >
+              Sign in with mobile number instead
             </button>
           </p>
         )}

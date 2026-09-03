@@ -172,7 +172,7 @@ export default function Navbar() {
               <>
                 <button
                   className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
-                  onClick={() => router.push("/host/list/property-type")}
+                  onClick={() => router.push("/host/list/method")}
                 >
                   List your property
                 </button>
@@ -272,7 +272,7 @@ export default function Navbar() {
                   New user
                 </button>
                 <button
-                  onClick={() => router.push("/host/list/property-type")}
+                  onClick={() => router.push("/host/list/method")}
                   className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
                 >
                   List your property
@@ -366,7 +366,7 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push("/host/list/property-type");
+                      router.push("/host/list/method");
                     }}
                     className="flex-1 border border-figma-navy text-figma-navy py-2 rounded-xl text-sm font-semibold"
                   >

@@ -78,7 +78,7 @@ export async function previewCancellationRefund(params: {
 
   const { data: listing, error: listingErr } = await supabaseAdmin
     .from("listings")
-    .select("price_weekday, price_weekend, cancellation_policy")
+    .select("price_weekday, price_weekend, cancellation_policy, strict_partial_refund_percent")
     .eq("listing_id", booking.listing_id)
     .maybeSingle();
   if (listingErr) throw listingErr;
@@ -92,7 +92,10 @@ export async function previewCancellationRefund(params: {
     invoice,
     checkIn: new Date(booking.start_date + "T00:00:00Z"),
     cancellationTime: new Date(),
-    policyConfig: { policy },
+    policyConfig: {
+      policy,
+      strictPartialRefundPercent: listing.strict_partial_refund_percent ?? undefined,
+    },
   });
 
   return {
@@ -167,7 +170,7 @@ export async function cancelBookingWithRefund(params: {
     // Fetch the listing's assigned cancellation policy + real rates.
     const { data: listing, error: listingErr } = await supabaseAdmin
       .from("listings")
-      .select("price_weekday, price_weekend, cancellation_policy")
+      .select("price_weekday, price_weekend, cancellation_policy, strict_partial_refund_percent")
       .eq("listing_id", booking.listing_id)
       .maybeSingle();
     if (listingErr) throw listingErr;
@@ -190,7 +193,10 @@ export async function cancelBookingWithRefund(params: {
       priceWeekend,
     );
 
-    const policyConfig: CancellationPolicyConfig = { policy };
+    const policyConfig: CancellationPolicyConfig = {
+      policy,
+      strictPartialRefundPercent: listing.strict_partial_refund_percent ?? undefined,
+    };
     const refundCalc = calculateRefund({
       invoice,
       checkIn: new Date(booking.start_date + "T00:00:00Z"),

@@ -39,6 +39,8 @@ export interface Host {
   responseRate?: number;
   responseTime?: string;
   isSuperhost?: boolean;
+  occupation?: string;
+  hobbies?: string;
 }
 
 export interface Property {
@@ -62,6 +64,10 @@ export interface Property {
   isInstantBook?: boolean;
   freeCancellation?: boolean;
   cancellationPolicy?: "flexible" | "moderate" | "strict";
+  // Only meaningful when cancellationPolicy === "strict" -- per-listing
+  // override of CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent.
+  // Undefined means this listing uses the platform default (50%).
+  strictPartialRefundPercent?: number;
   breakfast?: boolean;
   parking?: boolean;
   wifi?: boolean;
@@ -89,6 +95,8 @@ export interface Property {
     timingTo: string | null;
     notes: string | null;
   }[];
+  address?: string;
+  nearbyLandmarks?: { name: string; distance: string }[];
 }
 
 export interface SearchFilters {

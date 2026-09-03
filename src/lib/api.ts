@@ -150,6 +150,8 @@ export function mapListingToProperty(input: any): Property {
     isInstantBook: row.booking_mode === "auto" || Boolean(row.isInstantBook),
     freeCancellation: Boolean(row.freeCancellation),
     cancellationPolicy: (row.cancellation_policy ?? "moderate") as Property["cancellationPolicy"],
+    strictPartialRefundPercent:
+      row.strict_partial_refund_percent != null ? Number(row.strict_partial_refund_percent) : undefined,
     breakfast: boolFromAmenity(amenities, "breakfast"),
     parking: boolFromAmenity(amenities, "parking"),
     wifi: boolFromAmenity(amenities, "wifi"),
@@ -425,6 +427,34 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
+  getPayoutMethod: () =>
+    request<{
+      account_holder_name: string;
+      bank_account_number: string; // masked, e.g. "••••1234"
+      bank_ifsc: string;
+      pan_number: string;
+      address_line1: string;
+      city: string;
+      state: string;
+      postal_code: string;
+      status: "submitted" | "onboarding" | "active" | "rejected";
+      created_at: string;
+      updated_at: string;
+    } | null>(`/api/host/payout-methods`),
+  savePayoutMethod: (payload: {
+    accountHolderName: string;
+    bankAccountNumber: string;
+    bankIfsc: string;
+    panNumber: string;
+    addressLine1: string;
+    city: string;
+    state: string;
+    postalCode: string;
+  }) =>
+    request<{ status: string }>(`/api/host/payout-methods`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
   cancelBooking: (bookingId: string | number, userId: string, reason?: string) =>
     request<any>(`/api/bookings/cancel`, {
       method: "POST",
@@ -607,6 +637,15 @@ export const api = {
         }),
       });
 
+      // Best-effort -- this session was established directly against
+      // Supabase Auth client-side, not through one of our own server
+      // routes, so there's no single server-side place that otherwise logs
+      // it. See /api/auth/log-login.
+      request("/api/auth/log-login", {
+        method: "POST",
+        body: JSON.stringify({ userId: user.id, method: "email_otp" }),
+      }).catch(() => {});
+
       return { user, session: data.session, profile };
     }
 
@@ -620,6 +659,30 @@ export const api = {
       }),
     });
   },
+  checkEmailExists: (email: string) =>
+    request<{ exists: boolean }>("/api/auth/check-email", {
+      method: "POST",
+      body: JSON.stringify({ email: normalizeEmail(email) }),
+    }),
+  loginEvents: (userId: string) =>
+    request<
+      { id: number; method: string; ip_address: string | null; user_agent: string | null; created_at: string }[]
+    >(`/api/auth/login-events?userId=${encodeURIComponent(userId)}`),
+  changePassword: (newPassword: string) =>
+    request<{ ok: true }>("/api/auth/change-password", {
+      method: "POST",
+      body: JSON.stringify({ newPassword }),
+    }),
+  signInWithPassword: (email: string, password: string) =>
+    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ action: "signin", email: normalizeEmail(email), password }),
+    }),
+  signUpWithPassword: (email: string, password: string) =>
+    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
+      method: "POST",
+      body: JSON.stringify({ action: "signup", email: normalizeEmail(email), password }),
+    }),
   addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<any>("/api/wishlist", {
       method: "POST",
@@ -633,6 +696,10 @@ export const api = {
   wishlistIds: (userId: string) =>
     request<{ listing_id: string }[]>(
       `/api/wishlist?resource=ids&userId=${encodeURIComponent(userId)}`,
+    ),
+  wishlistCategoriesForListing: (userId: string, listingId: string | number) =>
+    request<string[]>(
+      `/api/wishlist?resource=listing-categories&userId=${encodeURIComponent(userId)}&listingId=${encodeURIComponent(String(listingId))}`,
     ),
   wishlistCategories: (userId: string) =>
     request<{ id: string; name: string }[]>(

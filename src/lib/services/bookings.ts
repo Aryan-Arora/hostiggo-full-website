@@ -215,7 +215,17 @@ export const bookingsAPI = {
       guest = guestRow ?? null;
     }
 
-    return { ...booking, guest };
+    // Which add-ons (breakfast/other services) were actually purchased --
+    // their price is already folded into `booking.amount`, but without this
+    // the confirmation/invoice UI has no way to itemize what that total is
+    // made of. No FK in the schema cache to embed this in the select above
+    // (same reason `guest` is fetched separately), so a plain query by id.
+    const { data: addons } = await supabase
+      .from("booking_addons")
+      .select("name, price, type")
+      .eq("booking_id", Number(bookingId));
+
+    return { ...booking, guest, addons: addons ?? [] };
   },
 
   async updateBookingStatus(

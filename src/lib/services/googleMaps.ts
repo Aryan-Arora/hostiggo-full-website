@@ -6,6 +6,28 @@
 
 let loadPromise: Promise<typeof google> | null = null;
 
+// Google's documented global callback for a bad/restricted/unbilled API key
+// (InvalidKeyMapError and friends): https://developers.google.com/maps/documentation/javascript/events#auth-errors
+// The Maps script itself still loads and calls our own load callback below
+// even when the key is invalid -- the SDK only reports the failure via
+// this separate global hook (and a console error), not by rejecting
+// anything. Without wiring it up, every map on the page rendered broken
+// with no way for the app to know and show a fallback instead of a dead
+// gray tile grid. Registered once; every InteractiveMap/MapPreview
+// instance subscribes so all of them can fall back together.
+const authFailureListeners = new Set<() => void>();
+
+export function onGoogleMapsAuthFailure(cb: () => void): () => void {
+  authFailureListeners.add(cb);
+  return () => authFailureListeners.delete(cb);
+}
+
+if (typeof window !== 'undefined' && !(window as any).gm_authFailure) {
+  (window as any).gm_authFailure = () => {
+    authFailureListeners.forEach((cb) => cb());
+  };
+}
+
 export function loadGoogleMaps(): Promise<typeof google> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('loadGoogleMaps can only run in the browser'));

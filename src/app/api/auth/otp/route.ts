@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { authApi } from "@/lib/services/auth";
-import { usersAPI } from "@/lib/services/user";
+import { ensureProfile } from "@/lib/services/ensureProfile";
+import { recordLoginEvent } from "@/lib/services/loginEvents";
 
 export const dynamic = "force-dynamic";
-
-const ensureProfile = async (user: { id: string; phone?: string; email?: string; user_metadata?: Record<string, any> }) => {
-  const existing = await usersAPI.getUserById(user.id);
-  if (existing) return existing;
-  return usersAPI.upsertUser({
-    user_id: user.id,
-    name: user.user_metadata?.full_name || user.user_metadata?.name || "",
-    email: user.email || user.user_metadata?.email || "",
-    phone: user.phone || null,
-    age: user.user_metadata?.age || null,
-    emergency_contact: user.user_metadata?.emergency_contact || null,
-    is_verified: true,
-    is_active: true,
-  });
-};
 
 export async function POST(req: NextRequest) {
   try {
@@ -84,6 +70,8 @@ export async function POST(req: NextRequest) {
             { status: 403 },
           );
         }
+
+        await recordLoginEvent(req, user.id, otpType === "email" ? "email_otp" : "phone_otp");
 
         return NextResponse.json({
           data: {

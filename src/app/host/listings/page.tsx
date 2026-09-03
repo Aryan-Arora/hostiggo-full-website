@@ -161,7 +161,7 @@ export default function MyListingsPage() {
         subtitle="Manage your properties, update availability, and maximize your earnings from one central dashboard."
         actions={
           <Link
-            href="/host/list/property-type"
+            href="/host/list/method"
             className="flex items-center gap-2 bg-figma-navy text-white px-4 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-all"
           >
             <Plus className="w-5 h-5" />
@@ -196,7 +196,7 @@ export default function MyListingsPage() {
             Create your first listing to start hosting and earning.
           </p>
           <Link
-            href="/host/list/property-type"
+            href="/host/list/method"
             className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-all"
           >
             <Plus className="w-4 h-4" /> Create a listing

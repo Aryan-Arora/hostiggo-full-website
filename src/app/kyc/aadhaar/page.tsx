@@ -1,19 +1,101 @@
 'use client';
 
-import { Suspense, useEffect, useState } from 'react';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { ShieldCheck } from 'lucide-react';
+import { Camera, CreditCard, Loader2, ShieldCheck, X } from 'lucide-react';
 import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import {
   formatAadhaarInput,
   hasSubmittedAadhaarKyc,
   isValidAadhaarNumber,
   markAadhaarKycSubmitted,
+  skipAadhaarKycThisAttempt,
 } from '@/lib/aadhaar';
 
 const authBg = '/auth-bg.jpg';
+
+type Side = 'front' | 'back';
+type UploadState = { path: string | null; previewUrl: string | null; uploading: boolean };
+
+const emptyUpload = (): UploadState => ({ path: null, previewUrl: null, uploading: false });
+
+// One upload tile, sized to an ID-card aspect ratio (like every real Aadhaar/
+// KYC verification flow) so it visually reads as "photograph the card here"
+// rather than a generic file picker.
+function DocumentUploadTile({
+  side,
+  label,
+  state,
+  onSelect,
+  onRemove,
+}: {
+  side: Side;
+  label: string;
+  state: UploadState;
+  onSelect: (file: File) => void;
+  onRemove: () => void;
+}) {
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  return (
+    <div>
+      <p className="text-xs font-semibold text-gray-600 mb-1.5">{label}</p>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp"
+        className="hidden"
+        onChange={(e) => {
+          const file = e.target.files?.[0];
+          if (file) onSelect(file);
+          if (inputRef.current) inputRef.current.value = '';
+        }}
+      />
+      <div
+        onClick={() => !state.uploading && !state.previewUrl && inputRef.current?.click()}
+        className={cn(
+          'relative aspect-[85.6/54] rounded-xl border-2 border-dashed flex flex-col items-center justify-center overflow-hidden transition-all',
+          state.previewUrl
+            ? 'border-transparent'
+            : 'border-gray-300 bg-gray-50 hover:border-figma-navy/50 hover:bg-figma-navy/5 cursor-pointer',
+        )}
+      >
+        {state.uploading ? (
+          <Loader2 className="w-6 h-6 text-figma-navy animate-spin" />
+        ) : state.previewUrl ? (
+          <>
+            <Image
+              src={state.previewUrl}
+              alt={`${label} preview`}
+              fill
+              sizes="260px"
+              className="object-cover"
+            />
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                onRemove();
+              }}
+              aria-label={`Remove ${label.toLowerCase()}`}
+              className="absolute top-1.5 right-1.5 w-6 h-6 rounded-full bg-black/60 hover:bg-black/80 text-white flex items-center justify-center transition-colors"
+            >
+              <X className="w-3.5 h-3.5" />
+            </button>
+          </>
+        ) : (
+          <>
+            <Camera className="w-6 h-6 text-gray-400 mb-1.5" />
+            <span className="text-[11px] font-medium text-gray-500">Tap to upload</span>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
 
 function AadhaarKycContent() {
   const router = useRouter();
@@ -25,6 +107,8 @@ function AadhaarKycContent() {
   const [aadhaar, setAadhaar] = useState('');
   const [consent, setConsent] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [front, setFront] = useState<UploadState>(emptyUpload());
+  const [back, setBack] = useState<UploadState>(emptyUpload());
 
   useEffect(() => {
     if (user?.name) setFullName(user.name);
@@ -43,9 +127,46 @@ function AadhaarKycContent() {
     }
   }, [authLoading, userId, redirect, router]);
 
+  const uploadSide = async (side: Side, file: File) => {
+    if (!userId) return;
+    if (file.size > 8 * 1024 * 1024) {
+      toast.error('That photo is too large (max 8MB).');
+      return;
+    }
+    const setState = side === 'front' ? setFront : setBack;
+    setState((s) => ({ ...s, uploading: true }));
+    try {
+      const form = new FormData();
+      form.append('file', file);
+      form.append('userId', userId);
+      form.append('side', side);
+      const res = await fetch('/api/kyc/aadhaar/upload', { method: 'POST', body: form });
+      const body = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(body.error || 'Upload failed');
+      setState({ path: body.data.path, previewUrl: body.data.previewUrl ?? null, uploading: false });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not upload that photo');
+      setState((s) => ({ ...s, uploading: false }));
+    }
+  };
+
   const digitsOnly = aadhaar.replace(/\s+/g, '');
   const isValid = isValidAadhaarNumber(digitsOnly);
-  const canSubmit = fullName.trim().length > 1 && isValid && consent && !submitting;
+  const canSubmit =
+    fullName.trim().length > 1 &&
+    isValid &&
+    consent &&
+    !!front.path &&
+    !!back.path &&
+    !submitting;
+
+  // Doesn't mark KYC as submitted -- just lets this one listing attempt
+  // through. The gate re-applies the next time they start a new listing.
+  const handleSkip = () => {
+    if (!userId) return;
+    skipAadhaarKycThisAttempt(userId);
+    router.push(redirect);
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,7 +177,13 @@ function AadhaarKycContent() {
       const res = await fetch('/api/kyc/aadhaar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId, fullName: fullName.trim(), aadhaarNumber: digitsOnly }),
+        body: JSON.stringify({
+          userId,
+          fullName: fullName.trim(),
+          aadhaarNumber: digitsOnly,
+          frontImagePath: front.path,
+          backImagePath: back.path,
+        }),
       });
       if (!res.ok) {
         const body = await res.json().catch(() => ({}));
@@ -86,18 +213,44 @@ function AadhaarKycContent() {
         </span>
       </div>
 
-      <div className="relative z-10 w-full max-w-[420px] mx-4 bg-white rounded-3xl shadow-2xl p-8">
+      <div className="relative z-10 w-full max-w-[480px] mx-4 bg-white rounded-3xl shadow-2xl p-8">
         <div className="w-12 h-12 rounded-2xl bg-figma-navy/10 text-figma-navy flex items-center justify-center mb-5">
           <ShieldCheck className="w-6 h-6" />
         </div>
         <h1 className="text-xl font-bold text-gray-900 mb-1.5">Verify your identity</h1>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
-          To keep bookings safe for everyone, we ask every guest to submit their
-          Aadhaar details once. This is a one-time step -- we&apos;ll use it only
-          for identity verification.
+          To keep bookings safe for everyone, we ask every host to upload a
+          photo of their Aadhaar card once before listing a property. This is
+          a one-time step -- we&apos;ll use it only for identity verification.
         </p>
 
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} className="space-y-5">
+          <div>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-2.5">
+              <CreditCard className="w-3.5 h-3.5" />
+              Photo of your Aadhaar card
+            </p>
+            <div className="grid grid-cols-2 gap-3">
+              <DocumentUploadTile
+                side="front"
+                label="Front side"
+                state={front}
+                onSelect={(f) => uploadSide('front', f)}
+                onRemove={() => setFront(emptyUpload())}
+              />
+              <DocumentUploadTile
+                side="back"
+                label="Back side"
+                state={back}
+                onSelect={(f) => uploadSide('back', f)}
+                onRemove={() => setBack(emptyUpload())}
+              />
+            </div>
+            <p className="text-[11px] text-gray-400 mt-2">
+              Make sure all four corners are visible and the details are readable.
+            </p>
+          </div>
+
           <div>
             <label htmlFor="fullName" className="block text-xs font-semibold text-gray-600 mb-1.5">
               Full name (as on Aadhaar)
@@ -140,8 +293,8 @@ function AadhaarKycContent() {
               className="mt-0.5 w-4 h-4 rounded border-gray-300 text-figma-navy focus:ring-figma-navy/30"
             />
             <span className="text-xs text-gray-500 leading-relaxed">
-              I consent to Hostiggo collecting my Aadhaar details for identity
-              verification, in accordance with the{' '}
+              I consent to Hostiggo collecting my Aadhaar photo and details for
+              identity verification, in accordance with the{' '}
               <a href="/privacy" target="_blank" className="text-figma-navy underline">
                 Privacy Policy
               </a>
@@ -157,6 +310,14 @@ function AadhaarKycContent() {
             {submitting ? 'Submitting…' : 'Submit for verification'}
           </button>
         </form>
+
+        <button
+          type="button"
+          onClick={handleSkip}
+          className="w-full text-center text-xs font-semibold text-gray-500 hover:text-gray-700 mt-4 transition-colors"
+        >
+          Do KYC verification later
+        </button>
       </div>
     </div>
   );
