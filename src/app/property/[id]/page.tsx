@@ -51,6 +51,11 @@ import { toast } from "sonner";
 const FALLBACK =
   "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
 
+// Site-wide kill switch for the real booking CTA -- flip back to false to
+// re-enable. The button stays visible (greyed out, non-clickable) so the
+// page layout doesn't shift.
+const BOOKING_DISABLED = true;
+
 // ── Amenity Icon Map ─────────────────────────────────────────────────
 const AMENITY_ICON_MAP: Record<string, React.ReactNode> = {
   wifi: <Wifi className="w-5 h-5" />,
@@ -1304,16 +1309,25 @@ function BookingWidget({
           <CheckCircle className="w-5 h-5" /> Booking confirmed!
         </div>
       ) : status === "available" || status === "booking" ? (
-        <button
-          onClick={book}
-          disabled={status === "booking"}
-          className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
-        >
-          <CalendarDays className="w-4 h-4" />
-          {status === "booking"
-            ? "Booking…"
-            : `Book for ${nights} Night${nights > 1 ? "s" : ""}`}
-        </button>
+        // Bookings are temporarily disabled site-wide -- button stays
+        // visible so the page layout/flow is unchanged, but is inert.
+        BOOKING_DISABLED ? (
+          <div className="w-full bg-gray-100 text-gray-400 py-3 rounded-xl font-bold text-[14px] flex items-center justify-center gap-2 cursor-not-allowed">
+            <CalendarDays className="w-4 h-4" />
+            Bookings temporarily unavailable
+          </div>
+        ) : (
+          <button
+            onClick={book}
+            disabled={status === "booking"}
+            className="w-full bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-3 rounded-xl font-bold text-[14px] transition-colors shadow-md shadow-figma-navy/20 flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed"
+          >
+            <CalendarDays className="w-4 h-4" />
+            {status === "booking"
+              ? "Booking…"
+              : `Book for ${nights} Night${nights > 1 ? "s" : ""}`}
+          </button>
+        )
       ) : (
         <button
           onClick={
@@ -1601,13 +1615,20 @@ function StickyBookingBar({
       style={{ boxShadow: "0 2px 16px rgba(0,0,0,0.10)" }}
     >
       <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3 flex items-center gap-4">
-        {/* Reserve button */}
-        <button
-          onClick={onReserve}
-          className="bg-figma-navy hover:bg-figma-navy/90 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
-        >
-          Reserve
-        </button>
+        {/* Reserve button -- just scrolls to the real booking widget below,
+            so it follows the same site-wide disabled state for consistency. */}
+        {BOOKING_DISABLED ? (
+          <div className="bg-gray-100 text-gray-400 px-5 py-2 rounded-xl font-bold text-[13px] flex-shrink-0 cursor-not-allowed">
+            Reserve
+          </div>
+        ) : (
+          <button
+            onClick={onReserve}
+            className="bg-figma-navy hover:bg-figma-navy/90 text-white px-5 py-2 rounded-xl font-bold text-[13px] transition-colors shadow-sm flex-shrink-0"
+          >
+            Reserve
+          </button>
+        )}
 
         {/* Price + info */}
         <div className="flex items-center gap-1.5 min-w-0">
