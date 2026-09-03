@@ -34,7 +34,9 @@ function SignInContent() {
     toast.error(
       errorParam === "access_denied"
         ? "Google sign-in was cancelled."
-        : `Sign-in error. Please try again.`,
+        : errorParam === "account_deactivated"
+          ? "This account has been deactivated. Contact support to reactivate it."
+          : `Sign-in error. Please try again.`,
     );
   }, [errorParam]);
 

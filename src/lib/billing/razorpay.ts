@@ -1,4 +1,5 @@
 import "server-only";
+import crypto from "crypto";
 import Razorpay from "razorpay";
 
 // Credentials come from environment variables only -- never hardcoded.
@@ -6,9 +7,13 @@ import Razorpay from "razorpay";
 //   RAZORPAY_KEY_ID=
 //   RAZORPAY_KEY_SECRET=
 //   RAZORPAY_ACCOUNT_NUMBER=       (RazorpayX account, needed for payouts)
+//   RAZORPAY_WEBHOOK_SECRET=       (set when creating the webhook in the
+//                                   Razorpay dashboard, separate from the
+//                                   API key secret above)
 const RAZORPAY_KEY_ID = process.env.RAZORPAY_KEY_ID;
 const RAZORPAY_KEY_SECRET = process.env.RAZORPAY_KEY_SECRET;
 const RAZORPAY_ACCOUNT_NUMBER = process.env.RAZORPAY_ACCOUNT_NUMBER;
+const RAZORPAY_WEBHOOK_SECRET = process.env.RAZORPAY_WEBHOOK_SECRET;
 
 let client: Razorpay | null = null;
 
@@ -61,6 +66,69 @@ export function calculateRazorpayPayoutCharge(payoutAmountPaise: number): {
     gstOnPayoutFeePaise,
     totalChargePaise: payoutFeePaise + gstOnPayoutFeePaise,
   };
+}
+
+/**
+ * Verifies the signature Razorpay Checkout hands back to the browser after a
+ * successful payment (razorpay_payment_id, razorpay_order_id,
+ * razorpay_signature). This is the only thing standing between "the browser
+ * said the payment succeeded" and "the payment actually succeeded" -- the
+ * checkout success callback firing is a client-side event with no proof
+ * behind it, trivially fakeable by posting made-up IDs straight to the API
+ * without ever paying. Must pass before a booking is ever inserted (see
+ * finalizeBookingFromRazorpayOrder in admin-writes.ts).
+ */
+export function verifyRazorpayPayment(params: {
+  orderId: string;
+  paymentId: string;
+  signature: string;
+}): boolean {
+  if (!RAZORPAY_KEY_SECRET) {
+    throw new Error("RAZORPAY_KEY_SECRET must be set to verify payments.");
+  }
+  const expected = crypto
+    .createHmac("sha256", RAZORPAY_KEY_SECRET)
+    .update(`${params.orderId}|${params.paymentId}`)
+    .digest("hex");
+  return timingSafeEqualHex(expected, params.signature);
+}
+
+/**
+ * Verifies the `X-Razorpay-Signature` header on an incoming webhook request
+ * against the *raw* request body -- this must run before the body is JSON
+ * parsed (parsing then re-stringifying can reorder keys and break the
+ * comparison), and uses a separate secret from the API key (set when the
+ * webhook is created in the Razorpay dashboard), not RAZORPAY_KEY_SECRET.
+ */
+export function verifyRazorpayWebhookSignature(rawBody: string, signature: string): boolean {
+  if (!RAZORPAY_WEBHOOK_SECRET) {
+    throw new Error("RAZORPAY_WEBHOOK_SECRET must be set to verify webhooks.");
+  }
+  const expected = crypto
+    .createHmac("sha256", RAZORPAY_WEBHOOK_SECRET)
+    .update(rawBody)
+    .digest("hex");
+  return timingSafeEqualHex(expected, signature);
+}
+
+/**
+ * Plain `===` on a signature leaks timing information about how many
+ * leading bytes matched, letting an attacker recover the correct signature
+ * one byte at a time -- crypto.timingSafeEqual closes that side channel.
+ * Wrapped here because it throws on length mismatch instead of just
+ * returning false, and a signature of the wrong length is exactly the kind
+ * of malformed input a hostile request would send.
+ */
+function timingSafeEqualHex(expectedHex: string, actualHex: string): boolean {
+  const expected = Buffer.from(expectedHex, "hex");
+  let actual: Buffer;
+  try {
+    actual = Buffer.from(actualHex, "hex");
+  } catch {
+    return false;
+  }
+  if (expected.length !== actual.length) return false;
+  return crypto.timingSafeEqual(expected, actual);
 }
 
 /** Creates a Razorpay order for the guest to pay grandTotal against (Section 2). */

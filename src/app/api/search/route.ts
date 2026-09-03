@@ -47,12 +47,29 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Stay type filter
+    // Stay type filter (Private room / Shared room / Entire property),
+    // same reasoning: filter on the real stay_type_title from the RPC row.
     if (filters?.stayTypes?.length && data?.length) {
       const wanted = new Set(filters.stayTypes.map((t: string) => t.toLowerCase()));
       data = data.filter((r: any) =>
         wanted.has((r.listing?.stay_type_title ?? "").toLowerCase()),
       );
+    }
+
+    // Fallback: the search_listings RPC misses some districts (e.g. New Delhi)
+    // even though active listings exist there. For a plain destination search
+    // on the first page, query listings by district directly so results still
+    // show. Cursor-based pagination has no page/offset concept for the
+    // fallback path, so this only covers the initial (cursor-less) request.
+    // TODO: remove once the search_listings RPC district matching is fixed.
+    if (!cursor && (!data || data.length === 0) && isPlainDestinationSearch(filters)) {
+      const rows = await HotelServiceApi.getListingsByDistrict(
+        filters.district,
+        pageSize,
+        0,
+      );
+      data = rows.map((row: any) => ({ listing: row, distance: null }));
+      console.log("[/api/search] district fallback used:", filters.district, "→", data.length);
     }
 
     // Date availability filter

@@ -335,9 +335,15 @@ export const HotelServiceApi = {
       throw error;
     }
 
-    // Get state boundaries for map (if state-level search)
+    // Get state boundaries for map (if state-level search). District
+    // searches (the common case -- see searchByState in src/lib/api.ts,
+    // which always sends `district` since the destination search box only
+    // ever collects city/district text) don't have a `searchState` to key
+    // off, so fall back to the state of the first matched listing -- every
+    // row in a district search is necessarily within one state anyway.
+    const boundsLookupState = searchState || data?.[0]?.listing?.locations?.state;
     let stateBounds = null;
-    if (searchState) {
+    if (boundsLookupState) {
       // supabase-js's select-string type parser can't resolve a raw SQL
       // function call like `ST_AsGeoJSON(boundary) as boundary` -- it infers
       // a ParserError type for the row even though PostgREST runs it fine.
@@ -345,7 +351,7 @@ export const HotelServiceApi = {
       const { data: locationData } = (await supabase
         .from('locations')
         .select('state, ST_AsGeoJSON(boundary) as boundary')
-        .eq('state', searchState)
+        .eq('state', boundsLookupState)
         .maybeSingle()) as { data: { state: string; boundary: string | null } | null };
 
       if (locationData?.boundary) {
@@ -390,7 +396,16 @@ export const HotelServiceApi = {
       return null;
     }
 
-    const { data, error } = await supabase
+    // Uses the admin client, not the anon `supabase` client used elsewhere
+    // in this file -- unlike the RPC-backed search functions (which run as
+    // SECURITY DEFINER and bypass RLS regardless of caller), this is a
+    // direct table select with nested embeds (listing_addons,
+    // listing_discounts). If RLS on those child tables doesn't grant the
+    // anon role read access, Supabase doesn't error -- it silently returns
+    // an empty array for that embed while the rest of the row loads fine,
+    // which is exactly why host-added addons weren't showing up on the
+    // guest-facing property page.
+    const { data, error } = await supabaseAdmin
       .from('listings')
       .select(
         `

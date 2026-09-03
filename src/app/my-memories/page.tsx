@@ -1238,20 +1238,23 @@ function BookingCard({
 
 const EMPTY_CONFIG: Record<
   TabKey,
-  { heading: string; sub: string; cta?: string }
+  { heading: string; sub: string; cta?: string; image?: string }
 > = {
   upcoming: {
     heading: 'No upcoming trips yet,',
     sub: 'Start planning your next stay or services.',
     cta: 'Explore stays',
+    image: '/images/empty-states/woman-walking.png',
   },
   completed: {
     heading: 'No completed trips yet,',
     sub: 'Your past stays will appear here.',
+    image: '/images/empty-states/woman-cafe.png',
   },
   cancelled: {
     heading: 'No cancelled bookings,',
     sub: 'Cancelled trips will be shown here.',
+    image: '/images/empty-states/suitcase-cobweb.png',
   },
 };
 
@@ -1260,11 +1263,11 @@ function SignedOutState() {
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-14 py-16 animate-fade-in">
       <img
-        src={memoriesIllustration}
+        src="/images/empty-states/yeti-thumbs-up.png"
         alt="Sign in to see your trips"
         loading="lazy"
         decoding="async"
-        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm"
+        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm animate-floating"
       />
       <div className="text-center sm:text-left max-w-xs">
         <h3 className="text-[22px] sm:text-[26px] font-extrabold italic text-gray-900 leading-tight mb-2">
@@ -1286,15 +1289,15 @@ function SignedOutState() {
 
 function EmptyState({ tab }: { tab: TabKey }) {
   const router = useRouter();
-  const { heading, sub, cta } = EMPTY_CONFIG[tab];
+  const { heading, sub, cta, image } = EMPTY_CONFIG[tab];
   return (
     <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-14 py-16 animate-fade-in">
       <img
-        src={memoriesIllustration}
+        src={image || memoriesIllustration}
         alt="No trips"
         loading="lazy"
         decoding="async"
-        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm"
+        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm animate-floating"
       />
       <div className="text-center sm:text-left max-w-xs">
         <h3 className="text-[22px] sm:text-[26px] font-extrabold italic text-gray-900 leading-tight mb-2">

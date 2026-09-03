@@ -1,4 +1,5 @@
-import { supabase } from "../supabase";
+import "server-only";
+import { supabaseAdmin as supabase } from "../supabase-admin";
 
 export type WishlistDTO = {
   id: string;

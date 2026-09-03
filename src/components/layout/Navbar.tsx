@@ -4,6 +4,8 @@ import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 import {
   Clock,
   Gift,
@@ -20,10 +22,6 @@ import {
   User,
   X,
 } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
 
 // Signed-in user display fallback -- must match the placeholder used in
 // account/profile/page.tsx so an unset profile photo looks the same

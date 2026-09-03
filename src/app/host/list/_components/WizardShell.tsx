@@ -20,7 +20,9 @@ import {
 // Ordered list of the listing-creation wizard steps.
 export const WIZARD_STEPS = [
   { slug: 'property-type', label: 'Property type' },
+  { slug: 'stay-type', label: 'Stay type' },
   { slug: 'location', label: 'Location' },
+  { slug: 'address', label: 'Address' },
   { slug: 'capacity', label: 'Capacity' },
   { slug: 'amenities', label: 'Amenities' },
   { slug: 'addons', label: 'Add-ons' },

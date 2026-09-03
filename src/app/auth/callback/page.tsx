@@ -5,6 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
 
 function AuthCallbackContent() {
   const router = useRouter();
@@ -41,6 +42,26 @@ function AuthCallbackContent() {
       } catch (e) {
         console.error('[auth/callback] Failed to create profile:', e);
       }
+      if (!active) return;
+
+      // The POST above no longer reactivates an existing deactivated row
+      // (see /api/users), so a deactivated user coming back through Google
+      // still lands here with is_active: false. Google/GoTrue also bans
+      // the auth user on deactivation, but that's a defense-in-depth check,
+      // not the only one -- deny the app-level session here too rather than
+      // trust an already-established Supabase session.
+      try {
+        const profile = await api.getUser(user.id);
+        if (profile && profile.is_active === false) {
+          await supabase.auth.signOut().catch(() => {});
+          if (!active) return;
+          router.replace('/signin?error=account_deactivated');
+          return;
+        }
+      } catch (e) {
+        console.error('[auth/callback] Failed to check account status:', e);
+      }
+
       if (!active) return;
       await signIn(user.id);
       if (!active) return;

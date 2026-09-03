@@ -6,6 +6,7 @@
  */
 
 import { loadGoogleMaps } from './googleMaps';
+import { api } from '../api';
 
 /**
  * Simple in-memory cache for geocoding lookups to avoid re-hitting the network
@@ -239,4 +240,26 @@ export function formatAddress(address: GeocodingResult['address']): string {
   if (address.postcode) parts.push(address.postcode);
   if (address.country) parts.push(address.country);
   return parts.filter(Boolean).join(', ');
+}
+
+/**
+ * Matches a geocoded city/district against the platform's curated
+ * locations table (the same lookup the destination search bar uses) so a
+ * listing gets tagged with a real location_id instead of silently staying
+ * unset. Best-effort: many towns genuinely aren't in that curated list
+ * yet, so no match just means no location_id -- not a case to fake a
+ * wrong location for. Shared between the listing-creation wizard and the
+ * post-listing "manage" edit page, so both auto-detect the same way.
+ */
+export async function resolveLocationId(city?: string, county?: string): Promise<number | undefined> {
+  for (const candidate of [city, county]) {
+    if (!candidate) continue;
+    try {
+      const results = await api.locations(1, candidate);
+      if (results?.[0]?.location_id) return results[0].location_id;
+    } catch {
+      // Non-fatal -- callers shouldn't fail because location lookup failed.
+    }
+  }
+  return undefined;
 }

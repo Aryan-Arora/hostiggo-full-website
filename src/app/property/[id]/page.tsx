@@ -5,6 +5,7 @@ import { useParams, useRouter, useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import DateRangePicker from '@/components/features/DateRangePicker';
 import { loadGoogleMaps } from '@/lib/services/googleMaps';
+import { openRazorpayCheckout } from '@/lib/services/razorpayCheckout';
 import {
   Star,
   Heart,
@@ -790,7 +791,7 @@ function BookingWidget({
   selectedAddonIds: number[];
 }) {
   const searchParams = useSearchParams();
-  const { isAuthenticated, userId } = useAuth();
+  const { isAuthenticated, userId, user } = useAuth();
   const router = useRouter();
 
   // Seed dates from URL params (passed by search results)
@@ -975,7 +976,9 @@ function BookingWidget({
     }
     setStatus('booking');
     try {
-      const created = await api.createBooking({
+      // Step 1: price the stay and open a Razorpay order -- no booking
+      // exists yet at this point.
+      const order = await api.reserveBooking({
         listingId: property.id,
         userId,
         startDate: toISODate(checkIn)!,
@@ -983,6 +986,39 @@ function BookingWidget({
         numAdults: guests,
         numChildren: 0,
         addonIds: selectedAddonIds,
+      });
+
+      // Step 2: guest actually pays via the Razorpay Checkout widget.
+      let payment;
+      try {
+        payment = await openRazorpayCheckout({
+          key: order.razorpayKeyId,
+          amount: order.amountPaise,
+          currency: order.currency,
+          order_id: order.razorpayOrderId,
+          name: 'Hostiggo',
+          description: property.propertyName,
+          prefill: {
+            name: user?.name ?? undefined,
+            email: user?.email ?? undefined,
+            contact: user?.phone ?? undefined,
+          },
+          theme: { color: '#0B2C4D' },
+        });
+      } catch {
+        // Guest closed the checkout widget without paying -- nothing was
+        // ever created (see /api/bookings/reserve), so there's nothing to
+        // roll back, just let them try again.
+        setStatus('available');
+        return;
+      }
+
+      // Step 3: the booking is only actually created here, after the
+      // payment signature is verified server-side.
+      const created = await api.confirmBookingPayment({
+        razorpayOrderId: payment.razorpay_order_id,
+        razorpayPaymentId: payment.razorpay_payment_id,
+        razorpaySignature: payment.razorpay_signature,
       });
       setStatus('confirmed');
       toast.success('Booking confirmed!');
@@ -1137,7 +1173,7 @@ function BookingWidget({
             <span className="font-semibold">₹{(invoice.gstOnPropertyPaise / 100).toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">
-            <span>Hostiggo service fee (13%)</span>
+            <span>Hostiggo service fee ({(invoice.hostiggoServiceFeeRate * 100).toFixed(0)}%)</span>
             <span className="font-semibold">₹{serviceFee.toLocaleString('en-IN')}</span>
           </div>
           <div className="flex justify-between text-gray-600">

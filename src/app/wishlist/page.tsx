@@ -820,11 +820,11 @@ export default function WishlistPage() {
         {/* End of list section */}
         <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-12 pt-4 pb-6">
           <img
-            src={vacationIllustration}
+            src="/images/empty-states/woman-beach.png"
             alt="Vacation illustration"
             loading="lazy"
             decoding="async"
-            className="w-[140px] sm:w-[175px] object-contain flex-shrink-0 drop-shadow-sm"
+            className="w-[140px] sm:w-[175px] object-contain flex-shrink-0 drop-shadow-sm animate-floating"
           />
           <div className="text-center sm:text-left">
             <h3 className="text-[24px] sm:text-[28px] font-bold text-gray-900 mb-2 leading-tight">
