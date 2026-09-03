@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Upload, X, Loader2, Image as ImageIcon, GripVertical, Star } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
@@ -16,7 +16,42 @@ export default function ListingPhotosManager({ listingId }: { listingId: number 
   const [photos, setPhotos] = useState<Photo[]>([]);
   const [uploading, setUploading] = useState(false);
   const [dragOver, setDragOver] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [savingId, setSavingId] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Load the listing's existing photos (with their DB ids + cover flag) so the
+  // manager reflects what's actually saved and can drive the set-cover control.
+  const loadPhotos = useCallback(async () => {
+    if (!listingId) return;
+    setLoading(true);
+    try {
+      const res = await fetch(`/api/host/listings/${listingId}`);
+      if (!res.ok) throw new Error('Failed to load photos');
+      const { data } = await res.json();
+      const rows: any[] = Array.isArray(data) ? data : [];
+      const mapped: Photo[] = rows.map((r) => ({
+        id: r.id,
+        url: r.media_url,
+        fileName: '',
+        isPrimary: Boolean(r.is_cover),
+      }));
+      // Deterministic cover (Rule C): if none is flagged, treat the first as cover.
+      if (mapped.length > 0 && !mapped.some((p) => p.isPrimary)) {
+        mapped[0].isPrimary = true;
+      }
+      setPhotos(mapped);
+    } catch (error) {
+      console.error('Error loading photos:', error);
+      toast.error('Failed to load photos');
+    } finally {
+      setLoading(false);
+    }
+  }, [listingId]);
+
+  useEffect(() => {
+    loadPhotos();
+  }, [loadPhotos]);
 
   const handleFileSelect = async (files: FileList | null) => {
     if (!files) return;
@@ -94,12 +129,37 @@ export default function ListingPhotosManager({ listingId }: { listingId: number 
     }
   };
 
-  const handleMakePrimary = (id: string | number) => {
-    setPhotos(photos.map(p => ({
-      ...p,
-      isPrimary: p.id === id,
-    })));
-    toast.success('Primary photo updated');
+  const handleMakePrimary = async (id: string | number) => {
+    // Newly uploaded (not-yet-persisted) photos carry a numeric client id; only
+    // real DB rows (uuid strings) can be persisted as the cover.
+    if (typeof id !== 'string') {
+      setPhotos(photos.map((p) => ({ ...p, isPrimary: p.id === id })));
+      return;
+    }
+
+    const currentCoverId = photos.find((p) => p.isPrimary)?.id;
+    if (id === currentCoverId) return;
+
+    setSavingId(id);
+    try {
+      const res = await fetch(`/api/host/listings/${listingId}/cover`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mediaId: id }),
+      });
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to update cover photo');
+      }
+      // Rule D: re-read so the new cover shows immediately, not after a reload.
+      await loadPhotos();
+      toast.success('Cover photo updated');
+    } catch (error) {
+      console.error('Error setting cover photo:', error);
+      toast.error(error instanceof Error ? error.message : 'Failed to update cover photo');
+    } finally {
+      setSavingId(null);
+    }
   };
 
   return (
@@ -153,7 +213,11 @@ export default function ListingPhotosManager({ listingId }: { listingId: number 
       </div>
 
       {/* Photos Grid */}
-      {photos.length > 0 ? (
+      {loading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-gray-400" />
+        </div>
+      ) : photos.length > 0 ? (
         <div className="space-y-3">
           <h3 className="font-semibold text-gray-900 text-lg">
             Your Photos ({photos.length})
@@ -176,15 +240,20 @@ export default function ListingPhotosManager({ listingId }: { listingId: number 
                   {/* Make Primary Button */}
                   <button
                     onClick={() => handleMakePrimary(photo.id)}
+                    disabled={savingId === photo.id}
                     className={cn(
-                      'p-3 rounded-lg transition-all',
+                      'p-3 rounded-lg transition-all disabled:cursor-not-allowed',
                       photo.isPrimary
                         ? 'bg-yellow-500 text-white'
                         : 'bg-white/90 text-gray-700 hover:bg-white'
                     )}
-                    title={photo.isPrimary ? 'Primary photo' : 'Make primary'}
+                    title={photo.isPrimary ? 'Cover photo' : 'Make cover photo'}
                   >
-                    <Star className={cn('w-5 h-5', photo.isPrimary && 'fill-current')} />
+                    {savingId === photo.id ? (
+                      <Loader2 className="w-5 h-5 animate-spin" />
+                    ) : (
+                      <Star className={cn('w-5 h-5', photo.isPrimary && 'fill-current')} />
+                    )}
                   </button>
 
                   {/* Delete Button */}
@@ -201,7 +270,7 @@ export default function ListingPhotosManager({ listingId }: { listingId: number 
                 {photo.isPrimary && (
                   <div className="absolute top-3 right-3 px-3 py-1 bg-yellow-500 text-white text-xs font-bold rounded-full flex items-center gap-1">
                     <Star className="w-3 h-3 fill-current" />
-                    Primary
+                    Cover
                   </div>
                 )}
               </div>
@@ -222,7 +291,7 @@ export default function ListingPhotosManager({ listingId }: { listingId: number 
         <ul className="text-sm text-blue-800 space-y-1">
           <li>• Use high-quality photos with good lighting</li>
           <li>• Upload at least 5-10 photos for better bookings</li>
-          <li>• The primary photo will be shown in search results</li>
+          <li>• The cover photo is shown first on your listing card and in search results</li>
           <li>• Show different rooms and key features</li>
         </ul>
       </div>
