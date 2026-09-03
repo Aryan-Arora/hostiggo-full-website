@@ -20,6 +20,10 @@ if (!SERVICE_KEY) {
 // This prevents build errors while still failing at runtime if used without a real key
 const effectiveKey = SERVICE_KEY || "placeholder-build-key";
 
+// Whether a real service-role key is configured. Lets read paths fall back to
+// the anon client (so data still loads) instead of failing on the placeholder.
+export const hasServiceKey = () => Boolean(SERVICE_KEY);
+
 export const supabaseAdmin = createClient(SUPABASE_URL, effectiveKey, {
   auth: { persistSession: false, autoRefreshToken: false },
   db: { schema: SCHEMA.testingSchema },

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { supabaseAdmin } from "@/lib/supabase-admin";
+import { supabase } from "@/lib/supabase";
+import { supabaseAdmin, hasServiceKey } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -17,7 +18,12 @@ export async function GET(_req: NextRequest, props: { params: Promise<{ listingI
       return NextResponse.json({ error: "Invalid listing ID" }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
+    // Prefer the service-role client (bypasses RLS, so every media row is
+    // returned for any listing); fall back to the anon client when no service
+    // key is configured, so photos still load in that environment instead of
+    // the read failing and the manager showing "No photos".
+    const client = hasServiceKey() ? supabaseAdmin : supabase;
+    const { data, error } = await client
       .from("listing_media")
       .select("id, media_url, media_type, is_cover")
       .eq("listing_id", listingId)
