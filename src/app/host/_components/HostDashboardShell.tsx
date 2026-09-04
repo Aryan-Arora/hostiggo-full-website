@@ -22,6 +22,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import KycStatusBanner from '@/components/features/KycStatusBanner';
 
 import { MessageCircle } from 'lucide-react';
 
@@ -225,7 +226,10 @@ export default function HostDashboardShell({
         </div>
       </header>
 
-      <main className="px-4 sm:px-6 md:px-10 py-8 max-w-7xl mx-auto">{children}</main>
+      <main className="px-4 sm:px-6 md:px-10 py-8 max-w-7xl mx-auto">
+        <KycStatusBanner />
+        {children}
+      </main>
     </div>
   );
 }

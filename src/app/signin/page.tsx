@@ -200,14 +200,26 @@ function SignInContent() {
           /* private mode / storage disabled -- fall back to default landing */
         }
       }
+      // Prefer a fixed canonical origin (NEXT_PUBLIC_SITE_URL) over
+      // window.location.origin: Supabase validates `redirect_to` against the
+      // dashboard "Redirect URLs" allow list and returns
+      // {"error":"requested path is invalid"} for anything not on it. On
+      // Vercel, preview deploys each get a unique hostname that can't all be
+      // listed, and the prod domain must be added explicitly -- pinning to
+      // one origin here keeps every environment pointed at an allow-listed
+      // callback. Falls back to the current origin for local dev.
+      const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || window.location.origin;
       const { error } = await supabase.auth.signInWithOAuth({
         provider: "google",
         options: {
-          redirectTo: `${window.location.origin}/auth/callback`,
+          redirectTo: `${siteUrl}/auth/callback`,
           queryParams: { access_type: "offline", prompt: "consent" },
         },
       });
       if (error) {
+        // Surfaces the real cause in the console (e.g. "requested path is
+        // invalid" -> the redirect URL isn't on Supabase's allow list).
+        console.error("[signin] Google OAuth failed:", error);
         toast.error("Google sign-in failed. Please try again.");
       }
     } catch {

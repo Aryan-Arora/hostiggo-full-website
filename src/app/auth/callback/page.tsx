@@ -22,16 +22,26 @@ function AuthCallbackContent() {
 
     // Where to land once signed in. The sign-in page stashes this in
     // sessionStorage (so redirectTo can stay a bare, allow-listed URL); the
-    // old `?redirect=` query param is still honored as a fallback.
+    // old `?redirect=` query param is still honored as a fallback. When the
+    // user didn't ask for a specific destination, first-time Google sign-ins
+    // go to onboarding and returning users (profile already filled in) go
+    // straight home -- see finish().
     let redirectTarget = '/onboarding?mode=google';
+    let redirectIsExplicit = false;
     try {
       const stashed = window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
-      if (stashed) redirectTarget = stashed;
+      if (stashed) {
+        redirectTarget = stashed;
+        redirectIsExplicit = true;
+      }
     } catch {
       /* storage disabled -- use default */
     }
     const queryRedirect = searchParams?.get('redirect');
-    if (queryRedirect) redirectTarget = queryRedirect;
+    if (queryRedirect) {
+      redirectTarget = queryRedirect;
+      redirectIsExplicit = true;
+    }
 
     const clearStash = () => {
       try {
@@ -80,6 +90,12 @@ function AuthCallbackContent() {
           clearStash();
           router.replace('/signin?error=account_deactivated');
           return;
+        }
+        // No explicit destination and the profile is already complete
+        // (onboarding asks for name + age) -- skip onboarding and go home
+        // instead of re-prompting a returning user every sign-in.
+        if (!redirectIsExplicit && profile?.name && profile.age != null) {
+          redirectTarget = '/';
         }
       } catch (e) {
         console.error('[auth/callback] Failed to check account status:', e);

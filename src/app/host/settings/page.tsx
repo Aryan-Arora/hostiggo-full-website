@@ -24,7 +24,7 @@ import {
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
-import { hasSubmittedAadhaarKyc } from '@/lib/aadhaar';
+import { useAadhaarKycStatus } from '@/hooks/useAadhaarKycStatus';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 
@@ -77,8 +77,8 @@ function SettingsLinkRow({
 
 export default function HostSettingsPage() {
   const { userId } = useAuth();
+  const { status: kycStatus } = useAadhaarKycStatus();
   const [tab, setTab] = useState('personal');
-  const [kycSubmitted, setKycSubmitted] = useState(false);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [name, setName] = useState('');
@@ -158,10 +158,6 @@ export default function HostSettingsPage() {
   useEffect(() => {
     loadProfile();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userId]);
-
-  useEffect(() => {
-    if (userId) setKycSubmitted(hasSubmittedAadhaarKyc(userId));
   }, [userId]);
 
   const handleSave = async () => {
@@ -551,19 +547,21 @@ export default function HostSettingsPage() {
                   <div>
                     <h3 className="text-base font-bold text-gray-800">Identity Verification</h3>
                     <p className="text-sm text-gray-500">
-                      {profile?.isVerified
+                      {profile?.isVerified || kycStatus === 'verified'
                         ? 'Your identity has been successfully verified.'
-                        : kycSubmitted
+                        : kycStatus === 'pending'
                           ? 'Your documents are in -- verification is in progress.'
-                          : 'Optional. Verified hosts get more guest trust and bookings.'}
+                          : kycStatus === 'rejected'
+                            ? 'We could not verify your last submission. Please re-submit a clear photo of your Aadhaar.'
+                            : 'Optional. Verified hosts get more guest trust and bookings.'}
                     </p>
                   </div>
                 </div>
-                {profile?.isVerified ? (
+                {profile?.isVerified || kycStatus === 'verified' ? (
                   <span className="flex items-center gap-2 font-bold text-green-600">
                     <CheckCircle2 className="w-5 h-5" /> Verified
                   </span>
-                ) : kycSubmitted ? (
+                ) : kycStatus === 'pending' ? (
                   <span className="flex items-center gap-2 font-bold text-gray-400">
                     <CheckCircle2 className="w-5 h-5" /> Pending
                   </span>
@@ -572,7 +570,7 @@ export default function HostSettingsPage() {
                     href="/kyc/aadhaar?redirect=/host/settings"
                     className="px-5 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all whitespace-nowrap"
                   >
-                    Verify now
+                    {kycStatus === 'rejected' ? 'Re-verify' : 'Verify now'}
                   </Link>
                 )}
               </div>

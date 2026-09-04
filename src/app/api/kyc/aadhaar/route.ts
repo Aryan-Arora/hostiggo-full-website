@@ -5,6 +5,58 @@ import { isValidAadhaarNumber } from '@/lib/aadhaar';
 
 export const dynamic = 'force-dynamic';
 
+// Live KYC status for a user, so the host dashboard banner and Settings ->
+// Identity Verification reflect the real verification state instead of a
+// client-only "I submitted once" localStorage flag. Follows the same
+// ?userId= convention as GET /api/users and /api/host/profile-info.
+//
+// status:
+//   'none'     -- no submission on file
+//   'pending'  -- submitted, awaiting review
+//   'verified' -- verified by a reviewer/provider
+//   'rejected' -- submission was rejected, host needs to re-submit
+//   'unknown'  -- couldn't read (table missing, storage error); caller
+//                 should fall back to its local flag rather than assume 'none'
+export async function GET(req: NextRequest) {
+  try {
+    const userId = req.nextUrl.searchParams.get('userId');
+    if (!userId || typeof userId !== 'string') {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+
+    const { data, error } = await supabaseAdmin
+      .from('aadhaar_kyc')
+      .select('status, aadhaar_last4, submitted_at, updated_at')
+      .eq('user_id', userId)
+      .maybeSingle();
+
+    if (error) {
+      // Same reasoning as the POST handler below: a storage problem (e.g.
+      // the migration not applied) must never break the pages that call
+      // this. Report 'unknown' and let the client fall back to its local
+      // flag.
+      console.error('[api/kyc/aadhaar] failed to read status:', error);
+      return NextResponse.json({ data: { status: 'unknown' } }, { status: 200 });
+    }
+
+    if (!data) {
+      return NextResponse.json({ data: { status: 'none' } });
+    }
+
+    return NextResponse.json({
+      data: {
+        status: data.status ?? 'pending',
+        last4: data.aadhaar_last4 ?? null,
+        submittedAt: data.submitted_at ?? null,
+        updatedAt: data.updated_at ?? null,
+      },
+    });
+  } catch (err) {
+    console.error('[api/kyc/aadhaar] unexpected error reading status:', err);
+    return NextResponse.json({ data: { status: 'unknown' } }, { status: 200 });
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const { userId, fullName, aadhaarNumber, frontImagePath, backImagePath } = await req.json();
