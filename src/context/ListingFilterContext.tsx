@@ -169,6 +169,15 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   >([]);
 
   const mountedRef = useRef(true);
+  // Guards against overlapping fetchResults() calls -- e.g. one fired by
+  // the mount-time URL->location sync effect and another by a filter/date
+  // change landing before the first request finished. Without this, the
+  // slower response can resolve last and silently overwrite the faster,
+  // more-current one, showing a result count and a properties list from
+  // two different requests (e.g. "2 found" but only 1 card rendered).
+  // Each call captures its own id; only the call whose id still matches
+  // this ref when its response comes back is allowed to apply it.
+  const requestSeqRef = useRef(0);
 
   // Load the amenity catalogue once so Facilities labels can be mapped to ids.
   useEffect(() => {
@@ -186,16 +195,18 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
 
   const fetchResults = useCallback(
     async (cursorVal: number | null = null, isRefresh: boolean = false) => {
-      console.log(
-        '[Context] fetchResults called with location.query=',
-        JSON.stringify(location.query),
-        'cursor=',
-        cursorVal,
-      );
       if (!mountedRef.current) {
-        console.log('[Context] Aborted: not mounted');
         return;
       }
+
+      // Claim this call's slot. If another fetchResults() call starts
+      // before this one's response comes back, requestSeqRef.current will
+      // have moved on by then, and every state update below is skipped --
+      // only the most recently *started* request is ever allowed to apply
+      // its results, so a slow, stale response can never clobber a newer
+      // one's (see requestSeqRef's declaration above for why this exists).
+      const mySeq = ++requestSeqRef.current;
+      const isStale = () => requestSeqRef.current !== mySeq;
 
       setLoading(true);
       setError(null);
@@ -215,10 +226,9 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
           },
         );
 
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || isStale()) return;
 
         const mapped = response.data.map(mapListingToProperty).filter((item) => item.id);
-        console.log('[Context] api.searchByState returned rows:', mapped.length);
 
         if (isRefresh || cursorVal === null) {
           setProperties(mapped);
@@ -235,12 +245,11 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
           setStateBounds(response.stateBounds);
         }
       } catch (err) {
+        if (!mountedRef.current || isStale()) return;
         console.error('[Context] Fetch error:', err);
-        if (mountedRef.current) {
-          setError(err instanceof Error ? err.message : 'Search failed');
-        }
+        setError(err instanceof Error ? err.message : 'Search failed');
       } finally {
-        if (mountedRef.current) setLoading(false);
+        if (mountedRef.current && !isStale()) setLoading(false);
       }
     },
     [filters, location.query, dates, guests, amenityCatalogue],
