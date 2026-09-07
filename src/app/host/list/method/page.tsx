@@ -3,7 +3,7 @@
 import { useRouter } from 'next/navigation';
 import { Sparkles, PenSquare, ChevronRight, Check } from 'lucide-react';
 import AiFlowShell from '../ai/_components/AiFlowShell';
-import { clearAiImportDraft, clearGeneratedListing } from '../ai/_lib/aiImportDraft';
+import { clearAiImportDraft, clearGeneratedListings, clearFailedImports } from '../ai/_lib/aiImportDraft';
 
 export default function ListingMethodPage() {
   const router = useRouter();
@@ -12,7 +12,8 @@ export default function ListingMethodPage() {
     // Fresh run each time this gate is entered, so an abandoned AI import
     // from a previous visit doesn't resurface here.
     clearAiImportDraft();
-    clearGeneratedListing();
+    clearGeneratedListings();
+    clearFailedImports();
     router.push('/host/list/ai/setup');
   };
 
