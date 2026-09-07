@@ -1,82 +1,66 @@
+import Image from "next/image";
 import Link from "next/link";
-import { ArrowRight, TrendingUp } from "lucide-react";
-
-const CHART_BARS = [35, 60, 45, 88, 62, 75, 50, 92];
 
 export default function CTABanner() {
   return (
-    <section className="rounded-3xl overflow-hidden">
-      <div
-        className="relative flex flex-col md:flex-row items-center justify-between gap-8 p-8 md:p-10"
-        style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)" }}
-      >
-        {/* Decorative blobs */}
-        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-figma-navy opacity-[0.07] blur-3xl pointer-events-none" />
-        <div className="absolute -bottom-12 left-1/4 w-48 h-48 rounded-full bg-figma-accent opacity-[0.07] blur-3xl pointer-events-none" />
+    <section className="bg-[#FFFEF9] rounded-[32px] border border-gray-200 p-8 md:p-12">
+      {/* ── Top-Centered Header ── */}
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-10">
+        Want to earn effortlessly?
+      </h2>
 
-        {/* ── Left: Copy ── */}
-        <div className="relative z-10 flex-1 max-w-sm">
-          <p className="text-figma-accent text-xs font-bold uppercase tracking-widest mb-2">
-            For property owners
+      {/* ── Three-Column Grid Layout (Body) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+        {/* ── Left Column (Text & Button) ── */}
+        <div className="flex flex-col items-start space-y-4">
+          <p className="text-gray-700 text-base md:text-lg leading-relaxed">
+            List your Homestay on Hostiggo and start receiving bookings from travellers.
           </p>
-          <h2 className="text-white text-xl md:text-[22px] font-extrabold leading-snug mb-3">
-            Do you want to earn<br />effortlessly?
-          </h2>
-          <p className="text-slate-400 text-sm leading-relaxed">
-            List your homestay or property and start earning by hosting travellers from across India. Join thousands of hosts already earning on Hostiggo.
+          <p className="text-gray-900 font-bold text-base md:text-lg">
+            Earn extra income NOW!!!
           </p>
-
           <Link
             href="/host/list/method"
-            className="mt-6 inline-flex items-center gap-2 bg-figma-navy hover:bg-figma-navy active:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-figma-navy/30 group"
+            className="inline-block bg-[#0396EF] text-white font-semibold px-6 py-3 rounded-lg shadow-md hover:bg-blue-600 transition-colors"
           >
             Get started
-            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
 
-        {/* ── Right: earnings card ── */}
-        <div className="relative z-10 flex-shrink-0">
-          <div className="bg-amber-400 rounded-2xl p-5 w-[220px] shadow-2xl shadow-black/30">
-            {/* Profile row */}
-            <div className="flex items-center gap-2.5 mb-4">
-              <div className="w-9 h-9 rounded-full bg-amber-600 flex items-center justify-center text-white text-sm font-bold">
-                R
-              </div>
-              <div>
-                <p className="text-amber-900 text-[12px] font-bold leading-tight">Rahul Kumar</p>
-                <p className="text-amber-700 text-[10px]">New Delhi · Host</p>
-              </div>
-            </div>
+        {/* ── Middle Column (Graphic) ── */}
+        <div className="flex justify-center items-center">
+          <Image
+            src="/host-celebration.png"
+            alt="Earn effortlessly with Hostiggo"
+            width={192}
+            height={288}
+            className="w-48 h-auto object-contain mx-auto"
+            priority
+          />
+        </div>
 
-            {/* Stat */}
-            <div className="bg-amber-500/50 rounded-xl p-3 mb-3">
-              <div className="flex items-center justify-between mb-1">
-                <p className="text-amber-900 text-[10px] font-semibold">Monthly Earnings</p>
-                <TrendingUp className="w-3 h-3 text-amber-900 opacity-70" />
-              </div>
-              <p className="text-amber-900 text-lg font-extrabold">₹42,800</p>
-
-              {/* Mini bar chart */}
-              <div className="flex items-end gap-0.5 h-8 mt-2">
-                {CHART_BARS.map((h, i) => (
-                  <div
-                    key={i}
-                    className="flex-1 bg-amber-700 rounded-t opacity-70"
-                    style={{ height: `${h}%` }}
-                  />
-                ))}
-              </div>
-            </div>
-
-            {/* Badge */}
-            <div className="text-center">
-              <span className="text-amber-900 text-[11px] font-extrabold tracking-tight">
-                Rupi<span className="text-amber-700">Gold</span>
-              </span>
-              <p className="text-amber-800 text-[9px] mt-0.5 font-medium">Your earnings dashboard</p>
-            </div>
+        {/* ── Right Column ("Royal Deal" Card) ── */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          {/* Card Header */}
+          <div className="bg-white text-gray-900 w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 text-sm shadow-sm">
+            H
           </div>
+
+          {/* Card Body */}
+          <p className="text-sm font-semibold text-white/95 leading-snug">
+            First 10 bookings are 0% commission for all new hosts
+          </p>
+
+          <div className="border-t border-dashed border-gray-600 my-4" />
+
+          <p className="text-xs text-gray-300 leading-relaxed">
+            After that, only 2% platform commission applies (lowest to all other platforms)
+          </p>
+
+          {/* Card Footer */}
+          <p className="text-yellow-500 font-bold text-lg mt-4">
+            Royal Deal
+          </p>
         </div>
       </div>
     </section>
