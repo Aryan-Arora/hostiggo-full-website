@@ -169,7 +169,7 @@ export default function MyListingsPage() {
                   </div>
                   <div className="absolute inset-0 bg-blue-900/20 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                     <Link
-                      href="/host/listings/manage"
+                      href={`/host/listings/manage?id=${l.id}`}
                       className="bg-white text-blue-600 px-6 py-3 rounded-xl font-bold shadow-lg translate-y-4 group-hover:translate-y-0 transition-transform duration-300 flex items-center gap-2"
                     >
                       <Pencil className="w-5 h-5" />

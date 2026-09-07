@@ -200,6 +200,23 @@ export const HotelServiceApi = {
     return data || [];
   },
 
+  // Media rows for a single listing, including the row id and cover flag. Used by
+  // the host manage view to render photos and set a cover. Ordered by id so the
+  // deterministic "first photo" fallback (Rule C) is stable.
+  getListingMedia: async (listingId: number): Promise<any[]> => {
+    const { data, error } = await supabase
+      .from('listing_media')
+      .select('id, media_url, media_type, is_cover')
+      .eq('listing_id', listingId)
+      .order('id', { ascending: true });
+
+    if (error) {
+      console.error('Fetch error (getListingMedia):', error);
+      throw error;
+    }
+    return data || [];
+  },
+
   filterHotels: async (
     filters: SearchFilters,
     page: number = 0,
@@ -271,6 +288,31 @@ export const HotelServiceApi = {
         error?.message,
       );
       return null;
+    }
+
+    // Resolve the owner for the "Hosted by" section. The listings query above
+    // can't embed this (host_uuid -> host.user_id -> users.name spans two hops),
+    // so look it up and attach as `row.host`, which buildHost() reads.
+    if (data.host_uuid) {
+      const { data: hostRow } = await supabase
+        .from('host')
+        .select('host_uuid, user_id, photo, is_verified, about')
+        .eq('host_uuid', data.host_uuid)
+        .maybeSingle();
+      if (hostRow) {
+        const { data: userRow } = await supabase
+          .from('users')
+          .select('name, profile_pic_url')
+          .eq('user_id', hostRow.user_id)
+          .maybeSingle();
+        (data as any).host = {
+          id: hostRow.host_uuid,
+          name: userRow?.name ?? 'Host',
+          photo: hostRow.photo ?? userRow?.profile_pic_url ?? null,
+          is_verified: hostRow.is_verified ?? false,
+          about: hostRow.about ?? null,
+        };
+      }
     }
 
     return data;

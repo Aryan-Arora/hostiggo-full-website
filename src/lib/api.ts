@@ -292,6 +292,13 @@ export const api = {
       method: "POST",
       body: JSON.stringify(draft),
     }),
+  listingMedia: (listingId: string | number) =>
+    request<any[]>(`/api/host/listings/${encodeURIComponent(String(listingId))}`),
+  setListingCover: (listingId: string | number, mediaId: string | number) =>
+    request<{ success: boolean }>(
+      `/api/host/listings/${encodeURIComponent(String(listingId))}/cover`,
+      { method: "PATCH", body: JSON.stringify({ mediaId }) },
+    ),
   cancelBooking: (bookingId: string | number, reason?: string) =>
     request<any>(`/api/bookings/cancel`, {
       method: "POST",

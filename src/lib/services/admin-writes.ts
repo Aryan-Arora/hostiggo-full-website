@@ -277,14 +277,70 @@ export type ListingDraft = {
   numBathrooms?: number;
   amenityIds?: number[];
   photoUrls?: string[];
+  // Index into photoUrls of the host's chosen cover. Falls back to the first
+  // photo when omitted (Rule A). The wizard reorders the cover to index 0, so 0
+  // is the safe default, but honouring an explicit index keeps other paths
+  // (imports, admin tools) from picking the wrong cover.
+  coverIndex?: number;
   checkInTime?: string;
   checkOutTime?: string;
   addressLine1?: string;
   addressLine2?: string;
   landmark?: string;
   locationId?: number;
+  // Structured location. When locationId is absent, createListing find-or-creates
+  // a canonical `locations` row from these so location_id is never left null.
+  city?: string;
+  state?: string;
+  pincode?: number;
   currency?: string;
 };
+
+// Canonical dedup key for a location: diacritic-, case- and space-insensitive
+// (so "Haryāna"==="haryana", "Dehradun"==="dehradun").
+const locationKey = (state?: string | null, district?: string | null) => {
+  const n = (s: string | null | undefined) =>
+    String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+  return `${n(state)}|${n(district)}`;
+};
+
+// Find an existing locations row matching (state, city) or create one.
+// Returns the location_id, or null when state/city are missing.
+export async function resolveLocationId(
+  state?: string | null,
+  city?: string | null,
+  pincode?: number | null,
+): Promise<number | null> {
+  if (!state?.trim() || !city?.trim()) return null;
+  const wanted = locationKey(state, city);
+
+  const { data: rows, error } = await supabaseAdmin
+    .from("locations")
+    .select("location_id, state, district");
+  if (error) {
+    console.error("[resolveLocationId] lookup failed:", error.message);
+    return null;
+  }
+  const match = (rows ?? []).find((l) => locationKey(l.state, l.district) === wanted);
+  if (match) return match.location_id;
+
+  const { data: created, error: cErr } = await supabaseAdmin
+    .from("locations")
+    .insert({
+      state: state.trim(),
+      district: city.trim(),
+      lower_division_name: city.trim(),
+      lower_division_type: "city",
+      pincode: pincode ?? null,
+    })
+    .select("location_id")
+    .single();
+  if (cErr) {
+    console.error("[resolveLocationId] create failed:", cErr.message);
+    return null;
+  }
+  return created.location_id;
+}
 
 export async function createListing(draft: ListingDraft) {
   // Resolve the owning host from the user.
@@ -318,7 +374,11 @@ export async function createListing(draft: ListingDraft) {
     created_at: now,
     updated_at: now,
   };
-  if (draft.locationId) row.location_id = draft.locationId;
+  // Prefer an explicit locationId; otherwise find-or-create from city/state so
+  // the listing is never saved without a resolvable location.
+  const locationId =
+    draft.locationId ?? (await resolveLocationId(draft.state, draft.city, draft.pincode));
+  if (locationId) row.location_id = locationId;
 
   const { data: listing, error } = await supabaseAdmin
     .from("listings")
@@ -336,19 +396,61 @@ export async function createListing(draft: ListingDraft) {
     if (aerr) console.error("[createListing] amenities insert failed:", aerr.message);
   }
 
-  // Photos (media rows). First photo is the cover.
+  // Photos (media rows). Persist the host's chosen cover explicitly (Rule A):
+  // derive is_cover from coverIndex, falling back to the first photo only when
+  // no valid index is supplied — never leave the cover to array position alone.
   if (draft.photoUrls?.length) {
+    const coverIdx =
+      draft.coverIndex != null &&
+      draft.coverIndex >= 0 &&
+      draft.coverIndex < draft.photoUrls.length
+        ? draft.coverIndex
+        : 0;
     const mediaRows = draft.photoUrls.map((media_url, i) => ({
       listing_id: listingId,
       media_url,
       media_type: "image",
-      is_cover: i === 0,
+      is_cover: i === coverIdx,
     }));
     const { error: merr } = await supabaseAdmin.from("listing_media").insert(mediaRows);
     if (merr) console.error("[createListing] media insert failed:", merr.message);
   }
 
   return { listing_id: listingId, title: listing.title };
+}
+
+// ── Cover photo ──────────────────────────────────────────────────────────────
+// Rule B (single source of truth): clear the listing's existing cover(s), then
+// flag the chosen media row — so there is always exactly one is_cover per
+// listing. Scoped to the listing so a stale or foreign mediaId can never flip
+// another listing's cover.
+export async function setCoverPhoto(listingId: number, mediaId: string) {
+  // Confirm the target photo actually belongs to this listing before writing.
+  const { data: target, error: findErr } = await supabaseAdmin
+    .from("listing_media")
+    .select("id")
+    .eq("listing_id", listingId)
+    .eq("id", mediaId)
+    .maybeSingle();
+  if (findErr) throw findErr;
+  if (!target) throw new Error("Photo not found for this listing");
+
+  // Clear the current cover(s) for the listing.
+  const { error: clearErr } = await supabaseAdmin
+    .from("listing_media")
+    .update({ is_cover: false })
+    .eq("listing_id", listingId)
+    .eq("is_cover", true);
+  if (clearErr) throw clearErr;
+
+  // Flag the chosen row as the new cover.
+  const { error: setErr } = await supabaseAdmin
+    .from("listing_media")
+    .update({ is_cover: true })
+    .eq("id", mediaId);
+  if (setErr) throw setErr;
+
+  return { success: true };
 }
 
 // ── User profile ─────────────────────────────────────────────────────────────

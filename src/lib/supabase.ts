@@ -11,7 +11,11 @@ if (!SUPABASE_ANON_KEY) {
 
 const customFetch = async (input: RequestInfo | URL, init?: RequestInit) => {
   try {
-    const response = await fetch(input, init);
+    // Always read fresh. Next.js caches server-side `fetch` by default, which
+    // otherwise serves stale Supabase reads (e.g. a listing list still showing
+    // deleted rows, or a listing whose location/host was updated after the first
+    // fetch). Booking data must be current, so opt out of the Data Cache.
+    const response = await fetch(input, { ...init, cache: "no-store" });
     return response;
   } catch (error: any) {
     console.error("[supabase] Fetch Error:", {

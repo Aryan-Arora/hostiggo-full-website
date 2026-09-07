@@ -1,9 +1,14 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Users, Bath, BedDouble, Minus, Plus, Info, PlusCircle, Trash2 } from 'lucide-react';
+import { toast } from 'sonner';
+import { ArrowLeft, Users, Bath, BedDouble, Minus, Plus, Info, PlusCircle, Trash2, Star, Loader2, ImageOff } from 'lucide-react';
 import HostDashboardShell from '../../_components/HostDashboardShell';
+import { api } from '@/lib/api';
+import { cn } from '@/lib/utils';
+
+type Media = { id: string; media_url: string; media_type: string | null; is_cover: boolean };
 
 const CAP = [
   { key: 'guests', label: 'Max Guests', icon: Users, initial: 4 },
@@ -24,6 +29,52 @@ export default function ManageListingPage() {
 
   const set = (k: string, d: number) =>
     setCounts((c) => ({ ...c, [k]: Math.max(0, c[k] + d) }));
+
+  // ── Photos & cover ──────────────────────────────────────────────────────────
+  const [listingId, setListingId] = useState<string | null>(null);
+  const [media, setMedia] = useState<Media[]>([]);
+  const [loadingMedia, setLoadingMedia] = useState(false);
+  const [savingId, setSavingId] = useState<string | null>(null);
+
+  useEffect(() => {
+    setListingId(new URLSearchParams(window.location.search).get('id'));
+  }, []);
+
+  const loadMedia = useCallback(async () => {
+    if (!listingId) return;
+    setLoadingMedia(true);
+    try {
+      const rows = await api.listingMedia(listingId);
+      setMedia(rows as Media[]);
+    } catch (err) {
+      console.error('[manage] load photos failed:', err);
+      toast.error("Couldn't load photos");
+    } finally {
+      setLoadingMedia(false);
+    }
+  }, [listingId]);
+
+  useEffect(() => {
+    loadMedia();
+  }, [loadMedia]);
+
+  // Deterministic cover (Rule C): the flagged row, else the first photo.
+  const coverId = media.find((m) => m.is_cover)?.id ?? media[0]?.id ?? null;
+
+  const makeCover = async (mediaId: string) => {
+    if (!listingId || mediaId === coverId) return;
+    setSavingId(mediaId);
+    try {
+      await api.setListingCover(listingId, mediaId);
+      await loadMedia(); // Rule D: re-read so the new cover shows immediately.
+      toast.success('Cover photo updated');
+    } catch (err) {
+      console.error('[manage] set cover failed:', err);
+      toast.error(err instanceof Error ? err.message : "Couldn't update the cover");
+    } finally {
+      setSavingId(null);
+    }
+  };
 
   return (
     <HostDashboardShell active="listings">
@@ -50,6 +101,86 @@ export default function ManageListingPage() {
           </button>
         </div>
       </div>
+
+      {/* Photos & cover */}
+      <section className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 mb-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
+          <h3 className="text-lg font-bold text-gray-800">Photos</h3>
+          {listingId && media.length > 1 && (
+            <span className="text-xs text-gray-400">
+              Hover a photo and tap “Make cover” to set the listing image
+            </span>
+          )}
+        </div>
+        <p className="text-sm text-gray-500 mb-6">
+          The cover is the first image guests see on your listing card.
+        </p>
+
+        {!listingId ? (
+          <div className="text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
+            Open this page from{' '}
+            <Link href="/host/listings" className="text-blue-600 font-medium hover:underline">
+              your listings
+            </Link>{' '}
+            to manage a listing&apos;s photos.
+          </div>
+        ) : loadingMedia ? (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {Array.from({ length: 3 }).map((_, i) => (
+              <div key={i} className="aspect-[4/3] rounded-2xl bg-gray-100 animate-pulse" />
+            ))}
+          </div>
+        ) : media.length === 0 ? (
+          <div className="flex flex-col items-center gap-2 text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
+            <ImageOff className="w-6 h-6" />
+            No photos on this listing yet.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            {media.map((m) => {
+              const isCover = m.id === coverId;
+              const saving = savingId === m.id;
+              return (
+                <div
+                  key={m.id}
+                  className={cn(
+                    'relative aspect-[4/3] rounded-2xl overflow-hidden shadow-card group',
+                    isCover && 'ring-2 ring-blue-500',
+                  )}
+                >
+                  <img src={m.media_url} alt="Listing photo" className="w-full h-full object-cover" />
+
+                  {isCover && (
+                    <div className="absolute top-3 left-3 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full">
+                      <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
+                        Cover
+                      </span>
+                    </div>
+                  )}
+
+                  {!isCover && (
+                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center">
+                      <button
+                        onClick={() => makeCover(m.id)}
+                        disabled={saving}
+                        title="Make cover"
+                        className="flex items-center gap-2 bg-white text-blue-600 px-4 py-2.5 rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:cursor-not-allowed"
+                      >
+                        {saving ? (
+                          <Loader2 className="w-5 h-5 animate-spin" />
+                        ) : (
+                          <Star className="w-5 h-5 text-amber-500" />
+                        )}
+                        Make cover
+                      </button>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         {/* Capacity */}
