@@ -4,7 +4,13 @@ import { Suspense, useCallback, useEffect, useState } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import AiFlowShell from '../_components/AiFlowShell';
-import { loadAiImportDraft, saveGeneratedListing, type AiGeneratedListing } from '../_lib/aiImportDraft';
+import {
+  loadAiImportDraft,
+  saveGeneratedListings,
+  saveFailedImports,
+  type AiGeneratedListing,
+  type FailedImport,
+} from '../_lib/aiImportDraft';
 import { api } from '@/lib/api';
 import { matchAmenityNames } from '@/lib/services/amenityMatch';
 import { resolveLocationId } from '@/lib/services/geocoding';
@@ -20,14 +26,7 @@ function sleep(ms: number) {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
-/**
- * Maps a real AI-lister job result onto this flow's AiGeneratedListing
- * shape. NOTE on the multi-listing case: only the first listing with a URL
- * is imported here -- the "Add Another" / batch-import UI on Setup exists,
- * but wiring N jobs through Review (which only ever edits one listing) is
- * a separate piece of work; multiMode still saves every URL to the draft
- * for whenever that's built.
- */
+/** Maps a real AI-lister job result onto this flow's AiGeneratedListing shape. */
 async function runRealImport(
   url: string,
   onPhase?: (phase: 'importing' | 'photos') => void,
@@ -108,6 +107,7 @@ async function runRealImport(
   return {
     ok: true,
     listing: {
+      sourceUrl: url,
       title: draft.title || 'Untitled listing',
       description: draft.description || '',
       numGuests: draft.capacity?.max_guests ?? 2,
@@ -136,6 +136,15 @@ async function runRealImport(
   };
 }
 
+type AggregateStats = {
+  photosImported: number;
+  amenitiesFound: number;
+  aiScore: number;
+  successCount: number;
+  failureCount: number;
+  totalCount: number;
+};
+
 function ProcessingContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -145,30 +154,58 @@ function ProcessingContent() {
 
   const [outcome, setOutcome] = useState<Outcome>('loading');
   const [phase, setPhase] = useState<'importing' | 'photos'>('importing');
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
   const [errorMessage, setErrorMessage] = useState('');
-  const [stats, setStats] = useState<AiGeneratedListing | null>(null);
+  const [stats, setStats] = useState<AggregateStats | null>(null);
   const [attempt, setAttempt] = useState(0);
 
   const run = useCallback(async () => {
     setOutcome('loading');
     setPhase('importing');
     const draft = loadAiImportDraft();
-    const firstUrl = draft.listings.find((l) => l.airbnbUrl.trim().length > 0)?.airbnbUrl.trim();
+    const urls = draft.listings
+      .map((l) => l.airbnbUrl.trim())
+      .filter((u) => u.length > 0);
 
-    if (forceFail || !firstUrl) {
+    if (forceFail || urls.length === 0) {
       setErrorMessage('No source URL was provided.');
       setOutcome('failure');
       return;
     }
 
-    const result = await runRealImport(firstUrl, setPhase);
-    if (!result.ok) {
-      setErrorMessage(result.error);
+    // Sequential, not parallel -- this hits the same AI-lister backend
+    // (Anthropic + photo re-hosting) for each URL, and running N of these
+    // concurrently risks rate limits / cross-job interference for no real
+    // speed benefit the host would notice on a handful of listings.
+    const succeeded: AiGeneratedListing[] = [];
+    const failed: FailedImport[] = [];
+    for (let i = 0; i < urls.length; i++) {
+      setProgress({ current: i + 1, total: urls.length });
+      const result = await runRealImport(urls[i], setPhase);
+      if (result.ok) {
+        succeeded.push(result.listing);
+      } else {
+        failed.push({ sourceUrl: urls[i], error: result.error });
+      }
+    }
+
+    saveGeneratedListings(succeeded);
+    saveFailedImports(failed);
+
+    if (succeeded.length === 0) {
+      setErrorMessage(failed[0]?.error || 'The source page could not be processed.');
       setOutcome('failure');
       return;
     }
-    saveGeneratedListing(result.listing);
-    setStats(result.listing);
+
+    setStats({
+      photosImported: succeeded.reduce((sum, l) => sum + l.photosImported, 0),
+      amenitiesFound: succeeded.reduce((sum, l) => sum + l.amenitiesFound, 0),
+      aiScore: Math.round(succeeded.reduce((sum, l) => sum + l.aiScore, 0) / succeeded.length),
+      successCount: succeeded.length,
+      failureCount: failed.length,
+      totalCount: urls.length,
+    });
     setOutcome('success');
   }, [forceFail]);
 
@@ -188,6 +225,9 @@ function ProcessingContent() {
                 {phase === 'photos' ? 'Saving photos to your library…' : 'Generating your listing…'}
               </h2>
               <p className="text-sm text-gray-500">
+                {progress.total > 1
+                  ? `Processing listing ${progress.current} of ${progress.total}. `
+                  : ''}
                 {phase === 'photos'
                   ? 'Copying the imported photos into your Hostiggo account so they stay put.'
                   : 'Our AI is reading the listing, importing photos, and detecting amenities. This usually takes under a minute.'}
@@ -200,11 +240,20 @@ function ProcessingContent() {
               <div className="w-16 h-16 rounded-full bg-green-100 flex items-center justify-center mx-auto mb-5">
                 <CheckCircle2 className="w-8 h-8 text-green-600" />
               </div>
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Your listing is ready!</h2>
+              <h2 className="text-xl font-bold text-gray-900 mb-2">
+                {stats.totalCount > 1 ? 'Your listings are ready!' : 'Your listing is ready!'}
+              </h2>
               <p className="text-sm text-gray-500 mb-6">
-                The AI has successfully generated your property listing. Review all the details
-                before publishing.
+                {stats.totalCount > 1
+                  ? `The AI successfully generated ${stats.successCount} of ${stats.totalCount} listings. Review each one before publishing.`
+                  : 'The AI has successfully generated your property listing. Review all the details before publishing.'}
               </p>
+              {stats.failureCount > 0 && (
+                <div className="bg-amber-50 border border-amber-100 rounded-xl px-4 py-2.5 text-xs text-amber-700 font-medium mb-6 text-left">
+                  {stats.failureCount} of {stats.totalCount} listing{stats.failureCount > 1 ? 's' : ''}{' '}
+                  could not be imported. You can add {stats.failureCount > 1 ? 'them' : 'it'} manually later.
+                </div>
+              )}
               <div className="grid grid-cols-3 gap-3 mb-8">
                 <div>
                   <p className="text-2xl font-extrabold text-gray-900">{stats.photosImported}</p>
@@ -216,7 +265,7 @@ function ProcessingContent() {
                 </div>
                 <div>
                   <p className="text-2xl font-extrabold text-gray-900">{stats.aiScore}%</p>
-                  <p className="text-xs text-gray-500">AI score</p>
+                  <p className="text-xs text-gray-500">Avg. AI score</p>
                 </div>
               </div>
               <button
