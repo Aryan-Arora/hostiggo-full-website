@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateAndPriceBooking } from "@/lib/services/admin-writes";
 import { createRazorpayOrder } from "@/lib/billing/razorpay";
+import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,19 @@ export const dynamic = "force-dynamic";
 // up -- no pending row, no held calendar nights.
 export async function POST(req: NextRequest) {
   try {
+    // The caller's identity comes from their verified Supabase session, not
+    // a client-supplied userId -- this endpoint opens a real Razorpay order,
+    // so a spoofed userId here could create charges/bookings attributed to
+    // someone else's account. src/lib/api.ts's request() helper already
+    // sends the real Bearer token on every call; this was the one place
+    // that never checked it.
+    const userId = await getAuthenticatedUserId(req);
+
     const body = await req.json();
-    const { listingId, userId, startDate, endDate, numAdults, numChildren, addonIds } = body ?? {};
-    if (!listingId || !userId || !startDate || !endDate) {
+    const { listingId, startDate, endDate, numAdults, numChildren, addonIds } = body ?? {};
+    if (!listingId || !startDate || !endDate) {
       return NextResponse.json(
-        { error: "listingId, userId, startDate and endDate are required" },
+        { error: "listingId, startDate and endDate are required" },
         { status: 400 },
       );
     }
@@ -101,6 +110,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+    }
     console.error("[/api/bookings/reserve] error:", err?.message, err?.code, err?.details, err?.hint);
     return NextResponse.json(
       { error: err?.message || "Request failed", code: err?.code, details: err?.details },
