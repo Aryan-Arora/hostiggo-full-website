@@ -1,5 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
+import celebrationImg from "../newpage/d5561eaf-d4c1-425e-b173-bd439aa0db66 2.jpg";
 
 export default function CTABanner() {
   return (
@@ -29,14 +30,19 @@ export default function CTABanner() {
 
         {/* ── Middle Column (Graphic) ── */}
         <div className="flex justify-center items-center">
-          <Image
-            src="/host-celebration.png"
-            alt="Earn effortlessly with Hostiggo"
-            width={192}
-            height={288}
-            className="w-48 h-auto object-contain mx-auto"
-            priority
-          />
+          <div className="relative isolate mx-auto flex justify-center items-center">
+            {/* Subtle light-blue radial glow effect */}
+            <div
+              className="absolute w-32 h-32 bg-blue-100 rounded-full blur-2xl -z-10 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <Image
+              src={celebrationImg}
+              alt="Jumping girl celebrating"
+              className="h-40 md:h-48 w-auto object-contain"
+              priority
+            />
+          </div>
         </div>
 
         {/* ── Right Column ("Royal Deal" Card) ── */}
