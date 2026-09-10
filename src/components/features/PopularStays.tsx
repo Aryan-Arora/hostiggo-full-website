@@ -1,8 +1,10 @@
-import { ArrowRight } from 'lucide-react';
-import { useRouter } from 'next/navigation';
-import PropertyCard from '@/components/features/PropertyCard';
-import PropertyCardHomeSkeleton from '@/components/features/PropertyCardHomeSkeleton';
-import type { Property } from '@/types';
+"use client";
+
+import PropertyCard from "@/components/features/PropertyCard";
+import PropertyCardHomeSkeleton from "@/components/features/PropertyCardHomeSkeleton";
+import type { Property } from "@/types";
+import { ArrowRight } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface PopularStaysProps {
   title: string;
@@ -18,25 +20,28 @@ export default function PopularStays({
   itemsPerRow = 4,
 }: PopularStaysProps) {
   const router = useRouter();
-  const city = properties[0]?.city ?? '';
+  const city = properties[0]?.city ?? "";
 
   return (
     <section>
       <div className="flex items-center gap-4 mb-5">
-        <h2 className="text-[22px] font-semibold text-gray-900 uppercase tracking-wide">
+        <h2
+          className="text-figma-ink"
+          style={{ fontSize: "20px", fontWeight: 500, lineHeight: "140%" }}
+        >
           {title}
         </h2>
         <button
           onClick={() =>
             router.push(`/search?destination=${encodeURIComponent(city)}`)
           }
-          className="text-[12px] text-gray-800 hover:text-blue-600 bg-white shadow-md hover:shadow-lg px-3.5 py-1 rounded-full transition-all font-semibold"
+          className="text-typo-pill-label text-figma-ink/70 border border-gray-200 bg-white hover:bg-gray-50 px-3 py-1 rounded-full transition-all"
         >
           View all
         </button>
       </div>
       <div className="relative">
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-5">
           {isLoading
             ? Array.from({ length: itemsPerRow }).map((_, i) => (
                 <PropertyCardHomeSkeleton key={`skeleton-${i}`} />
@@ -49,7 +54,7 @@ export default function PopularStays({
               router.push(`/search?destination=${encodeURIComponent(city)}`)
             }
             aria-label="View all stays"
-            className="absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white shadow-lg hover:shadow-xl flex items-center justify-center text-gray-800 hover:text-blue-600 transition-all group z-10"
+            className="absolute -right-4 top-1/2 -translate-y-1/2 w-10 h-10 rounded-full bg-white shadow-lg hover:shadow-xl flex items-center justify-center text-figma-ink hover:text-figma-navy transition-all group z-10"
           >
             <ArrowRight className="w-[18px] h-[18px] group-hover:translate-x-0.5 transition-transform" />
           </button>

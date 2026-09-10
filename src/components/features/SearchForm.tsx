@@ -1,5 +1,7 @@
+'use client';
+
 import { useState, useRef, useEffect } from 'react';
-import { Search, Calendar, Users, ChevronDown, X } from 'lucide-react';
+import { Search, Calendar, Users, ChevronDown, X, MapPin } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import { toast } from 'sonner';
 import DestinationDropdown from '@/components/features/DestinationDropdown';
@@ -51,15 +53,28 @@ export function CompactSearchBar() {
   };
 
   return (
-    <div ref={wrapRef} className="flex items-center gap-3 w-full">
+    <div ref={wrapRef} className="flex flex-col sm:flex-row sm:items-center gap-3 w-full">
+      {/* Scrim behind an open pill's dropdown -- the results page always has a
+          map/map-preview card directly beneath this bar, and since the
+          dropdown is only as wide/tall as its own content, any part of that
+          card outside the dropdown's own footprint peeks out from behind it.
+          The scrim covers the whole page below the dropdown so nothing shows
+          through regardless of viewport width. */}
+      {activePanel && (
+        <div
+          className="fixed inset-0 z-[1050] bg-black/10"
+          aria-hidden="true"
+          onClick={() => setActivePanel(null)}
+        />
+      )}
       {/* Destination Pill */}
-      <div className="relative flex-[1.2] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.2] min-w-0">
         <button
           onClick={() => toggle('destination')}
           className={cn(
             'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
             activePanel === 'destination'
-              ? 'border-blue-400'
+              ? 'border-figma-navy/40'
               : 'border-transparent',
           )}
         >
@@ -98,7 +113,7 @@ export function CompactSearchBar() {
           )}
         </button>
         {activePanel === 'destination' && (
-          <div className="absolute top-[calc(100%+12px)] left-0 w-full min-w-[320px] z-50">
+          <div className="absolute top-[calc(100%+12px)] left-0 w-full min-w-[320px] z-[1100]">
             <DestinationDropdown
               value={location.query}
               onQueryChange={(v) => setLocation({ query: v })}
@@ -113,12 +128,12 @@ export function CompactSearchBar() {
       </div>
 
       {/* Date Pill */}
-      <div className="relative flex-[1.5] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.5] min-w-0">
         <button
           onClick={() => toggle('date')}
           className={cn(
             'w-full h-[52px] flex items-center gap-4 px-5 rounded-full bg-white transition-all text-left border-2',
-            activePanel === 'date' ? 'border-blue-400' : 'border-transparent',
+            activePanel === 'date' ? 'border-figma-navy/40' : 'border-transparent',
           )}
         >
           <Calendar
@@ -178,7 +193,12 @@ export function CompactSearchBar() {
           </div>
         </button>
         {activePanel === 'date' && (
-          <div className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-50">
+          // DateRangePicker overrides .dropdown-panel's default `position:
+          // absolute` with `!relative` and sets its own width, so this
+          // wrapper naturally shrink-to-fits around it -- `-translate-x-1/2`
+          // then centers correctly off the wrapper's own (now non-zero)
+          // rendered width.
+          <div className="absolute top-[calc(100%+12px)] left-1/2 -translate-x-1/2 z-[1100]">
             <DateRangePicker
               checkIn={dates.checkIn}
               checkOut={dates.checkOut}
@@ -190,13 +210,13 @@ export function CompactSearchBar() {
       </div>
 
       {/* Guests Pill */}
-      <div className="relative flex-[1.3] min-w-0">
+      <div className="relative z-[1100] w-full sm:flex-[1.3] min-w-0">
         <button
           onClick={() => toggle('guests')}
           className={cn(
             'w-full h-[52px] flex items-center gap-3 px-5 rounded-full bg-white transition-all text-left border-2',
             activePanel === 'guests'
-              ? 'border-blue-400'
+              ? 'border-figma-navy/40'
               : 'border-transparent',
           )}
         >
@@ -220,7 +240,12 @@ export function CompactSearchBar() {
           />
         </button>
         {activePanel === 'guests' && (
-          <div className="absolute top-[calc(100%+12px)] right-0 z-50">
+          // Width must match GuestDropdown's own w-[320px]: the panel is
+          // itself position:absolute (.dropdown-panel), so without a sized
+          // wrapper it would extend 320px RIGHTWARD from this right-edge
+          // anchor -- off the viewport (same bug family as the invisible
+          // date picker).
+          <div className="absolute top-[calc(100%+12px)] right-0 z-[1100] w-[320px] max-w-[92vw]">
             <GuestDropdown
               guests={guests}
               onChange={setGuests}
@@ -233,7 +258,7 @@ export function CompactSearchBar() {
       {/* Search Button */}
       <button
         onClick={handleSearch}
-        className="h-[52px] px-8 bg-primary-gradient border-2 border-white/20 text-white font-bold text-[15px] rounded-full transition-all shadow-md active:scale-95 flex-shrink-0"
+        className="h-[52px] px-8 w-full sm:w-auto bg-primary-gradient border-2 border-white/20 text-white font-bold text-[15px] rounded-full transition-all shadow-md active:scale-95 sm:flex-shrink-0"
       >
         Search
       </button>
@@ -241,7 +266,6 @@ export function CompactSearchBar() {
   );
 }
 
-/** Full search form used on home page hero */
 export default function SearchForm() {
   const { location, dates, guests } = useListingState();
   const { setLocation, setDates, setGuests } = useListingActions();
@@ -260,15 +284,6 @@ export default function SearchForm() {
 
   const toggle = (p: Panel) => setActivePanel((cur) => (cur === p ? null : p));
 
-  const guestSummary = () => {
-    const g = guests;
-    const parts = [`${g.adults} Adult${g.adults !== 1 ? 's' : ''}`];
-    if (g.children > 0)
-      parts.push(`${g.children} Child${g.children !== 1 ? 'ren' : ''}`);
-    parts.push(`${g.rooms} Room${g.rooms !== 1 ? 's' : ''}`);
-    return parts.join(', ');
-  };
-
   const handleSearch = () => {
     if (!location.query.trim()) {
       toast.error('Please enter a destination');
@@ -281,204 +296,222 @@ export default function SearchForm() {
   return (
     <div
       ref={wrapRef}
-      className="w-full flex-1 max-w-lg mx-auto lg:ml-auto lg:mr-0"
+      className="w-full h-full flex flex-col justify-between py-1 gap-3.5"
     >
-      <div className="flex flex-col gap-3.5">
-        {/* Destination */}
-        <div className="relative">
-          <button
-            onClick={() => toggle('destination')}
-            className={cn(
-              'w-full flex items-center gap-3 px-6 py-4 rounded-full border transition-all text-left bg-white',
-              activePanel === 'destination'
-                ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
-                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+      {/* Destination */}
+      <div className="relative">
+        <button
+          onClick={() => toggle('destination')}
+          className={cn(
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-full border transition-all text-left bg-white',
+            activePanel === 'destination'
+              ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+              : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+          )}
+        >
+          <Search
+            className="w-4 h-4 text-gray-400 flex-shrink-0"
+            strokeWidth={2}
+          />
+          <div className="min-w-0 flex-1">
+            {location.query ? (
+              <p className="text-[18px] font-medium text-gray-900 truncate">
+                {location.query}
+              </p>
+            ) : (
+              <p className="text-[17px] font-normal text-gray-400 truncate">
+                Search destination or homestay
+              </p>
             )}
-          >
-            <Search
-              className="w-5 h-5 text-gray-500 flex-shrink-0"
-              strokeWidth={2}
-            />
-            <div className="min-w-0 flex-1">
-              {location.query ? (
-                <p className="text-[15px] font-medium text-gray-900 truncate">
-                  {location.query}
-                </p>
-              ) : (
-                <p className="text-[14px] font-medium text-gray-400 truncate">
-                  Search destination or homestay
-                </p>
-              )}
-            </div>
-          </button>
-          {activePanel === 'destination' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-50">
-              <DestinationDropdown
-                value={location.query}
-                onQueryChange={(v) => setLocation({ query: v })}
-                onSelect={(v) => {
-                  setLocation({ query: v });
-                  setActivePanel('date');
-                }}
-                onClose={() => setActivePanel(null)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Dates Row */}
-        <div className="flex gap-3.5 relative">
-          {/* Check In */}
-          <div className="relative flex-1">
-            <button
-              onClick={() => toggle('date')}
-              className={cn(
-                'w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left bg-white',
-                activePanel === 'date'
-                  ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
-                  : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <Calendar
-                    className="w-5 h-5 text-gray-700 flex-shrink-0"
-                    strokeWidth={1.7}
-                  />
-                  <p className="text-[16px] font-semibold text-gray-900">
-                    Check In
-                  </p>
-                </div>
-                {dates.checkIn ? (
-                  <>
-                    <p className="text-[13px] text-gray-400">
-                      {dates.checkIn.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                      })}
-                    </p>
-                    <p className="text-[17px] font-medium text-gray-900">
-                      {fmtDate(dates.checkIn)}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[14px] text-gray-400 mt-1">Add date</p>
-                )}
-              </div>
-            </button>
           </div>
-
-          {/* Check Out */}
-          <div className="relative flex-1">
-            <button
-              onClick={() => toggle('date')}
-              className={cn(
-                'w-full flex items-start gap-3 px-4 py-3.5 rounded-2xl border transition-all text-left bg-white',
-                activePanel === 'date'
-                  ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
-                  : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-              )}
-            >
-              <div className="min-w-0 flex-1">
-                <div className="flex items-center gap-2.5 mb-2">
-                  <Calendar
-                    className="w-5 h-5 text-gray-700 flex-shrink-0"
-                    strokeWidth={1.7}
-                  />
-                  <p className="text-[16px] font-semibold text-gray-900">
-                    Check Out
-                  </p>
-                </div>
-                {dates.checkOut ? (
-                  <>
-                    <p className="text-[13px] text-gray-400">
-                      {dates.checkOut.toLocaleDateString('en-US', {
-                        weekday: 'long',
-                      })}
-                    </p>
-                    <p className="text-[17px] font-medium text-gray-900">
-                      {fmtDate(dates.checkOut)}
-                    </p>
-                  </>
-                ) : (
-                  <p className="text-[14px] text-gray-400 mt-1">Add date</p>
-                )}
-              </div>
-            </button>
+        </button>
+        {activePanel === 'destination' && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
+            <DestinationDropdown
+              value={location.query}
+              onQueryChange={(v) => setLocation({ query: v })}
+              onSelect={(v) => {
+                setLocation({ query: v });
+                setActivePanel('date');
+              }}
+              onClose={() => setActivePanel(null)}
+            />
           </div>
-
-          {/* Shared DatePicker Popover */}
-          {activePanel === 'date' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-50">
-              <DateRangePicker
-                checkIn={dates.checkIn}
-                checkOut={dates.checkOut}
-                onChange={(checkIn, checkOut) =>
-                  setDates({ checkIn, checkOut })
-                }
-                onClose={() => setActivePanel(null)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Guests */}
-        <div className="relative">
-          <button
-            onClick={() => toggle('guests')}
-            className={cn(
-              'w-full flex items-center gap-3 px-5 py-4 rounded-2xl border transition-all text-left bg-white',
-              activePanel === 'guests'
-                ? 'border-blue-500 shadow-md ring-4 ring-blue-500/10'
-                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
-            )}
-          >
-            <Users
-              className="w-5 h-5 text-gray-600 flex-shrink-0"
-              strokeWidth={1.5}
-            />
-            <div className="min-w-0 flex-1 flex items-center gap-2">
-              <span className="text-[15px] font-semibold text-gray-900">
-                {guests.adults} Adults
-              </span>
-              <span className="text-gray-400 text-xs">•</span>
-              <span className="text-[15px] font-semibold text-gray-900">
-                {guests.rooms} Room
-              </span>
-              <span className="text-gray-400 text-xs">•</span>
-              <span className="text-[15px] font-medium text-gray-400">
-                {guests.children} Children
-              </span>
-            </div>
-            <ChevronDown
-              className={cn(
-                'w-5 h-5 text-gray-800 flex-shrink-0 transition-transform duration-200',
-                activePanel === 'guests' && 'rotate-180',
-              )}
-              strokeWidth={2}
-            />
-          </button>
-          {activePanel === 'guests' && (
-            <div className="absolute top-[calc(100%+8px)] left-0 w-full z-50">
-              <GuestDropdown
-                guests={guests}
-                onChange={setGuests}
-                onClose={() => setActivePanel(null)}
-              />
-            </div>
-          )}
-        </div>
-
-        {/* Search Button */}
-        <div className="mt-2 flex justify-center">
-          <button
-            onClick={handleSearch}
-            className="w-full max-w-[240px] flex items-center justify-center bg-primary-gradient text-white font-bold text-[15px] rounded-full px-6 py-3.5 transition-all shadow-md hover:opacity-90 active:scale-95"
-          >
-            Search
-          </button>
-        </div>
-
+        )}
       </div>
+
+      {/* Dates Row */}
+      <div className="flex gap-3 relative">
+        {/* Check In */}
+        <div className="relative flex-1">
+          <button
+            onClick={() => toggle('date')}
+            className={cn(
+              'w-full h-[76px] flex flex-col justify-center gap-0.5 px-4 py-2.5 rounded-2xl border transition-all text-left bg-white',
+              activePanel === 'date'
+                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              <Calendar
+                className="w-4 h-4 text-gray-700 flex-shrink-0"
+                strokeWidth={1.8}
+              />
+              <span className="text-[15px] font-semibold text-gray-900">
+                Check In
+              </span>
+            </div>
+            <div>
+              {dates.checkIn ? (
+                <>
+                  <p className="text-[13px] font-normal text-gray-400 leading-none mb-0.5">
+                    {dates.checkIn.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                    })}
+                  </p>
+                  <p className="text-[17px] font-medium text-gray-900 leading-tight">
+                    {fmtDate(dates.checkIn)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[15px] font-normal text-gray-400">Add date</p>
+              )}
+            </div>
+          </button>
+        </div>
+
+        {/* Check Out */}
+        <div className="relative flex-1">
+          <button
+            onClick={() => toggle('date')}
+            className={cn(
+              'w-full h-[76px] flex flex-col justify-center gap-0.5 px-4 py-2.5 rounded-2xl border transition-all text-left bg-white',
+              activePanel === 'date'
+                ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+                : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+            )}
+          >
+            <div className="flex items-center gap-1.5">
+              <Calendar
+                className="w-4 h-4 text-gray-700 flex-shrink-0"
+                strokeWidth={1.8}
+              />
+              <span className="text-[15px] font-semibold text-gray-900">
+                Check Out
+              </span>
+            </div>
+            <div>
+              {dates.checkOut ? (
+                <>
+                  <p className="text-[13px] font-normal text-gray-400 leading-none mb-0.5">
+                    {dates.checkOut.toLocaleDateString('en-US', {
+                      weekday: 'long',
+                    })}
+                  </p>
+                  <p className="text-[17px] font-medium text-gray-900 leading-tight">
+                    {fmtDate(dates.checkOut)}
+                  </p>
+                </>
+              ) : (
+                <p className="text-[15px] font-normal text-gray-400">Add date</p>
+              )}
+            </div>
+          </button>
+        </div>
+
+        {/* Shared DatePicker Popover */}
+        {activePanel === 'date' && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-center z-[1100]">
+            <DateRangePicker
+              checkIn={dates.checkIn}
+              checkOut={dates.checkOut}
+              onChange={(checkIn, checkOut) =>
+                setDates({ checkIn, checkOut })
+              }
+              onClose={() => setActivePanel(null)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Guests */}
+      <div className="relative">
+        <button
+          onClick={() => toggle('guests')}
+          className={cn(
+            'w-full h-[52px] flex items-center gap-3 px-5 rounded-2xl border transition-all text-left bg-white',
+            activePanel === 'guests'
+              ? 'border-figma-navy shadow-md ring-4 ring-figma-navy/10'
+              : 'border-gray-200 hover:border-gray-300 shadow-sm hover:shadow',
+          )}
+        >
+          <Users
+            className="w-4 h-4 text-gray-600 flex-shrink-0"
+            strokeWidth={1.5}
+          />
+          <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[16px] font-medium text-gray-800">
+            <span>{guests.adults} Adults</span>
+            <span className="text-gray-400">•</span>
+            <span>{guests.rooms} Room</span>
+            <span className="text-gray-400">•</span>
+            <span className="text-gray-400 font-normal">
+              {guests.children} Children
+            </span>
+          </div>
+          <ChevronDown
+            className={cn(
+              'w-4 h-4 text-gray-500 flex-shrink-0 transition-transform duration-200',
+              activePanel === 'guests' && 'rotate-180',
+            )}
+            strokeWidth={2}
+          />
+        </button>
+        {activePanel === 'guests' && (
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
+            <GuestDropdown
+              guests={guests}
+              onChange={setGuests}
+              onClose={() => setActivePanel(null)}
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Search Button — centered blue pill matching Figma */}
+      <div className="flex justify-center pt-1">
+        <button
+          onClick={handleSearch}
+          className="w-auto min-w-[200px] h-[48px] flex items-center justify-center bg-primary-gradient text-white font-medium text-[15px] rounded-full px-10 transition-all shadow-md hover:opacity-90 active:scale-95"
+        >
+          Search
+        </button>
+      </div>
+
+      {/* Search on Map Button */}
+      <button
+        onClick={() => {
+          if (location.query.trim().length > 0) {
+            toast.error('You can either use the map or fill in the location yourself, not both.');
+            return;
+          }
+          router.push('/search?view=map');
+        }}
+        className={cn(
+          "w-full flex items-center gap-4 bg-white rounded-2xl p-4 border transition-all text-left",
+          location.query.trim().length > 0
+            ? "opacity-50 cursor-not-allowed border-gray-200"
+            : "border-gray-200 hover:border-gray-300 shadow-sm hover:shadow"
+        )}
+      >
+        <div className="w-12 h-12 rounded-full bg-white border border-gray-100 flex items-center justify-center shadow-sm flex-shrink-0">
+          <MapPin className="w-6 h-6 text-figma-navy" strokeWidth={1.5} />
+        </div>
+        <div>
+          <h3 className="text-[15px] font-medium text-figma-ink">Search on Map</h3>
+          <p className="text-[12px] font-normal text-gray-400">For Accurate Location</p>
+        </div>
+      </button>
     </div>
   );
 }

@@ -39,6 +39,8 @@ export interface Host {
   responseRate?: number;
   responseTime?: string;
   isSuperhost?: boolean;
+  occupation?: string;
+  hobbies?: string;
 }
 
 export interface Property {
@@ -47,6 +49,7 @@ export interface Property {
   city: string;
   state: string;
   price: number;
+  priceWeekend?: number;
   originalPrice?: number;
   rating: number;
   reviewCount: number;
@@ -60,6 +63,11 @@ export interface Property {
   distanceFromCenter?: string;
   isInstantBook?: boolean;
   freeCancellation?: boolean;
+  cancellationPolicy?: "flexible" | "moderate" | "strict";
+  // Only meaningful when cancellationPolicy === "strict" -- per-listing
+  // override of CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent.
+  // Undefined means this listing uses the platform default (50%).
+  strictPartialRefundPercent?: number;
   breakfast?: boolean;
   parking?: boolean;
   wifi?: boolean;
@@ -73,14 +81,22 @@ export interface Property {
   coordinates?: { lat: number; lng: number };
   host?: Host;
   reviews?: Review[];
-  ratingBreakdown?: {
-    cleanliness: number;
-    accuracy: number;
-    communication: number;
-    location: number;
-    checkIn: number;
-    value: number;
-  };
+  houseRules?: string[];
+  safetyFeatures?: { name: string; icon: string; description: string }[];
+  activeDiscount?: { type: string; percent: number } | null;
+  addons?: {
+    addonId: number;
+    name: string;
+    icon: string;
+    category: string;
+    price: number;
+    includes: string;
+    timingFrom: string | null;
+    timingTo: string | null;
+    notes: string | null;
+  }[];
+  address?: string;
+  nearbyLandmarks?: { name: string; distance: string }[];
 }
 
 export interface SearchFilters {
@@ -88,6 +104,7 @@ export interface SearchFilters {
   priceMax: number;
   guestRating: number | null;
   propertyTypes: string[];
+  stayTypes: string[];
   amenities: string[];
   bedTypes: string[];
   freeCancellation: boolean;
@@ -109,12 +126,4 @@ export type SortOption =
   | "top_rated"
   | "most_popular"
   | "newest"
-  | "distance"
   | "best_value";
-
-export interface SearchState {
-  destination: string;
-  checkIn: Date | null;
-  checkOut: Date | null;
-  guests: GuestCount;
-}

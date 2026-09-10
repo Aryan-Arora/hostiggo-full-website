@@ -9,7 +9,7 @@ import SortDropdown from '@/components/features/SortDropdown';
 import ActiveFilterTags from '@/components/features/ActiveFilterTags';
 import PropertyCardList from '@/components/features/PropertyCardList';
 import PropertyCardSkeleton from '@/components/features/PropertyCardSkeleton';
-import InteractiveMap from '@/components/features/InteractiveMap';
+import GuestMapSearch from '@/components/features/GuestMapSearch';
 import { CompactSearchBar } from '@/components/features/SearchForm';
 import { useInfiniteScroll } from '@/hooks/useInfiniteScroll';
 import {
@@ -50,7 +50,6 @@ export default function SearchPageContent() {
   useEffect(() => {
     const dest = searchParams?.get('destination');
     if (dest && !location.query) {
-      console.log('[SearchPage] Setting initial location from URL:', dest);
       setLocation({ query: dest });
     }
     const view = searchParams?.get('view');
@@ -86,7 +85,7 @@ export default function SearchPageContent() {
       <Navbar />
 
       {/* Search bar strip */}
-      <div className="bg-[#005a9c] flex-shrink-0 py-3.5 px-4 sm:px-6 lg:px-8 shadow-md z-40">
+      <div className="bg-[#004772] flex-shrink-0 py-3.5 px-4 sm:px-6 lg:px-8 shadow-md z-40">
         <div className="max-w-7xl mx-auto flex items-center justify-between gap-6">
           <div className="flex-1">
             <CompactSearchBar />
@@ -104,7 +103,7 @@ export default function SearchPageContent() {
             />
           </div>
           <div className="flex-1 relative overflow-hidden">
-            <InteractiveMap
+            <GuestMapSearch
               properties={properties}
               activeId={activeMapId}
               onMarkerClick={setActiveMapId}
@@ -305,7 +304,7 @@ function ListResults({
         </p>
         <button
           onClick={resetFilters}
-          className="bg-blue-600 text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-blue-700 active:scale-95"
+          className="bg-figma-navy text-white px-6 py-2.5 rounded-xl text-sm font-semibold transition-all hover:bg-figma-navy/90 active:scale-95"
         >
           Clear all filters
         </button>
@@ -348,15 +347,15 @@ function ListResults({
             <div className="flex items-center justify-center gap-3">
               <div className="flex gap-1.5">
                 <div
-                  className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-figma-navy animate-bounce"
                   style={{ animationDelay: '0ms' }}
                 />
                 <div
-                  className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-figma-navy animate-bounce"
                   style={{ animationDelay: '150ms' }}
                 />
                 <div
-                  className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-bounce"
+                  className="w-2.5 h-2.5 rounded-full bg-figma-navy animate-bounce"
                   style={{ animationDelay: '300ms' }}
                 />
               </div>
@@ -368,14 +367,19 @@ function ListResults({
         </div>
       )}
 
-      {/* End message when no more results */}
-      {!hasMore && paginated.length > 0 && (
-        <div className="mt-8 py-6 text-center">
-          <p className="text-sm text-gray-500">
-            ✓ Showing all {totalCount} properties
+      {/* Count display and end message */}
+      <div className="mt-8 py-4 text-center">
+        {totalCount && (
+          <p className="text-sm text-gray-500 font-medium">
+            {paginated.length} of {totalCount.toLocaleString('en-IN')} properties loaded
           </p>
-        </div>
-      )}
+        )}
+        {!hasMore && paginated.length > 0 && (
+          <p className="text-sm text-gray-500 mt-2">
+            ✓ Showing all properties in this area
+          </p>
+        )}
+      </div>
     </>
   );
 }

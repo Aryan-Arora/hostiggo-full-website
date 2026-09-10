@@ -76,7 +76,7 @@ export default function PropertyCardSkeleton({
 
           {/* Tags */}
           <div className="flex flex-wrap gap-2">
-            <div className="h-6 w-32 bg-gradient-to-r from-blue-100 via-blue-50 to-blue-100 bg-[length:1000px_100%] rounded animate-shimmer" />
+            <div className="h-6 w-32 bg-gradient-to-r from-figma-navy/10 via-figma-navy/5 to-figma-navy/10 bg-[length:1000px_100%] rounded animate-shimmer" />
             <div className="h-6 w-28 bg-gradient-to-r from-gray-150 via-gray-100 to-gray-150 bg-[length:1000px_100%] rounded animate-shimmer" />
           </div>
 
@@ -91,7 +91,7 @@ export default function PropertyCardSkeleton({
         <div className="flex justify-end pt-4">
           <div className="text-right space-y-1">
             <div className="h-3 w-24 bg-gradient-to-r from-gray-150 via-gray-100 to-gray-150 bg-[length:1000px_100%] rounded animate-shimmer ml-auto" />
-            <div className="h-8 w-28 bg-gradient-to-r from-blue-200 via-blue-100 to-blue-200 bg-[length:1000px_100%] rounded animate-shimmer ml-auto" />
+            <div className="h-8 w-28 bg-gradient-to-r from-figma-navy/20 via-figma-navy/10 to-figma-navy/20 bg-[length:1000px_100%] rounded animate-shimmer ml-auto" />
             <div className="h-3 w-32 bg-gradient-to-r from-gray-150 via-gray-100 to-gray-150 bg-[length:1000px_100%] rounded animate-shimmer ml-auto" />
           </div>
         </div>

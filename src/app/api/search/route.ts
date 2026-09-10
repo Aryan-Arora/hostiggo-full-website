@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { HotelServiceApi } from "@/lib/services/hotel";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { SCHEMA } from "@/lib/schema.constants";
 
 export const dynamic = "force-dynamic";
 
@@ -21,48 +22,82 @@ const isPlainDestinationSearch = (f: any): boolean =>
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { filters, page = 0, pageSize = 10 } = body;
-    console.log("[/api/search] Received filters:", JSON.stringify(filters, null, 2));
-    let data = await HotelServiceApi.filterHotels(filters, page, pageSize);
-    console.log("[/api/search] Result count:", data?.length ?? 0);
+    const { filters, cursor, pageSize: userPageSize } = body;
+    
+    // Clamp pageSize
+    const pageSize = Math.min(100, Math.max(1, Math.floor(Number(userPageSize) || 50)));
+    
+    // Use cursor-based pagination for all searches (state, district, location)
+    let data, hasMore, totalCount, stateBounds;
+    const result = await HotelServiceApi.filterHotelsByState(
+      filters,
+      cursor || null,
+      pageSize
+    );
+    data = result.data;
+    hasMore = result.hasMore;
+    totalCount = result.totalCount;
+    stateBounds = result.stateBounds;
+
+    // Property type filter
+    if (filters?.propertyTypes?.length && data?.length) {
+      const wanted = new Set(filters.propertyTypes.map((t: string) => t.toLowerCase()));
+      data = data.filter((r: any) =>
+        wanted.has((r.listing?.property_type_name ?? "").toLowerCase()),
+      );
+    }
+
+    // Stay type filter (Private room / Shared room / Entire property),
+    // same reasoning: filter on the real stay_type_title from the RPC row.
+    if (filters?.stayTypes?.length && data?.length) {
+      const wanted = new Set(filters.stayTypes.map((t: string) => t.toLowerCase()));
+      data = data.filter((r: any) =>
+        wanted.has((r.listing?.stay_type_title ?? "").toLowerCase()),
+      );
+    }
 
     // Fallback: the search_listings RPC misses some districts (e.g. New Delhi)
-    // even though active listings exist there. For a plain destination search,
-    // query listings by district directly so results still show.
+    // even though active listings exist there. For a plain destination search
+    // on the first page, query listings by district directly so results still
+    // show. Cursor-based pagination has no page/offset concept for the
+    // fallback path, so this only covers the initial (cursor-less) request.
     // TODO: remove once the search_listings RPC district matching is fixed.
-    if ((!data || data.length === 0) && isPlainDestinationSearch(filters)) {
+    if (!cursor && (!data || data.length === 0) && isPlainDestinationSearch(filters)) {
       const rows = await HotelServiceApi.getListingsByDistrict(
         filters.district,
         pageSize,
-        page * pageSize,
+        0,
       );
       data = rows.map((row: any) => ({ listing: row, distance: null }));
       console.log("[/api/search] district fallback used:", filters.district, "→", data.length);
     }
 
-    // If date range provided, filter out listings that are unavailable.
+    // Date availability filter
     const { startDate, endDate } = filters ?? {};
     if (startDate && endDate && data?.length) {
-      // RPC rows are shaped { listing: { listing_id, ... }, distance }
       const listingIds = data.map((r: any) => r.listing?.listing_id ?? r.listing_id).filter(Boolean);
 
-      // Listings with at least one blocked calendar day in the range.
-      const { data: blockedRows } = await supabaseAdmin
-        .from("listing_calendar")
-        .select("listing_id")
-        .in("listing_id", listingIds)
-        .gte("date", startDate)
-        .lt("date", endDate)
-        .eq("is_available", false);
-
-      // Listings with a confirmed booking that overlaps the range.
-      const { data: bookedRows } = await supabaseAdmin
-        .from("bookings")
-        .select("listing_id")
-        .in("listing_id", listingIds)
-        .eq("status_id", 2)
-        .lt("start_date", endDate)
-        .gt("end_date", startDate);
+      const [
+        { data: blockedRows, error: blockedErr },
+        { data: bookedRows, error: bookedErr },
+      ] = await Promise.all([
+        supabaseAdmin
+          .from("listing_calendar")
+          .select("listing_id")
+          .in("listing_id", listingIds)
+          .gte("date", startDate)
+          .lt("date", endDate)
+          .eq("is_available", false),
+        supabaseAdmin
+          .from("bookings")
+          .select("listing_id")
+          .in("listing_id", listingIds)
+          .eq("status_id", 2)
+          .lt("start_date", endDate)
+          .gt("end_date", startDate),
+      ]);
+      if (blockedErr) throw blockedErr;
+      if (bookedErr) throw bookedErr;
 
       const unavailable = new Set([
         ...(blockedRows ?? []).map((r: any) => r.listing_id),
@@ -71,11 +106,22 @@ export async function POST(req: NextRequest) {
 
       if (unavailable.size > 0) {
         data = data.filter((r: any) => !unavailable.has(r.listing?.listing_id ?? r.listing_id));
-        console.log("[/api/search] After availability filter:", data.length, "unavailable:", unavailable.size);
       }
     }
 
-    return NextResponse.json({ data });
+    // Build response with cursor pagination info
+    const response: any = { 
+      data,
+      cursor: data.length > 0 ? data[data.length - 1].listing?.listing_id : null,
+      hasMore,
+      totalCount,
+    };
+    
+    if (stateBounds) {
+      response.stateBounds = stateBounds;
+    }
+
+    return NextResponse.json(response);
   } catch (err: any) {
     console.error("[/api/search] Error:", err.message, err.details ?? "");
     return NextResponse.json({ error: err.message }, { status: 500 });

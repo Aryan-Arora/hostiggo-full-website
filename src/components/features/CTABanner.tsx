@@ -1,59 +1,82 @@
 import Link from "next/link";
+import { ArrowRight, TrendingUp } from "lucide-react";
+
+const CHART_BARS = [35, 60, 45, 88, 62, 75, 50, 92];
 
 export default function CTABanner() {
   return (
-    <section className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-8 md:px-12 py-8 md:py-10">
-      <h2 className="text-center text-gray-900 text-xl md:text-[22px] font-bold mb-8">
-        Want to earn effortlessly?
-      </h2>
+    <section className="rounded-3xl overflow-hidden">
+      <div
+        className="relative flex flex-col md:flex-row items-center justify-between gap-8 p-8 md:p-10"
+        style={{ background: "linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #0f172a 100%)" }}
+      >
+        {/* Decorative blobs */}
+        <div className="absolute -top-16 -right-16 w-64 h-64 rounded-full bg-figma-navy opacity-[0.07] blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-12 left-1/4 w-48 h-48 rounded-full bg-figma-accent opacity-[0.07] blur-3xl pointer-events-none" />
 
-      <div className="flex flex-col md:flex-row items-center gap-8 md:gap-6">
-        {/* Left: copy + CTA */}
-        <div className="flex-1 max-w-xs">
-          <p className="text-gray-800 text-[14px] leading-relaxed mb-5">
-            List your Homestay on Hostiggo and start receiving bookings from
-            travellers.
+        {/* ── Left: Copy ── */}
+        <div className="relative z-10 flex-1 max-w-sm">
+          <p className="text-figma-accent text-xs font-bold uppercase tracking-widest mb-2">
+            For property owners
           </p>
-          <p className="text-gray-800 text-[14px] font-medium mb-6">
-            Earn extra income NOW!!!
+          <h2 className="text-white text-xl md:text-[22px] font-extrabold leading-snug mb-3">
+            Do you want to earn<br />effortlessly?
+          </h2>
+          <p className="text-slate-400 text-sm leading-relaxed">
+            List your homestay or property and start earning by hosting travellers from across India. Join thousands of hosts already earning on Hostiggo.
           </p>
+
           <Link
-            href="/host/list/property-type"
-            className="inline-flex items-center bg-[#0473C8] hover:bg-[#035ea5] active:bg-[#024b85] text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+            href="/host/list/method"
+            className="mt-6 inline-flex items-center gap-2 bg-figma-navy hover:bg-figma-navy active:bg-figma-navy/90 text-white px-6 py-2.5 rounded-xl font-semibold text-sm transition-all shadow-lg shadow-figma-navy/30 group"
           >
             Get started
+            <ArrowRight className="w-4 h-4 group-hover:translate-x-0.5 transition-transform" />
           </Link>
         </div>
 
-        {/* Middle: celebration illustration */}
-        <div className="flex-shrink-0 hidden sm:block">
-          <img
-            src="/host-celebration.png"
-            alt="Happy host celebrating"
-            className="w-[140px] h-auto select-none"
-          />
-        </div>
+        {/* ── Right: earnings card ── */}
+        <div className="relative z-10 flex-shrink-0">
+          <div className="bg-amber-400 rounded-2xl p-5 w-[220px] shadow-2xl shadow-black/30">
+            {/* Profile row */}
+            <div className="flex items-center gap-2.5 mb-4">
+              <div className="w-9 h-9 rounded-full bg-amber-600 flex items-center justify-center text-white text-sm font-bold">
+                R
+              </div>
+              <div>
+                <p className="text-amber-900 text-[12px] font-bold leading-tight">Rahul Kumar</p>
+                <p className="text-amber-700 text-[10px]">New Delhi · Host</p>
+              </div>
+            </div>
 
-        {/* Right: Royal Deal card */}
-        <div
-          className="relative flex-shrink-0 w-full md:w-[360px] rounded-2xl overflow-hidden p-6 bg-[#0b2c47]"
-          style={{
-            backgroundImage: "url(/royal-deal-bg.png)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <div className="w-9 h-9 bg-[#0f4c81] border border-white/30 rounded-full flex items-center justify-center mb-3">
-            <span className="text-white font-bold text-[16px] leading-none">H</span>
+            {/* Stat */}
+            <div className="bg-amber-500/50 rounded-xl p-3 mb-3">
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-amber-900 text-[10px] font-semibold">Monthly Earnings</p>
+                <TrendingUp className="w-3 h-3 text-amber-900 opacity-70" />
+              </div>
+              <p className="text-amber-900 text-lg font-extrabold">₹42,800</p>
+
+              {/* Mini bar chart */}
+              <div className="flex items-end gap-0.5 h-8 mt-2">
+                {CHART_BARS.map((h, i) => (
+                  <div
+                    key={i}
+                    className="flex-1 bg-amber-700 rounded-t opacity-70"
+                    style={{ height: `${h}%` }}
+                  />
+                ))}
+              </div>
+            </div>
+
+            {/* Badge */}
+            <div className="text-center">
+              <span className="text-amber-900 text-[11px] font-extrabold tracking-tight">
+                Rupi<span className="text-amber-700">Gold</span>
+              </span>
+              <p className="text-amber-800 text-[9px] mt-0.5 font-medium">Your earnings dashboard</p>
+            </div>
           </div>
-          <p className="text-white text-[13px] leading-relaxed">
-            First 10 bookings are 0% commission for all new hosts
-          </p>
-          <p className="text-white/90 text-[13px] leading-relaxed mt-2">
-            After that, only 2% platform commission applies (lowest to all
-            other platforms)
-          </p>
-          <p className="text-amber-400 text-[17px] font-bold mt-4">Royal Deal</p>
         </div>
       </div>
     </section>

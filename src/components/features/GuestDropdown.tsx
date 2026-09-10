@@ -1,4 +1,4 @@
-import { User, Baby, BedDouble, PawPrint } from "lucide-react";
+import { Users, Baby, DoorOpen } from "lucide-react";
 import type { GuestCount } from "@/types";
 import { cn } from "@/lib/utils";
 
@@ -11,7 +11,7 @@ interface GuestDropdownProps {
 interface CounterRowProps {
   icon: React.ReactNode;
   label: string;
-  sublabel?: string;
+  sublabel: string;
   value: number;
   min?: number;
   max?: number;
@@ -20,39 +20,43 @@ interface CounterRowProps {
 
 function CounterRow({ icon, label, sublabel, value, min = 0, max = 20, onChange }: CounterRowProps) {
   return (
-    <div className="flex items-center justify-between py-4">
-      <div className="flex items-center gap-3.5">
-        <div className="w-7 flex items-center justify-center text-gray-800 flex-shrink-0">
+    <div className="flex items-center justify-between py-3.5 border-b border-gray-100 last:border-0">
+      <div className="flex items-center gap-3">
+        <div className="w-8 h-8 flex items-center justify-center text-figma-navy flex-shrink-0">
           {icon}
         </div>
         <div>
-          <p className="text-[16px] font-semibold text-gray-900 leading-tight">{label}</p>
-          {sublabel && <p className="text-[13px] text-gray-400 mt-0.5">{sublabel}</p>}
+          <p className="text-[13px] font-semibold text-gray-800 leading-tight">{label}</p>
+          <p className="text-[11px] text-gray-400 mt-0.5">{sublabel}</p>
         </div>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2.5">
         <button
+          type="button"
           onClick={() => onChange(Math.max(min, value - 1))}
           disabled={value <= min}
+          aria-label={`Decrease ${label}`}
           className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-lg font-medium leading-none text-white transition-all",
+            "w-8 h-8 rounded-full flex items-center justify-center text-base transition-all font-medium leading-none",
             value <= min
-              ? "bg-gray-300 cursor-not-allowed"
-              : "bg-[#0f4c81] hover:bg-[#0a3a63] active:scale-95"
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-figma-navy text-white shadow-md hover:bg-figma-navy/90 active:scale-95 cursor-pointer"
           )}
         >
           −
         </button>
-        <span className="w-5 text-center text-[16px] font-semibold text-gray-900 tabular-nums">{value}</span>
+        <span className="w-5 text-center text-[13px] font-bold text-gray-800 tabular-nums">{value}</span>
         <button
+          type="button"
           onClick={() => onChange(Math.min(max, value + 1))}
           disabled={value >= max}
+          aria-label={`Increase ${label}`}
           className={cn(
-            "w-8 h-8 rounded-full flex items-center justify-center text-lg font-medium leading-none text-white transition-all",
+            "w-8 h-8 rounded-full flex items-center justify-center text-base transition-all font-medium leading-none",
             value >= max
-              ? "bg-gray-300 cursor-not-allowed"
-              : "bg-[#0f4c81] hover:bg-[#0a3a63] active:scale-95"
+              ? "bg-gray-200 text-gray-400 cursor-not-allowed"
+              : "bg-figma-navy text-white shadow-md hover:bg-figma-navy/90 active:scale-95 cursor-pointer"
           )}
         >
           +
@@ -67,9 +71,9 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
     onChange({ ...guests, [key]: val });
 
   return (
-    <div className="dropdown-panel animate-fade-in-down w-[380px] max-w-[92vw] rounded-3xl p-6">
+    <div className="dropdown-panel shadow-2xl rounded-2xl border border-gray-100 animate-fade-in-down w-[320px] max-w-[92vw] p-5">
       <CounterRow
-        icon={<User className="w-6 h-6" strokeWidth={1.7} />}
+        icon={<Users className="w-5 h-5" />}
         label="Adults"
         sublabel="Ages 18 or above"
         value={guests.adults}
@@ -78,7 +82,7 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
         onChange={(v) => set("adults", v)}
       />
       <CounterRow
-        icon={<Baby className="w-6 h-6" strokeWidth={1.7} />}
+        icon={<Baby className="w-5 h-5" />}
         label="Children"
         sublabel="Ages 0-17"
         value={guests.children}
@@ -86,8 +90,9 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
         onChange={(v) => set("children", v)}
       />
       <CounterRow
-        icon={<BedDouble className="w-6 h-6" strokeWidth={1.7} />}
+        icon={<DoorOpen className="w-5 h-5" />}
         label="Room"
+        sublabel="1 or more"
         value={guests.rooms}
         min={1}
         max={10}
@@ -95,26 +100,29 @@ export default function GuestDropdown({ guests, onChange, onClose }: GuestDropdo
       />
 
       {/* Pets toggle */}
-      <div className="border-t border-gray-200 mt-2 pt-4 flex items-center justify-between pb-2">
-        <div className="flex items-center gap-3.5">
-          <div className="w-7 flex items-center justify-center text-gray-800 flex-shrink-0">
-            <PawPrint className="w-6 h-6" strokeWidth={1.7} />
+      <div className="flex items-center justify-between py-3.5">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 flex items-center justify-center text-lg flex-shrink-0">
+            🐾
           </div>
-          <p className="text-[16px] font-semibold text-gray-900 leading-tight">Pets with you?</p>
+          <div>
+            <p className="text-[13px] font-semibold text-gray-800 leading-tight">Pets with you?</p>
+          </div>
         </div>
-        <label className="toggle-switch">
+        <label className="toggle-switch cursor-pointer">
           <input
             type="checkbox"
             checked={guests.pets}
             onChange={(e) => set("pets", e.target.checked)}
           />
-          <span className="toggle-slider" />
+          <span className={cn("toggle-slider", guests.pets && "!bg-figma-navy")} />
         </label>
       </div>
 
       <button
+        type="button"
         onClick={onClose}
-        className="w-full mt-4 bg-primary-gradient hover:opacity-90 active:scale-[0.99] text-white py-3 rounded-xl font-semibold text-[16px] transition-all shadow-sm"
+        className="w-full mt-3 bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white py-2.5 rounded-xl font-semibold text-sm transition-colors shadow-sm cursor-pointer"
       >
         Done
       </button>

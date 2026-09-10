@@ -1,180 +1,149 @@
 'use client';
 
 import { useState } from 'react';
-import {
-  Home,
-  Cigarette,
-  PawPrint,
-  PartyPopper,
-  Clock,
-  ShieldCheck,
-  Video,
-  ShieldAlert,
-  FireExtinguisher,
-  BriefcaseMedical,
-  type LucideIcon,
-} from 'lucide-react';
+import { Cigarette, PawPrint, PartyPopper, Clock } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
+import { useListingDraft } from '@/context/ListingDraftContext';
 
-const RULES: { id: string; label: string; icon: LucideIcon; on: boolean }[] = [
-  { id: 'smoking', label: 'Smoking allowed', icon: Cigarette, on: false },
-  { id: 'pets', label: 'Pets allowed', icon: PawPrint, on: true },
-  { id: 'parties', label: 'Parties or events allowed', icon: PartyPopper, on: false },
-];
-
-const SAFETY: { id: string; label: string; desc: string; icon: LucideIcon; on: boolean }[] = [
-  { id: 'cameras', label: 'Security cameras', desc: 'Located in public areas only.', icon: Video, on: true },
-  { id: 'smoke', label: 'Smoke alarm', desc: 'Functional alarms in all rooms.', icon: ShieldAlert, on: true },
-  { id: 'extinguisher', label: 'Fire extinguisher', desc: 'Located in the kitchen.', icon: FireExtinguisher, on: false },
-  { id: 'firstaid', label: 'First aid kit', desc: 'Available in the utility closet.', icon: BriefcaseMedical, on: false },
-];
-
-function Check({ on }: { on: boolean }) {
+function Checkbox({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
-    <span
+    <button
+      type="button"
+      onClick={onClick}
       className={cn(
-        'w-6 h-6 rounded-md border flex items-center justify-center shrink-0 transition-colors',
-        on ? 'bg-blue-600 border-blue-600' : 'border-gray-300 bg-white',
+        'w-5 h-5 rounded-[4px] border flex items-center justify-center shrink-0 transition-colors',
+        on ? 'bg-figma-navy border-figma-navy' : 'border-gray-300 bg-white',
       )}
     >
       {on && (
-        <svg viewBox="0 0 24 24" className="w-4 h-4 text-white" fill="none" stroke="currentColor" strokeWidth="3">
+        <svg viewBox="0 0 24 24" className="w-3.5 h-3.5 text-white" fill="none" stroke="currentColor" strokeWidth="3">
           <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
         </svg>
       )}
-    </span>
+    </button>
   );
 }
 
 export default function HouseRulesPage() {
-  const [rules, setRules] = useState(() => Object.fromEntries(RULES.map((r) => [r.id, r.on])));
-  const [safety, setSafety] = useState(() => Object.fromEntries(SAFETY.map((s) => [s.id, s.on])));
+  const { draft, update } = useListingDraft();
+
+  const [checkInTime, setCheckInTime] = useState(draft.houseRules?.check_in_time || '');
+  const [checkOutTime, setCheckOutTime] = useState(draft.houseRules?.check_out_time || '');
+
+  const [rules, setRules] = useState({
+    smoking: draft.houseRules?.smoking_allowed ?? false,
+    pets: draft.houseRules?.pets_allowed ?? false,
+    parties: draft.houseRules?.parties_allowed ?? false,
+    quietHours: draft.houseRules?.quiet_hours ?? false,
+  });
+
+  const toggle = (k: keyof typeof rules) => {
+    const newRules = { ...rules, [k]: !rules[k] };
+    setRules(newRules);
+    update({
+      houseRules: {
+        check_in_time: checkInTime,
+        check_out_time: checkOutTime,
+        smoking_allowed: newRules.smoking,
+        pets_allowed: newRules.pets,
+        parties_allowed: newRules.parties,
+        quiet_hours: newRules.quietHours,
+      },
+    });
+  };
+
+  const handleTimeChange = (type: 'check_in' | 'check_out', val: string) => {
+    if (type === 'check_in') setCheckInTime(val);
+    else setCheckOutTime(val);
+    
+    update({
+      houseRules: {
+        check_in_time: type === 'check_in' ? val : checkInTime,
+        check_out_time: type === 'check_out' ? val : checkOutTime,
+        smoking_allowed: rules.smoking,
+        pets_allowed: rules.pets,
+        parties_allowed: rules.parties,
+        quiet_hours: rules.quietHours,
+      },
+    });
+  };
 
   return (
     <WizardShell
-      step={8}
-      title="Set some rules for your guests"
-      subtitle="Clear rules help avoid misunderstandings and set the right expectations for your stay."
+      step={13}
+      title="Set house rules"
+      subtitle="Clear rules help avoid misunderstandings with guests"
     >
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Left */}
-        <div className="lg:col-span-7 space-y-6">
-          <section className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <Home className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-bold text-gray-800">General House Rules</h2>
-            </div>
-            <div className="space-y-4">
-              {RULES.map((r) => {
-                const Icon = r.icon;
-                const on = rules[r.id];
-                return (
-                  <button
-                    key={r.id}
-                    onClick={() => setRules((s) => ({ ...s, [r.id]: !s[r.id] }))}
-                    className={cn(
-                      'w-full flex items-center justify-between p-4 rounded-xl border transition-colors group',
-                      on ? 'border-blue-400 bg-blue-50/40' : 'border-gray-200 hover:border-blue-300',
-                    )}
-                  >
-                    <div className="flex items-center gap-4">
-                      <Icon className={cn('w-5 h-5', on ? 'text-blue-600' : 'text-gray-500')} />
-                      <span className="text-sm text-gray-800">{r.label}</span>
-                    </div>
-                    <Check on={on} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
-
-          <section className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <Clock className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-bold text-gray-800">Quiet Hours &amp; Check-in</h2>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
-              {[
-                { label: 'Quiet hours from', value: '10:00 PM' },
-                { label: 'Quiet hours to', value: '08:00 AM' },
-              ].map((f) => (
-                <div key={f.label} className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {f.label}
-                  </label>
-                  <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-white">
-                    <span className="text-sm font-bold text-gray-800">{f.value}</span>
-                    <Clock className="w-5 h-5 text-gray-400" />
-                  </div>
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              {[
-                { label: 'Check-in time', opts: ['02:00 PM', '03:00 PM', '04:00 PM'] },
-                { label: 'Check-out time', opts: ['10:00 AM', '11:00 AM', '12:00 PM'] },
-              ].map((f) => (
-                <div key={f.label} className="space-y-2">
-                  <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider">
-                    {f.label}
-                  </label>
-                  <select className="w-full p-4 rounded-xl border border-gray-200 bg-white text-sm outline-none focus:ring-2 focus:ring-blue-500">
-                    {f.opts.map((o) => (
-                      <option key={o}>{o}</option>
-                    ))}
-                  </select>
-                </div>
-              ))}
-            </div>
-          </section>
-        </div>
-
-        {/* Right */}
-        <div className="lg:col-span-5 space-y-6">
-          <section className="rounded-2xl shadow-card border border-gray-200 overflow-hidden relative min-h-[300px] flex flex-col justify-end">
-            <img
-              src="https://images.unsplash.com/photo-1560185007-cde436f6a4d0?w=700&h=500&fit=crop&q=80"
-              alt=""
-              className="absolute inset-0 w-full h-full object-cover"
+      <div className="max-w-2xl mx-auto space-y-8">
+        
+        {/* Check-in / Check-out time */}
+        <div className="space-y-4">
+          <h3 className="text-[13px] font-semibold text-gray-800">Check-in , Check-out time</h3>
+          <div className="flex gap-4">
+            <input
+              type="text"
+              placeholder="check-in time"
+              value={checkInTime}
+              onChange={(e) => handleTimeChange('check_in', e.target.value)}
+              className="w-full max-w-[200px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-figma-navy"
             />
-            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
-            <div className="relative z-10 text-white p-6">
-              <h2 className="text-lg font-bold mb-2">Safety first</h2>
-              <p className="text-sm opacity-90">
-                Hostiggo prioritizes the safety of both hosts and guests. Please
-                disclose all safety features available.
-              </p>
-            </div>
-          </section>
-
-          <section className="bg-white p-6 rounded-2xl shadow-card border border-gray-200">
-            <div className="flex items-center gap-3 mb-4">
-              <ShieldCheck className="w-5 h-5 text-blue-600" />
-              <h2 className="text-lg font-bold text-gray-800">Safety Details</h2>
-            </div>
-            <div className="space-y-4">
-              {SAFETY.map((s) => {
-                const Icon = s.icon;
-                const on = safety[s.id];
-                return (
-                  <button
-                    key={s.id}
-                    onClick={() => setSafety((p) => ({ ...p, [s.id]: !p[s.id] }))}
-                    className="w-full flex items-start gap-4 p-4 rounded-xl border border-gray-200 hover:bg-gray-50 transition-all text-left"
-                  >
-                    <Icon className="w-5 h-5 text-gray-500 mt-1" />
-                    <div className="flex-grow">
-                      <p className="text-sm font-bold text-gray-800">{s.label}</p>
-                      <p className="text-xs text-gray-500">{s.desc}</p>
-                    </div>
-                    <Check on={on} />
-                  </button>
-                );
-              })}
-            </div>
-          </section>
+            <input
+              type="text"
+              placeholder="check-out time"
+              value={checkOutTime}
+              onChange={(e) => handleTimeChange('check_out', e.target.value)}
+              className="w-full max-w-[200px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-figma-navy"
+            />
+          </div>
         </div>
+
+        {/* Allowed at place */}
+        <div className="space-y-4">
+          <h3 className="text-[13px] font-semibold text-gray-800">Select what&apos;s allowed at your place</h3>
+          
+          <div className="space-y-3">
+            {/* Smoking */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer" onClick={() => toggle('smoking')}>
+              <div className="flex items-center gap-4">
+                <Cigarette className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Smoking Allowed</span>
+              </div>
+              <Checkbox on={rules.smoking} onClick={() => {}} />
+            </div>
+
+            {/* Pets */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer" onClick={() => toggle('pets')}>
+              <div className="flex items-center gap-4">
+                <PawPrint className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Pets allowed</span>
+              </div>
+              <Checkbox on={rules.pets} onClick={() => {}} />
+            </div>
+
+            {/* Parties */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer" onClick={() => toggle('parties')}>
+              <div className="flex items-center gap-4">
+                <PartyPopper className="w-5 h-5 text-gray-600" />
+                <span className="text-sm font-medium text-gray-900">Parties, events allowed</span>
+              </div>
+              <Checkbox on={rules.parties} onClick={() => {}} />
+            </div>
+
+            {/* Quiet hours */}
+            <div className="bg-white border border-gray-200 rounded-2xl p-4 flex items-center justify-between shadow-sm cursor-pointer" onClick={() => toggle('quietHours')}>
+              <div className="flex items-center gap-4">
+                <Clock className="w-5 h-5 text-gray-600" />
+                <div className="flex flex-col">
+                  <span className="text-sm font-medium text-gray-900">Quiet hours</span>
+                  <span className="text-xs text-figma-navy">Between 10:00 PM and 8:00 AM</span>
+                </div>
+              </div>
+              <Checkbox on={rules.quietHours} onClick={() => {}} />
+            </div>
+          </div>
+        </div>
+
       </div>
     </WizardShell>
   );

@@ -10,6 +10,7 @@ import { api } from '@/lib/api';
 // so it survives step navigation and reloads, then POSTed on Finish.
 export type ListingDraft = {
   propertyType?: string;
+  stayType?: string;
   title?: string;
   description?: string;
   priceWeekday?: number;
@@ -19,9 +20,36 @@ export type ListingDraft = {
   numBeds?: number;
   numBathrooms?: number;
   amenityIds?: number[];
+  addonSelections?: { addon_id: number; price: number; includes: string }[];
+  discounts?: { discount_type: string; percent: number; enabled: boolean }[];
+  houseRules?: {
+    check_in_time?: string;
+    check_out_time?: string;
+    smoking_allowed?: boolean;
+    pets_allowed?: boolean;
+    parties_allowed?: boolean;
+    // The real listing_house_rules.quiet_hours column is a plain boolean
+    // flag ("quiet hours policy in effect"), not a time range -- the actual
+    // from/to times the wizard collects have no backing column to persist
+    // into, so they're kept as local UI state only.
+    quiet_hours?: boolean;
+  };
   photoUrls?: string[];
+  cancellationPolicy?: 'flexible' | 'moderate' | 'strict';
+  // Only meaningful when cancellationPolicy === 'strict' -- the fraction
+  // (0-1) refunded when a guest cancels at/beyond the policy's partial-
+  // refund window. Per-listing override of the platform default (50%, see
+  // CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent).
+  strictPartialRefundPercent?: number;
+  country?: string;
   addressLine1?: string;
   landmark?: string;
+  city?: string;
+  state?: string;
+  postalCode?: string;
+  latitude?: number;
+  longitude?: number;
+  locationId?: number;
 };
 
 const STORAGE_KEY = 'hostiggo:listing-draft';
@@ -92,9 +120,14 @@ export function ListingDraftProvider({ children }: { children: ReactNode }) {
     }
     setSubmitting(true);
     try {
-      await api.createListing({ userId, ...draft });
+      const result = await api.createListing({ userId, ...draft });
       reset();
-      toast.success('Listing created! It will appear once reviewed.');
+      if (result.warnings?.length) {
+        toast.success('Listing created, but with some issues.');
+        result.warnings.forEach((w) => toast.error(w));
+      } else {
+        toast.success('Listing created! It will appear once reviewed.');
+      }
       router.push('/host/listings?created=1');
     } catch (err) {
       console.error('[listing-draft] submit failed:', err);

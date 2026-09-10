@@ -74,26 +74,3 @@ export function useInfiniteScroll(
 
   return sentinelRef;
 }
-
-/**
- * Alternative: useVirtualScroll hook for very large lists
- * (Optional - use if you have 1000+ items)
- */
-export function useScrollPosition(
-  callback: (scrollTop: number) => void,
-  elementRef?: React.RefObject<HTMLDivElement>,
-) {
-  useEffect(() => {
-    const element = elementRef?.current || window;
-
-    const handleScroll = () => {
-      const scrollTop =
-        element instanceof Window ? element.scrollY : element.scrollTop;
-
-      callback(scrollTop);
-    };
-
-    element.addEventListener('scroll', handleScroll, { passive: true });
-    return () => element.removeEventListener('scroll', handleScroll);
-  }, [callback, elementRef]);
-}

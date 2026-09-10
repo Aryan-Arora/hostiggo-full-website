@@ -1,9 +1,19 @@
 import type { Metadata } from 'next';
+import { Poppins } from 'next/font/google';
 import './globals.css';
-import { AuthProvider as CustomAuthProvider } from '@/context/AuthContext';
+import { AuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
-import SupabaseAuthProvider from '@/components/providers/AuthProvider';
+// import { Analytics } from '@vercel/analytics/next';
+
+// Figma "Website Guest UI/UX" uses Poppins (Regular/Medium/SemiBold/Bold)
+// throughout -- this replaces the never-actually-loaded "Inter" fallback.
+const poppins = Poppins({
+  subsets: ['latin'],
+  weight: ['400', '500', '600', '700'],
+  variable: '--font-poppins',
+  display: 'swap',
+});
 
 export const metadata: Metadata = {
   title: 'Hostiggo - Find Your Perfect Stay',
@@ -16,16 +26,15 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
-      <body>
-        <SupabaseAuthProvider>
-          <CustomAuthProvider>
-            <ListingFilterProvider>
-              <Toaster position="top-center" richColors closeButton />
-              {children}
-            </ListingFilterProvider>
-          </CustomAuthProvider>
-        </SupabaseAuthProvider>
+    <html lang="en" className={poppins.variable} data-scroll-behavior="smooth">
+      <body className={poppins.className}>
+        <AuthProvider>
+          <ListingFilterProvider>
+            <Toaster position="top-center" richColors closeButton />
+            {children}
+          </ListingFilterProvider>
+        </AuthProvider>
+        {/* <Analytics /> */}
       </body>
     </html>
   );

@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import {
   CalendarCheck,
   Building2,
@@ -17,11 +18,12 @@ import {
   CalendarDays,
   Menu,
   X,
-  Inbox,
   type LucideIcon,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+
+import { MessageCircle } from 'lucide-react';
 
 type NavKey =
   | 'bookings'
@@ -29,14 +31,14 @@ type NavKey =
   | 'calendar'
   | 'earnings'
   | 'reviews'
-  | 'settings'
-  | 'inbox';
+  | 'chat'
+  | 'settings';
 
 const NAV: { key: NavKey; label: string; href: string; icon: LucideIcon }[] = [
   { key: 'listings', label: 'Properties', href: '/host/listings', icon: Building2 },
   { key: 'bookings', label: 'Reservations', href: '/host/bookings', icon: CalendarCheck },
   { key: 'calendar', label: 'Calendar', href: '/host/calendar', icon: CalendarDays },
-  { key: 'inbox', label: 'Inbox', href: '/host/inbox', icon: Inbox },
+  { key: 'chat', label: 'Messages', href: '/host/chat', icon: MessageCircle },
   { key: 'earnings', label: 'Earnings', href: '/host/earnings', icon: Wallet },
   { key: 'reviews', label: 'Reviews', href: '/host/reviews', icon: Star },
   { key: 'settings', label: 'Settings', href: '/host/settings', icon: Settings },
@@ -54,10 +56,20 @@ function SidebarContent({
   return (
     <>
       <div className="mb-10 px-2">
-        <Link href="/" onClick={onNavigate} className="text-lg font-extrabold text-gray-900">
-          HOSTI<span className="text-blue-600">GGO</span>
+        <Link href="/" onClick={onNavigate} className="flex items-center gap-2.5">
+          <Image
+            src="/logo.png"
+            alt="Hostiggo Logo"
+            width={32}
+            height={32}
+          />
+          <span className="text-lg font-extrabold text-gray-900">
+            HOSTI<span className="text-figma-navy">GGO</span>
+          </span>
         </Link>
-        <p className="text-sm text-gray-500 mt-1">Host Dashboard</p>
+        <div className="ml-11">
+          <p className="text-sm text-gray-500 mt-1">Host Dashboard</p>
+        </div>
       </div>
       <div className="flex-1 space-y-1">
         {NAV.map((item) => {
@@ -71,7 +83,7 @@ function SidebarContent({
               aria-current={on ? 'page' : undefined}
               className={cn(
                 'flex items-center gap-3 px-4 py-3 rounded-lg transition-all text-sm font-medium',
-                on ? 'bg-blue-600 text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
+                on ? 'bg-figma-navy text-white font-semibold' : 'text-gray-500 hover:bg-gray-100',
               )}
             >
               <Icon className="w-5 h-5" />
@@ -84,7 +96,7 @@ function SidebarContent({
         <Link
           href="/"
           onClick={onNavigate}
-          className="w-full flex items-center gap-3 px-4 py-3 text-blue-600 border border-blue-200 rounded-xl mb-3 hover:bg-blue-50 transition-all text-sm font-medium"
+          className="w-full flex items-center gap-3 px-4 py-3 text-figma-navy border border-figma-navy/30 rounded-xl mb-3 hover:bg-figma-navy/5 transition-all text-sm font-medium"
         >
           <ArrowLeftRight className="w-5 h-5" />
           Switch to Guest
@@ -119,7 +131,9 @@ export default function HostDashboardShell({
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { user, signOut } = useAuth();
   const handleLogout = () => signOut();
-  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/100?img=12';
+  // Must match the placeholder used across host/settings and the
+  // host profile API so an unset photo looks the same everywhere.
+  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/100?img=45';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-gray-800 lg:pl-64">
@@ -162,15 +176,23 @@ export default function HostDashboardShell({
           >
             <Menu className="w-5 h-5" />
           </button>
-          <Link href="/" className="text-lg font-extrabold text-gray-900">
-            HOSTI<span className="text-blue-600">GGO</span>
+          <Link href="/" className="flex items-center gap-2">
+            <Image
+              src="/logo.png"
+              alt="Hostiggo Logo"
+              width={24}
+              height={24}
+            />
+            <span className="text-lg font-extrabold text-gray-900">
+              HOSTI<span className="text-figma-navy">GGO</span>
+            </span>
           </Link>
         </div>
         <div className="hidden lg:block" />
         <div className="flex items-center gap-2 md:gap-3">
           <Link
-            href="/host/list/property-type"
-            className="flex items-center gap-2 bg-blue-600 text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-blue-700 transition-all active:scale-[0.99]"
+            href="/host/list/method"
+            className="flex items-center gap-2 bg-figma-navy text-white px-4 sm:px-5 py-2.5 rounded-full text-sm font-semibold hover:bg-figma-navy/90 transition-all active:scale-[0.99]"
           >
             <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Create Listing</span>
@@ -192,7 +214,9 @@ export default function HostDashboardShell({
             aria-label="Host account"
             className="w-8 h-8 rounded-full overflow-hidden ml-1 border border-gray-200"
           >
-            <img
+            <Image
+              width={32}
+              height={32}
               src={avatar}
               alt={user?.name || 'Host profile'}
               className="w-full h-full object-cover"

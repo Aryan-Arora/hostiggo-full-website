@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
+import Image from 'next/image';
 import {
   Heart,
   Star,
@@ -9,7 +10,6 @@ import {
   Plus,
   Edit2,
   Check,
-  List,
   Home,
   Wrench,
   Clock,
@@ -19,12 +19,12 @@ import {
   Trash2,
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
-import { useSupabaseAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from '@/context/AuthContext';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 const vacationIllustration = '/vacation-illustration.png';
 import { cn } from '@/lib/utils';
-import { api, getStoredUserId, mapWishlistListing } from '@/lib/api';
+import { api, mapWishlistListing } from '@/lib/api';
 import { toast } from 'sonner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -50,12 +50,17 @@ interface WishlistGroup {
 
 // ── Data ──────────────────────────────────────────────────────────────────────
 
+// "All" is the only real default group -- every saved item is a member of
+// it. The rest of this list used to be hardcoded fake groups ("Recently
+// viewed", "Homestays", "Services", "Manali trip") that nothing in the app
+// ever assigns an item to (no heart/save button anywhere lets a guest pick
+// a group, and there's no view-tracking feature at all), so they always
+// rendered as permanently-empty tabs. Worse, "Manali trip" wasn't even a
+// real category row -- it was marked editable, and clicking Remove on it
+// threw a raw Postgres error ("invalid input syntax for type uuid") since
+// its id was never a real category id to begin with.
 const DEFAULT_GROUPS: WishlistGroup[] = [
-  { id: 'recently_viewed', name: 'Recently viewed', isDefault: true },
   { id: 'all', name: 'All', isDefault: true },
-  { id: 'homestays', name: 'Homestays', isDefault: true },
-  { id: 'services', name: 'Services', isDefault: true },
-  { id: 'manali_trip', name: 'Manali trip', isDefault: false },
 ];
 
 // ── Confirmation Modal ────────────────────────────────────────────────────────
@@ -85,13 +90,13 @@ function ConfirmModal({
       />
       <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-[320px] mx-4 animate-slide-up">
         <p className="text-[15px] font-semibold text-gray-800 leading-relaxed mb-5">
-          Confirm to remove <span className="text-blue-600">"{groupName}"</span>{' '}
+          Confirm to remove <span className="text-figma-navy">&quot;{groupName}&quot;</span>{' '}
           from list?
         </p>
         <div className="flex items-center gap-3">
           <button
             onClick={onConfirm}
-            className="flex-1 py-2.5 bg-[#1B3FA0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] active:scale-[0.98] transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] active:scale-[0.98] transition-all"
           >
             Yes
           </button>
@@ -151,13 +156,13 @@ function CreateListModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all mb-4"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all mb-4"
         />
         <div className="flex items-center gap-3">
           <button
             onClick={() => name.trim() && onConfirm(name.trim())}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#1B3FA0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Create
           </button>
@@ -216,13 +221,13 @@ function RenameModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/10 transition-all mb-4"
+          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all mb-4"
         />
         <div className="flex items-center gap-3">
           <button
             onClick={() => name.trim() && onConfirm(name.trim())}
             disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#1B3FA0] text-white text-[14px] font-semibold rounded-xl hover:bg-[#162e82] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
           >
             Save
           </button>
@@ -316,7 +321,7 @@ function GroupDropdown({
                 <span className="truncate">{grp.name}</span>
                 {grp.id === selected && (
                   <Check
-                    className="w-4 h-4 text-blue-600 flex-shrink-0"
+                    className="w-4 h-4 text-figma-navy flex-shrink-0"
                     strokeWidth={2.5}
                   />
                 )}
@@ -413,12 +418,13 @@ function WishlistCard({
     >
       {/* Image */}
       <div className="relative overflow-hidden" style={{ height: '170px' }}>
-        <img
+        <Image
+          fill
           src={imgErr ? FALLBACK : property.image}
           alt={property.name}
           onError={() => setImgErr(true)}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+          sizes="(max-width: 768px) 100vw, 33vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-500"
         />
 
         {/* Edit mode: ❌ remove icon */}
@@ -493,8 +499,6 @@ export default function WishlistPage() {
   const [selectedGroup, setSelectedGroup] = useState('all');
   const [editMode, setEditMode] = useState(false);
   const [removingIds, setRemovingIds] = useState<Set<string>>(new Set());
-  const [userId, setUserId] = useState<string | null>(null);
-
   // Modal states
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [confirmRemoveGroup, setConfirmRemoveGroup] =
@@ -504,12 +508,7 @@ export default function WishlistPage() {
   const router = useRouter();
   const scrollRef = useRef<HTMLDivElement>(null);
   const [canScrollRight, setCanScrollRight] = useState(true);
-  const { user, isLoading } = useSupabaseAuth();
-
-  useEffect(() => {
-    if (isLoading) return;
-    setUserId(user?.id ?? getStoredUserId());
-  }, [user?.id, isLoading]);
+  const { userId, loading: isLoading } = useAuth();
 
   useEffect(() => {
     if (!userId) {
@@ -548,21 +547,19 @@ export default function WishlistPage() {
     };
   }, [userId, selectedGroup]);
 
-  // Filter visible properties
+  // Filter visible properties -- "all" shows everything, any other
+  // selection is a real user-created category id (see DEFAULT_GROUPS).
   const visibleProperties = properties.filter((p) => {
     if (selectedGroup === 'all') return p.liked;
-    if (selectedGroup === 'recently_viewed')
-      return p.liked && p.group === 'recently_viewed';
-    if (selectedGroup === 'homestays')
-      return p.liked && p.group === 'homestays';
-    if (selectedGroup === 'services') return p.liked && p.group === 'services';
     return p.liked && p.group === selectedGroup;
   });
 
+  // Every property on this page is, by definition, already in the wishlist
+  // (that's how it got fetched here), so un-hearting it can only mean one
+  // real thing: remove it. Previously this just flipped local `liked` state
+  // and did nothing server-side, leaving the item shown but "unliked".
   const toggleHeart = (id: string) => {
-    setProperties((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, liked: !p.liked } : p)),
-    );
+    removeProperty(id);
   };
 
   const removeProperty = (id: string) => {
@@ -617,9 +614,9 @@ export default function WishlistPage() {
   };
 
   const handleRenameGroup = async (newName: string) => {
-    if (!renameGroup) return;
+    if (!renameGroup || !userId) return;
     try {
-      await api.renameWishlistCategory(renameGroup.id, newName);
+      await api.renameWishlistCategory(renameGroup.id, newName, userId);
       setGroups((prev) =>
         prev.map((g) =>
           g.id === renameGroup.id ? { ...g, name: newName } : g,
@@ -634,9 +631,9 @@ export default function WishlistPage() {
   };
 
   const handleRemoveGroupConfirm = async () => {
-    if (!confirmRemoveGroup) return;
+    if (!confirmRemoveGroup || !userId) return;
     try {
-      await api.deleteWishlistCategory(confirmRemoveGroup.id);
+      await api.deleteWishlistCategory(confirmRemoveGroup.id, userId);
       setGroups((prev) => prev.filter((g) => g.id !== confirmRemoveGroup.id));
       setProperties((prev) =>
         prev.filter((p) => p.group !== confirmRemoveGroup.id),
@@ -679,7 +676,7 @@ export default function WishlistPage() {
           className={cn(
             'text-[30px] sm:text-[34px] font-extrabold tracking-tight mb-6 transition-colors',
             editMode
-              ? 'text-blue-600 underline decoration-2 underline-offset-4'
+              ? 'text-figma-navy underline decoration-2 underline-offset-4'
               : 'text-gray-900',
           )}
         >
@@ -688,11 +685,6 @@ export default function WishlistPage() {
 
         {/* Controls row */}
         <div className="flex items-center gap-3 mb-8">
-          {/* List icon */}
-          <button className="w-9 h-9 flex items-center justify-center rounded-full border border-gray-300 bg-white text-gray-500 hover:bg-gray-50 hover:border-gray-400 transition-all shadow-sm">
-            <List className="w-4 h-4" />
-          </button>
-
           {/* Group dropdown */}
           <GroupDropdown
             groups={groups}
@@ -721,7 +713,7 @@ export default function WishlistPage() {
             {editMode ? (
               <button
                 onClick={() => setEditMode(false)}
-                className="px-5 py-2 bg-[#1B3FA0] text-white text-[13px] font-bold rounded-full hover:bg-[#162e82] transition-all shadow-sm"
+                className="px-5 py-2 bg-[#004772] text-white text-[13px] font-bold rounded-full hover:bg-[#003a5c] transition-all shadow-sm"
               >
                 Done
               </button>
@@ -738,7 +730,23 @@ export default function WishlistPage() {
         </div>
 
         {/* Cards section */}
-        {visibleProperties.length > 0 ? (
+        {!isLoading && !userId ? (
+          <div className="text-center py-16 mb-14">
+            <div className="text-5xl mb-4">🔒</div>
+            <p className="text-gray-400 text-lg font-medium mb-1">
+              Sign in to see your wishlist
+            </p>
+            <p className="text-gray-400 text-sm mb-6">
+              Your saved stays will show up here once you&apos;re signed in.
+            </p>
+            <button
+              onClick={() => router.push('/signin?redirect=/wishlist')}
+              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#003a5c] transition-colors shadow-sm"
+            >
+              Sign in
+            </button>
+          </div>
+        ) : visibleProperties.length > 0 ? (
           <div className="mb-14">
             {editMode ? (
               /* Edit mode: responsive grid */
@@ -803,7 +811,7 @@ export default function WishlistPage() {
             </p>
             <button
               onClick={() => router.push('/')}
-              className="bg-[#1B3FA0] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#162e82] transition-colors shadow-sm"
+              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#003a5c] transition-colors shadow-sm"
             >
               Explore stays
             </button>
@@ -811,17 +819,19 @@ export default function WishlistPage() {
         )}
 
         {/* End of list section */}
-        <div className="flex flex-col sm:flex-row items-center gap-6 sm:gap-12 pt-4 pb-6">
+        <div className="flex flex-col sm:flex-row items-center justify-center sm:justify-between w-full gap-6 sm:gap-12 pt-4 pb-6">
           <img
-            src={vacationIllustration}
+            src="/images/empty-states/woman-beach.png"
             alt="Vacation illustration"
-            className="w-[140px] sm:w-[175px] object-contain flex-shrink-0 drop-shadow-sm"
+            loading="lazy"
+            decoding="async"
+            className="w-[200px] sm:w-[260px] object-contain flex-shrink-0 drop-shadow-sm animate-floating ml-0 sm:ml-16"
           />
-          <div className="text-center sm:text-left">
-            <h3 className="text-[24px] sm:text-[28px] font-bold text-gray-900 mb-2 leading-tight">
+          <div className="text-center sm:text-left sm:mr-16">
+            <h3 className="text-[32px] sm:text-[40px] font-bold text-gray-900 mb-3 leading-tight">
               End of list
             </h3>
-            <p className="text-[15px] text-gray-500 leading-relaxed max-w-[280px]">
+            <p className="text-[18px] text-gray-500 leading-relaxed max-w-[360px]">
               Stay where comfort becomes an experience.
             </p>
           </div>

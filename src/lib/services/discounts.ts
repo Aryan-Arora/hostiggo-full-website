@@ -1,0 +1,116 @@
+import { supabase } from '@/lib/supabase';
+
+export interface ListingDiscount {
+  id: number;
+  listing_id: number;
+  discount_type: string;
+  percent: number;
+  enabled: boolean;
+}
+
+/**
+ * Get all discounts for a listing
+ */
+export async function getListingDiscounts(listingId: number): Promise<ListingDiscount[]> {
+  try {
+    const { data, error } = await supabase
+      .from('listing_discounts')
+      .select('*')
+      .eq('listing_id', listingId);
+
+    if (error) throw error;
+    return data || [];
+  } catch (error) {
+    console.error('[discounts] Failed to fetch discounts:', error);
+    throw error;
+  }
+}
+
+/**
+ * Create a new discount for a listing
+ */
+export async function createDiscount(
+  listingId: number,
+  discountType: string,
+  percent: number
+): Promise<ListingDiscount> {
+  try {
+    if (percent <= 0 || percent > 100) {
+      throw new Error('Discount percentage must be between 0 and 100');
+    }
+
+    const { data, error } = await supabase
+      .from('listing_discounts')
+      .insert([
+        {
+          listing_id: listingId,
+          discount_type: discountType,
+          percent,
+          enabled: true,
+        },
+      ])
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('[discounts] Failed to create discount:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update an existing discount
+ */
+export async function updateDiscount(
+  id: number,
+  percent?: number,
+  enabled?: boolean,
+  listingId?: number
+): Promise<ListingDiscount> {
+  try {
+    if (percent !== undefined && (percent <= 0 || percent > 100)) {
+      throw new Error('Discount percentage must be between 0 and 100');
+    }
+
+    const updateData: any = {};
+    if (percent !== undefined) updateData.percent = percent;
+    if (enabled !== undefined) updateData.enabled = enabled;
+
+    let updateQuery = supabase
+      .from('listing_discounts')
+      .update(updateData)
+      .eq('id', id);
+    if (listingId !== undefined) updateQuery = updateQuery.eq('listing_id', listingId);
+    const { data, error } = await updateQuery
+      .select()
+      .single();
+
+    if (error) throw error;
+    return data;
+  } catch (error) {
+    console.error('[discounts] Failed to update discount:', error);
+    throw error;
+  }
+}
+
+/**
+ * Delete a discount
+ */
+export async function deleteDiscount(id: number, listingId?: number): Promise<void> {
+  try {
+    let deleteQuery = supabase
+      .from('listing_discounts')
+      .delete()
+      .eq('id', id);
+    if (listingId !== undefined) deleteQuery = deleteQuery.eq('listing_id', listingId);
+    const { error } = await deleteQuery;
+
+    if (error) throw error;
+  } catch (error) {
+    console.error('[discounts] Failed to delete discount:', error);
+    throw error;
+  }
+}
+

@@ -12,6 +12,7 @@ import React, {
 } from 'react';
 import type { Property, SearchFilters, SortOption, GuestCount } from '@/types';
 import { api, mapListingToProperty } from '@/lib/api';
+import { toISODate } from '@/lib/utils';
 
 interface ListingState {
   properties: Property[];
@@ -33,10 +34,19 @@ interface ListingState {
     page: number;
     pageSize: number;
     hasMore: boolean;
+    cursor: number | null;
+    totalCount: number | null;
   };
   counts: {
     total: number;
   };
+  stateBounds: {
+    north: number;
+    south: number;
+    east: number;
+    west: number;
+  } | null;
+  allProperties: Property[];
 }
 
 interface ListingActions {
@@ -45,6 +55,7 @@ interface ListingActions {
   setRating: (rating: number | null) => void;
   toggleAmenity: (amenity: string) => void;
   togglePropertyType: (type: string) => void;
+  toggleStayType: (type: string) => void;
   toggleBedType: (type: string) => void;
   setBooleanFilter: (key: keyof SearchFilters, value: boolean) => void;
   fetchMore: () => void;
@@ -71,6 +82,7 @@ const DEFAULT_FILTERS: SearchFilters = {
   priceMax: 100000,
   guestRating: null,
   propertyTypes: [],
+  stayTypes: [],
   amenities: [],
   bedTypes: [],
   freeCancellation: false,
@@ -90,15 +102,6 @@ const DEFAULT_GUESTS: GuestCount = {
   children: 0,
   rooms: 1,
   pets: false,
-};
-
-// yyyy-mm-dd in local time (avoids the UTC shift of toISOString).
-const toISODate = (d: Date | null): string | null => {
-  if (!d) return null;
-  const y = d.getFullYear();
-  const m = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${y}-${m}-${day}`;
 };
 
 // The Facilities checkboxes hold display labels (e.g. "Parking", "Pool") while
@@ -141,10 +144,15 @@ const resolveAmenityIds = (
 
 export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [properties, setProperties] = useState<Property[]>([]);
+  const [allProperties, setAllProperties] = useState<Property[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [filters, setFilters] = useState<SearchFilters>(DEFAULT_FILTERS);
-  const [location, setLocationState] = useState({ query: '' });
+  const [location, setLocationState] = useState<{
+    query: string;
+    latitude?: number;
+    longitude?: number;
+  }>({ query: '' });
   const [dates, setDatesState] = useState<{
     checkIn: Date | null;
     checkOut: Date | null;
@@ -152,13 +160,24 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const [guests, setGuestsState] = useState<GuestCount>(DEFAULT_GUESTS);
   const [sort, setSortState] = useState<SortOption>('recommended');
   const [page, setPage] = useState(0);
+  const [cursor, setCursor] = useState<number | null>(null);
   const [hasMore, setHasMore] = useState(true);
-  const [totalCount, setTotalCount] = useState(0);
+  const [totalCount, setTotalCount] = useState<number | null>(null);
+  const [stateBounds, setStateBounds] = useState<any>(null);
   const [amenityCatalogue, setAmenityCatalogue] = useState<
     { amenity_id: number; name: string }[]
   >([]);
 
   const mountedRef = useRef(true);
+  // Guards against overlapping fetchResults() calls -- e.g. one fired by
+  // the mount-time URL->location sync effect and another by a filter/date
+  // change landing before the first request finished. Without this, the
+  // slower response can resolve last and silently overwrite the faster,
+  // more-current one, showing a result count and a properties list from
+  // two different requests (e.g. "2 found" but only 1 card rendered).
+  // Each call captures its own id; only the call whose id still matches
+  // this ref when its response comes back is allowed to apply it.
+  const requestSeqRef = useRef(0);
 
   // Load the amenity catalogue once so Facilities labels can be mapped to ids.
   useEffect(() => {
@@ -175,26 +194,29 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const fetchResults = useCallback(
-    async (pageNum: number = 0, isRefresh: boolean = false) => {
-      console.log(
-        '[Context] fetchResults called with location.query=',
-        JSON.stringify(location.query),
-        'pageNum=',
-        pageNum,
-      );
+    async (cursorVal: number | null = null, isRefresh: boolean = false) => {
       if (!mountedRef.current) {
-        console.log('[Context] Aborted: not mounted');
         return;
       }
+
+      // Claim this call's slot. If another fetchResults() call starts
+      // before this one's response comes back, requestSeqRef.current will
+      // have moved on by then, and every state update below is skipped --
+      // only the most recently *started* request is ever allowed to apply
+      // its results, so a slow, stale response can never clobber a newer
+      // one's (see requestSeqRef's declaration above for why this exists).
+      const mySeq = ++requestSeqRef.current;
+      const isStale = () => requestSeqRef.current !== mySeq;
 
       setLoading(true);
       setError(null);
 
       try {
-        const rows = await api.search(
+        // Use cursor-based pagination for infinite scroll (works for all searches)
+        const response = await api.searchByState(
           filters,
           location.query,
-          pageNum,
+          cursorVal,
           DEFAULT_PAGE_SIZE,
           {
             startDate: toISODate(dates.checkIn),
@@ -203,45 +225,42 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
             amenities: resolveAmenityIds(filters.amenities, amenityCatalogue),
           },
         );
-        console.log('[Context] api.search returned rows:', rows?.length);
 
-        if (!mountedRef.current) return;
+        if (!mountedRef.current || isStale()) return;
 
-        const mapped = rows.map(mapListingToProperty).filter((item) => item.id);
-        console.log('[Context] mapped properties:', mapped.length);
+        const mapped = response.data.map(mapListingToProperty).filter((item) => item.id);
 
-        if (pageNum === 0 || isRefresh) {
+        if (isRefresh || cursorVal === null) {
           setProperties(mapped);
+          setAllProperties(mapped);
         } else {
           setProperties((prev) => [...prev, ...mapped]);
+          setAllProperties((prev) => [...prev, ...mapped]);
         }
 
-        setHasMore(mapped.length === DEFAULT_PAGE_SIZE);
-        if (pageNum === 0 || isRefresh) {
-          setTotalCount(mapped.length);
-        } else {
-          setTotalCount((prev) => prev + mapped.length);
+        setCursor(response.cursor || null);
+        setHasMore(response.hasMore);
+        setTotalCount(response.totalCount);
+        if (response.stateBounds) {
+          setStateBounds(response.stateBounds);
         }
-        setPage(pageNum);
       } catch (err) {
+        if (!mountedRef.current || isStale()) return;
         console.error('[Context] Fetch error:', err);
-        if (mountedRef.current) {
-          setError(err instanceof Error ? err.message : 'Search failed');
-        }
+        setError(err instanceof Error ? err.message : 'Search failed');
       } finally {
-        if (mountedRef.current) setLoading(false);
+        if (mountedRef.current && !isStale()) setLoading(false);
       }
     },
     [filters, location.query, dates, guests, amenityCatalogue],
   );
 
   const refresh = useCallback(async () => {
-    await fetchResults(0, true);
+    await fetchResults(null, true);
   }, [fetchResults]);
 
   const setSort = useCallback((newSort: SortOption) => {
     setSortState(newSort);
-    // In a real implementation, sort would trigger a refresh
   }, []);
 
   const setPriceRange = useCallback((range: [number, number]) => {
@@ -270,6 +289,15 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     }));
   }, []);
 
+  const toggleStayType = useCallback((type: string) => {
+    setFilters((prev) => ({
+      ...prev,
+      stayTypes: prev.stayTypes.includes(type)
+        ? prev.stayTypes.filter((t) => t !== type)
+        : [...prev.stayTypes, type],
+    }));
+  }, []);
+
   const toggleBedType = useCallback((type: string) => {
     setFilters((prev) => ({
       ...prev,
@@ -288,9 +316,9 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
 
   const fetchMore = useCallback(() => {
     if (hasMore && !loading) {
-      fetchResults(page + 1);
+      fetchResults(cursor);
     }
-  }, [hasMore, loading, page, fetchResults]);
+  }, [hasMore, loading, cursor, fetchResults]);
 
   const clearFilters = useCallback(() => {
     setFilters(DEFAULT_FILTERS);
@@ -346,13 +374,16 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     if (locationChanged) {
       console.log('[Context] Location changed to:', location.query);
       setPage(0);
+      setCursor(null);
       setProperties([]);
+      setAllProperties([]);
       setHasMore(true);
+      setStateBounds(null);
     }
 
-    // Fetch results (always from page 0 for new location/filters/dates/guests)
+    // Fetch results (always from beginning for new location/filters/dates/guests)
     if (locationChanged || filtersChanged || datesChanged || guestsChanged) {
-      fetchResults(0, true);
+      fetchResults(null, true);
     }
   }, [location.query, filters, dates, guests]); // fetchResults intentionally omitted
 
@@ -400,10 +431,14 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
       page,
       pageSize: DEFAULT_PAGE_SIZE,
       hasMore,
+      cursor,
+      totalCount,
     },
     counts: {
-      total: totalCount,
+      total: totalCount || 0,
     },
+    stateBounds,
+    allProperties,
   };
 
   const actions: ListingActions = {
@@ -412,6 +447,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     setRating,
     toggleAmenity,
     togglePropertyType,
+    toggleStayType,
     toggleBedType,
     setBooleanFilter,
     fetchMore,

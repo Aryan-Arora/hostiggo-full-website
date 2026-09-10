@@ -1,7 +1,8 @@
 'use client';
 
 import { useRef, useState } from 'react';
-import { ImagePlus, Lightbulb, Trash2, Loader2, Star } from 'lucide-react';
+import Image from 'next/image';
+import { ImagePlus, Lightbulb, Trash2, Loader2, Star, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
 import WizardShell from '../_components/WizardShell';
 import { useListingDraft } from '@/context/ListingDraftContext';
@@ -9,6 +10,7 @@ import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
 const MAX_PHOTOS = 10;
+const MIN_PHOTOS = 3;
 
 export default function PhotosPage() {
   const { draft, update } = useListingDraft();
@@ -56,9 +58,10 @@ export default function PhotosPage() {
 
   return (
     <WizardShell
-      step={5}
+      step={8}
       title="Add some photos of your place"
       subtitle="Clear photos help guests book with confidence. The first photo is your cover."
+      nextDisabled={photos.length < MIN_PHOTOS}
     >
       <div className="max-w-4xl mx-auto">
         <input
@@ -85,39 +88,48 @@ export default function PhotosPage() {
           }}
           className={cn(
             'border-2 border-dashed rounded-2xl p-12 flex flex-col items-center justify-center bg-white transition-all cursor-pointer min-h-[280px] mb-8 group',
-            dragOver ? 'border-blue-500 bg-blue-50/50' : 'border-gray-300 hover:border-blue-400 hover:bg-blue-50/30',
+            dragOver ? 'border-figma-navy bg-figma-navy/5' : 'border-gray-300 hover:border-figma-navy/60 hover:bg-figma-navy/3',
             uploading && 'pointer-events-none opacity-70',
           )}
         >
-          <div className="w-16 h-16 bg-blue-50 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+          <div className="w-16 h-16 bg-figma-navy/5 rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
             {uploading ? (
-              <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+              <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
             ) : (
-              <ImagePlus className="w-8 h-8 text-blue-600" />
+              <ImagePlus className="w-8 h-8 text-figma-navy" />
             )}
           </div>
           <p className="text-xl font-bold text-gray-800 mb-1">
             {uploading ? 'Uploading…' : 'Drag and drop up to 10 photos'}
           </p>
           <p className="text-sm text-gray-500 mb-6">or click to browse your files</p>
-          <span className="bg-blue-600 text-white px-8 py-3 rounded-full text-sm font-semibold">
+          <span className="bg-figma-navy text-white px-8 py-3 rounded-full text-sm font-semibold">
             Upload from gallery
           </span>
         </div>
 
         {/* Quick links */}
         <div className="flex items-center justify-between mb-6">
-          <span className="flex items-center gap-2 text-blue-600 text-sm font-medium">
+          <span className="flex items-center gap-2 text-figma-navy text-sm font-medium">
             <Lightbulb className="w-5 h-5" />
             Bright, landscape photos work best
           </span>
           <p className="text-sm text-gray-500">{photos.length} / {MAX_PHOTOS} photos uploaded</p>
         </div>
 
+        {photos.length < MIN_PHOTOS && (
+          <div className="flex gap-3 p-4 mb-6 bg-amber-50 border border-amber-200 rounded-xl">
+            <AlertCircle className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
+            <p className="text-sm text-amber-800">
+              Upload at least {MIN_PHOTOS} photos to continue -- you have {photos.length} so far.
+            </p>
+          </div>
+        )}
+
         {/* Grid */}
         {photos.length === 0 ? (
           <div className="text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
-            No photos yet — add a few to make your listing stand out.
+            No photos yet. Add a few to make your listing stand out.
           </div>
         ) : (
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
@@ -129,10 +141,10 @@ export default function PhotosPage() {
                   i === 0 && 'col-span-2 md:col-span-2 aspect-[16/10]',
                 )}
               >
-                <img src={url} alt={`Photo ${i + 1}`} className="w-full h-full object-cover" />
+                <Image fill src={url} alt={`Photo ${i + 1}`} sizes="(max-width: 768px) 100vw, 33vw" className="object-cover" />
                 {i === 0 && (
                   <div className="absolute top-3 left-3 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full">
-                    <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">Cover</span>
+                    <span className="text-[11px] font-bold text-figma-navy uppercase tracking-wider">Cover</span>
                   </div>
                 )}
                 <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">

@@ -9,8 +9,11 @@ export async function GET(req: NextRequest) {
     const userId = req.nextUrl.searchParams.get("userId");
     if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
 
-    const data = await HotelServiceApi.getListingsByHost(userId);
-    return NextResponse.json({ data });
+    const offset = Number(req.nextUrl.searchParams.get("offset") ?? 0);
+    const limit = Number(req.nextUrl.searchParams.get("limit") ?? 24);
+
+    const { data, total } = await HotelServiceApi.getListingsByHost(userId, offset, limit);
+    return NextResponse.json({ data, total });
   } catch (err: any) {
     return NextResponse.json({ error: err.message ?? "Request failed" }, { status: 500 });
   }
