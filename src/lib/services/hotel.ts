@@ -458,8 +458,36 @@ export const HotelServiceApi = {
         .eq('listing_id', listingId),
     ]);
 
+    // Resolve the owner for the "Hosted by" section. The listings query above
+    // can't embed this (host_uuid -> host.user_id -> users.name spans two
+    // hops), so look it up and attach as `host`, which the guest page reads
+    // instead of falling back to the literal string "Host".
+    let host: Record<string, unknown> | null = null;
+    if ((data as any).host_uuid) {
+      const { data: hostRow } = await supabaseAdmin
+        .from('host')
+        .select('host_uuid, user_id, photo, is_verified, about')
+        .eq('host_uuid', (data as any).host_uuid)
+        .maybeSingle();
+      if (hostRow) {
+        const { data: userRow } = await supabaseAdmin
+          .from('users')
+          .select('name, profile_pic_url')
+          .eq('user_id', hostRow.user_id)
+          .maybeSingle();
+        host = {
+          id: hostRow.host_uuid,
+          name: userRow?.name ?? 'Host',
+          photo: hostRow.photo ?? userRow?.profile_pic_url ?? null,
+          is_verified: hostRow.is_verified ?? false,
+          about: hostRow.about ?? null,
+        };
+      }
+    }
+
     return {
       ...data,
+      host,
       listing_house_rules: houseRules.data?.[0] ?? null,
       listing_safety_details: safetyDetails.data ?? [],
     };

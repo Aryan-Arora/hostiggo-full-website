@@ -712,12 +712,73 @@ export type ListingDraft = {
   addressLine2?: string;
   landmark?: string;
   locationId?: number;
+  // Structured location. When locationId is absent, createListing
+  // find-or-creates a canonical `locations` row from these so location_id is
+  // never left null (that's what leaves a listing showing "Unknown" and
+  // invisible to location-based search).
+  city?: string;
+  state?: string;
+  postalCode?: string;
   currency?: string;
   latitude?: number;
   longitude?: number;
   cancellationPolicy?: "flexible" | "moderate" | "strict";
   strictPartialRefundPercent?: number;
 };
+
+// Canonical dedup key for a location: diacritic-, case- and space-insensitive
+// (so "Haryāna" === "haryana", "  Dehradun " === "dehradun").
+const locationKey = (state?: string | null, district?: string | null) => {
+  const n = (s: string | null | undefined) =>
+    String(s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
+  return `${n(state)}|${n(district)}`;
+};
+
+// Find an existing `locations` row matching (state, city) or create one.
+// Returns the location_id, or null when state/city are missing.
+export async function resolveLocationId(
+  state?: string | null,
+  city?: string | null,
+  postalCode?: string | null,
+): Promise<number | null> {
+  if (!state?.trim() || !city?.trim()) return null;
+  const wanted = locationKey(state, city);
+
+  const { data: rows, error } = await supabaseAdmin
+    .from("locations")
+    .select("location_id, state, district");
+  if (error) {
+    console.error("[resolveLocationId] lookup failed:", error.message);
+    return null;
+  }
+  const match = (rows ?? []).find(
+    (l) => locationKey(l.state, l.district) === wanted,
+  );
+  if (match) return match.location_id;
+
+  const pincode = postalCode && /^\d+$/.test(postalCode.trim()) ? Number(postalCode.trim()) : null;
+  const { data: created, error: cErr } = await supabaseAdmin
+    .from("locations")
+    .insert({
+      state: state.trim(),
+      district: city.trim(),
+      lower_division_name: city.trim(),
+      lower_division_type: "city",
+      pincode,
+    })
+    .select("location_id")
+    .single();
+  if (cErr) {
+    console.error("[resolveLocationId] create failed:", cErr.message);
+    return null;
+  }
+  return created.location_id;
+}
 
 export async function createListing(draft: ListingDraft) {
   // Ensure the user has a host profile (auto-create if needed)
@@ -753,7 +814,11 @@ export async function createListing(draft: ListingDraft) {
     created_at: now,
     updated_at: now,
   };
-  if (draft.locationId) row.location_id = draft.locationId;
+  // Prefer an explicit locationId; otherwise find-or-create from city/state so
+  // the listing is never saved without a resolvable location_id.
+  const locationId =
+    draft.locationId ?? (await resolveLocationId(draft.state, draft.city, draft.postalCode));
+  if (locationId) row.location_id = locationId;
 
   if (draft.propertyType) {
     const { data: propType } = await supabaseAdmin
