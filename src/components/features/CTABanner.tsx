@@ -1,6 +1,6 @@
 import Image from "next/image";
 import Link from "next/link";
-import celebrationImg from "../newpage/d5561eaf-d4c1-425e-b173-bd439aa0db66 2.jpg";
+import celebrationImg from "../newpage/host-celebration.jpg";
 
 export default function CTABanner() {
   return (
@@ -60,7 +60,7 @@ export default function CTABanner() {
           <div className="border-t border-dashed border-gray-600 my-4" />
 
           <p className="text-xs text-gray-300 leading-relaxed">
-            After that, only 2% platform commission applies (lowest to all other platforms)
+            After that, a low 2% platform commission applies.
           </p>
 
           {/* Card Footer */}
