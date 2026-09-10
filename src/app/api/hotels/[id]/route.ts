@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from "next/server";
 import { HotelServiceApi } from "@/lib/services/hotel";
 
 export const dynamic = "force-dynamic";
+// Read listing detail fresh on every request. Without this, Next's Data Cache
+// can serve a stale row (e.g. a listing whose location_id was backfilled after
+// the first fetch), so edits to a listing wouldn't show until the cache expired.
+export const fetchCache = "force-no-store";
 
 export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
   const params = await props.params;
