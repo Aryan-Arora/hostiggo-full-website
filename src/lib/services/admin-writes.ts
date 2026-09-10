@@ -1,18 +1,84 @@
 import { supabaseAdmin } from "../supabase-admin";
+import { SCHEMA } from "../schema.constants";
+import { calculateBookingInvoice } from "../billing/invoice";
+
+const DB_SCHEMA = SCHEMA.testingSchema;
 
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
 
+// ── Host Profile ─────────────────────────────────────────────────────────────
+/**
+ * Ensures a host profile exists for the given user.
+ * If no host profile exists, creates one automatically.
+ * If multiple host profiles exist (data issue), returns the first one.
+ * This allows any authenticated user to become a host.
+ * 
+ * @param userId The user's ID
+ * @returns The host_uuid for the user
+ */
+export async function ensureHostProfile(userId: string): Promise<string> {
+  // Get all host profiles for this user (there should be only 1, but handle multiples)
+  const { data: hosts, error: checkError } = await supabaseAdmin
+    .from("host")
+    .select("host_uuid")
+    .eq("user_id", userId)
+    .limit(10); // Limit to avoid retrieving too many rows
+  
+  if (checkError) {
+    console.error("[ensureHostProfile] Check error:", checkError);
+    throw checkError;
+  }
+  
+  // If host profiles exist, return the first one
+  if (hosts && hosts.length > 0) {
+    if (hosts.length > 1) {
+      console.warn(
+        `[ensureHostProfile] Found ${hosts.length} host profiles for user ${userId}. Using first one.`,
+        hosts.map((h) => h.host_uuid)
+      );
+    }
+    return hosts[0].host_uuid;
+  }
+  
+  // Create a new host profile for this user
+  console.log(`[ensureHostProfile] Creating new host profile for user ${userId}`);
+  
+  const { data: newHost, error: createError } = await supabaseAdmin
+    .from("host")
+    .insert({
+      user_id: userId,
+      is_verified: false,
+    })
+    .select("host_uuid")
+    .single();
+  
+  if (createError) {
+    console.error("[ensureHostProfile] Failed to create host profile:", createError);
+    throw new Error(`Could not create host profile: ${createError.message}`);
+  }
+  
+  if (!newHost?.host_uuid) {
+    throw new Error("Failed to create host profile for user");
+  }
+  
+  console.log(`[ensureHostProfile] Successfully created host profile with UUID: ${newHost.host_uuid}`);
+  return newHost.host_uuid;
+}
+
 // ── Storage ──────────────────────────────────────────────────────────────────
 const LISTING_BUCKET = "homestay photos";
 
-export async function uploadListingPhoto(file: {
-  data: ArrayBuffer;
-  name: string;
-  type: string;
-}): Promise<string> {
+export async function uploadListingPhoto(
+  file: {
+    data: ArrayBuffer;
+    name: string;
+    type: string;
+  },
+  folder: string = "listings/uploads",
+): Promise<string> {
   const ext = (file.name.split(".").pop() || "jpg").toLowerCase();
-  const path = `listings/uploads/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
+  const path = `${folder}/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
   const { error } = await supabaseAdmin.storage
     .from(LISTING_BUCKET)
     .upload(path, file.data, { contentType: file.type || "image/jpeg", upsert: false });
@@ -21,15 +87,76 @@ export async function uploadListingPhoto(file: {
   return data.publicUrl;
 }
 
+const MIRROR_ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
+const MIRROR_MAX_BYTES = 8 * 1024 * 1024;
+
+/**
+ * Downloads a remote image URL and re-uploads it into our own
+ * "homestay photos" bucket, returning the public URL of the copy. Used by
+ * the AI-import flow, whose upstream service returns photos hosted on its
+ * own storage -- linking those directly would break as soon as that
+ * storage is purged and trips next/image's remote-host allowlist. Throws
+ * on a non-image, an oversize file, or a failed fetch so the caller can
+ * skip that one photo.
+ */
+export async function mirrorRemoteImageToListingBucket(url: string): Promise<string> {
+  const res = await fetch(url, { cache: "no-store" });
+  if (!res.ok) throw new Error(`fetch failed: ${res.status}`);
+
+  const type = (res.headers.get("content-type") || "").split(";")[0].trim().toLowerCase();
+  if (!MIRROR_ALLOWED_TYPES.has(type)) {
+    throw new Error(`unsupported content-type: ${type || "unknown"}`);
+  }
+  const declaredLen = Number(res.headers.get("content-length") || 0);
+  if (declaredLen && declaredLen > MIRROR_MAX_BYTES) {
+    throw new Error(`image too large: ${declaredLen} bytes`);
+  }
+
+  const data = await res.arrayBuffer();
+  if (data.byteLength > MIRROR_MAX_BYTES) {
+    throw new Error(`image too large: ${data.byteLength} bytes`);
+  }
+
+  const ext = type === "image/png" ? "png" : type === "image/webp" ? "webp" : "jpg";
+  return uploadListingPhoto({ data, name: `ai-import.${ext}`, type }, "listings/ai-import");
+}
+
 // ── Calendar ─────────────────────────────────────────────────────────────────
+/**
+ * Throws unless `requestingUserId` is the host who owns `listingId`.
+ * Shared guard for host-side writes that previously trusted any client
+ * that knew a listing_id integer.
+ */
+export async function assertListingOwnedBy(listingId: number, requestingUserId: string) {
+  const { data: listing, error: listingError } = await supabaseAdmin
+    .from("listings")
+    .select("host_uuid")
+    .eq("listing_id", listingId)
+    .maybeSingle();
+  if (listingError) throw listingError;
+  if (!listing) throw new Error("Listing not found");
+
+  const { data: host, error: hostError } = await supabaseAdmin
+    .from("host")
+    .select("user_id")
+    .eq("host_uuid", listing.host_uuid)
+    .maybeSingle();
+  if (hostError) throw hostError;
+  if (host?.user_id !== requestingUserId) {
+    throw new Error("You don't have permission to modify this listing.");
+  }
+}
+
 export async function upsertCalendarDay(input: {
   listingId: number;
   date: string; // yyyy-mm-dd
   price?: number;
   isAvailable?: boolean;
   currency?: string;
+  requestingUserId: string;
 }) {
   const { listingId, date, price, isAvailable, currency } = input;
+  await assertListingOwnedBy(listingId, input.requestingUserId);
 
   // Find an existing row for this (listing, date) so we update in place rather
   // than relying on a specific unique-constraint name for upsert.
@@ -73,26 +200,52 @@ export async function upsertCalendarDay(input: {
 }
 
 // ── Bookings ─────────────────────────────────────────────────────────────────
-export async function createBooking(input: {
+type BookingInput = {
   listingId: number;
   userId: string;
   startDate: string;
   endDate: string;
   numAdults?: number;
   numChildren?: number;
-  amount?: number;
-}) {
-  // Resolve the owning host from the listing.
+  // Guest picks *which* add-ons they want; the price for each is always
+  // looked up server-side from listing_addons below, never trusted from
+  // the client, same reasoning as `amount` never being accepted directly.
+  addonIds?: number[];
+  // `amount` is intentionally NOT accepted from the client anywhere, the
+  // charge is always recomputed here from the listing's real prices so a
+  // guest can't submit an arbitrary (or zero) amount for a real booking.
+};
+
+/**
+ * Availability checks + the real server-side charge for a prospective
+ * booking, with no DB writes. Split out of what used to be createBooking()
+ * so /api/bookings/reserve can price a Razorpay order for an amount that's
+ * guaranteed to match what finalizeBookingFromRazorpayOrder() below will
+ * insert once payment actually clears -- neither step trusts a client-sent
+ * amount, and both run this exact same calculation.
+ */
+export async function validateAndPriceBooking(input: BookingInput) {
+  // Resolve the owning host + real pricing/capacity from the listing,
+  // never trust client-supplied price or guest-count data for the charge.
   const { data: listing, error: lerr } = await supabaseAdmin
     .from("listings")
-    .select("host_uuid")
+    .select("host_uuid, price_weekday, price_weekend, num_guests")
     .eq("listing_id", input.listingId)
     .maybeSingle();
   if (lerr) throw lerr;
   if (!listing?.host_uuid) throw new Error("Listing not found");
 
+  const numAdults = input.numAdults ?? 1;
+  const numChildren = input.numChildren ?? 0;
+  const totalGuests = numAdults + numChildren;
+  const maxGuests = Number(listing.num_guests ?? 1);
+  if (totalGuests > maxGuests) {
+    throw new Error(`This listing only accommodates up to ${maxGuests} guests.`);
+  }
+
   // Check A: blocked calendar days in the requested range.
   const { data: blocked, error: blockedErr } = await supabaseAdmin
+    .schema(DB_SCHEMA)
     .from("listing_calendar")
     .select("date")
     .eq("listing_id", input.listingId)
@@ -105,6 +258,7 @@ export async function createBooking(input: {
 
   // Check B: overlapping confirmed bookings for the same listing.
   const { data: conflicts, error: conflictsErr } = await supabaseAdmin
+    .schema(DB_SCHEMA)
     .from("bookings")
     .select("booking_id")
     .eq("listing_id", input.listingId)
@@ -115,8 +269,81 @@ export async function createBooking(input: {
   if (conflicts && conflicts.length > 0)
     throw new Error("These dates are already booked.");
 
-  const numAdults = input.numAdults ?? 1;
-  const numChildren = input.numChildren ?? 0;
+  // Recompute the charge server-side from the listing's real per-night
+  // prices, weekend nights (Fri/Sat) use price_weekend, everything else
+  // uses price_weekday, plus whichever add-ons the guest actually picked
+  // (priced from listing_addons, never from the client), run through the
+  // real GST/service-fee invoice (src/lib/billing/invoice.ts) so the
+  // stored amount always matches the exact number the guest was shown at
+  // checkout, and can't be spoofed by the client.
+  const stayNights = eachDateInRange(input.startDate, input.endDate);
+  const priceWeekday = Number(listing.price_weekday ?? 0);
+  const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
+  const subtotal = stayNights.reduce((sum, date) => {
+    const dow = new Date(date + "T00:00:00Z").getUTCDay();
+    const isWeekend = dow === 5 || dow === 6; // Friday or Saturday night
+    return sum + (isWeekend ? priceWeekend : priceWeekday);
+  }, 0);
+  // Which GST slab applies (5%/18%) is decided by the check-in night's own
+  // declared-tariff rate, not by the summed multi-night total -- see
+  // calculateBookingInvoice's gstRateBasisPrice.
+  const checkInDow = stayNights.length
+    ? new Date(stayNights[0] + "T00:00:00Z").getUTCDay()
+    : 0;
+  const gstRateBasisPrice = checkInDow === 5 || checkInDow === 6 ? priceWeekend : priceWeekday;
+
+  let resolvedAddons: { name: string; price: number; type: string | null }[] = [];
+  if (input.addonIds?.length) {
+    const { data: addonRows, error: addonErr } = await supabaseAdmin
+      .from("listing_addons")
+      .select("addon_id, price, addons(name, category)")
+      .eq("listing_id", input.listingId)
+      .in("addon_id", input.addonIds);
+    if (addonErr) throw addonErr;
+    resolvedAddons = (addonRows ?? []).map((a: any) => ({
+      name: a.addons?.name ?? "Add-on",
+      price: Number(a.price ?? 0),
+      type: a.addons?.category ?? null,
+    }));
+  }
+  const breakfastTotal = resolvedAddons
+    .filter((a) => a.type?.toLowerCase().includes("breakfast"))
+    .reduce((sum, a) => sum + a.price, 0);
+  const otherServicesTotal = resolvedAddons
+    .filter((a) => !a.type?.toLowerCase().includes("breakfast"))
+    .reduce((sum, a) => sum + a.price, 0);
+
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: subtotal,
+    gstRateBasisPrice: gstRateBasisPrice,
+    breakfastPrice: breakfastTotal,
+    otherServicesPrice: otherServicesTotal,
+  });
+
+  return {
+    listing,
+    numAdults,
+    numChildren,
+    stayNights,
+    resolvedAddons,
+    invoice,
+    amountRupees: invoice.grandTotalRupees,
+    amountPaise: invoice.grandTotalPaise,
+  };
+}
+
+/**
+ * The actual booking write, run only after a Razorpay payment has been
+ * verified (see finalizeBookingFromRazorpayOrder below) -- this is the tail
+ * end of what used to be createBooking(): insert the CONFIRMED row, record
+ * the add-ons, lose gracefully to a same-dates race, block the calendar.
+ */
+async function insertConfirmedBooking(
+  input: BookingInput,
+  priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
+  razorpay: { orderId: string; paymentId: string },
+) {
+  const { listing, numAdults, numChildren, stayNights, resolvedAddons, amountRupees } = priced;
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
@@ -128,19 +355,90 @@ export async function createBooking(input: {
       num_adults: numAdults,
       num_children: numChildren,
       nom_guests: numAdults + numChildren,
-      amount: input.amount ?? null,
-      // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row),
-      // so a new reservation is created as CONFIRMED.
+      amount: amountRupees,
+      // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row) --
+      // there's nothing to insert until payment is verified (see
+      // finalizeBookingFromRazorpayOrder), so every row that gets created
+      // here is, by construction, already paid for.
       status_id: 2,
       host_uuid: listing.host_uuid,
       booked_at: new Date().toISOString(),
+      razorpay_payment_id: razorpay.paymentId,
+      razorpay_order_id: razorpay.orderId,
     })
     .select()
     .single();
   if (error) throw error;
 
+  // Record which add-ons were actually purchased with this booking (their
+  // price is already folded into `amount` above; this is just the record
+  // of which ones, for the guest/host to see later).
+  if (resolvedAddons.length) {
+    const { error: bookingAddonsErr } = await supabaseAdmin.from("booking_addons").insert(
+      resolvedAddons.map((a) => ({
+        booking_id: data.booking_id,
+        name: a.name,
+        price: a.price,
+        type: a.type,
+      })),
+    );
+    if (bookingAddonsErr) {
+      console.error("[insertConfirmedBooking] booking_addons insert failed:", bookingAddonsErr.message);
+    }
+  }
+
+  // Check A/B in validateAndPriceBooking are check-then-insert, not atomic,
+  // two requests can both pass them and both insert a CONFIRMED booking for
+  // overlapping dates -- here that's two guests who *both actually paid*
+  // for the same nights, not just two idle form submissions, so losing this
+  // race means a real refund is owed, not just a status flip. There's no
+  // way to add a real DB-level exclusion constraint from here (would need
+  // direct schema access this service doesn't have), so instead re-check
+  // immediately after inserting: if another CONFIRMED booking for the same
+  // listing/dates already existed before ours (lower booking_id = arrived
+  // first), we lost the race -- cancel the booking we just created and
+  // refund the payment that paid for it, rather than leave two guests both
+  // holding a "confirmed" reservation for the same nights. This shrinks the
+  // race window from the whole request round-trip down to just this
+  // recheck, it doesn't eliminate it outright.
+  const { data: raceLosers, error: raceErr } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id")
+    .eq("listing_id", input.listingId)
+    .eq("status_id", 2)
+    .neq("booking_id", data.booking_id)
+    .lt("booking_id", data.booking_id)
+    .lt("start_date", input.endDate)
+    .gt("end_date", input.startDate);
+  if (!raceErr && raceLosers && raceLosers.length > 0) {
+    await supabaseAdmin
+      .from("bookings")
+      .update({ status_id: 3, cancellation_reason: "Dates were booked by another guest first" })
+      .eq("booking_id", data.booking_id);
+    const { createRazorpayRefund } = await import("../billing/razorpay");
+    try {
+      await createRazorpayRefund({
+        razorpayPaymentId: razorpay.paymentId,
+        amountPaise: priced.amountPaise,
+        idempotencyKey: `refund:race-loss:${data.booking_id}`,
+        notes: { reason: "Dates were booked by another guest first", bookingId: String(data.booking_id) },
+      });
+    } catch (refundErr) {
+      // Surfacing this as a thrown error would tell the guest their payment
+      // is stuck with no refund in sight, which is worse than a booking
+      // that needs a manual refund follow-up -- log loudly for ops instead.
+      console.error(
+        `[insertConfirmedBooking] URGENT: race-loss refund failed for payment ${razorpay.paymentId}, booking ${data.booking_id} -- needs manual refund:`,
+        refundErr,
+      );
+    }
+    throw new Error(
+      "These dates were just booked by someone else. Your payment has been refunded.",
+    );
+  }
+
   // Block all nights in the booked range so they can't be double-booked.
-  const nights = eachDateInRange(input.startDate, input.endDate);
+  const nights = stayNights;
   if (nights.length) {
     const now = new Date().toISOString();
     // Update existing calendar rows first, then insert missing ones.
@@ -177,6 +475,73 @@ export async function createBooking(input: {
   return data;
 }
 
+/**
+ * The only place a booking is ever inserted: called once a Razorpay
+ * payment's signature has already been verified by the caller (either the
+ * checkout-callback route or the webhook route -- see
+ * src/app/api/bookings/confirm-payment and src/app/api/webhooks/razorpay).
+ * Re-derives every booking field from the Razorpay order's own `notes`
+ * (set server-side at order-creation time in /api/bookings/reserve, never
+ * client-editable) rather than trusting anything the client sends alongside
+ * the payment IDs.
+ */
+export async function finalizeBookingFromRazorpayOrder(params: {
+  orderId: string;
+  paymentId: string;
+}) {
+  // Idempotency: the checkout-callback route and the payment.captured
+  // webhook can both fire for the same payment (or the callback route can
+  // get retried by a flaky client) -- without this, that double-fires the
+  // whole insert path, including a second real calendar block and a
+  // spurious race-loss refund of the guest's own successful payment.
+  const { data: existingBooking } = await supabaseAdmin
+    .from("bookings")
+    .select("*")
+    .eq("razorpay_payment_id", params.paymentId)
+    .maybeSingle();
+  if (existingBooking) return existingBooking;
+
+  const { getRazorpayClient } = await import("../billing/razorpay");
+  const order = await getRazorpayClient().orders.fetch(params.orderId);
+  const notes = (order.notes ?? {}) as Record<string, string>;
+  if (!notes.listingId || !notes.userId || !notes.startDate || !notes.endDate) {
+    throw new Error(`Razorpay order ${params.orderId} is missing booking notes.`);
+  }
+
+  const input: BookingInput = {
+    listingId: Number(notes.listingId),
+    userId: notes.userId,
+    startDate: notes.startDate,
+    endDate: notes.endDate,
+    numAdults: notes.numAdults ? Number(notes.numAdults) : undefined,
+    numChildren: notes.numChildren ? Number(notes.numChildren) : undefined,
+    addonIds: notes.addonIds ? JSON.parse(notes.addonIds) : undefined,
+  };
+
+  // Re-run the exact same availability + pricing check /api/bookings/reserve
+  // ran when the order was created -- dates can have been taken by someone
+  // else in the time it took this guest to pay, and prices are only ever
+  // trusted from this recomputation, never from the (already-verified, but
+  // now potentially stale) order amount.
+  const priced = await validateAndPriceBooking(input);
+
+  // The order was created for a specific amount; if the recomputed price
+  // has since drifted (e.g. the host changed nightly rates mid-checkout),
+  // inserting at the new price would silently charge or credit the guest
+  // for something they never actually paid. Order amount is paise; compare
+  // in the same unit.
+  if (Math.abs(priced.amountPaise - Number(order.amount)) > 1) {
+    console.error(
+      `[finalizeBookingFromRazorpayOrder] price drift for order ${params.orderId}: paid ${order.amount}, now prices at ${priced.amountPaise}`,
+    );
+    throw new Error(
+      "The price for these dates changed after payment. Contact support with your payment ID for a refund.",
+    );
+  }
+
+  return insertConfirmedBooking(input, priced, { orderId: params.orderId, paymentId: params.paymentId });
+}
+
 function eachDateInRange(startDate: string, endDate: string): string[] {
   const dates: string[] = [];
   const cur = new Date(startDate);
@@ -189,16 +554,65 @@ function eachDateInRange(startDate: string, endDate: string): string[] {
 }
 
 // ── Booking cancellation ─────────────────────────────────────────────────────
-export async function cancelBooking(bookingId: number, reason?: string | null) {
+export async function cancelBooking(
+  bookingId: number,
+  reason: string | null | undefined,
+  requestingUserId: string,
+) {
+  // Ownership check: only the guest who made the booking or the host of the
+  // listing may cancel it. Without this, any client that guessed a booking_id
+  // integer could cancel someone else's stay.
+  const { data: booking, error: fetchError } = await supabaseAdmin
+    .from("bookings")
+    .select("booking_id, user_id, listing_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (fetchError) throw fetchError;
+  if (!booking) throw new Error("Booking not found");
+
+  if (booking.user_id !== requestingUserId) {
+    const { data: listing, error: listingError } = await supabaseAdmin
+      .from("listings")
+      .select("host_uuid")
+      .eq("listing_id", booking.listing_id)
+      .maybeSingle();
+    if (listingError) throw listingError;
+
+    const { data: host, error: hostError } = await supabaseAdmin
+      .from("host")
+      .select("user_id")
+      .eq("host_uuid", listing?.host_uuid ?? "")
+      .maybeSingle();
+    if (hostError) throw hostError;
+
+    if (host?.user_id !== requestingUserId) {
+      throw new Error("You don't have permission to cancel this booking.");
+    }
+  }
+
   const patch: Record<string, any> = { status_id: 3 }; // 3 = CANCELLED
   if (reason) patch.cancellation_reason = reason;
   const { data, error } = await supabaseAdmin
     .from("bookings")
     .update(patch)
     .eq("booking_id", bookingId)
-    .select("booking_id, status_id, cancellation_reason")
+    .select("booking_id, status_id, cancellation_reason, listing_id, start_date, end_date")
     .single();
   if (error) throw error;
+
+  // Release the calendar nights createBooking blocked for this reservation,
+  // otherwise a cancelled booking's dates stay marked unavailable forever.
+  if (data?.listing_id && data.start_date && data.end_date) {
+    const nights = eachDateInRange(data.start_date, data.end_date);
+    if (nights.length) {
+      await supabaseAdmin
+        .from("listing_calendar")
+        .update({ is_available: true, updated_at: new Date().toISOString() })
+        .eq("listing_id", data.listing_id)
+        .in("date", nights);
+    }
+  }
+
   return data;
 }
 
@@ -269,6 +683,7 @@ export type ListingDraft = {
   userId: string;
   title?: string;
   description?: string;
+  propertyType?: string;
   priceWeekday?: number;
   priceWeekend?: number;
   numGuests?: number;
@@ -276,11 +691,20 @@ export type ListingDraft = {
   numBeds?: number;
   numBathrooms?: number;
   amenityIds?: number[];
+  addonSelections?: { addon_id: number; price: number; includes: string }[];
+  discounts?: { discount_type: string; percent: number; enabled: boolean }[];
+  houseRules?: {
+    check_in_time?: string;
+    check_out_time?: string;
+    smoking_allowed?: boolean;
+    pets_allowed?: boolean;
+    parties_allowed?: boolean;
+    quiet_hours?: boolean;
+  };
   photoUrls?: string[];
   // Index into photoUrls of the host's chosen cover. Falls back to the first
-  // photo when omitted (Rule A). The wizard reorders the cover to index 0, so 0
-  // is the safe default, but honouring an explicit index keeps other paths
-  // (imports, admin tools) from picking the wrong cover.
+  // photo when omitted (Rule A). Lets any path that supplies photos not
+  // cover-first (imports, admin tools) still land the right cover.
   coverIndex?: number;
   checkInTime?: string;
   checkOutTime?: string;
@@ -288,28 +712,39 @@ export type ListingDraft = {
   addressLine2?: string;
   landmark?: string;
   locationId?: number;
-  // Structured location. When locationId is absent, createListing find-or-creates
-  // a canonical `locations` row from these so location_id is never left null.
+  // Structured location. When locationId is absent, createListing
+  // find-or-creates a canonical `locations` row from these so location_id is
+  // never left null (that's what leaves a listing showing "Unknown" and
+  // invisible to location-based search).
   city?: string;
   state?: string;
-  pincode?: number;
+  postalCode?: string;
   currency?: string;
+  latitude?: number;
+  longitude?: number;
+  cancellationPolicy?: "flexible" | "moderate" | "strict";
+  strictPartialRefundPercent?: number;
 };
 
 // Canonical dedup key for a location: diacritic-, case- and space-insensitive
-// (so "Haryāna"==="haryana", "Dehradun"==="dehradun").
+// (so "Haryāna" === "haryana", "  Dehradun " === "dehradun").
 const locationKey = (state?: string | null, district?: string | null) => {
   const n = (s: string | null | undefined) =>
-    String(s ?? "").normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/\s+/g, " ").trim();
+    String(s ?? "")
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase()
+      .replace(/\s+/g, " ")
+      .trim();
   return `${n(state)}|${n(district)}`;
 };
 
-// Find an existing locations row matching (state, city) or create one.
+// Find an existing `locations` row matching (state, city) or create one.
 // Returns the location_id, or null when state/city are missing.
 export async function resolveLocationId(
   state?: string | null,
   city?: string | null,
-  pincode?: number | null,
+  postalCode?: string | null,
 ): Promise<number | null> {
   if (!state?.trim() || !city?.trim()) return null;
   const wanted = locationKey(state, city);
@@ -321,9 +756,12 @@ export async function resolveLocationId(
     console.error("[resolveLocationId] lookup failed:", error.message);
     return null;
   }
-  const match = (rows ?? []).find((l) => locationKey(l.state, l.district) === wanted);
+  const match = (rows ?? []).find(
+    (l) => locationKey(l.state, l.district) === wanted,
+  );
   if (match) return match.location_id;
 
+  const pincode = postalCode && /^\d+$/.test(postalCode.trim()) ? Number(postalCode.trim()) : null;
   const { data: created, error: cErr } = await supabaseAdmin
     .from("locations")
     .insert({
@@ -331,7 +769,7 @@ export async function resolveLocationId(
       district: city.trim(),
       lower_division_name: city.trim(),
       lower_division_type: "city",
-      pincode: pincode ?? null,
+      pincode,
     })
     .select("location_id")
     .single();
@@ -343,14 +781,8 @@ export async function resolveLocationId(
 }
 
 export async function createListing(draft: ListingDraft) {
-  // Resolve the owning host from the user.
-  const { data: host, error: herr } = await supabaseAdmin
-    .from("host")
-    .select("host_uuid")
-    .eq("user_id", draft.userId)
-    .maybeSingle();
-  if (herr) throw herr;
-  if (!host?.host_uuid) throw new Error("No host profile for this user");
+  // Ensure the user has a host profile (auto-create if needed)
+  const hostUuid = await ensureHostProfile(draft.userId);
 
   const now = new Date().toISOString();
   const row: Record<string, any> = {
@@ -363,22 +795,39 @@ export async function createListing(draft: ListingDraft) {
     num_bedrooms: draft.numBedrooms ?? 1,
     num_beds: draft.numBeds ?? 1,
     num_bathrooms: draft.numBathrooms ?? 1,
-    host_uuid: host.host_uuid,
-    is_active: false, // new listings start inactive (pending review)
-    currency: draft.currency ?? "INR",
+    host_uuid: hostUuid,
+    is_active: true, // new listings start active (visible)
     check_in_time: draft.checkInTime ?? "14:00:00",
     check_out_time: draft.checkOutTime ?? "11:00:00",
     address_line1: draft.addressLine1 ?? null,
     address_line2: draft.addressLine2 ?? null,
     landmark: draft.landmark ?? null,
+    latitude: draft.latitude ?? null,
+    longitude: draft.longitude ?? null,
+    cancellation_policy: draft.cancellationPolicy ?? "moderate",
+    // Only stored for the Strict policy -- null otherwise, so the refund
+    // engine's platform-default fallback (50%) applies cleanly rather than
+    // a stray value lingering from a listing that later switched away from
+    // Strict.
+    strict_partial_refund_percent:
+      draft.cancellationPolicy === "strict" ? draft.strictPartialRefundPercent ?? null : null,
     created_at: now,
     updated_at: now,
   };
   // Prefer an explicit locationId; otherwise find-or-create from city/state so
-  // the listing is never saved without a resolvable location.
+  // the listing is never saved without a resolvable location_id.
   const locationId =
-    draft.locationId ?? (await resolveLocationId(draft.state, draft.city, draft.pincode));
+    draft.locationId ?? (await resolveLocationId(draft.state, draft.city, draft.postalCode));
   if (locationId) row.location_id = locationId;
+
+  if (draft.propertyType) {
+    const { data: propType } = await supabaseAdmin
+      .from("property_types")
+      .select("id")
+      .eq("type_id", draft.propertyType)
+      .maybeSingle();
+    if (propType) row.property_type_id = propType.id;
+  }
 
   const { data: listing, error } = await supabaseAdmin
     .from("listings")
@@ -388,17 +837,64 @@ export async function createListing(draft: ListingDraft) {
   if (error) throw error;
 
   const listingId = listing.listing_id;
+  const warnings: string[] = [];
 
   // Amenities (join rows).
   if (draft.amenityIds?.length) {
     const amenRows = draft.amenityIds.map((amenity_id) => ({ listing_id: listingId, amenity_id }));
     const { error: aerr } = await supabaseAdmin.from("listing_amenities").insert(amenRows);
-    if (aerr) console.error("[createListing] amenities insert failed:", aerr.message);
+    if (aerr) {
+      console.error("[createListing] amenities insert failed:", aerr.message);
+      warnings.push("Your listing was created, but the selected amenities failed to save.");
+    }
+  }
+
+  // Add-ons picked in the wizard (host can still add/remove/reprice these
+  // later from listing settings - this just seeds the initial selection).
+  if (draft.addonSelections?.length) {
+    const addonRows = draft.addonSelections.map((s) => ({
+      listing_id: listingId,
+      addon_id: s.addon_id,
+      price: s.price ?? 0,
+      includes: s.includes ?? "",
+    }));
+    const { error: addonErr } = await supabaseAdmin.from("listing_addons").insert(addonRows);
+    if (addonErr) {
+      console.error("[createListing] addons insert failed:", addonErr.message);
+      warnings.push("Your listing was created, but the selected add-ons failed to save.");
+    }
+  }
+
+  // Discounts picked in the wizard's pricing step.
+  if (draft.discounts?.length) {
+    const discountRows = draft.discounts.map((d) => ({
+      listing_id: listingId,
+      discount_type: d.discount_type,
+      percent: d.percent,
+      enabled: d.enabled,
+    }));
+    const { error: discountErr } = await supabaseAdmin.from("listing_discounts").insert(discountRows);
+    if (discountErr) {
+      console.error("[createListing] discounts insert failed:", discountErr.message);
+      warnings.push("Your listing was created, but the discount settings failed to save.");
+    }
+  }
+
+  // House rules set in the wizard's rules step (one structured row, not a list).
+  if (draft.houseRules) {
+    const { error: rulesErr } = await supabaseAdmin.from("listing_house_rules").insert({
+      listing_id: listingId,
+      ...draft.houseRules,
+    });
+    if (rulesErr) {
+      console.error("[createListing] house rules insert failed:", rulesErr.message);
+      warnings.push("Your listing was created, but the house rules failed to save.");
+    }
   }
 
   // Photos (media rows). Persist the host's chosen cover explicitly (Rule A):
   // derive is_cover from coverIndex, falling back to the first photo only when
-  // no valid index is supplied — never leave the cover to array position alone.
+  // no valid index is supplied -- never leave the cover to array position alone.
   if (draft.photoUrls?.length) {
     const coverIdx =
       draft.coverIndex != null &&
@@ -413,15 +909,18 @@ export async function createListing(draft: ListingDraft) {
       is_cover: i === coverIdx,
     }));
     const { error: merr } = await supabaseAdmin.from("listing_media").insert(mediaRows);
-    if (merr) console.error("[createListing] media insert failed:", merr.message);
+    if (merr) {
+      console.error("[createListing] media insert failed:", merr.message);
+      warnings.push("Your listing was created, but the photos failed to save.");
+    }
   }
 
-  return { listing_id: listingId, title: listing.title };
+  return { listing_id: listingId, title: listing.title, warnings };
 }
 
 // ── Cover photo ──────────────────────────────────────────────────────────────
 // Rule B (single source of truth): clear the listing's existing cover(s), then
-// flag the chosen media row — so there is always exactly one is_cover per
+// flag the chosen media row -- so there is always exactly one is_cover per
 // listing. Scoped to the listing so a stale or foreign mediaId can never flip
 // another listing's cover.
 export async function setCoverPhoto(listingId: number, mediaId: string) {
@@ -456,18 +955,92 @@ export async function setCoverPhoto(listingId: number, mediaId: string) {
 // ── User profile ─────────────────────────────────────────────────────────────
 export async function updateUserProfile(
   userId: string,
-  patch: Partial<{ name: string; email: string; phone: string; age: number; emergency_contact: string }>,
+  patch: Partial<{
+    name: string;
+    email: string;
+    phone: string;
+    age: number;
+    emergency_contact: string;
+    profile_pic_url: string;
+    email_notifications: boolean;
+    sms_alerts: boolean;
+    promo_notifications: boolean;
+    host_message_notifications: boolean;
+    show_profile_to_hosts: boolean;
+    include_in_search: boolean;
+    activity_status: boolean;
+  }>,
 ) {
+  // Runtime allowlist -- the Partial<> type above only constrains TS callers,
+  // but the /api/users PATCH route forwards client JSON straight in, so
+  // without this any users-table column (is_verified, is_active, ...) could
+  // be written by name.
+  const ALLOWED_PROFILE_FIELDS = new Set([
+    "name",
+    "email",
+    "phone",
+    "age",
+    "emergency_contact",
+    "profile_pic_url",
+    "email_notifications",
+    "sms_alerts",
+    "promo_notifications",
+    "host_message_notifications",
+    "show_profile_to_hosts",
+    "include_in_search",
+    "activity_status",
+  ]);
   const clean: Record<string, any> = { updated_at: new Date().toISOString() };
   for (const [k, v] of Object.entries(patch)) {
-    if (v !== undefined && v !== null && v !== "") clean[k] = v;
+    if (!ALLOWED_PROFILE_FIELDS.has(k)) continue;
+    // Explicit null/"" must persist (e.g. clearing emergency_contact) --
+    // only an actually-omitted key should be left untouched.
+    clean[k] = v === "" ? null : v;
   }
+  // select("*") rather than an explicit column list: the preference columns
+  // below are added by a migration the operator applies separately (see
+  // supabase/migrations), and an explicit list of not-yet-existing columns
+  // would break this RETURNING clause -- and therefore every profile save,
+  // including unrelated name/email/phone edits -- until that migration runs.
   const { data, error } = await supabaseAdmin
     .from("users")
     .update(clean)
     .eq("user_id", userId)
-    .select("user_id, name, email, phone, age, profile_pic_url, is_verified, emergency_contact")
+    .select("*")
     .single();
   if (error) throw error;
+  return data;
+}
+
+// Deliberately its own function rather than another key in updateUserProfile's
+// allowlist: is_active also gates login (see /api/auth/otp and
+// /auth/callback), so letting it in through the generic profile-patch path
+// would let any caller of that endpoint flip it. This is the only write path
+// for it.
+export async function deactivateUserAccount(userId: string) {
+  const { data, error } = await supabaseAdmin
+    .from("users")
+    .update({ is_active: false, updated_at: new Date().toISOString() })
+    .eq("user_id", userId)
+    .select("*")
+    .single();
+  if (error) throw error;
+
+  // Ban at the Supabase Auth layer too, not just our own users.is_active
+  // check: GoTrue rejects sign-in for a banned user outright (phone OTP,
+  // email OTP, and Google OAuth all route through it), so this blocks new
+  // logins even before our own app-level check runs. It doesn't kill an
+  // *already-issued* access token (those simply expire on their normal TTL,
+  // typically an hour) -- there's no per-user "revoke all sessions" call in
+  // this GoTrue Admin API version. A ~100-year ban_duration is Supabase's own
+  // idiom for "indefinite"; support can lift it by setting ban_duration back
+  // to 'none' if the user asks to reactivate.
+  const { error: banError } = await supabaseAdmin.auth.admin.updateUserById(userId, {
+    ban_duration: "876000h",
+  });
+  if (banError) {
+    console.error("[deactivateUserAccount] failed to ban auth user:", banError);
+  }
+
   return data;
 }

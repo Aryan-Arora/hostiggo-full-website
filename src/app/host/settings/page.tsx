@@ -1,7 +1,9 @@
 'use client';
 
-import { useState } from 'react';
-import { useRouter } from 'next/navigation';
+import { useEffect, useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { toast } from 'sonner';
 import {
   User,
   Landmark,
@@ -9,16 +11,22 @@ import {
   MessageSquareText,
   LifeBuoy,
   Pencil,
-  Plus,
-  MoreVertical,
   ShieldCheck,
-  ShieldAlert,
   CheckCircle2,
+  Loader2,
+  Key,
+  Activity,
+  ChevronRight,
+  Mail,
+  ShieldAlert,
+  HelpCircle,
   type LucideIcon,
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
+import { hasSubmittedAadhaarKyc } from '@/lib/aadhaar';
 import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
 
 const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'personal', label: 'Personal Info', icon: User },
@@ -28,11 +36,167 @@ const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'support', label: 'Support', icon: LifeBuoy },
 ];
 
+interface ProfileData {
+  name: string;
+  email: string;
+  phone: string;
+  avatar: string;
+  about: string;
+  isVerified: boolean;
+  stats: {
+    rating: number | string;
+    reviews: number;
+    listings: number;
+  };
+}
+
+function SettingsLinkRow({
+  href,
+  icon: Icon,
+  title,
+  desc,
+}: {
+  href: string;
+  icon: LucideIcon;
+  title: string;
+  desc: string;
+}) {
+  return (
+    <Link href={href} className="flex items-center gap-4 p-6 hover:bg-gray-50 transition-colors">
+      <div className="w-11 h-11 rounded-xl bg-figma-navy/5 flex items-center justify-center text-figma-navy shrink-0">
+        <Icon className="w-5 h-5" />
+      </div>
+      <div className="flex-1 min-w-0">
+        <h3 className="text-sm font-bold text-gray-800">{title}</h3>
+        <p className="text-sm text-gray-500">{desc}</p>
+      </div>
+      <ChevronRight className="w-4 h-4 text-gray-400 shrink-0" />
+    </Link>
+  );
+}
+
 export default function HostSettingsPage() {
+  const { userId } = useAuth();
   const [tab, setTab] = useState('personal');
-  const router = useRouter();
-  const { user } = useAuth();
-  const isVerified = Boolean(user?.is_verified);
+  const [kycSubmitted, setKycSubmitted] = useState(false);
+  const [profile, setProfile] = useState<ProfileData | null>(null);
+  const [loadingProfile, setLoadingProfile] = useState(true);
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [phone, setPhone] = useState('');
+  const [about, setAbout] = useState('');
+  const [saving, setSaving] = useState(false);
+
+  // Payouts & Taxes tab.
+  const [payoutMethod, setPayoutMethod] = useState<Awaited<
+    ReturnType<typeof api.getPayoutMethod>
+  > | null>(null);
+  const [loadingPayoutMethod, setLoadingPayoutMethod] = useState(true);
+  const [editingPayoutMethod, setEditingPayoutMethod] = useState(false);
+  const [payoutForm, setPayoutForm] = useState({
+    accountHolderName: '',
+    bankAccountNumber: '',
+    bankIfsc: '',
+    panNumber: '',
+    addressLine1: '',
+    city: '',
+    state: '',
+    postalCode: '',
+  });
+  const [savingPayoutMethod, setSavingPayoutMethod] = useState(false);
+
+  const loadPayoutMethod = async () => {
+    setLoadingPayoutMethod(true);
+    try {
+      const data = await api.getPayoutMethod();
+      setPayoutMethod(data);
+      setEditingPayoutMethod(!data);
+    } catch (err) {
+      console.error('[host/settings] payout method load failed:', err);
+    } finally {
+      setLoadingPayoutMethod(false);
+    }
+  };
+
+  useEffect(() => {
+    loadPayoutMethod();
+  }, []);
+
+  const handleSavePayoutMethod = async () => {
+    setSavingPayoutMethod(true);
+    try {
+      await api.savePayoutMethod(payoutForm);
+      toast.success('Payout details saved.');
+      await loadPayoutMethod();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Could not save payout details.');
+    } finally {
+      setSavingPayoutMethod(false);
+    }
+  };
+
+  const loadProfile = async () => {
+    if (!userId) return;
+    setLoadingProfile(true);
+    try {
+      const res = await fetch(`/api/host/profile-info?userId=${encodeURIComponent(userId)}`);
+      if (!res.ok) throw new Error(`Failed to fetch profile: ${res.status}`);
+      const json = await res.json();
+      setProfile(json.data);
+      setName(json.data.name ?? '');
+      setEmail(json.data.email ?? '');
+      setPhone(json.data.phone ?? '');
+      setAbout(json.data.about ?? '');
+    } catch (err) {
+      console.error('[host/settings] load failed:', err);
+      toast.error('Could not load your profile.');
+    } finally {
+      setLoadingProfile(false);
+    }
+  };
+
+  useEffect(() => {
+    loadProfile();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId]);
+
+  useEffect(() => {
+    if (userId) setKycSubmitted(hasSubmittedAadhaarKyc(userId));
+  }, [userId]);
+
+  const handleSave = async () => {
+    if (!userId) return;
+    setSaving(true);
+    try {
+      await Promise.all([
+        api.updateProfile(userId, { name, email, phone }),
+        fetch('/api/host/profile', {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ userId, about: about.trim() }),
+        }).then((res) => {
+          if (!res.ok) throw new Error('Failed to save about section');
+        }),
+      ]);
+      toast.success('Profile updated.');
+      await loadProfile();
+    } catch (err) {
+      console.error('[host/settings] save failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not save your profile.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loadingProfile) {
+    return (
+      <HostDashboardShell active="settings">
+        <div className="flex justify-center py-16">
+          <Loader2 className="w-8 h-8 animate-spin text-figma-navy" />
+        </div>
+      </HostDashboardShell>
+    );
+  }
 
   return (
     <HostDashboardShell active="settings">
@@ -56,7 +220,7 @@ export default function HostSettingsPage() {
                     className={cn(
                       'flex items-center justify-between px-4 py-3 rounded-xl transition-all text-sm',
                       on
-                        ? 'bg-blue-600 text-white font-semibold'
+                        ? 'bg-figma-navy text-white font-semibold'
                         : 'text-gray-500 hover:bg-gray-100',
                     )}
                   >
@@ -71,32 +235,46 @@ export default function HostSettingsPage() {
 
         {/* Content */}
         <div className="flex-1 space-y-6">
-          {tab === 'personal' && (
+          {tab === 'personal' && (loadingProfile ? (
+            <div className="bg-white rounded-2xl p-16 shadow-card border border-gray-200 flex justify-center">
+              <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+            </div>
+          ) : (
             <>
               {/* Profile header */}
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <div className="relative">
-                    <img
-                      src="https://i.pravatar.cc/200?img=45"
-                      alt="Julianne Davenport"
+                    <Image
+                      width={128}
+                      height={128}
+                      src={profile?.avatar || 'https://i.pravatar.cc/200?img=45'}
+                      alt={profile?.name || 'Host'}
                       className="w-32 h-32 rounded-3xl object-cover ring-4 ring-gray-100 shadow"
                     />
-                    <button className="absolute -bottom-2 -right-2 bg-blue-600 text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform">
+                    <button
+                      disabled
+                      title="Photo upload coming soon"
+                      className="absolute -bottom-2 -right-2 bg-figma-navy/70 text-white p-2 rounded-xl shadow-md cursor-not-allowed"
+                    >
                       <Pencil className="w-4 h-4" />
                     </button>
                   </div>
                   <div className="text-center sm:text-left">
-                    <h2 className="text-xl font-bold text-gray-800">Julianne Davenport</h2>
-                    <p className="text-sm text-gray-500 mb-4">Hosting since March 2019</p>
+                    <h2 className="text-xl font-bold text-gray-800">{profile?.name}</h2>
+                    <p className="text-sm text-gray-500 mb-4">Hosting since {new Date().getFullYear()}</p>
                     <div className="flex items-center gap-6 justify-center sm:justify-start">
                       <div className="text-center">
-                        <p className="text-lg font-bold text-gray-800">4.9</p>
+                        <p className="text-lg font-bold text-gray-800">
+                          {typeof profile?.stats.rating === 'string'
+                            ? profile.stats.rating
+                            : profile?.stats.rating?.toFixed(1) ?? 'N/A'}
+                        </p>
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Rating</p>
                       </div>
                       <div className="w-px h-10 bg-gray-200" />
                       <div className="text-center">
-                        <p className="text-lg font-bold text-gray-800">128</p>
+                        <p className="text-lg font-bold text-gray-800">{profile?.stats.reviews ?? 0}</p>
                         <p className="text-xs text-gray-400 uppercase tracking-wider">Reviews</p>
                       </div>
                     </div>
@@ -108,43 +286,59 @@ export default function HostSettingsPage() {
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
                 <h3 className="text-lg font-bold text-gray-800 mb-6">Personal Details</h3>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {[
-                    { label: 'Legal Name', value: 'Julianne Davenport', type: 'text' },
-                    { label: 'Email Address', value: 'julianne.d@hostiggo.com', type: 'email' },
-                  ].map((f) => (
-                    <Field key={f.label} {...f} />
-                  ))}
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Legal Name</label>
+                    <input
+                      type="text"
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <label className="text-sm font-bold text-gray-500 ml-1">Email Address</label>
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
+                    />
+                  </div>
                   <div className="space-y-2 md:col-span-2">
                     <label className="text-sm font-bold text-gray-500 ml-1">
                       Bio / Host Description
                     </label>
                     <textarea
                       rows={4}
-                      defaultValue="Passionately providing unique stays in the heart of the city. I love architecture, local coffee shops, and ensuring every guest feels at home."
-                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm resize-none"
+                      value={about}
+                      onChange={(e) => setAbout(e.target.value)}
+                      placeholder="Tell guests a bit about yourself as a host."
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm resize-none"
                     />
                   </div>
-                  <Field label="Phone Number" value="+1 (555) 012-3456" type="tel" />
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-500 ml-1">
-                      Language Preferences
-                    </label>
-                    <select className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 outline-none text-sm bg-white">
-                      <option>English (US)</option>
-                      <option>Spanish</option>
-                      <option>French</option>
-                      <option>German</option>
-                    </select>
+                    <label className="text-sm font-bold text-gray-500 ml-1">Phone Number</label>
+                    <input
+                      type="tel"
+                      value={phone}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
+                    />
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end">
-                  <button className="px-8 py-3 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all">
-                    Save Changes
+                  <button
+                    onClick={handleSave}
+                    disabled={saving}
+                    className="px-8 py-3 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                  >
+                    {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+                    {saving ? 'Saving…' : 'Save Changes'}
                   </button>
                 </div>
               </div>
             </>
-          )}
+          ))}
 
           {tab === 'payouts' && (
             <>
@@ -156,91 +350,293 @@ export default function HostSettingsPage() {
                       Manage how you receive your hosting earnings.
                     </p>
                   </div>
-                  <button className="flex items-center gap-2 px-4 py-2 border border-blue-600 text-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all">
-                    <Plus className="w-4 h-4" /> Add method
-                  </button>
-                </div>
-                <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200 bg-gray-50">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-full bg-blue-100 flex items-center justify-center text-blue-600">
-                      <Landmark className="w-5 h-5" />
-                    </div>
-                    <div>
-                      <p className="font-bold text-gray-800">Chase Bank •••• 8821</p>
-                      <p className="text-xs text-gray-500">Default Payout Method • Bank Transfer</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <span className="px-3 py-1 bg-green-100 text-green-700 text-[11px] rounded-full font-bold uppercase tracking-wider">
-                      Active
-                    </span>
-                    <button className="p-2 text-gray-400 hover:bg-gray-100 rounded-full">
-                      <MoreVertical className="w-5 h-5" />
+                  {!editingPayoutMethod && payoutMethod && (
+                    <button
+                      onClick={() => {
+                        setPayoutForm({
+                          accountHolderName: payoutMethod.account_holder_name,
+                          bankAccountNumber: '', // never re-shown in full; re-enter to change
+                          bankIfsc: payoutMethod.bank_ifsc,
+                          panNumber: payoutMethod.pan_number,
+                          addressLine1: payoutMethod.address_line1,
+                          city: payoutMethod.city,
+                          state: payoutMethod.state,
+                          postalCode: payoutMethod.postal_code,
+                        });
+                        setEditingPayoutMethod(true);
+                      }}
+                      className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
+                    >
+                      <Pencil className="w-4 h-4" /> Edit
                     </button>
-                  </div>
+                  )}
                 </div>
+
+                {loadingPayoutMethod ? (
+                  <div className="p-8 flex justify-center">
+                    <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
+                  </div>
+                ) : !editingPayoutMethod && payoutMethod ? (
+                  <div className="space-y-4">
+                    <div className="p-5 rounded-xl border border-gray-200 grid grid-cols-2 gap-4">
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Account holder</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.account_holder_name}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Bank account</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.bank_account_number}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">IFSC</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.bank_ifsc}</p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">PAN</p>
+                        <p className="text-sm font-medium text-gray-900">{payoutMethod.pan_number}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                      <Landmark className="w-4 h-4 text-amber-600 shrink-0" />
+                      <p className="text-xs text-amber-800">
+                        {payoutMethod.status === 'submitted' &&
+                          "Your details are saved. We're setting up automatic payouts and will notify you once this account is ready to receive money."}
+                        {payoutMethod.status === 'onboarding' &&
+                          'Your payout account is being verified.'}
+                        {payoutMethod.status === 'active' &&
+                          'This account is active and ready to receive payouts.'}
+                        {payoutMethod.status === 'rejected' &&
+                          'This account could not be verified -- please review and resubmit your details.'}
+                      </p>
+                    </div>
+                  </div>
+                ) : (
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">
+                          Account holder name (as per bank/PAN)
+                        </label>
+                        <input
+                          type="text"
+                          value={payoutForm.accountHolderName}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, accountHolderName: e.target.value }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">
+                          Bank account number
+                        </label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={payoutForm.bankAccountNumber}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({
+                              ...f,
+                              bankAccountNumber: e.target.value.replace(/\D/g, ''),
+                            }))
+                          }
+                          placeholder={payoutMethod ? 'Re-enter to change' : undefined}
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">IFSC code</label>
+                        <input
+                          type="text"
+                          value={payoutForm.bankIfsc}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, bankIfsc: e.target.value.toUpperCase() }))
+                          }
+                          placeholder="HDFC0001234"
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">PAN</label>
+                        <input
+                          type="text"
+                          value={payoutForm.panNumber}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, panNumber: e.target.value.toUpperCase() }))
+                          }
+                          placeholder="ABCDE1234F"
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Postal code</label>
+                        <input
+                          type="text"
+                          inputMode="numeric"
+                          value={payoutForm.postalCode}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({
+                              ...f,
+                              postalCode: e.target.value.replace(/\D/g, '').slice(0, 6),
+                            }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div className="col-span-2">
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Address</label>
+                        <input
+                          type="text"
+                          value={payoutForm.addressLine1}
+                          onChange={(e) =>
+                            setPayoutForm((f) => ({ ...f, addressLine1: e.target.value }))
+                          }
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">City</label>
+                        <input
+                          type="text"
+                          value={payoutForm.city}
+                          onChange={(e) => setPayoutForm((f) => ({ ...f, city: e.target.value }))}
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">State</label>
+                        <input
+                          type="text"
+                          value={payoutForm.state}
+                          onChange={(e) => setPayoutForm((f) => ({ ...f, state: e.target.value }))}
+                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-2 p-4 rounded-xl bg-figma-navy/5 border border-figma-navy/10">
+                      <Landmark className="w-4 h-4 text-figma-navy shrink-0" />
+                      <p className="text-xs text-gray-600">
+                        Automatic payouts aren&apos;t live yet -- saving your details now means you
+                        won&apos;t need to re-enter them once they are.
+                      </p>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={handleSavePayoutMethod}
+                        disabled={savingPayoutMethod}
+                        className="px-6 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
+                      >
+                        {savingPayoutMethod && <Loader2 className="w-4 h-4 animate-spin" />}
+                        {savingPayoutMethod ? 'Saving…' : 'Save payout details'}
+                      </button>
+                      {payoutMethod && (
+                        <button
+                          onClick={() => setEditingPayoutMethod(false)}
+                          className="px-6 py-2.5 text-gray-600 font-bold hover:bg-gray-50 rounded-xl transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                  <div
-                    className={cn(
-                      'w-14 h-14 rounded-full flex items-center justify-center',
-                      isVerified ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600',
-                    )}
-                  >
-                    {isVerified ? (
-                      <ShieldCheck className="w-8 h-8" />
-                    ) : (
-                      <ShieldAlert className="w-8 h-8" />
-                    )}
+                  <div className="w-14 h-14 rounded-full bg-figma-navy/5 flex items-center justify-center text-figma-navy">
+                    <ShieldCheck className="w-8 h-8" />
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-gray-800">Identity Verification</h3>
                     <p className="text-sm text-gray-500">
-                      {isVerified
+                      {profile?.isVerified
                         ? 'Your identity has been successfully verified.'
-                        : 'Your identity is not verified yet. Verify to unlock payouts and full hosting access.'}
+                        : kycSubmitted
+                          ? 'Your documents are in -- verification is in progress.'
+                          : 'Optional. Verified hosts get more guest trust and bookings.'}
                     </p>
                   </div>
                 </div>
-                {isVerified ? (
-                  <span className="flex items-center gap-2 text-green-600 font-bold">
+                {profile?.isVerified ? (
+                  <span className="flex items-center gap-2 font-bold text-green-600">
                     <CheckCircle2 className="w-5 h-5" /> Verified
                   </span>
+                ) : kycSubmitted ? (
+                  <span className="flex items-center gap-2 font-bold text-gray-400">
+                    <CheckCircle2 className="w-5 h-5" /> Pending
+                  </span>
                 ) : (
-                  <button
-                    onClick={() => router.push('/account/verification')}
-                    className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all whitespace-nowrap"
+                  <Link
+                    href="/kyc/aadhaar?redirect=/host/settings"
+                    className="px-5 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all whitespace-nowrap"
                   >
-                    Verify identity
-                  </button>
+                    Verify now
+                  </Link>
                 )}
               </div>
             </>
           )}
 
-          {(tab === 'security' || tab === 'feedback' || tab === 'support') && (
-            <div className="bg-white rounded-2xl p-10 shadow-card border border-gray-200 text-center">
-              <p className="text-gray-500">
-                {NAV.find((n) => n.id === tab)?.label} settings coming soon.
-              </p>
+          {tab === 'security' && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              <SettingsLinkRow
+                href="/account/password"
+                icon={Key}
+                title="Password & Security"
+                desc="Set or change the password used to sign in with your email."
+              />
+              <SettingsLinkRow
+                href="/account/login-activity"
+                icon={Activity}
+                title="Login Activity"
+                desc="Review recent sign-ins to your account."
+              />
+            </div>
+          )}
+
+          {tab === 'feedback' && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              <SettingsLinkRow
+                href="/support"
+                icon={MessageSquareText}
+                title="Share feedback"
+                desc="Report an issue, suggest an improvement, or share your hosting experience."
+              />
+            </div>
+          )}
+
+          {tab === 'support' && (
+            <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
+              <SettingsLinkRow
+                href="/contact"
+                icon={Mail}
+                title="Contact us"
+                desc="Reach our support team for booking, payment, or account questions."
+              />
+              <SettingsLinkRow
+                href="/report-issue"
+                icon={LifeBuoy}
+                title="Report an issue"
+                desc="Something not working right? Let us know the details."
+              />
+              <SettingsLinkRow
+                href="/safety"
+                icon={ShieldAlert}
+                title="Safety information"
+                desc="How Hostiggo keeps hosts and guests safe."
+              />
+              <SettingsLinkRow
+                href="/faq"
+                icon={HelpCircle}
+                title="FAQs"
+                desc="Answers to common questions about hosting, payouts, and bookings."
+              />
             </div>
           )}
         </div>
       </div>
     </HostDashboardShell>
-  );
-}
-
-function Field({ label, value, type }: { label: string; value: string; type: string }) {
-  return (
-    <div className="space-y-2">
-      <label className="text-sm font-bold text-gray-500 ml-1">{label}</label>
-      <input
-        type={type}
-        defaultValue={value}
-        className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-sm"
-      />
-    </div>
   );
 }

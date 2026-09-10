@@ -1,151 +1,35 @@
-'use client';
+"use client";
 
 import { useState, useRef, useEffect } from 'react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useRouter } from 'next/navigation';
-import { useSupabaseAuth } from '@/components/providers/AuthProvider';
+import { useAuth } from '@/context/AuthContext';
+import { cn } from '@/lib/utils';
 import {
-  Globe,
-  ChevronDown,
-  IndianRupee,
-  Menu,
-  X,
-  MessageCircle,
-  Heart,
+  Check,
   Clock,
-  User,
-  Settings,
-  Star,
+  Globe,
+  Heart,
   HelpCircle,
   Home,
+  IndianRupee,
   LogOut,
-  Search,
-  Check,
-  Gift,
-} from 'lucide-react';
-import { cn } from '@/lib/utils';
-import { useAuth } from '@/context/AuthContext';
+  Menu,
+  MessageCircle,
+  Settings,
+  Star,
+  User,
+  X,
+} from "lucide-react";
 
-const CURRENCIES = [
-  { code: 'INR', symbol: '₹', name: 'Indian Rupee' },
-  { code: 'JPY', symbol: '¥', name: 'Japanese Yen' },
-  { code: 'USD', symbol: '$', name: 'US Dollar' },
-  { code: 'EUR', symbol: '€', name: 'Euro' },
-  { code: 'GBP', symbol: '£', name: 'British Pound' },
-  { code: 'AUD', symbol: 'A$', name: 'Australian Dollar' },
-  { code: 'CAD', symbol: 'C$', name: 'Canadian Dollar' },
-  { code: 'SGD', symbol: 'S$', name: 'Singapore Dollar' },
-  { code: 'AED', symbol: 'د.إ', name: 'UAE Dirham' },
-  { code: 'THB', symbol: '฿', name: 'Thai Baht' },
-  { code: 'MYR', symbol: 'RM', name: 'Malaysian Ringgit' },
-  { code: 'HKD', symbol: 'HK$', name: 'Hong Kong Dollar' },
-  { code: 'CHF', symbol: 'Fr', name: 'Swiss Franc' },
-  { code: 'NZD', symbol: 'NZ$', name: 'New Zealand Dollar' },
-  { code: 'SEK', symbol: 'kr', name: 'Swedish Krona' },
-];
-
-// Signed-in user display (avatar only until profile fetch is wired).
+// Signed-in user display fallback -- must match the placeholder used in
+// account/profile/page.tsx so an unset profile photo looks the same
+// everywhere instead of showing a different random face per page.
 const USER = {
-  name: 'Account',
-  avatar: 'https://i.pravatar.cc/150?img=11',
+  name: "Account",
+  avatar: "https://i.pravatar.cc/200?img=45",
 };
-
-function CurrencyDropdown() {
-  const [open, setOpen] = useState(false);
-  const [selected, setSelected] = useState(CURRENCIES[0]);
-  const [search, setSearch] = useState('');
-  const ref = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
-        setOpen(false);
-        setSearch('');
-      }
-    };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
-  }, []);
-
-  const filtered = CURRENCIES.filter(
-    (c) =>
-      c.code.toLowerCase().includes(search.toLowerCase()) ||
-      c.name.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  return (
-    <div ref={ref} className="relative">
-      <button
-        onClick={() => {
-          setOpen((v) => !v);
-          setSearch('');
-        }}
-        className="flex items-center gap-1 text-[#0f4c81] hover:text-[#0a3a63] px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-bold"
-      >
-        <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
-        <span>{selected.code}.</span>
-      </button>
-
-      {open && (
-        <div className="absolute left-0 top-[calc(100%+8px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden animate-fade-in-down">
-          {/* Search */}
-          <div className="px-3 pt-3 pb-2">
-            <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-xl px-3 py-2 focus-within:border-blue-400 focus-within:ring-2 focus-within:ring-blue-400/10 transition-all">
-              <Search className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-              <input
-                autoFocus
-                type="text"
-                placeholder="Search"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="flex-1 bg-transparent text-[13px] text-gray-700 placeholder:text-gray-400 outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Currency list */}
-          <div className="max-h-[240px] overflow-y-auto scrollbar-hide pb-2">
-            {filtered.length === 0 ? (
-              <p className="px-4 py-3 text-[12px] text-gray-400 text-center">
-                No currencies found
-              </p>
-            ) : (
-              filtered.map((cur) => (
-                <button
-                  key={cur.code}
-                  onClick={() => {
-                    setSelected(cur);
-                    setOpen(false);
-                    setSearch('');
-                  }}
-                  className={cn(
-                    'w-full flex items-center justify-between px-4 py-2.5 text-[13px] transition-colors',
-                    cur.code === selected.code
-                      ? 'text-blue-600 font-semibold bg-blue-50/50'
-                      : 'text-gray-700 hover:bg-gray-50',
-                  )}
-                >
-                  <span className="flex items-center gap-2.5">
-                    <span className="w-5 text-center text-[14px] font-semibold text-gray-500">
-                      {cur.symbol}
-                    </span>
-                    <span>{cur.code}</span>
-                  </span>
-                  {cur.code === selected.code && (
-                    <Check
-                      className="w-4 h-4 text-blue-600"
-                      strokeWidth={2.5}
-                    />
-                  )}
-                </button>
-              ))
-            )}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
 
 interface MenuItem {
   icon: React.ReactNode;
@@ -153,57 +37,113 @@ interface MenuItem {
   to?: string;
   danger?: boolean;
   action?: () => void;
-  // Placeholder for a feature that isn't built yet — rendered disabled with a
+  // Placeholder for a feature that isn't built yet, rendered disabled with a
   // "Soon" pill so the slot stays in the menu without being a dead link.
   soon?: boolean;
 }
 
 const MENU_GROUPS: MenuItem[][] = [
   [
-    { icon: <MessageCircle className="w-4 h-4" />, label: 'Chats', to: '/messages' },
+    {
+      icon: <MessageCircle className="w-4 h-4" />,
+      label: "Chats",
+      to: "/chat",
+    },
     {
       icon: <Heart className="w-4 h-4" />,
-      label: 'Wishlists',
-      to: '/wishlist',
+      label: "Wishlists",
+      to: "/wishlist",
     },
     {
       icon: <Clock className="w-4 h-4" />,
-      label: 'Memories',
-      to: '/my-memories',
+      label: "Memories",
+      to: "/my-memories",
     },
-    { icon: <User className="w-4 h-4" />, label: 'Profile', to: '/account/profile' },
+    {
+      icon: <User className="w-4 h-4" />,
+      label: "Profile",
+      to: "/account/profile",
+    },
   ],
   [
     {
       icon: <Settings className="w-4 h-4" />,
-      label: 'Account Settings',
-      to: '/account/settings',
+      label: "Account Settings",
+      to: "/account/settings",
     },
-    { icon: <Star className="w-4 h-4" />, label: 'My reviews', to: '/host/reviews' },
     {
-      icon: <Gift className="w-4 h-4" />,
-      label: 'Refer & earn',
-      to: '/refer',
+      icon: <Star className="w-4 h-4" />,
+      label: "My reviews",
+      to: "/host/reviews",
     },
     {
       icon: <HelpCircle className="w-4 h-4" />,
-      label: 'Customer support',
-      to: '/support',
+      label: "Customer support",
+      to: "/support",
     },
   ],
-  [
-    {
-      icon: <Home className="w-4 h-4 text-amber-500" />,
-      label: 'Host & Earn',
-      to: '/host/listings',
-    },
-  ],
+];
+
+interface CurrencyOption {
+  code: string;
+  name: string;
+  symbol: string;
+}
+
+const CURRENCIES: CurrencyOption[] = [
+  { code: "INR", name: "Indian Rupee", symbol: "₹" },
+  { code: "USD", name: "United States Dollar", symbol: "$" },
+  { code: "EUR", name: "Euro", symbol: "€" },
+  { code: "GBP", name: "British Pound", symbol: "£" },
+  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
+  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
+  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
+  { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
+  { code: "AED", name: "United Arab Emirates Dirham", symbol: "د.إ" },
+  { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
+  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
+  { code: "THB", name: "Thai Baht", symbol: "฿" },
+  { code: "KRW", name: "South Korean Won", symbol: "₩" },
+  { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
+  { code: "BRL", name: "Brazilian Real", symbol: "R$" },
+  { code: "SAR", name: "Saudi Riyal", symbol: "﷼" },
+  { code: "TRY", name: "Turkish Lira", symbol: "₺" },
+];
+
+interface LanguageOption {
+  code: string;
+  name: string;
+  nativeName?: string;
+}
+
+const LANGUAGES: LanguageOption[] = [
+  { code: "en", name: "English", nativeName: "English (US)" },
+  { code: "hi", name: "Hindi", nativeName: "हिन्दी" },
+  { code: "es", name: "Spanish", nativeName: "Español" },
+  { code: "fr", name: "French", nativeName: "Français" },
+  { code: "de", name: "German", nativeName: "Deutsch" },
+  { code: "ja", name: "Japanese", nativeName: "日本語" },
+  { code: "it", name: "Italian", nativeName: "Italiano" },
+  { code: "pt", name: "Portuguese", nativeName: "Português" },
+  { code: "ru", name: "Russian", nativeName: "Русский" },
+  { code: "zh", name: "Chinese", nativeName: "简体中文" },
+  { code: "ar", name: "Arabic", nativeName: "العربية" },
+  { code: "bn", name: "Bengali", nativeName: "বাংলা" },
+  { code: "ta", name: "Tamil", nativeName: "தமிழ்" },
+  { code: "te", name: "Telugu", nativeName: "తెలుగు" },
+  { code: "ko", name: "Korean", nativeName: "한국어" },
+  { code: "nl", name: "Dutch", nativeName: "Nederlands" },
+  { code: "tr", name: "Turkish", nativeName: "Türkçe" },
 ];
 
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
+  const [activeDropdown, setActiveDropdown] = useState<'currency' | 'language' | null>(null);
+  const [selectedCurrency, setSelectedCurrency] = useState("INR");
+  const [selectedLanguage, setSelectedLanguage] = useState("English");
   const profileRef = useRef<HTMLDivElement>(null);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { isAuthenticated, user, signOut } = useAuth();
 
@@ -223,8 +163,31 @@ export default function Navbar() {
         setProfileOpen(false);
       }
     };
-    document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener("mousedown", handler);
+    return () => document.removeEventListener("mousedown", handler);
+  }, []);
+
+  // Close currency/language dropdown on outside click or Escape
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(e.target as Node)
+      ) {
+        setActiveDropdown(null);
+      }
+    };
+    const keyHandler = (e: KeyboardEvent) => {
+      if (e.key === "Escape") {
+        setActiveDropdown(null);
+      }
+    };
+    document.addEventListener("mousedown", handler);
+    document.addEventListener("keydown", keyHandler);
+    return () => {
+      document.removeEventListener("mousedown", handler);
+      document.removeEventListener("keydown", keyHandler);
+    };
   }, []);
 
   return (
@@ -236,36 +199,185 @@ export default function Navbar() {
             href="/"
             className="flex items-center gap-2.5 flex-shrink-0 group"
           >
-            <div className="w-9 h-9 bg-[#004772] rounded-full flex items-center justify-center shadow-sm transition-transform group-hover:scale-105">
-              <span className="text-white font-bold text-[18px] leading-none">
-                H
-              </span>
-            </div>
+            <Image
+              src="/logo.png"
+              alt="Hostiggo Logo"
+              width={36}
+              height={36}
+              className="transition-transform group-hover:scale-105"
+            />
             <div className="flex items-baseline">
-              <span className="font-black text-[#374151] text-[17px] tracking-wider uppercase">
+              <span
+                className="font-semibold text-[#374151] text-[21px] leading-[140%] uppercase tracking-normal"
+                style={{ fontFamily: "Poppins, sans-serif" }}
+              >
                 Hostig
               </span>
-              <span className="font-black text-[#0086D8] text-[17px] tracking-wider uppercase">
+              <span
+                className="font-semibold text-[#0086D8] text-[21px] leading-[140%] uppercase tracking-normal"
+                style={{ fontFamily: "Poppins, sans-serif" }}
+              >
                 go
               </span>
             </div>
           </Link>
 
           {/* Desktop nav */}
-          <div className="hidden md:flex items-center gap-0.5">
-            <CurrencyDropdown />
-            <span className="h-4 w-px bg-gray-300 mx-1" />
-            <button className="flex items-center gap-1.5 text-[#0f4c81] hover:text-[#0a3a63] px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-bold">
-              <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-              <span>English</span>
-            </button>
-            <span className="h-4 w-px bg-gray-300 mx-1" />
+          <div className="hidden md:flex items-center gap-1">
+            {/* Currency & Language Selectors */}
+            <div ref={dropdownRef} className="flex items-center gap-1">
+              {/* Currency Dropdown Trigger & Panel */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setActiveDropdown((prev) => (prev === "currency" ? null : "currency"));
+                  }}
+                  className={cn(
+                    "flex items-center gap-1 text-figma-ink hover:text-black hover:bg-gray-50 px-3 py-1.5 text-[14px] font-medium rounded-lg transition-colors cursor-pointer",
+                    activeDropdown === "currency" && "bg-gray-100 text-black"
+                  )}
+                  aria-label="Select currency"
+                  aria-expanded={activeDropdown === "currency"}
+                >
+                  {selectedCurrency === "INR" ? (
+                    <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
+                  ) : (
+                    <span className="text-[13px] font-semibold">
+                      {CURRENCIES.find((c) => c.code === selectedCurrency)?.symbol || ""}
+                    </span>
+                  )}
+                  <span>{selectedCurrency}.</span>
+                </button>
+
+                {activeDropdown === "currency" && (
+                  <div
+                    className="absolute top-[calc(100%+8px)] left-0 w-[323px] h-[535px] rounded-[6px] shadow-[0_4px_21.7px_6px_rgba(0,0,0,0.25)] bg-white z-50 overflow-y-auto divide-y divide-gray-100 py-1"
+                    style={{ animation: "fadeInDown 0.18s ease both" }}
+                  >
+                    {CURRENCIES.map((curr) => {
+                      const isSelected = selectedCurrency === curr.code;
+                      return (
+                        <button
+                          key={curr.code}
+                          type="button"
+                          onClick={() => {
+                            setSelectedCurrency(curr.code);
+                            setActiveDropdown(null);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50 cursor-pointer",
+                            isSelected && "bg-blue-50/40"
+                          )}
+                        >
+                          <div className="flex flex-col pr-2">
+                            <span
+                              className={cn(
+                                "text-[14px] leading-tight",
+                                isSelected
+                                  ? "font-semibold text-figma-navy"
+                                  : "font-medium text-[#222222]"
+                              )}
+                            >
+                              {curr.name}
+                            </span>
+                            <span className="text-[12px] text-gray-500 mt-0.5">
+                              {curr.code} &middot; {curr.symbol}
+                            </span>
+                          </div>
+                          {isSelected && (
+                            <Check
+                              className="w-4 h-4 text-figma-navy shrink-0 ml-auto"
+                              strokeWidth={2.5}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <span className="h-4 w-px bg-gray-200 mx-0.5" />
+
+              {/* Language Dropdown Trigger & Panel */}
+              <div className="relative">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setProfileOpen(false);
+                    setActiveDropdown((prev) => (prev === "language" ? null : "language"));
+                  }}
+                  className={cn(
+                    "flex items-center gap-1.5 text-figma-ink hover:text-black hover:bg-gray-50 px-3 py-1.5 text-[14px] font-medium rounded-lg transition-colors cursor-pointer",
+                    activeDropdown === "language" && "bg-gray-100 text-black"
+                  )}
+                  aria-label="Select language"
+                  aria-expanded={activeDropdown === "language"}
+                >
+                  <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
+                  <span>{selectedLanguage}</span>
+                </button>
+
+                {activeDropdown === "language" && (
+                  <div
+                    className="absolute top-[calc(100%+8px)] left-0 w-[323px] h-[535px] rounded-[6px] shadow-[0_4px_21.7px_6px_rgba(0,0,0,0.25)] bg-white z-50 overflow-y-auto divide-y divide-gray-100 py-1"
+                    style={{ animation: "fadeInDown 0.18s ease both" }}
+                  >
+                    {LANGUAGES.map((lang) => {
+                      const isSelected = selectedLanguage === lang.name;
+                      return (
+                        <button
+                          key={lang.code}
+                          type="button"
+                          onClick={() => {
+                            setSelectedLanguage(lang.name);
+                            setActiveDropdown(null);
+                          }}
+                          className={cn(
+                            "w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50 cursor-pointer",
+                            isSelected && "bg-blue-50/40"
+                          )}
+                        >
+                          <div className="flex flex-col pr-2">
+                            <span
+                              className={cn(
+                                "text-[14px] leading-tight",
+                                isSelected
+                                  ? "font-semibold text-figma-navy"
+                                  : "font-medium text-[#222222]"
+                              )}
+                            >
+                              {lang.name}
+                            </span>
+                            {lang.nativeName && lang.nativeName !== lang.name && (
+                              <span className="text-[12px] text-gray-500 mt-0.5">
+                                {lang.nativeName}
+                              </span>
+                            )}
+                          </div>
+                          {isSelected && (
+                            <Check
+                              className="w-4 h-4 text-figma-navy shrink-0 ml-auto"
+                              strokeWidth={2.5}
+                            />
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            </div>
+
+            <span className="h-4 w-px bg-gray-200 mx-0.5" />
 
             {isAuthenticated ? (
               <>
                 <button
-                  className="border border-blue-600 text-blue-600 hover:bg-blue-50 px-4 py-1.5 rounded-lg text-[13px] font-semibold transition-colors ml-1"
-                  onClick={() => router.push('/host/list/property-type')}
+                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
+                  onClick={() => router.push("/host/list/method")}
                 >
                   List your property
                 </button>
@@ -274,9 +386,11 @@ export default function Navbar() {
                 <div ref={profileRef} className="relative ml-2">
                   <button
                     onClick={() => setProfileOpen((v) => !v)}
-                    className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-offset-1 ring-transparent hover:ring-blue-400 transition-all"
+                    className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-offset-1 ring-transparent hover:ring-figma-accent transition-all"
                   >
-                    <img
+                    <Image
+                      width={36}
+                      height={36}
                       src={user?.profile_pic_url || USER.avatar}
                       alt={user?.name || USER.name}
                       className="w-full h-full object-cover"
@@ -287,59 +401,66 @@ export default function Navbar() {
                   {profileOpen && (
                     <div
                       className={cn(
-                        'absolute right-0 top-[calc(100%+10px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 z-50 overflow-hidden',
-                        'animate-fade-in-down origin-top-right',
+                        "absolute right-0 top-[calc(100%+8px)] w-[260px] h-auto max-h-[80vh] overflow-y-auto bg-white rounded-[6px] p-[9px] shadow-[0_4px_21.7px_6px_rgba(0,0,0,0.25)] border border-gray-100 z-50 flex flex-col",
+                        "animate-fade-in-down origin-top-right",
                       )}
-                      style={{ animation: 'fadeInDown 0.18s ease both' }}
+                      style={{ animation: "fadeInDown 0.18s ease both" }}
                     >
-                      {MENU_GROUPS.map((group, gi) => (
-                        <div key={gi}>
-                          {gi > 0 && <div className="h-px bg-gray-100 mx-3" />}
-                          <div className="py-1.5">
-                            {group.map((item) =>
-                              item.soon ? (
-                                <div
-                                  key={item.label}
-                                  aria-disabled="true"
-                                  title="Coming soon"
-                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-400 cursor-default select-none"
-                                >
-                                  <span className="text-gray-300">{item.icon}</span>
-                                  <span>{item.label}</span>
-                                  <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
-                                    Soon
-                                  </span>
-                                </div>
-                              ) : (
-                                <Link
-                                  key={item.label}
-                                  href={item.to ?? '#'}
-                                  onClick={() => {
-                                    item.action?.();
-                                    setProfileOpen(false);
-                                  }}
-                                  className="flex items-center gap-3 px-4 py-2.5 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                                >
-                                  <span className="text-gray-400">{item.icon}</span>
-                                  <span>{item.label}</span>
-                                </Link>
-                              ),
-                            )}
+                      <div className="flex flex-col">
+                        {MENU_GROUPS.map((group, gi) => (
+                          <div key={gi}>
+                            <div className="py-0.5">
+                              {group.map((item) =>
+                                item.soon ? (
+                                  <div
+                                    key={item.label}
+                                    aria-disabled="true"
+                                    title="Coming soon"
+                                    className="flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-medium text-gray-400 cursor-default select-none"
+                                  >
+                                    <span className="text-gray-300">
+                                      {item.icon}
+                                    </span>
+                                    <span>{item.label}</span>
+                                    <span className="ml-auto text-[10px] font-semibold uppercase tracking-wide bg-gray-100 text-gray-400 px-1.5 py-0.5 rounded-full">
+                                      Soon
+                                    </span>
+                                  </div>
+                                ) : (
+                                  <Link
+                                    key={item.label}
+                                    href={item.to ?? "#"}
+                                    onClick={() => {
+                                      item.action?.();
+                                      setProfileOpen(false);
+                                    }}
+                                    className="flex items-center gap-2.5 px-2.5 py-1.5 text-[14px] font-medium text-gray-700 hover:bg-gray-50 rounded transition-colors"
+                                  >
+                                    <span className="text-gray-400">
+                                      {item.icon}
+                                    </span>
+                                    <span>{item.label}</span>
+                                  </Link>
+                                ),
+                              )}
+                            </div>
+                            {/* Dotted divider below each group */}
+                            <div className="border-b border-dotted border-gray-300 my-1" />
                           </div>
-                        </div>
-                      ))}
+                        ))}
+                      </div>
+
+                      {/* Promotional Placeholder Box */}
+                      <div className="w-full h-[80px] bg-gray-300 rounded-md my-2" />
 
                       {/* Sign out */}
-                      <div className="h-px bg-gray-100 mx-3" />
-                      <div className="p-3">
-                        <button
-                          onClick={handleSignOut}
-                          className="w-full flex items-center justify-center gap-2 px-4 py-2.5 text-[13px] font-semibold text-red-500 border border-red-200 rounded-xl hover:bg-red-50 transition-colors"
-                        >
-                          <LogOut className="w-4 h-4" />
-                          Sign out
-                        </button>
-                      </div>
+                      <button
+                        type="button"
+                        onClick={handleSignOut}
+                        className="w-full py-2 border border-red-500 text-red-500 font-medium rounded-md hover:bg-red-50 text-center flex justify-center transition-colors text-[14px]"
+                      >
+                        Sign out
+                      </button>
                     </div>
                   )}
                 </div>
@@ -347,20 +468,20 @@ export default function Navbar() {
             ) : (
               <>
                 <button
-                  className="text-[#0f4c81] hover:text-[#0a3a63] px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors text-[13px] font-bold ml-0.5"
-                  onClick={() => router.push('/signin')}
+                  className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[14px] font-medium ml-0.5"
+                  onClick={() => router.push("/signin")}
                 >
                   Sign In
                 </button>
                 <button
-                  className="bg-[#0f4c81] hover:bg-[#0a3a63] active:bg-[#082e4f] text-white px-5 py-2 rounded-lg text-[13px] font-bold transition-colors ml-2 shadow-sm"
-                  onClick={() => router.push('/signin')}
+                  className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1 shadow-sm"
+                  onClick={() => router.push("/signin")}
                 >
                   New user
                 </button>
                 <button
-                  onClick={() => router.push('/host/list/property-type')}
-                  className="border-[1.5px] border-[#0f4c81] text-[#0f4c81] hover:bg-blue-50 px-5 py-[7px] rounded-xl text-[13px] font-bold transition-colors ml-3"
+                  onClick={() => router.push("/host/list/method")}
+                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
                 >
                   List your property
                 </button>
@@ -384,14 +505,28 @@ export default function Navbar() {
         {/* Mobile menu */}
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-100 py-3 space-y-1 pb-4">
-            <button className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium">
-              <IndianRupee className="w-4 h-4 text-gray-500" /> INR
-            </button>
-            <button className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium">
-              <Globe className="w-4 h-4 text-gray-500" /> English
-            </button>
+            <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
+              {selectedCurrency === "INR" ? (
+                <IndianRupee className="w-4 h-4 text-gray-500" />
+              ) : (
+                <span className="text-[13px] font-semibold text-gray-500">
+                  {CURRENCIES.find((c) => c.code === selectedCurrency)?.symbol || ""}
+                </span>
+              )}
+              {selectedCurrency}
+            </div>
+            <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
+              <Globe className="w-4 h-4 text-gray-500" /> {selectedLanguage}
+            </div>
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/chat"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <MessageCircle className="w-4 h-4 text-gray-500" /> Chats
+                </Link>
                 <Link
                   href="/wishlist"
                   onClick={() => setMobileOpen(false)}
@@ -427,7 +562,7 @@ export default function Navbar() {
                 <button
                   onClick={() => {
                     setMobileOpen(false);
-                    router.push('/signin');
+                    router.push("/signin");
                   }}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl font-medium"
                 >
@@ -437,18 +572,18 @@ export default function Navbar() {
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push('/signin');
+                      router.push("/signin");
                     }}
-                    className="flex-1 bg-blue-600 text-white py-2 rounded-xl text-sm font-semibold"
+                    className="flex-1 bg-figma-navy text-white py-2 rounded-xl text-sm font-semibold"
                   >
                     New user
                   </button>
                   <button
                     onClick={() => {
                       setMobileOpen(false);
-                      router.push('/host/list/property-type');
+                      router.push("/host/list/method");
                     }}
-                    className="flex-1 border border-blue-600 text-blue-600 py-2 rounded-xl text-sm font-semibold"
+                    className="flex-1 border border-figma-navy text-figma-navy py-2 rounded-xl text-sm font-semibold"
                   >
                     List property
                   </button>

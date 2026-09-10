@@ -10,7 +10,6 @@ const SORT_OPTIONS: { value: SortOption; label: string }[] = [
   { value: "top_rated", label: "Top rated" },
   { value: "most_popular", label: "Most reviewed" },
   { value: "newest", label: "Newest listings" },
-  { value: "distance", label: "Distance from center" },
   { value: "best_value", label: "Best value" },
 ];
 
@@ -61,7 +60,7 @@ export default function SortDropdown({ value, onChange }: SortDropdownProps) {
               className={cn(
                 "w-full text-left px-4 py-2.5 text-[12px] transition-colors",
                 value === opt.value
-                  ? "text-blue-600 font-semibold bg-blue-50/50"
+                  ? "text-figma-navy font-semibold bg-figma-navy/10"
                   : "text-gray-600 font-medium hover:bg-gray-50"
               )}
             >

@@ -1,305 +1,804 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
+import {
+  ArrowLeft,
+  Loader2,
+  ImageIcon,
+  DollarSign,
+  Percent,
+  Package,
+  Home,
+  Shield,
+  MapPinIcon,
+  Building2,
+  Pause,
+  Trash2,
+  ChevronRight,
+  FileText,
+  AlertCircle,
+  Image,
+} from 'lucide-react';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { toast } from 'sonner';
-import { ArrowLeft, Users, Bath, BedDouble, Minus, Plus, Info, PlusCircle, Trash2, Star, Loader2, ImageOff } from 'lucide-react';
 import HostDashboardShell from '../../_components/HostDashboardShell';
-import { api } from '@/lib/api';
+import { useAuth } from '@/context/AuthContext';
+import HouseRulesForm from '@/components/features/HouseRulesForm';
+import SafetyDetailsForm from '@/components/features/SafetyDetailsForm';
+import AddonsForm from '@/components/features/AddonsForm';
+import DiscountsForm from '@/components/features/DiscountsForm';
+import ListingPhotosManager from '@/components/features/ListingPhotosManager';
+import AmenitiesForm from '@/components/features/AmenitiesForm';
+import ListingLocationMap from '@/components/features/ListingLocationMap';
+import AddressSearch from '../../list/_components/AddressSearch';
+import { reverseGeocode, resolveLocationId } from '@/lib/services/geocoding';
 import { cn } from '@/lib/utils';
 
-type Media = { id: string; media_url: string; media_type: string | null; is_cover: boolean };
+interface ListingDetails {
+  listing_id: number;
+  title: string;
+  description: string;
+  price_weekday: number;
+  price_weekend: number;
+  num_guests: number;
+  num_bedrooms: number;
+  num_beds: number;
+  num_bathrooms: number;
+  address_line1: string;
+  address_line2: string;
+  landmark: string;
+  location_id: number;
+  latitude?: number | null;
+  longitude?: number | null;
+  property_type_id: number;
+  is_active?: boolean;
+}
 
-const CAP = [
-  { key: 'guests', label: 'Max Guests', icon: Users, initial: 4 },
-  { key: 'bathrooms', label: 'Bathrooms', icon: Bath, initial: 2 },
-  { key: 'beds', label: 'Total Beds', icon: BedDouble, initial: 3 },
-] as const;
+interface Location {
+  location_id: number;
+  state: string;
+  district: string;
+  lower_division_name: string;
+  pincode: string;
+}
 
-const BED_TYPES = ['Single Bed', 'Twin Bed', 'Double Bed', 'Queen Bed', 'King Bed', 'Sofa Bed', 'Futon'];
+type SectionType =
+  | 'overview'
+  | 'description'
+  | 'pricing'
+  | 'discounts'
+  | 'addons'
+  | 'house-rules'
+  | 'safety'
+  | 'location'
+  | 'capacity'
+  | 'amenities'
+  | 'photos';
+
+const SECTIONS: { id: SectionType; label: string; icon: React.ReactNode; group: 'main' | 'monetization' }[] = [
+  { id: 'photos', label: 'Photos', icon: <Image className="w-5 h-5" />, group: 'main' },
+  { id: 'overview', label: 'Listing Title', icon: <FileText className="w-5 h-5" />, group: 'main' },
+  { id: 'description', label: 'Description', icon: <FileText className="w-5 h-5" />, group: 'main' },
+  { id: 'capacity', label: 'Room & Capacity', icon: <Building2 className="w-5 h-5" />, group: 'main' },
+  { id: 'amenities', label: 'Amenities', icon: <Home className="w-5 h-5" />, group: 'main' },
+  { id: 'location', label: 'Location', icon: <MapPinIcon className="w-5 h-5" />, group: 'main' },
+  { id: 'pricing', label: 'Base & Weekend Price', icon: <DollarSign className="w-5 h-5" />, group: 'monetization' },
+  { id: 'discounts', label: 'Discounts', icon: <Percent className="w-5 h-5" />, group: 'monetization' },
+  { id: 'addons', label: 'Add-ons', icon: <Package className="w-5 h-5" />, group: 'monetization' },
+  { id: 'house-rules', label: 'House Rules', icon: <Home className="w-5 h-5" />, group: 'main' },
+  { id: 'safety', label: 'Safety Details', icon: <Shield className="w-5 h-5" />, group: 'main' },
+];
 
 export default function ManageListingPage() {
-  const [counts, setCounts] = useState<Record<string, number>>(
-    Object.fromEntries(CAP.map((c) => [c.key, c.initial])),
-  );
-  const [bedrooms, setBedrooms] = useState([
-    { id: 1, type: 'Queen Bed' },
-    { id: 2, type: 'Twin Bed' },
-  ]);
+  const { userId } = useAuth();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const listingId = searchParams.get('id');
 
-  const set = (k: string, d: number) =>
-    setCounts((c) => ({ ...c, [k]: Math.max(0, c[k] + d) }));
-
-  // ── Photos & cover ──────────────────────────────────────────────────────────
-  const [listingId, setListingId] = useState<string | null>(null);
-  const [media, setMedia] = useState<Media[]>([]);
-  const [loadingMedia, setLoadingMedia] = useState(false);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [listing, setListing] = useState<ListingDetails | null>(null);
+  const [locations, setLocations] = useState<Location[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [locationsLoading, setLocationsLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [pausing, setPausing] = useState(false);
+  const [removing, setRemoving] = useState(false);
+  const [formData, setFormData] = useState<ListingDetails | null>(null);
+  const [activeSection, setActiveSection] = useState<SectionType>('overview');
 
   useEffect(() => {
-    setListingId(new URLSearchParams(window.location.search).get('id'));
-  }, []);
+    if (!listingId || !userId) return;
+    loadListing();
+    loadLocations();
+  }, [listingId, userId]);
 
-  const loadMedia = useCallback(async () => {
-    if (!listingId) return;
-    setLoadingMedia(true);
+  const loadListing = async () => {
+    if (!listingId || !userId) return;
+    setLoading(true);
     try {
-      const rows = await api.listingMedia(listingId);
-      setMedia(rows as Media[]);
+      const res = await fetch(
+        `/api/hotels/${encodeURIComponent(listingId)}?userId=${encodeURIComponent(userId)}`,
+      );
+      if (!res.ok) throw new Error('Failed to load listing');
+      const { data } = await res.json();
+      setListing(data);
+      setFormData(data);
     } catch (err) {
-      console.error('[manage] load photos failed:', err);
-      toast.error("Couldn't load photos");
+      console.error('Failed to load listing:', err);
+      toast.error('Failed to load listing details');
     } finally {
-      setLoadingMedia(false);
+      setLoading(false);
     }
-  }, [listingId]);
+  };
 
-  useEffect(() => {
-    loadMedia();
-  }, [loadMedia]);
-
-  // Deterministic cover (Rule C): the flagged row, else the first photo.
-  const coverId = media.find((m) => m.is_cover)?.id ?? media[0]?.id ?? null;
-
-  const makeCover = async (mediaId: string) => {
-    if (!listingId || mediaId === coverId) return;
-    setSavingId(mediaId);
+  const loadLocations = async () => {
+    setLocationsLoading(true);
     try {
-      await api.setListingCover(listingId, mediaId);
-      await loadMedia(); // Rule D: re-read so the new cover shows immediately.
-      toast.success('Cover photo updated');
+      const res = await fetch('/api/locations');
+      if (!res.ok) throw new Error('Failed to load locations');
+      const { data } = await res.json();
+      setLocations(data || []);
     } catch (err) {
-      console.error('[manage] set cover failed:', err);
-      toast.error(err instanceof Error ? err.message : "Couldn't update the cover");
+      console.error('Failed to load locations:', err);
+      toast.error('Failed to load locations');
     } finally {
-      setSavingId(null);
+      setLocationsLoading(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!formData || !listingId || !userId) {
+      toast.error('Listing data missing');
+      return;
+    }
+
+    setSaving(true);
+    try {
+      const res = await fetch('/api/host/listings/update', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          listingId: parseInt(listingId),
+          userId,
+          title: formData.title,
+          description: formData.description,
+          price_weekday: formData.price_weekday,
+          price_weekend: formData.price_weekend,
+          num_guests: formData.num_guests,
+          num_bedrooms: formData.num_bedrooms,
+          num_beds: formData.num_beds,
+          num_bathrooms: formData.num_bathrooms,
+          location_id: formData.location_id,
+          address_line1: formData.address_line1,
+          address_line2: formData.address_line2,
+          landmark: formData.landmark,
+          latitude: formData.latitude,
+          longitude: formData.longitude,
+        }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to save listing');
+      }
+
+      toast.success('Listing updated successfully!');
+      await loadListing();
+    } catch (err) {
+      console.error('Save error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to save changes');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const handleTogglePause = async () => {
+    if (!listingId || !formData || !userId) return;
+    setPausing(true);
+    try {
+      const res = await fetch('/api/host/listings/toggle', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ listingId: parseInt(listingId), isActive: !formData.is_active, userId }),
+      });
+      if (!res.ok) throw new Error('Failed to update listing status');
+      const { data } = await res.json();
+      setFormData((prev) => (prev ? { ...prev, is_active: data.isActive } : prev));
+      setListing((prev) => (prev ? { ...prev, is_active: data.isActive } : prev));
+      toast.success(data.isActive ? 'Listing is now live!' : 'Listing paused');
+    } catch (err) {
+      console.error('Toggle pause error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update listing status');
+    } finally {
+      setPausing(false);
+    }
+  };
+
+  const handleRemove = async () => {
+    if (!listingId) return;
+    if (
+      !window.confirm(
+        'Remove this listing permanently? This cannot be undone. Listings with existing bookings can\'t be removed -- pause them instead.',
+      )
+    ) {
+      return;
+    }
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}`, {
+        method: 'DELETE',
+      });
+      if (!res.ok) {
+        const error = await res.json();
+        throw new Error(error.error || 'Failed to remove listing');
+      }
+      toast.success('Listing removed.');
+      router.push('/host/listings');
+    } catch (err) {
+      console.error('Remove listing error:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to remove listing');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <HostDashboardShell active="listings">
+        <div className="flex items-center justify-center py-20">
+          <Loader2 className="w-8 h-8 animate-spin text-figma-navy" />
+        </div>
+      </HostDashboardShell>
+    );
+  }
+
+  if (!listing) {
+    return (
+      <HostDashboardShell active="listings">
+        <div className="text-center py-20">
+          <p className="text-gray-500 mb-4">Listing not found</p>
+          <Link href="/host/listings" className="text-figma-navy hover:underline">
+            Back to Listings
+          </Link>
+        </div>
+      </HostDashboardShell>
+    );
+  }
+
+  const selectedLocation = locations.find((l) => l.location_id === formData?.location_id);
+
+  return (
+    <HostDashboardShell active="listings">
+      <div className="min-h-screen flex flex-col bg-gray-50">
+        {/* Header */}
+        <div className="flex items-center justify-between px-8 py-4 border-b border-gray-200 bg-white sticky top-0 z-40">
+          <div>
+            <h1 className="text-2xl font-bold text-gray-900">Edit Listing</h1>
+            <p className="text-sm text-gray-500 mt-1">{formData?.title || 'Loading...'}</p>
+          </div>
+          <div className="flex items-center gap-4">
+            {formData && (
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-gray-100">
+                <span className={cn('w-2 h-2 rounded-full', formData.is_active ? 'bg-green-500' : 'bg-gray-400')} />
+                <span className="text-xs font-semibold text-gray-700">
+                  {formData.is_active ? 'Live' : 'Paused'}
+                </span>
+              </div>
+            )}
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2.5 bg-figma-navy text-white rounded-lg font-semibold hover:bg-figma-navy/90 disabled:opacity-60 flex items-center gap-2"
+            >
+              {saving && <Loader2 className="w-4 h-4 animate-spin" />}
+              {saving ? 'Saving...' : 'Save Changes'}
+            </button>
+          </div>
+        </div>
+
+        {/* Main Content */}
+        <div className="flex flex-1 overflow-hidden">
+          {/* Sidebar Navigation */}
+          <div className="w-72 border-r border-gray-200 bg-white overflow-y-auto flex flex-col">
+            {/* Listing Preview Card - Sticky */}
+            <div className="sticky top-0 p-5 bg-gradient-to-b from-white to-gray-50 border-b border-gray-200 z-10">
+              <div className="space-y-4">
+                {/* Photo Preview */}
+                <div className="aspect-video bg-gray-300 rounded-xl overflow-hidden shadow-sm">
+                  <button
+                    onClick={() => setActiveSection('photos')}
+                    className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-100 to-gray-200 hover:from-gray-200 hover:to-gray-300 transition-colors cursor-pointer group relative"
+                  >
+                    <div className="text-center">
+                      <ImageIcon className="w-12 h-12 text-gray-400 mx-auto mb-2 group-hover:text-gray-600 transition-colors" />
+                      <p className="text-xs text-gray-600 font-medium">Click to add photos</p>
+                    </div>
+                  </button>
+                </div>
+                <div>
+                  <h3 className="font-bold text-gray-900 text-base line-clamp-2">
+                    {formData?.title || 'Untitled Listing'}
+                  </h3>
+                  <p className="text-xs text-gray-600 mt-2">
+                    {selectedLocation?.district && selectedLocation?.state && (
+                      <>
+                        📍 {selectedLocation.district}, {selectedLocation.state}
+                      </>
+                    )}
+                  </p>
+                </div>
+                <div className="flex items-center justify-between pt-2 border-t border-gray-200">
+                  <div>
+                    <p className="text-xs text-gray-600">Base Price</p>
+                    <p className="text-base font-bold text-figma-navy">
+                      ₹{formData?.price_weekday?.toLocaleString()}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-600">Weekend</p>
+                    <p className="text-base font-bold text-figma-navy">
+                      ₹{formData?.price_weekend?.toLocaleString()}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Section Navigation */}
+            <nav className="p-3 space-y-1">
+              {SECTIONS.map((section) => (
+                <button
+                  key={section.id}
+                  onClick={() => setActiveSection(section.id)}
+                  className={cn(
+                    'w-full flex items-center justify-between px-3 py-3 rounded-lg transition-all text-left',
+                    activeSection === section.id
+                      ? 'bg-figma-navy/10 text-figma-navy'
+                      : 'text-gray-700 hover:bg-gray-100'
+                  )}
+                >
+                  <div className="flex items-center gap-3 flex-1">
+                    <span className={activeSection === section.id ? 'text-figma-navy' : 'text-gray-500'}>
+                      {section.icon}
+                    </span>
+                    <span className="font-medium text-sm">{section.label}</span>
+                  </div>
+                  {activeSection === section.id && (
+                    <ChevronRight className="w-4 h-4 text-figma-navy" />
+                  )}
+                </button>
+              ))}
+
+              {/* Divider */}
+              <div className="border-t border-gray-200" />
+
+              {/* Listing Status Section */}
+              <div className="space-y-1">
+                <button
+                  onClick={handleTogglePause}
+                  disabled={pausing || removing}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-gray-700 hover:bg-gray-100 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Pause className="w-5 h-5" />
+                  <span className="font-medium text-sm">
+                    {pausing ? 'Updating...' : formData?.is_active ? 'Pause listing' : 'Reactivate listing'}
+                  </span>
+                </button>
+                <button
+                  onClick={handleRemove}
+                  disabled={removing || pausing}
+                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                >
+                  <Trash2 className="w-5 h-5" />
+                  <span className="font-medium text-sm">{removing ? 'Removing...' : 'Remove Listing'}</span>
+                </button>
+              </div>
+            </nav>
+          </div>
+
+          {/* Content Area */}
+          <div className="flex-1 overflow-y-auto">
+            <div className="p-12 max-w-4xl mx-auto w-full">
+              <SectionRenderer
+                section={activeSection}
+                formData={formData}
+                setFormData={setFormData}
+                locations={locations}
+                locationsLoading={locationsLoading}
+                selectedLocation={selectedLocation}
+                listingId={listingId ? parseInt(listingId) : 0}
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+    </HostDashboardShell>
+  );
+}
+
+
+/**
+ * Render the appropriate section based on activeSection
+ */
+function SectionRenderer({
+  section,
+  formData,
+  setFormData,
+  locations,
+  locationsLoading,
+  selectedLocation,
+  listingId,
+}: {
+  section: SectionType;
+  formData: any;
+  setFormData: any;
+  locations: any[];
+  locationsLoading: boolean;
+  selectedLocation: any;
+  listingId: number;
+}) {
+  const inputClasses = 'w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-figma-navy outline-none text-base';
+  const labelClasses = 'block text-sm font-semibold text-gray-700 mb-2';
+
+  const sectionConfig: Record<SectionType, { title: string; description: string }> = {
+    photos: {
+      title: 'Photos',
+      description: 'Upload and manage your listing photos. A good photo gallery increases bookings.',
+    },
+    overview: {
+      title: 'Listing Title',
+      description: 'Give your listing a clear, attractive title that stands out',
+    },
+    description: {
+      title: 'Description',
+      description: 'Tell guests about your property in detail - what makes it special',
+    },
+    pricing: {
+      title: 'Base & Weekend Price',
+      description: 'Set your nightly rates for weekdays and weekends',
+    },
+    discounts: {
+      title: 'Discounts',
+      description: 'Offer discounts to encourage longer stays and bookings',
+    },
+    addons: {
+      title: 'Add-ons',
+      description: 'Offer additional services for extra income',
+    },
+    'house-rules': {
+      title: 'House Rules',
+      description: 'Set clear expectations and guidelines for your guests',
+    },
+    safety: {
+      title: 'Safety Details',
+      description: 'Highlight safety features and build trust with guests',
+    },
+    location: {
+      title: 'Location',
+      description: 'Help guests find your property with address details',
+    },
+    capacity: {
+      title: 'Room & Capacity',
+      description: 'Define your property specifications and room details',
+    },
+    amenities: {
+      title: 'Amenities',
+      description: 'Tell guests what your place offers. Guests filter by these.',
+    },
+  };
+
+  const config = sectionConfig[section];
+
+  return (
+    <div className="space-y-8">
+      <div className="border-b border-gray-200 pb-6">
+        <h2 className="text-3xl font-bold text-gray-900 mb-2">{config.title}</h2>
+        <p className="text-base text-gray-600">{config.description}</p>
+      </div>
+
+      <div className="bg-white rounded-2xl border border-gray-200 p-8 space-y-6 shadow-sm">
+        {section === 'photos' && listingId ? (
+          <ListingPhotosManager listingId={listingId} />
+        ) : null}
+
+        {section === 'amenities' && listingId ? (
+          <AmenitiesForm listingId={listingId} />
+        ) : null}
+
+        {section === 'overview' && (
+          <div>
+            <label className={labelClasses}>Listing Title</label>
+            <input
+              type="text"
+              value={formData?.title || ''}
+              onChange={(e) =>
+                setFormData((prev: any) => prev ? { ...prev, title: e.target.value } : null)
+              }
+              className={inputClasses}
+              placeholder="e.g., Cozy Studio in Downtown"
+              maxLength={100}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              {formData?.title?.length || 0} / 100 characters
+            </p>
+          </div>
+        )}
+
+        {section === 'description' && (
+          <div>
+            <label className={labelClasses}>Description</label>
+            <textarea
+              value={formData?.description || ''}
+              onChange={(e) =>
+                setFormData((prev: any) => prev ? { ...prev, description: e.target.value } : null)
+              }
+              rows={8}
+              className={cn(inputClasses, 'resize-none')}
+              placeholder="Describe your listing, amenities, and what makes it special..."
+              maxLength={5000}
+            />
+            <p className="text-xs text-gray-500 mt-2">
+              {formData?.description?.length || 0} / 5000 characters
+            </p>
+          </div>
+        )}
+
+        {section === 'pricing' && (
+          <div className="grid grid-cols-2 gap-6">
+            <div>
+              <label className={labelClasses}>Weekday Price (₹/night)</label>
+              <input
+                type="number"
+                value={formData?.price_weekday || 0}
+                onChange={(e) =>
+                  setFormData((prev: any) =>
+                    prev ? { ...prev, price_weekday: parseInt(e.target.value) || 0 } : null
+                  )
+                }
+                className={inputClasses}
+                min="0"
+              />
+            </div>
+            <div>
+              <label className={labelClasses}>Weekend Price (₹/night)</label>
+              <input
+                type="number"
+                value={formData?.price_weekend || 0}
+                onChange={(e) =>
+                  setFormData((prev: any) =>
+                    prev ? { ...prev, price_weekend: parseInt(e.target.value) || 0 } : null
+                  )
+                }
+                className={inputClasses}
+                min="0"
+              />
+            </div>
+          </div>
+        )}
+
+        {section === 'discounts' && listingId ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800">
+                Offer discounts for longer stays to boost bookings and occupancy rates.
+              </p>
+            </div>
+            <DiscountsForm listingId={listingId} />
+          </div>
+        ) : null}
+
+        {section === 'addons' && listingId ? (
+          <div className="space-y-4">
+            <div className="p-4 bg-blue-50 border border-blue-200 rounded-lg flex gap-3">
+              <AlertCircle className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-blue-800">
+                Offer extra services like airport transfers, breakfast, or cleaning for additional revenue per booking.
+              </p>
+            </div>
+            <AddonsForm listingId={listingId} />
+          </div>
+        ) : null}
+
+        {section === 'house-rules' && listingId ? (
+          <HouseRulesForm listingId={listingId} />
+        ) : null}
+
+        {section === 'safety' && listingId ? (
+          <SafetyDetailsForm listingId={listingId} />
+        ) : null}
+
+        {section === 'location' && (
+          <LocationSection
+            formData={formData}
+            setFormData={setFormData}
+            locations={locations}
+            locationsLoading={locationsLoading}
+            selectedLocation={selectedLocation}
+            inputClasses={inputClasses}
+            labelClasses={labelClasses}
+          />
+        )}
+
+        {section === 'capacity' && (
+          <div className="grid grid-cols-2 gap-6">
+            {[
+              { label: 'Max Guests', key: 'num_guests' },
+              { label: 'Bedrooms', key: 'num_bedrooms' },
+              { label: 'Total Beds', key: 'num_beds' },
+              { label: 'Bathrooms', key: 'num_bathrooms' },
+            ].map(({ label, key }) => (
+              <div key={key}>
+                <label className={labelClasses}>{label}</label>
+                <input
+                  type="number"
+                  value={formData?.[key as keyof typeof formData] || 0}
+                  onChange={(e) =>
+                    setFormData((prev: any) =>
+                      prev
+                        ? {
+                            ...prev,
+                            [key]: parseInt(e.target.value) || 0,
+                          }
+                        : null
+                    )
+                  }
+                  className={inputClasses}
+                  min="0"
+                />
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Location editing for an existing listing. The host types/picks their
+ * address (AddressSearch, backed by Google Places autocomplete) and the
+ * coordinates, curated location_id, and displayed detected area are all
+ * derived from that automatically -- previously this required manually
+ * cross-referencing a plain <select> of every curated location by hand,
+ * with no coordinates captured at all. The curated-location dropdown is
+ * kept as a fallback/override for the rare address that doesn't resolve
+ * to a match, same as the listing-creation wizard's location step.
+ */
+function LocationSection({
+  formData,
+  setFormData,
+  locations,
+  locationsLoading,
+  selectedLocation,
+  inputClasses,
+  labelClasses,
+}: {
+  formData: any;
+  setFormData: any;
+  locations: any[];
+  locationsLoading: boolean;
+  selectedLocation: any;
+  inputClasses: string;
+  labelClasses: string;
+}) {
+  const [detecting, setDetecting] = useState(false);
+
+  const handleAddressSelect = async (lat: number, lng: number, addr: string) => {
+    setFormData((prev: any) =>
+      prev ? { ...prev, address_line1: addr, latitude: lat, longitude: lng } : null,
+    );
+    setDetecting(true);
+    try {
+      const result = await reverseGeocode(lat, lng);
+      if (!result) return;
+      const locationId = await resolveLocationId(result.address.city, result.address.county);
+      if (locationId) {
+        setFormData((prev: any) => (prev ? { ...prev, location_id: locationId } : null));
+      }
+    } finally {
+      setDetecting(false);
     }
   };
 
   return (
-    <HostDashboardShell active="listings">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8">
-        <div className="flex items-center gap-3">
-          <Link
-            href="/host/listings"
-            className="p-2 hover:bg-gray-100 rounded-full transition-colors text-blue-600"
-          >
-            <ArrowLeft className="w-5 h-5" />
-          </Link>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">Manage Listing</h1>
-            <p className="text-sm text-gray-500">Update your room details and guest capacity</p>
-          </div>
-        </div>
-        <div className="flex items-center gap-3">
-          <button className="px-6 py-2.5 text-blue-600 border border-blue-600 rounded-xl font-bold hover:bg-blue-50 transition-all">
-            Edit
-          </button>
-          <button className="px-6 py-2.5 bg-blue-600 text-white rounded-xl font-bold shadow-md hover:bg-blue-700 active:scale-[0.98] transition-all">
-            Save
-          </button>
-        </div>
-      </div>
+    <div className="space-y-4">
+      <ListingLocationMap
+        latitude={formData?.latitude}
+        longitude={formData?.longitude}
+        heightClass="h-56"
+      />
 
-      {/* Photos & cover */}
-      <section className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 mb-6">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1 mb-1">
-          <h3 className="text-lg font-bold text-gray-800">Photos</h3>
-          {listingId && media.length > 1 && (
-            <span className="text-xs text-gray-400">
-              Hover a photo and tap “Make cover” to set the listing image
-            </span>
-          )}
-        </div>
-        <p className="text-sm text-gray-500 mb-6">
-          The cover is the first image guests see on your listing card.
+      <div>
+        <label className={labelClasses}>Address</label>
+        <AddressSearch
+          value={formData?.address_line1 || ''}
+          onChange={(addr) =>
+            setFormData((prev: any) => (prev ? { ...prev, address_line1: addr } : null))
+          }
+          onSelect={handleAddressSelect}
+          placeholder="Start typing the property address"
+        />
+        <p className="text-xs text-gray-500 mt-1.5">
+          {detecting
+            ? 'Detecting location…'
+            : 'Pick a suggestion and the location below is filled in automatically.'}
         </p>
-
-        {!listingId ? (
-          <div className="text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
-            Open this page from{' '}
-            <Link href="/host/listings" className="text-blue-600 font-medium hover:underline">
-              your listings
-            </Link>{' '}
-            to manage a listing&apos;s photos.
-          </div>
-        ) : loadingMedia ? (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div key={i} className="aspect-[4/3] rounded-2xl bg-gray-100 animate-pulse" />
-            ))}
-          </div>
-        ) : media.length === 0 ? (
-          <div className="flex flex-col items-center gap-2 text-center py-10 text-sm text-gray-400 border border-dashed border-gray-200 rounded-2xl">
-            <ImageOff className="w-6 h-6" />
-            No photos on this listing yet.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            {media.map((m) => {
-              const isCover = m.id === coverId;
-              const saving = savingId === m.id;
-              return (
-                <div
-                  key={m.id}
-                  className={cn(
-                    'relative aspect-[4/3] rounded-2xl overflow-hidden shadow-card group',
-                    isCover && 'ring-2 ring-blue-500',
-                  )}
-                >
-                  <img src={m.media_url} alt="Listing photo" className="w-full h-full object-cover" />
-
-                  {isCover && (
-                    <div className="absolute top-3 left-3 bg-white/85 backdrop-blur-md px-3 py-1 rounded-full">
-                      <span className="text-[11px] font-bold text-blue-700 uppercase tracking-wider">
-                        Cover
-                      </span>
-                    </div>
-                  )}
-
-                  {!isCover && (
-                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity flex items-center justify-center">
-                      <button
-                        onClick={() => makeCover(m.id)}
-                        disabled={saving}
-                        title="Make cover"
-                        className="flex items-center gap-2 bg-white text-blue-600 px-4 py-2.5 rounded-full font-bold shadow-lg hover:scale-105 active:scale-95 transition-transform disabled:opacity-70 disabled:cursor-not-allowed"
-                      >
-                        {saving ? (
-                          <Loader2 className="w-5 h-5 animate-spin" />
-                        ) : (
-                          <Star className="w-5 h-5 text-amber-500" />
-                        )}
-                        Make cover
-                      </button>
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-          </div>
-        )}
-      </section>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        {/* Capacity */}
-        <section className="lg:col-span-4 space-y-6">
-          <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
-            <h3 className="text-lg font-bold text-gray-800 mb-6">Capacity</h3>
-            <div className="space-y-6">
-              {CAP.map((c) => {
-                const Icon = c.icon;
-                return (
-                  <div key={c.key} className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center">
-                        <Icon className="w-5 h-5 text-blue-600" />
-                      </div>
-                      <span className="text-base font-semibold text-gray-800">{c.label}</span>
-                    </div>
-                    <div className="flex items-center gap-4">
-                      <button
-                        onClick={() => set(c.key, -1)}
-                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 transition-colors text-gray-600"
-                      >
-                        <Minus className="w-4 h-4" />
-                      </button>
-                      <span className="text-lg font-bold w-6 text-center">{counts[c.key]}</span>
-                      <button
-                        onClick={() => set(c.key, 1)}
-                        className="w-8 h-8 rounded-full border border-gray-300 flex items-center justify-center hover:border-blue-600 transition-colors text-gray-600"
-                      >
-                        <Plus className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          <div className="bg-blue-50/60 rounded-3xl p-6 border border-blue-100">
-            <div className="flex items-start gap-4">
-              <Info className="w-5 h-5 text-blue-600 mt-0.5" />
-              <div>
-                <p className="text-sm font-bold text-blue-700 mb-1">Host Tip</p>
-                <p className="text-sm text-gray-600">
-                  Listings with precise room details tend to get 25% more bookings.
-                </p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        {/* Bedrooms */}
-        <section className="lg:col-span-8 space-y-6">
-          <div className="flex items-center justify-between">
-            <h3 className="text-lg font-bold text-gray-800">Bedroom Configuration</h3>
-            <button
-              onClick={() =>
-                setBedrooms((b) => [...b, { id: Date.now(), type: 'Queen Bed' }])
-              }
-              className="flex items-center gap-2 text-blue-600 font-bold hover:underline"
-            >
-              <PlusCircle className="w-5 h-5" />
-              <span className="text-sm">Add Bedroom</span>
-            </button>
-          </div>
-
-          <div className="space-y-6">
-            {bedrooms.map((bed, i) => (
-              <div
-                key={bed.id}
-                className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 relative group overflow-hidden"
-              >
-                <div className="absolute top-0 left-0 w-1.5 h-full bg-blue-600 opacity-50" />
-                <div className="flex flex-col md:flex-row gap-6">
-                  <img
-                    src={`https://images.unsplash.com/photo-150569341638${i % 2 === 0 ? '8' : '9'}-ac5ce068fe85?w=200&h=200&fit=crop&q=80`}
-                    alt={`Bedroom ${i + 1}`}
-                    className="w-24 h-24 rounded-2xl object-cover shadow-md shrink-0"
-                  />
-                  <div className="flex-1">
-                    <div className="flex items-center justify-between mb-4">
-                      <h4 className="text-base font-bold text-gray-800">Bedroom {i + 1}</h4>
-                      {bedrooms.length > 1 && (
-                        <button
-                          onClick={() => setBedrooms((b) => b.filter((x) => x.id !== bed.id))}
-                          className="text-red-500 hover:bg-red-50 p-2 rounded-full transition-colors opacity-0 group-hover:opacity-100"
-                        >
-                          <Trash2 className="w-5 h-5" />
-                        </button>
-                      )}
-                    </div>
-                    <div className="space-y-2">
-                      <label className="text-xs font-semibold text-gray-500 uppercase tracking-wider block">
-                        Bed Type
-                      </label>
-                      <div className="relative">
-                        <BedDouble className="w-5 h-5 text-blue-600 absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
-                        <select
-                          value={bed.type}
-                          onChange={(e) =>
-                            setBedrooms((b) =>
-                              b.map((x) => (x.id === bed.id ? { ...x, type: e.target.value } : x)),
-                            )
-                          }
-                          className="w-full pl-12 pr-4 py-4 bg-gray-50 rounded-2xl border border-transparent hover:border-blue-300 focus:ring-2 focus:ring-blue-500 outline-none text-sm font-semibold appearance-none"
-                        >
-                          {BED_TYPES.map((t) => (
-                            <option key={t}>{t}</option>
-                          ))}
-                        </select>
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
       </div>
-    </HostDashboardShell>
+
+      {selectedLocation ? (
+        <div className="p-4 bg-figma-navy/5 rounded-lg border border-figma-navy/30">
+          <p className="text-sm font-semibold text-figma-navy mb-2">📍 Detected Location</p>
+          <div className="space-y-1 text-sm text-figma-navy">
+            <p><strong>State:</strong> {selectedLocation.state}</p>
+            <p><strong>District:</strong> {selectedLocation.district}</p>
+            <p><strong>Area:</strong> {selectedLocation.lower_division_name}</p>
+            <p><strong>Pincode:</strong> {selectedLocation.pincode}</p>
+          </div>
+        </div>
+      ) : (
+        formData?.latitude != null &&
+        formData?.longitude != null && (
+          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <p className="text-sm text-amber-800">
+              Coordinates detected, but this address doesn&apos;t match a curated
+              location yet -- pick the closest one below.
+            </p>
+          </div>
+        )
+      )}
+
+      <div>
+        <label className={labelClasses}>
+          Location {formData?.latitude != null ? '(auto-detected -- adjust if needed)' : ''}
+        </label>
+        <select
+          value={formData?.location_id || ''}
+          onChange={(e) => {
+            const locId = parseInt(e.target.value);
+            setFormData((prev: any) => (prev ? { ...prev, location_id: locId } : null));
+          }}
+          disabled={locationsLoading}
+          className={cn(inputClasses, 'bg-white')}
+        >
+          <option value="">
+            {locationsLoading ? 'Loading locations...' : 'Select a location'}
+          </option>
+          {locations.map((loc) => (
+            <option key={loc.location_id} value={loc.location_id}>
+              {loc.state} • {loc.district} • {loc.lower_division_name}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div>
+        <label className={labelClasses}>Address Line 2 (Optional)</label>
+        <input
+          type="text"
+          value={formData?.address_line2 || ''}
+          onChange={(e) =>
+            setFormData((prev: any) =>
+              prev ? { ...prev, address_line2: e.target.value } : null,
+            )
+          }
+          className={inputClasses}
+          placeholder="Apt, suite, etc."
+        />
+      </div>
+
+      <div>
+        <label className={labelClasses}>Landmark (Optional)</label>
+        <input
+          type="text"
+          value={formData?.landmark || ''}
+          onChange={(e) =>
+            setFormData((prev: any) => (prev ? { ...prev, landmark: e.target.value } : null))
+          }
+          className={inputClasses}
+          placeholder="e.g., Near Central Park"
+        />
+      </div>
+    </div>
   );
 }

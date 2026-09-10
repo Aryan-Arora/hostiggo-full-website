@@ -32,3 +32,8 @@ hostiggo-full-website/
 
 # Stitch import working files
 _stitch/
+
+# TypeScript incremental build cache -- regenerated locally on every build,
+# was getting committed and bloating every unrelated PR's diff.
+tsconfig.tsbuildinfo
+.vercel

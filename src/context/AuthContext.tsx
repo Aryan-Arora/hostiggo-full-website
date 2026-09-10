@@ -16,6 +16,7 @@ import {
   clearStoredAuth,
   type CurrentUser,
 } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 
 interface AuthState {
   user: CurrentUser | null;
@@ -25,9 +26,9 @@ interface AuthState {
 }
 
 interface AuthActions {
-  /** Persist the user id and load the profile (call after OTP verify). */
+  /** Persist the user id and load the profile (call after OTP verify or OAuth callback). */
   signIn: (userId: string) => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
@@ -55,16 +56,35 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     const stored = getStoredUserId();
     if (!stored) {
       setLoading(false);
-      return;
+    } else {
+      setUserId(stored);
+      loadUser(stored).finally(() => {
+        if (mounted) setLoading(false);
+      });
     }
-    setUserId(stored);
-    loadUser(stored).finally(() => {
-      if (mounted) setLoading(false);
-    });
     return () => {
       mounted = false;
     };
   }, [loadUser]);
+
+  // Google OAuth and email OTP both establish a real Supabase Auth session
+  // (phone OTP doesn't -- it's verified server-side and only ever gives us
+  // a userId, never a client-side session). This listener keeps our
+  // locally-stored userId in sync when one of those sessions ends outside
+  // our own signOut() call -- e.g. token refresh failure after being idle,
+  // or signing out in another tab.
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_OUT') {
+        clearStoredAuth();
+        setUser(null);
+        setUserId(null);
+      }
+    });
+    return () => subscription.unsubscribe();
+  }, []);
 
   const signIn = useCallback(
     async (id: string) => {
@@ -77,7 +97,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadUser],
   );
 
-  const signOut = useCallback(() => {
+  const signOut = useCallback(async () => {
+    // Invalidates the real Supabase session (Google/email OTP). Phone OTP
+    // never has one client-side, so this is a harmless no-op for that case.
+    // Skipping this used to leave a Google session alive after "sign out",
+    // which the app would silently pick back up on the next session check.
+    await supabase.auth.signOut().catch(() => {});
     clearStoredAuth();
     setUser(null);
     setUserId(null);

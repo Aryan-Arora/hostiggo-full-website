@@ -1,11 +1,11 @@
 'use client';
 
 import Link from 'next/link';
-import { useRouter } from 'next/navigation';
+import { usePathname, useRouter } from 'next/navigation';
 import { Building2, Loader2 } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
-// A real user row from the DB — used only as a dev shortcut so the host area
+// A real user row from the DB, used only as a dev shortcut so the host area
 // is reviewable locally (production sign-in is phone OTP). Never shown in prod.
 const DEMO_HOST_ID = '7701820c-50fe-4ee8-a4e6-e18068c1fb0b';
 const IS_DEV = process.env.NODE_ENV !== 'production';
@@ -13,11 +13,17 @@ const IS_DEV = process.env.NODE_ENV !== 'production';
 export default function HostLayout({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading, signIn } = useAuth();
   const router = useRouter();
+  // usePathname (not useSearchParams -- that requires a Suspense boundary
+  // and this layout wraps statically-prerendered pages like /host/account)
+  // is enough to preserve where the visitor was actually headed through the
+  // sign-in flow, instead of dropping them on a generic page after auth.
+  const pathname = usePathname();
+  const signInHref = `/signin?redirect=${encodeURIComponent(pathname || '/host')}`;
 
   if (loading) {
     return (
       <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center">
-        <Loader2 className="w-8 h-8 text-blue-600 animate-spin" />
+        <Loader2 className="w-8 h-8 text-figma-navy animate-spin" />
       </div>
     );
   }
@@ -26,7 +32,7 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
     return (
       <div className="min-h-screen bg-[#f0f2f5] flex items-center justify-center px-4">
         <div className="bg-white rounded-3xl shadow-card border border-gray-200 max-w-md w-full p-8 text-center">
-          <div className="w-14 h-14 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center mx-auto mb-5">
+          <div className="w-14 h-14 rounded-2xl bg-figma-navy/5 text-figma-navy flex items-center justify-center mx-auto mb-5">
             <Building2 className="w-7 h-7" />
           </div>
           <h1 className="text-xl font-bold text-gray-900 mb-2">
@@ -36,8 +42,8 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
             Your listings, bookings, and earnings live here. Sign in to continue.
           </p>
           <Link
-            href="/signin"
-            className="block w-full bg-blue-600 text-white font-semibold py-3 rounded-xl hover:bg-blue-700 transition-all"
+            href={signInHref}
+            className="block w-full bg-figma-navy text-white font-semibold py-3 rounded-xl hover:bg-figma-navy/90 transition-all"
           >
             Sign in
           </Link>

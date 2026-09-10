@@ -7,10 +7,8 @@ export const dynamic = "force-dynamic";
 // the first fetch), so edits to a listing wouldn't show until the cache expired.
 export const fetchCache = "force-no-store";
 
-export async function GET(
-  _req: NextRequest,
-  { params }: { params: { id: string } },
-) {
+export async function GET(_req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const data = await HotelServiceApi.getHotelDetail(params.id);
     return NextResponse.json({ data });

@@ -1,0 +1,62 @@
+import { NextRequest, NextResponse } from 'next/server';
+import * as discountService from '@/lib/services/discounts';
+import { assertListingOwnedBy } from '@/lib/services/admin-writes';
+import { errorMessage } from "@/lib/api-error";
+
+export async function GET(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
+  try {
+    const listingId = parseInt(params.listingId, 10);
+    if (isNaN(listingId)) {
+      return NextResponse.json({ error: 'Invalid listing ID' }, { status: 400 });
+    }
+
+    const discounts = await discountService.getListingDiscounts(listingId);
+    return NextResponse.json({ data: discounts });
+  } catch (error) {
+    console.error('[api/discounts] GET error:', error);
+    return NextResponse.json(
+      { error: 'Failed to fetch discounts' },
+      { status: 500 }
+    );
+  }
+}
+
+export async function POST(request: NextRequest, props: { params: Promise<{ listingId: string }> }) {
+  const params = await props.params;
+  try {
+    const listingId = parseInt(params.listingId, 10);
+    if (isNaN(listingId)) {
+      return NextResponse.json({ error: 'Invalid listing ID' }, { status: 400 });
+    }
+
+    const body = await request.json();
+    const { discount_type, percent, userId } = body;
+
+    if (!userId) {
+      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    }
+    await assertListingOwnedBy(listingId, String(userId));
+
+    if (!discount_type || percent === undefined) {
+      return NextResponse.json(
+        { error: 'Missing required fields: discount_type, percent' },
+        { status: 400 }
+      );
+    }
+
+    const discount = await discountService.createDiscount(
+      listingId,
+      discount_type,
+      percent
+    );
+
+    return NextResponse.json({ data: discount }, { status: 201 });
+  } catch (error) {
+    console.error('[api/discounts] POST error:', error);
+    return NextResponse.json(
+      { error: errorMessage(error, 'Failed to create discount') },
+      { status: 500 }
+    );
+  }
+}

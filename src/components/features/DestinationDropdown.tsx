@@ -1,15 +1,38 @@
 import { useState, useRef, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { MapPin, Navigation } from 'lucide-react';
+import { MapPin, Clock, Navigation, Loader2 } from 'lucide-react';
 import { SUGGESTED_DESTINATIONS, findCityGuide } from '@/constants/data';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { reverseGeocode } from '@/lib/services/geocoding';
 
 interface DestinationDropdownProps {
   value: string;
   onQueryChange: (value: string) => void;
   onSelect: (value: string) => void;
   onClose: () => void;
+}
+
+const RECENT_STORAGE_KEY = 'hostiggo:recent-searches';
+const MAX_RECENT = 3;
+
+function getRecentSearches(): string[] {
+  try {
+    const raw = localStorage.getItem(RECENT_STORAGE_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+function pushRecentSearch(value: string) {
+  try {
+    const current = getRecentSearches().filter((v) => v.toLowerCase() !== value.toLowerCase());
+    const next = [value, ...current].slice(0, MAX_RECENT);
+    localStorage.setItem(RECENT_STORAGE_KEY, JSON.stringify(next));
+  } catch {
+    /* ignore */
+  }
 }
 
 const FALLBACK_IMG = '/placeholder.svg';
@@ -23,9 +46,15 @@ export default function DestinationDropdown({
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
+  const [locating, setLocating] = useState(false);
+  const [recent, setRecent] = useState<string[]>([]);
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+
+  useEffect(() => {
+    setRecent(getRecentSearches());
+  }, []);
 
   useEffect(() => {
     inputRef.current?.focus();
@@ -37,6 +66,12 @@ export default function DestinationDropdown({
 
     if (!query.trim()) {
       setResults([]);
+      return;
+    }
+
+    // Don't fire the network request for very short queries (e.g. a single
+    // character). Leave any existing results unchanged until length >= 2.
+    if (query.trim().length < 2) {
       return;
     }
 
@@ -58,9 +93,36 @@ export default function DestinationDropdown({
     };
   }, [query]);
 
+  // Deliberately doesn't call onClose() here -- onSelect already decides
+  // the right terminal panel state for its caller (SearchForm advances to
+  // the date panel, CompactSearchBar closes to null). Calling onClose()
+  // right after onSelect() used to fire a second setActivePanel(null) that
+  // clobbered whatever onSelect had just set, so picking any destination
+  // that wasn't one of the hardcoded city-guide entries (which navigate
+  // straight to /search via goToSearch below, sidestepping this) silently
+  // closed the whole search bar instead of moving on to date selection --
+  // looked like nothing happened when you picked a location.
   const handleSelect = (name: string) => {
+    pushRecentSearch(name);
     onSelect(name);
-    onClose();
+  };
+
+  const handleUseCurrentLocation = () => {
+    if (!navigator.geolocation) return;
+    setLocating(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        try {
+          const result = await reverseGeocode(position.coords.latitude, position.coords.longitude);
+          const label = result?.address.city || result?.address.county || result?.displayName;
+          if (label) handleSelect(label);
+        } finally {
+          setLocating(false);
+        }
+      },
+      () => setLocating(false),
+      { timeout: 10000 },
+    );
   };
 
   const handleQueryChange = (newQuery: string) => {
@@ -97,7 +159,7 @@ export default function DestinationDropdown({
       {/* Input */}
       <div className="p-3 border-b border-gray-50">
         <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
-          <MapPin className="w-4 h-4 text-blue-500 flex-shrink-0" />
+          <MapPin className="w-4 h-4 text-figma-navy flex-shrink-0" />
           <input
             ref={inputRef}
             type="text"
@@ -126,7 +188,7 @@ export default function DestinationDropdown({
           <div className="py-2">
             <button
               onClick={() => goToSearch(cityGuide.city)}
-              className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-blue-50 transition-colors text-left group"
+              className="w-full flex items-center gap-3.5 px-4 py-3 hover:bg-figma-navy/5 transition-colors text-left group"
             >
               <img
                 src={cityGuide.imageUrl}
@@ -150,10 +212,10 @@ export default function DestinationDropdown({
               <button
                 key={area.name}
                 onClick={() => goToSearch(cityGuide.city, area.name)}
-                className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group"
+                className="w-full flex items-start gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group"
               >
-                <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-blue-100 transition-colors">
-                  <MapPin className="w-4 h-4 text-blue-600" />
+                <div className="w-8 h-8 rounded-lg bg-figma-navy/10 flex items-center justify-center flex-shrink-0 mt-0.5 group-hover:bg-figma-navy/20 transition-colors">
+                  <MapPin className="w-4 h-4 text-figma-navy" />
                 </div>
                 <div className="min-w-0">
                   <p className="text-[14px] font-bold text-gray-900 leading-tight">
@@ -167,17 +229,59 @@ export default function DestinationDropdown({
             ))}
           </div>
         ) : !query.trim() ? (
-          /* Empty state: suggested destinations grid */
-          <div className="px-4 pt-3 pb-4">
-            <p className="text-[15px] font-bold text-gray-900 mb-4">
+          /* Empty state: current location, recent searches, then suggested destinations */
+          <div className="pt-2">
+            <button
+              onClick={handleUseCurrentLocation}
+              disabled={locating}
+              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group disabled:opacity-60"
+            >
+              <div className="w-9 h-9 bg-figma-navy/10 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-figma-navy/20 transition-colors">
+                {locating ? (
+                  <Loader2 className="w-4 h-4 text-figma-navy animate-spin" />
+                ) : (
+                  <Navigation className="w-4 h-4 text-figma-navy" />
+                )}
+              </div>
+              <div>
+                <p className="text-[13px] font-semibold text-gray-800">
+                  {locating ? 'Finding your location…' : 'Use current location'}
+                </p>
+                <p className="text-[11px] text-gray-400">Near me stays</p>
+              </div>
+            </button>
+
+            {recent.length > 0 && (
+              <>
+                <p className="px-4 py-1.5 text-[10px] font-bold text-gray-400 uppercase tracking-widest">
+                  Recent searches
+                </p>
+                {recent.map((r) => (
+                  <button
+                    key={r}
+                    onClick={() => handleSelect(r)}
+                    className="w-full flex items-center gap-3 px-4 py-2 hover:bg-gray-50 transition-colors text-left"
+                  >
+                    <div className="w-8 h-8 bg-gray-100 rounded-lg flex items-center justify-center flex-shrink-0">
+                      <Clock className="w-3.5 h-3.5 text-gray-500" />
+                    </div>
+                    <span className="text-[13px] font-medium text-gray-700">
+                      {r}
+                    </span>
+                  </button>
+                ))}
+              </>
+            )}
+
+            <p className="px-4 pt-3 pb-3 text-[15px] font-bold text-gray-900">
               Suggested destinations
             </p>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
+            <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
               {SUGGESTED_DESTINATIONS.map((dest) => (
                 <button
                   key={dest.id}
                   onClick={() => handleSelect(dest.name)}
-                  className="flex items-center gap-3 p-1.5 rounded-2xl hover:bg-blue-50 transition-colors text-left group"
+                  className="flex items-center gap-3 p-1.5 rounded-2xl hover:bg-figma-navy/5 transition-colors text-left group"
                 >
                   <img
                     src={dest.imageUrl}
@@ -205,21 +309,6 @@ export default function DestinationDropdown({
         ) : (
           /* Typed query with no matching city guide: live location results */
           <div className="py-2">
-            <button
-              onClick={() => handleSelect('Current location')}
-              className="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group"
-            >
-              <div className="w-9 h-9 bg-blue-100 rounded-xl flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                <Navigation className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-[13px] font-semibold text-gray-800">
-                  Use current location
-                </p>
-                <p className="text-[11px] text-gray-400">Near me stays</p>
-              </div>
-            </button>
-
             {loading ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">Searching...</p>
@@ -230,7 +319,7 @@ export default function DestinationDropdown({
                   No exact match found in database
                 </p>
                 <p className="text-xs text-gray-300 mt-1">
-                  You can still search for "{query}"
+                  You can still search for &quot;{query}&quot;
                 </p>
               </div>
             ) : (
@@ -242,12 +331,12 @@ export default function DestinationDropdown({
                     key={dest.location_id}
                     onClick={() => handleSelect(displayName)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-blue-50 transition-colors text-left group',
-                      value === displayName && 'bg-blue-50',
+                      'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group',
+                      value === displayName && 'bg-figma-navy/5',
                     )}
                   >
-                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-blue-200 transition-colors">
-                      <MapPin className="w-5 h-5 text-gray-500 group-hover:text-blue-600 transition-colors" />
+                    <div className="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0 group-hover:bg-figma-navy/20 transition-colors">
+                      <MapPin className="w-5 h-5 text-gray-500 group-hover:text-figma-navy transition-colors" />
                     </div>
                     <div className="min-w-0 flex-1">
                       <p className="text-[13px] font-semibold text-gray-800 truncate">
@@ -258,7 +347,7 @@ export default function DestinationDropdown({
                       </p>
                     </div>
                     {value === displayName && (
-                      <div className="w-2 h-2 rounded-full bg-blue-500 flex-shrink-0" />
+                      <div className="w-2 h-2 rounded-full bg-figma-navy flex-shrink-0" />
                     )}
                   </button>
                 );

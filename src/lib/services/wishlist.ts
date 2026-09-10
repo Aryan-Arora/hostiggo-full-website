@@ -1,4 +1,5 @@
-import { supabase } from "../supabase";
+import "server-only";
+import { supabaseAdmin as supabase } from "../supabase-admin";
 
 export type WishlistDTO = {
   id: string;
@@ -24,11 +25,85 @@ export type AddWishlistCategoryPayload = {
   name: string;
 };
 
+const DEFAULT_CATEGORY_NAME = "Saved";
+
 export const wishlistAPI = {
   async addToWishlist(item: AddWishlistPayload): Promise<WishlistDTO> {
+    const { user_id, listing_id, category_id } = item;
+
+    // The table's real primary key is (user_id, listing_id, category_id) --
+    // a listing can belong to several of a guest's lists at once. This used
+    // to dedupe on just (user_id, listing_id) regardless of category, so
+    // saving a listing to a second list silently no-op'd and returned the
+    // *first* list's row instead, making it look like it saved when it
+    // didn't -- the "save to..." picker (WishlistPicker) depends on being
+    // able to add the same listing to multiple categories. Only scope the
+    // dedupe check to the specific category when one is given; the no-category
+    // legacy path (a bare heart click with no list chosen) keeps its
+    // original meaning of "don't duplicate this save at all".
+    let dupeQuery = supabase
+      .from("wishlists")
+      .select("*")
+      .eq("user_id", user_id)
+      .eq("listing_id", listing_id);
+    if (category_id) dupeQuery = dupeQuery.eq("category_id", category_id);
+    const { data: alreadySaved, error: dupeErr } = await dupeQuery.limit(1);
+
+    if (dupeErr) throw dupeErr;
+    if (alreadySaved && alreadySaved.length > 0) {
+      return alreadySaved[0];
+    }
+
+    let categoryId = category_id;
+
+    if (!categoryId) {
+      const { data: existing, error: findErr } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("user_id", user_id)
+        .eq("name", DEFAULT_CATEGORY_NAME)
+        .limit(1);
+
+      if (findErr) throw findErr;
+
+      if (existing && existing.length > 0) {
+        categoryId = existing[0].id;
+      } else {
+        const { data: created, error: createErr } = await supabase
+          .from("categories")
+          .insert([{ user_id, name: DEFAULT_CATEGORY_NAME }])
+          .select("id")
+          .single();
+
+        if (createErr) {
+          // 23505 here means another request for this same user created
+          // their "Saved" category in the gap between the lookup above and
+          // this insert (e.g. two tabs saving at once) -- the uniqueness is
+          // now correctly scoped to (user_id, name), so that's the only way
+          // this insert can still collide. Look the row up instead of
+          // failing the save outright.
+          if ((createErr as { code?: string }).code === "23505") {
+            const { data: raceWinner, error: raceErr } = await supabase
+              .from("categories")
+              .select("id")
+              .eq("user_id", user_id)
+              .eq("name", DEFAULT_CATEGORY_NAME)
+              .limit(1)
+              .single();
+            if (raceErr) throw raceErr;
+            categoryId = raceWinner.id;
+          } else {
+            throw createErr;
+          }
+        } else {
+          categoryId = created.id;
+        }
+      }
+    }
+
     const { data, error } = await supabase
       .from("wishlists")
-      .insert([item])
+      .insert([{ user_id, listing_id, category_id: categoryId }])
       .select()
       .single();
 
@@ -49,7 +124,18 @@ export const wishlistAPI = {
     return data;
   },
 
-  async deleteWishlistCategory(categoryId: string): Promise<void> {
+  async deleteWishlistCategory(categoryId: string, userId: string): Promise<void> {
+    // Ownership check -- without it, any client could delete any user's
+    // category (and all its saved items) just by guessing a category id.
+    const { data: category, error: ownerError } = await supabase
+      .from("categories")
+      .select("id")
+      .eq("id", categoryId)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (ownerError) throw ownerError;
+    if (!category) throw new Error("Category not found");
+
     const { error: itemsError } = await supabase
       .from("wishlists")
       .delete()
@@ -71,15 +157,19 @@ export const wishlistAPI = {
   async renameWishlistCategory(
     categoryId: string,
     newName: string,
+    userId: string,
   ): Promise<WishlistCategoryDTO> {
+    // Scoped by user_id so a client can only rename its own categories.
     const { data, error } = await supabase
       .from("categories")
       .update({ name: newName })
       .eq("id", categoryId)
+      .eq("user_id", userId)
       .select()
-      .single();
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data) throw new Error("Category not found");
     return data;
   },
 
@@ -116,6 +206,20 @@ export const wishlistAPI = {
 
     if (error) throw error;
     return data || [];
+  },
+
+  // Which of the guest's categories this specific listing is already saved
+  // into -- used to pre-check the right boxes when the "save to..." picker
+  // opens for a listing that's already saved somewhere.
+  async getCategoriesForListing(userId: string, listingId: string): Promise<string[]> {
+    const { data, error } = await supabase
+      .from("wishlists")
+      .select("category_id")
+      .eq("user_id", userId)
+      .eq("listing_id", listingId)
+      .not("category_id", "is", null);
+    if (error) throw error;
+    return (data || []).map((row) => row.category_id).filter(Boolean);
   },
 
   async getWishlistListingIds(userId: string): Promise<{ listing_id: string }[]> {
@@ -158,6 +262,23 @@ export const wishlistAPI = {
 
     const { data, error } = await query;
     if (error) throw error;
-    return data || [];
+    if (!data) return [];
+
+    // A listing can now belong to several categories at once (see
+    // addToWishlist), so without a category filter -- the "All" view --
+    // this query returns one row per (listing, category) membership, which
+    // showed the same listing card twice, three times, etc. "All" means
+    // "every listing you've saved, once each", not one card per list it's
+    // in, so dedupe by listing id when there's no specific category
+    // requested.
+    if (categoryId) return data;
+    const seen = new Set<string | number>();
+    return data.filter((row: any) => {
+      const id = row?.listing?.listing_id;
+      if (id == null) return true;
+      if (seen.has(id)) return false;
+      seen.add(id);
+      return true;
+    });
   },
 };

@@ -1,112 +1,229 @@
-import { useState } from "react";
-import { Heart, Star, Wifi, Car, Coffee, Zap, Droplets, UtensilsCrossed, CheckCircle, Clock } from "lucide-react";
-import { useRouter } from "next/navigation";
+import { useAuth } from "@/context/AuthContext";
+import { useListingState } from "@/context/ListingFilterContext";
+import { useWishlist } from "@/hooks/useWishlist";
+import { calculateBookingInvoice } from "@/lib/billing/invoice";
+import { cn, toISODate } from "@/lib/utils";
 import type { Property } from "@/types";
-import { cn } from "@/lib/utils";
+import { Car, Coffee, Heart, Star, Wifi } from "lucide-react";
+import Image from "next/image";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
+import { toast } from "sonner";
+import WishlistPicker from "./WishlistPicker";
 
 interface PropertyCardListProps {
   property: Property;
 }
 
-const FALLBACK = "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&q=80";
-
-const AMENITY_ICONS: Record<string, React.ReactNode> = {
-  "WiFi": <Wifi className="w-3 h-3" />,
-  "Parking": <Car className="w-3 h-3" />,
-  "Breakfast": <Coffee className="w-3 h-3" />,
-  "AC": <Zap className="w-3 h-3" />,
-  "Pool": <Droplets className="w-3 h-3" />,
-  "Kitchen": <UtensilsCrossed className="w-3 h-3" />,
-};
+const FALLBACK =
+  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&q=80";
 
 export default function PropertyCardList({ property }: PropertyCardListProps) {
-  const [liked, setLiked] = useState(property.isFavorite ?? false);
   const [imgErr, setImgErr] = useState(false);
   const router = useRouter();
+  const { dates, guests } = useListingState();
+
+  const nights =
+    dates.checkIn && dates.checkOut
+      ? Math.max(
+          0,
+          Math.round(
+            (dates.checkOut.getTime() - dates.checkIn.getTime()) / 86400000,
+          ),
+        )
+      : null;
+  const totalGuests = guests.adults + guests.children;
+  const invoice = calculateBookingInvoice({
+    basePropertyPrice: property.price,
+  });
+  const feesAndTaxes = Math.round(
+    invoice.grandTotalPaise / 100 - property.price,
+  );
+  const { isAuthenticated, userId } = useAuth();
+  const { isSaved } = useWishlist(userId);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [likedOverride, setLikedOverride] = useState<boolean | null>(null);
+  const liked = likedOverride ?? isSaved(property.id);
+
+  const handleToggleLike = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!isAuthenticated || !userId) {
+      toast("Sign in to save properties to your wishlist.");
+      router.push(
+        `/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`,
+      );
+      return;
+    }
+    setPickerOpen((v) => !v);
+  };
+
+  const handleNavigate = () => {
+    const checkIn = toISODate(dates.checkIn);
+    const checkOut = toISODate(dates.checkOut);
+    const params = new URLSearchParams();
+    if (checkIn) params.set("checkIn", checkIn);
+    if (checkOut) params.set("checkOut", checkOut);
+    const qs = params.toString();
+    router.push(`/property/${property.id}${qs ? `?${qs}` : ""}`);
+  };
 
   const discount = property.originalPrice
-    ? Math.round(((property.originalPrice - property.price) / property.originalPrice) * 100)
+    ? Math.round(
+        ((property.originalPrice - property.price) / property.originalPrice) *
+          100,
+      )
     : null;
 
+  const amenityTags = [
+    property.breakfast && {
+      label: "Breakfast",
+      icon: <Coffee className="w-3 h-3" />,
+    },
+    property.wifi && { label: "Wifi", icon: <Wifi className="w-3 h-3" /> },
+    property.parking && { label: "Parking", icon: <Car className="w-3 h-3" /> },
+  ].filter(Boolean) as { label: string; icon: React.ReactNode }[];
+
   return (
+    // Figma node 3122:18947 -- rounded-[45px], border #d9d9d9, shadow
+    // 0px 4px 75.4px rgba(0,0,0,0.08), image ~35% of card width (square).
     <div
-      className="bg-white rounded-[2rem] p-3 flex flex-col sm:flex-row gap-4 sm:gap-6 cursor-pointer group transition-all duration-200 border border-gray-100 hover:shadow-md"
-      onClick={() => router.push(`/property/${property.id}`)}
+      className="bg-white rounded-[45px] p-4 flex flex-col sm:flex-row gap-5 sm:gap-8 cursor-pointer group transition-shadow duration-200 border border-[#d9d9d9]"
+      style={{ boxShadow: "0px 4px 75.4px 0px rgba(0,0,0,0.08)" }}
+      onClick={handleNavigate}
     >
-      {/* Image Container */}
-      <div className="relative flex-shrink-0 w-full sm:w-[280px] h-[200px] sm:h-auto rounded-[1.5rem] overflow-hidden">
-        <img
-          src={imgErr ? FALLBACK : (property.images[0] || FALLBACK)}
+      {/* Image, Figma uses a square (299x299 at an 855-wide card, ~35%) */}
+      <div className="relative flex-shrink-0 w-full sm:w-[35%] aspect-square rounded-[35px] overflow-hidden">
+        <Image
+          src={imgErr ? FALLBACK : property.images[0] || FALLBACK}
           alt={property.propertyName}
           onError={() => setImgErr(true)}
-          loading="lazy"
-          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-700"
+          fill
+          sizes="(max-width: 640px) 100vw, 35vw"
+          className="object-cover group-hover:scale-105 transition-transform duration-700"
         />
         {/* Heart button */}
-        <button
-          onClick={(e) => { e.stopPropagation(); setLiked(v => !v); }}
-          className={cn(
-            "absolute top-3 right-3 w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
-            liked ? "text-rose-500" : "text-gray-500 hover:text-rose-400 hover:scale-110"
+        <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
+          <button
+            onClick={handleToggleLike}
+            className={cn(
+              "w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
+              liked
+                ? "text-rose-500"
+                : "text-gray-500 hover:text-rose-400 hover:scale-110",
+            )}
+          >
+            <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
+          </button>
+          {pickerOpen && userId && (
+            <WishlistPicker
+              userId={userId}
+              listingId={property.id}
+              onClose={() => setPickerOpen(false)}
+              onSavedChange={setLikedOverride}
+              className="right-0 top-[calc(100%+6px)]"
+            />
           )}
-        >
-          <Heart className={cn("w-4 h-4", liked && "fill-rose-500")} />
-        </button>
+        </div>
       </div>
 
       {/* Content Container */}
       <div className="flex-1 flex flex-col justify-between py-1 pr-2 min-w-0">
+        {/* Top Section */}
+        <div className="min-w-0">
+          <h3
+            className="text-figma-ink line-clamp-1 mb-2"
+            style={{
+              fontSize: "25px",
+              fontWeight: 600,
+              lineHeight: "140%",
+              letterSpacing: "0.075px",
+            }}
+          >
+            {property.propertyName}
+          </h3>
 
-        {/* Top Header Row */}
-        <div className="flex justify-between items-start gap-4">
-          <div className="min-w-0 flex-1">
-            <h3 className="text-[17px] font-bold text-gray-900 leading-tight mb-1">{property.propertyName}</h3>
-            <p className="text-[13px] text-gray-500 font-medium line-clamp-1 mb-2">
-              {property.city}, {property.state} • <button className="text-blue-600 hover:underline">View on map</button> • {property.distanceFromCenter ?? "15.8km from centre"}
-            </p>
-
-            {/* Rating Block */}
-            <div className="flex items-center gap-2 mb-3">
-              <div className="flex items-center gap-1.5 bg-emerald-500 rounded-md px-2 py-0.5 shadow-sm">
-                <span className="text-[12px] font-bold text-white">{property.rating.toFixed(1)}</span>
-                <Star className="w-3 h-3 text-white fill-white" />
+          <div className="flex items-center gap-2 mb-2">
+            {property.rating > 0 ? (
+              <div className="flex items-center gap-1.5 bg-figma-navy/5 border border-figma-navy/20 rounded-md px-2 py-0.5">
+                <span className="text-[14px] font-semibold text-figma-ink">
+                  {property.rating.toFixed(1)}
+                </span>
+                <Star className="w-3 h-3 text-amber-400 fill-amber-400" />
               </div>
-              <span className="text-[12px] font-bold text-gray-700">{property.reviewCount} reviews</span>
-            </div>
-
-            {/* Badges/Tags */}
-            <div className="flex flex-wrap gap-2 mb-3">
-              {property.freeCancellation && (
-                <span className="text-[11px] font-bold text-blue-600 bg-blue-50/50 border border-blue-100 px-2 py-1 rounded-md">
-                  Free cancellation
+            ) : (
+              <div className="flex items-center gap-1.5 bg-figma-surface rounded-md px-2 py-0.5">
+                <span className="text-[14px] font-semibold text-figma-muted">
+                  New
                 </span>
-              )}
-              {property.breakfast && (
-                <span className="text-[11px] font-medium text-gray-500 border border-gray-200 px-2 py-1 rounded-md">
-                  Crib
-                </span>
-              )}
-            </div>
-
-            {/* Room details text */}
-            <p className="text-[11px] text-gray-500 font-medium mt-3">
-              1 bedroom <br /> 1 double bed • 1 bathroom
-            </p>
+              </div>
+            )}
+            <span className="text-[14px] text-figma-ink/70">
+              · {property.reviewCount} reviews
+            </span>
           </div>
 
-          {/* Pricing Column (Right side) */}
-          <div className="flex-shrink-0 flex flex-col items-end text-right">
-            <p className="text-[12px] text-gray-500 font-medium mb-1">10 nights, 2 adults</p>
-            {property.originalPrice && (
-              <p className="text-[13px] text-gray-400 font-medium line-through mb-0.5">₹ {property.originalPrice.toLocaleString("en-IN")}</p>
+          <p className="text-[14px] text-figma-ink/60 font-medium line-clamp-1 mb-3">
+            {property.city}, {property.state}
+            {property.distanceFromCenter
+              ? ` · ${property.distanceFromCenter} from centre`
+              : ""}
+          </p>
+
+          <div className="flex flex-wrap gap-2 mb-3">
+            {property.freeCancellation && (
+              <span className="text-[11px] font-bold text-figma-navy bg-figma-navy/5 border border-figma-navy/20 px-2.5 py-1 rounded-md">
+                Free cancellation
+              </span>
             )}
-            <p className="text-[22px] font-extrabold text-blue-800 leading-none mb-1">
-              ₹ {property.price.toLocaleString("en-IN")}
-            </p>
-            <p className="text-[11px] text-gray-400">+₹ {Math.round(property.price * 0.12).toLocaleString("en-IN")} taxes and fees</p>
+            {amenityTags.map((tag) => (
+              <span
+                key={tag.label}
+                className="flex items-center gap-1 text-[11px] font-medium text-figma-ink/70 border border-figma-border px-2.5 py-1 rounded-md"
+              >
+                {tag.icon}
+                {tag.label}
+              </span>
+            ))}
           </div>
         </div>
 
+        {/* Bottom Section (Guests + Price) */}
+        <div className="flex justify-between items-end mt-2">
+          {/* Room details text */}
+          <p className="text-[11px] text-figma-ink/50 font-medium mb-1">
+            Up to {property.maxGuests} guest
+            {property.maxGuests === 1 ? "" : "s"}
+          </p>
+
+          {/* Pricing Column */}
+          <div className="flex-shrink-0 flex flex-col items-end text-right">
+            {nights !== null && nights > 0 && (
+              <p className="text-[12px] text-figma-ink/60 font-medium mb-1">
+                {nights} night{nights === 1 ? "" : "s"}, {totalGuests} guest
+                {totalGuests === 1 ? "" : "s"}
+              </p>
+            )}
+            {property.originalPrice && (
+              <p className="text-[13px] text-figma-ink/40 font-medium line-through mb-0.5">
+                ₹ {property.originalPrice.toLocaleString("en-IN")}
+              </p>
+            )}
+            <p
+              className="text-figma-ink leading-none mb-1"
+              style={{
+                fontSize: "25px",
+                fontWeight: 600,
+                lineHeight: "140%",
+                letterSpacing: "0.075px",
+              }}
+            >
+              ₹ {property.price.toLocaleString("en-IN")}
+            </p>
+            <p className="text-[11px] text-figma-ink/50">
+              +₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees
+            </p>
+          </div>
+        </div>
       </div>
     </div>
   );

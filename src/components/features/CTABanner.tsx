@@ -1,59 +1,72 @@
+import Image from "next/image";
 import Link from "next/link";
+import celebrationImg from "../newpage/host-celebration.jpg";
 
 export default function CTABanner() {
   return (
-    <section className="bg-white rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.04)] px-8 md:px-12 py-8 md:py-10">
-      <h2 className="text-center text-gray-900 text-xl md:text-[22px] font-bold mb-8">
+    <section className="bg-[#FFFEF9] rounded-[32px] border border-gray-200 p-8 md:p-12">
+      {/* ── Top-Centered Header ── */}
+      <h2 className="text-3xl md:text-4xl font-bold text-gray-900 text-center mb-10">
         Want to earn effortlessly?
       </h2>
 
-      <div className="flex flex-col md:flex-row items-center gap-8 md:gap-6">
-        {/* Left: copy + CTA */}
-        <div className="flex-1 max-w-xs">
-          <p className="text-gray-800 text-[14px] leading-relaxed mb-5">
-            List your Homestay on Hostiggo and start receiving bookings from
-            travellers.
+      {/* ── Three-Column Grid Layout (Body) ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-8 items-center">
+        {/* ── Left Column (Text & Button) ── */}
+        <div className="flex flex-col items-start space-y-4">
+          <p className="text-gray-700 text-base md:text-lg leading-relaxed">
+            List your Homestay on Hostiggo and start receiving bookings from travellers.
           </p>
-          <p className="text-gray-800 text-[14px] font-medium mb-6">
+          <p className="text-gray-900 font-bold text-base md:text-lg">
             Earn extra income NOW!!!
           </p>
           <Link
-            href="/host/list/property-type"
-            className="inline-flex items-center bg-[#0473C8] hover:bg-[#035ea5] active:bg-[#024b85] text-white px-6 py-2.5 rounded-lg font-semibold text-sm transition-colors shadow-sm"
+            href="/host/list/method"
+            className="inline-block bg-[#0396EF] text-white font-semibold px-6 py-3 rounded-lg shadow-md hover:bg-blue-600 transition-colors"
           >
             Get started
           </Link>
         </div>
 
-        {/* Middle: celebration illustration */}
-        <div className="flex-shrink-0 hidden sm:block">
-          <img
-            src="/host-celebration.png"
-            alt="Happy host celebrating"
-            className="w-[140px] h-auto select-none"
-          />
+        {/* ── Middle Column (Graphic) ── */}
+        <div className="flex justify-center items-center">
+          <div className="relative isolate mx-auto flex justify-center items-center">
+            {/* Subtle light-blue radial glow effect */}
+            <div
+              className="absolute w-32 h-32 bg-blue-100 rounded-full blur-2xl -z-10 top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 pointer-events-none"
+              aria-hidden="true"
+            />
+            <Image
+              src={celebrationImg}
+              alt="Jumping girl celebrating"
+              className="h-40 md:h-48 w-auto object-contain"
+              priority
+            />
+          </div>
         </div>
 
-        {/* Right: Royal Deal card */}
-        <div
-          className="relative flex-shrink-0 w-full md:w-[360px] rounded-2xl overflow-hidden p-6 bg-[#0b2c47]"
-          style={{
-            backgroundImage: "url(/royal-deal-bg.png)",
-            backgroundSize: "cover",
-            backgroundPosition: "center",
-          }}
-        >
-          <div className="w-9 h-9 bg-[#0f4c81] border border-white/30 rounded-full flex items-center justify-center mb-3">
-            <span className="text-white font-bold text-[16px] leading-none">H</span>
+        {/* ── Right Column ("Royal Deal" Card) ── */}
+        <div className="bg-gradient-to-br from-gray-800 to-gray-900 text-white p-6 rounded-2xl shadow-lg relative overflow-hidden">
+          {/* Card Header */}
+          <div className="bg-white text-gray-900 w-8 h-8 rounded-full flex items-center justify-center font-bold mb-4 text-sm shadow-sm">
+            H
           </div>
-          <p className="text-white text-[13px] leading-relaxed">
+
+          {/* Card Body */}
+          <p className="text-sm font-semibold text-white/95 leading-snug">
             First 10 bookings are 0% commission for all new hosts
           </p>
-          <p className="text-white/90 text-[13px] leading-relaxed mt-2">
-            After that, only 2% platform commission applies (lowest to all
-            other platforms)
+
+          <div className="border-t border-dashed border-gray-600 my-4" />
+
+          <p className="text-xs text-gray-300 leading-relaxed">
+            After that, a low 2% platform commission applies.
           </p>
-          <p className="text-amber-400 text-[17px] font-bold mt-4">Royal Deal</p>
+
+          {/* Card Footer */}
+          <p className="text-yellow-500 font-bold text-lg mt-4">
+            Royal Deal
+          </p>
         </div>
       </div>
     </section>
