@@ -64,16 +64,12 @@ export default function DocumentVerificationModal({ doc, onClose }: Props) {
 
   const handleSubmit = () => {
     if (!canSubmit) return;
-    setSubmitting(true);
-    // TODO: upload `file` and `number` to the identity-verification endpoint,
-    // then set the user's is_verified flag on approval.
-    setTimeout(() => {
-      toast.success(
-        `${doc.label} submitted. Our team will review your details shortly.`,
-      );
-      setSubmitting(false);
-      onClose();
-    }, 600);
+    // NOT wired to a backend yet -- there is no identity-verification
+    // endpoint or KYC table for this document type. Be honest about that
+    // rather than showing a fake "submitted, we'll review it" success, and
+    // point the user at the Aadhaar flow that does work today.
+    toast('Verification for this document type isn’t available yet — use Aadhaar verification for now.');
+    onClose();
   };
 
   return (
