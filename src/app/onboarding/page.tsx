@@ -61,7 +61,7 @@ function OnboardingContent() {
           phone: phone || user?.phone || null,
           age: age ? parseInt(age) : null,
           emergency_contact: emergencyContact || null,
-          is_verified: true,
+          is_verified: false,
           is_active: true,
         }),
       });

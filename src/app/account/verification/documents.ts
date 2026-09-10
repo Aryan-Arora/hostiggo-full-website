@@ -1,0 +1,59 @@
+export type IdDocument = {
+  id: string;
+  /** Label shown on the selection card. */
+  label: string;
+  /** Illustration shown on the selection card. */
+  image: string;
+  /** Modal heading, e.g. "Aadhaar verification". */
+  verificationTitle: string;
+  /** Number-field label, e.g. "Aadhaar Number". */
+  numberLabel: string;
+  /** Number-field placeholder. */
+  numberPlaceholder: string;
+  /** Upload-box placeholder. */
+  uploadPlaceholder: string;
+  /** Keyboard hint for the number field. */
+  inputMode: 'numeric' | 'text';
+  /** Max characters for the document number. */
+  maxLength: number;
+  /** Force the number to uppercase (PAN / passport). */
+  uppercase?: boolean;
+};
+
+export const ID_DOCUMENTS: IdDocument[] = [
+  {
+    id: 'aadhaar',
+    label: 'Aadhaar Card',
+    image: '/verification/aadhaar.png',
+    verificationTitle: 'Aadhaar verification',
+    numberLabel: 'Aadhaar Number',
+    numberPlaceholder: 'Enter aadhaar card number',
+    uploadPlaceholder: 'Upload your aadhaar photo',
+    inputMode: 'numeric',
+    maxLength: 12,
+  },
+  {
+    id: 'pan',
+    label: 'PAN Card',
+    image: '/verification/pan.png',
+    verificationTitle: 'PAN verification',
+    numberLabel: 'PAN Card Number',
+    numberPlaceholder: 'Enter pan card number',
+    uploadPlaceholder: 'Upload your pan photo',
+    inputMode: 'text',
+    maxLength: 10,
+    uppercase: true,
+  },
+  {
+    id: 'passport',
+    label: 'Passport',
+    image: '/verification/passport.png',
+    verificationTitle: 'Passport verification',
+    numberLabel: 'Passport Number',
+    numberPlaceholder: 'Enter passport number',
+    uploadPlaceholder: 'Upload your passport photo',
+    inputMode: 'text',
+    maxLength: 9,
+    uppercase: true,
+  },
+];

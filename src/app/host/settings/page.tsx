@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   User,
   Landmark,
@@ -11,10 +12,12 @@ import {
   Plus,
   MoreVertical,
   ShieldCheck,
+  ShieldAlert,
   CheckCircle2,
   type LucideIcon,
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
+import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
 
 const NAV: { id: string; label: string; icon: LucideIcon }[] = [
@@ -27,6 +30,9 @@ const NAV: { id: string; label: string; icon: LucideIcon }[] = [
 
 export default function HostSettingsPage() {
   const [tab, setTab] = useState('personal');
+  const router = useRouter();
+  const { user } = useAuth();
+  const isVerified = Boolean(user?.is_verified);
 
   return (
     <HostDashboardShell active="settings">
@@ -176,19 +182,39 @@ export default function HostSettingsPage() {
               </div>
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200 flex items-center justify-between">
                 <div className="flex items-center gap-6">
-                  <div className="w-14 h-14 rounded-full bg-blue-50 flex items-center justify-center text-blue-600">
-                    <ShieldCheck className="w-8 h-8" />
+                  <div
+                    className={cn(
+                      'w-14 h-14 rounded-full flex items-center justify-center',
+                      isVerified ? 'bg-blue-50 text-blue-600' : 'bg-amber-50 text-amber-600',
+                    )}
+                  >
+                    {isVerified ? (
+                      <ShieldCheck className="w-8 h-8" />
+                    ) : (
+                      <ShieldAlert className="w-8 h-8" />
+                    )}
                   </div>
                   <div>
                     <h3 className="text-base font-bold text-gray-800">Identity Verification</h3>
                     <p className="text-sm text-gray-500">
-                      Your identity has been successfully verified.
+                      {isVerified
+                        ? 'Your identity has been successfully verified.'
+                        : 'Your identity is not verified yet. Verify to unlock payouts and full hosting access.'}
                     </p>
                   </div>
                 </div>
-                <span className="flex items-center gap-2 text-green-600 font-bold">
-                  <CheckCircle2 className="w-5 h-5" /> Verified
-                </span>
+                {isVerified ? (
+                  <span className="flex items-center gap-2 text-green-600 font-bold">
+                    <CheckCircle2 className="w-5 h-5" /> Verified
+                  </span>
+                ) : (
+                  <button
+                    onClick={() => router.push('/account/verification')}
+                    className="px-5 py-2.5 bg-blue-600 text-white rounded-xl font-bold hover:bg-blue-700 active:scale-95 transition-all whitespace-nowrap"
+                  >
+                    Verify identity
+                  </button>
+                )}
               </div>
             </>
           )}

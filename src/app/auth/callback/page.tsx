@@ -31,7 +31,7 @@ export default function AuthCallback() {
               email: user.email || user.user_metadata?.email || '',
               phone: user.phone || null,
               profile_pic_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-              is_verified: true,
+              is_verified: false,
               is_active: true,
             }),
           });
