@@ -2,24 +2,32 @@ import Link from "next/link";
 import { Globe, Instagram, Linkedin } from "lucide-react";
 import CopyrightBar from "./CopyrightBar";
 
-type FooterLink = { label: string; href: string };
+type FooterLink = { label: string; href: string; soon?: boolean };
 
 const footerSections: { title: string; links: FooterLink[] }[] = [
+  {
+    title: "Company",
+    links: [
+      { label: "About us", href: "/about" },
+      { label: "Contact us", href: "/contact" },
+    ],
+  },
   {
     title: "Hosting",
     links: [
       { label: "Become a host", href: "/become-a-host" },
       { label: "Hosting standards", href: "/host" },
-      { label: "Add-on services", href: "#" },
+      { label: "Add-on services", href: "#", soon: true },
       { label: "Earnings & payouts", href: "/host/earnings" },
     ],
   },
   {
     title: "Support",
     links: [
-      { label: "Help center", href: "/support" },
+      { label: "Help centre", href: "/support" },
       { label: "Contact host support", href: "/contact" },
-      { label: "Report and issue", href: "/report-issue" },
+      { label: "Safety information", href: "/safety" },
+      { label: "Report an issue", href: "/report-issue" },
       { label: "FAQs", href: "/faq" },
     ],
   },
@@ -28,14 +36,16 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: "Terms & policies", href: "/terms" },
       { label: "Privacy policy", href: "/privacy" },
-      { label: "Report an issue", href: "/report-issue" },
+      { label: "Cancellation & refunds", href: "/cancellation" },
+      { label: "Shipping policy", href: "/shipping-policy" },
+      { label: "Cookie policy", href: "/cookies" },
     ],
   },
   {
     title: "Download App",
     links: [
-      { label: "Android", href: "#" },
-      { label: "iOS", href: "#" },
+      { label: "Android", href: "#", soon: true },
+      { label: "iOS", href: "#", soon: true },
     ],
   },
 ];
@@ -53,10 +63,14 @@ function XIcon({ className = "w-4 h-4" }: { className?: string }) {
   );
 }
 
+// Social profiles aren't live yet -- render the icons as non-interactive
+// rather than linking to the bare platform homepages (instagram.com etc.),
+// which is what visitors would land on. Swap in real profile URLs and turn
+// these back into <a> when the accounts exist.
 const socials = [
-  { Icon: Instagram, label: "Instagram", href: "https://instagram.com" },
-  { Icon: Linkedin, label: "LinkedIn", href: "https://linkedin.com" },
-  { Icon: XIcon, label: "X", href: "https://x.com" },
+  { Icon: Instagram, label: "Instagram" },
+  { Icon: Linkedin, label: "LinkedIn" },
+  { Icon: XIcon, label: "X" },
 ];
 
 export default function Footer() {
@@ -68,8 +82,8 @@ export default function Footer() {
       {/* Main footer, figma-cream background, content in a centered 1100px container */}
       <div className="bg-figma-cream">
         <div className="mx-auto max-w-[1100px] px-6 pt-10 pb-10">
-          {/* 4 columns (Hosting, Support, Legal, Download App) */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-left">
+          {/* 5 columns (Company, Hosting, Support, Legal, Download App) → wraps down on smaller screens */}
+          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-8 text-left">
             {footerSections.map((section) => (
               <div key={section.title}>
                 <h3 className="text-[18px] font-bold text-[#111827] mb-4">
@@ -77,20 +91,29 @@ export default function Footer() {
                 </h3>
                 <ul className="space-y-3">
                   {section.links.map((link) => {
-                    const isInternal = link.href.startsWith("/") && link.href !== "#";
                     const className =
                       "text-[14px] text-[#4B5563] hover:text-[#111827] transition-colors";
+                    if (link.soon) {
+                      return (
+                        <li key={`${section.title}-${link.label}`}>
+                          <span
+                            aria-disabled="true"
+                            title="Coming soon"
+                            className="text-[14px] text-[#9CA3AF] cursor-default select-none inline-flex items-center gap-1.5"
+                          >
+                            {link.label}
+                            <span className="text-[10px] font-semibold uppercase tracking-wide bg-gray-200 text-gray-500 px-1.5 py-0.5 rounded-full">
+                              Soon
+                            </span>
+                          </span>
+                        </li>
+                      );
+                    }
                     return (
                       <li key={`${section.title}-${link.label}`}>
-                        {isInternal ? (
-                          <Link href={link.href} className={className}>
-                            {link.label}
-                          </Link>
-                        ) : (
-                          <a href={link.href} className={className}>
-                            {link.label}
-                          </a>
-                        )}
+                        <Link href={link.href} className={className}>
+                          {link.label}
+                        </Link>
                       </li>
                     );
                   })}
@@ -112,17 +135,14 @@ export default function Footer() {
             <div className="flex items-center gap-3">
               <span className="text-[#111827] text-[14px] font-semibold">Get social</span>
               <div className="flex items-center gap-2.5">
-                {socials.map(({ Icon, label, href }) => (
-                  <a
+                {socials.map(({ Icon, label }) => (
+                  <span
                     key={label}
-                    href={href}
-                    aria-label={label}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center transition-all hover:scale-105 hover:bg-black"
+                    aria-hidden="true"
+                    className="w-9 h-9 rounded-full bg-gray-900 text-white flex items-center justify-center"
                   >
                     <Icon className="w-4 h-4" />
-                  </a>
+                  </span>
                 ))}
               </div>
             </div>

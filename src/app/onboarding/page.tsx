@@ -86,7 +86,9 @@ function OnboardingContent() {
           age: age ? parseInt(age) : null,
           emergency_contact: emergencyContact || null,
           profile_pic_url: photoUrl || user?.profile_pic_url || null,
-          is_verified: true,
+          // A new user hasn't verified any government ID yet -- identity
+          // verification is its own opt-in flow (/account/verification).
+          is_verified: false,
           is_active: true,
         }),
       });
