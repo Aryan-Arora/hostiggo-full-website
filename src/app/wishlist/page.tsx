@@ -169,80 +169,13 @@ function CreateListModal({
   );
 }
 
-// ── Rename Modal ──────────────────────────────────────────────────────────────
-
-function RenameModal({
-  currentName,
-  onConfirm,
-  onCancel,
-}: {
-  currentName: string;
-  onConfirm: (name: string) => void;
-  onCancel: () => void;
-}) {
-  const [name, setName] = useState(currentName);
-  const inputRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    inputRef.current?.focus();
-    inputRef.current?.select();
-  }, []);
-  useEffect(() => {
-    const handler = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onCancel();
-      if (e.key === 'Enter' && name.trim()) onConfirm(name.trim());
-    };
-    document.addEventListener('keydown', handler);
-    return () => document.removeEventListener('keydown', handler);
-  }, [name, onCancel, onConfirm]);
-
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center">
-      <div
-        className="absolute inset-0 bg-black/30 backdrop-blur-sm"
-        onClick={onCancel}
-      />
-      <div className="relative bg-white rounded-2xl shadow-2xl p-6 w-[320px] mx-4 animate-slide-up">
-        <h3 className="text-[16px] font-bold text-gray-900 mb-4">
-          Rename wishlist
-        </h3>
-        <input
-          ref={inputRef}
-          type="text"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          maxLength={40}
-          className="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all mb-4"
-        />
-        <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => name.trim() && onConfirm(name.trim())}
-            disabled={!name.trim()}
-            className="flex-1 py-2.5 bg-[#004772] text-white text-[14px] font-semibold rounded-xl hover:bg-[#003a5c] disabled:opacity-40 disabled:cursor-not-allowed transition-all"
-          >
-            Save
-          </button>
-          <button
-            type="button"
-            onClick={onCancel}
-            className="flex-1 py-2.5 bg-gray-100 text-gray-600 text-[14px] font-semibold rounded-xl hover:bg-gray-200 transition-all"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 // ── Group Dropdown ────────────────────────────────────────────────────────────
 
 interface GroupDropdownProps {
   groups: WishlistGroup[];
   selected: string;
   onSelect: (id: string) => void;
-  onRenameGroup: (id: string) => void;
+  onRenameGroup: (id: string, newName: string) => void;
   onRemoveGroup: (id: string) => void;
 }
 
@@ -255,14 +188,28 @@ function GroupDropdown({
 }: GroupDropdownProps) {
   const [open, setOpen] = useState(false);
   const [kebabOpen, setKebabOpen] = useState<string | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
   const ref = useRef<HTMLDivElement>(null);
   const kebabRef = useRef<HTMLDivElement>(null);
+  const editInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
+      if (kebabRef.current && !kebabRef.current.contains(e.target as Node)) {
+        setKebabOpen(null);
+      }
       if (ref.current && !ref.current.contains(e.target as Node)) {
         setOpen(false);
         setKebabOpen(null);
+        setEditingId(null);
       }
     };
     document.addEventListener('mousedown', handler);
@@ -278,6 +225,7 @@ function GroupDropdown({
         onClick={() => {
           setOpen((v) => !v);
           setKebabOpen(null);
+          setEditingId(null);
         }}
         className={cn(
           'flex items-center justify-between gap-2.5 border rounded-full px-4 py-2 text-[13px] sm:text-[14px] font-medium bg-white transition-all duration-200 select-none min-w-[150px] shadow-sm',
@@ -286,7 +234,7 @@ function GroupDropdown({
             : 'border-gray-300 text-gray-700 hover:border-gray-400 hover:shadow',
         )}
       >
-        <span className="flex-1 text-left truncate">{current.name}</span>
+        <span className="flex-1 text-left truncate">{current?.name ?? 'Select'}</span>
         <ChevronDown
           className={cn(
             'w-4 h-4 text-gray-500 transition-transform duration-200 flex-shrink-0',
@@ -297,82 +245,140 @@ function GroupDropdown({
 
       {open && (
         <div className="absolute left-0 top-[calc(100%+6px)] w-[220px] bg-white rounded-2xl shadow-2xl border border-gray-100 py-2 z-50 animate-fade-in-down overflow-visible">
-          {groups.map((grp) => (
-            <div key={grp.id} className="relative group/item flex items-center">
-              <button
-                type="button"
-                onClick={() => {
-                  onSelect(grp.id);
-                  setOpen(false);
-                  setKebabOpen(null);
-                }}
+          {groups.map((grp) => {
+            const isSelected = grp.id === selected;
+            const isEditing = editingId === grp.id;
+
+            return (
+              <div
+                key={grp.id}
                 className={cn(
-                  'flex-1 flex items-center justify-between gap-3 px-4 py-2.5 text-[13px] transition-colors duration-150 text-left',
-                  grp.id === selected
+                  'relative flex items-center justify-between gap-2 px-4 py-2.5 text-[13px] transition-colors duration-150 select-none',
+                  isSelected
                     ? 'text-gray-900 font-semibold bg-gray-50'
-                    : 'text-gray-600 font-medium hover:bg-gray-50 hover:text-gray-800',
+                    : 'text-gray-600 font-medium hover:bg-gray-50 hover:text-gray-800 cursor-pointer',
                 )}
               >
-                <span className="truncate">{grp.name}</span>
-                {grp.id === selected && (
-                  <Check
-                    className="w-4 h-4 text-figma-navy flex-shrink-0"
-                    strokeWidth={2.5}
-                  />
-                )}
-              </button>
-
-              {/* 3-dot menu for non-default groups */}
-              {!grp.isDefault && (
-                <div
-                  className="relative pr-2"
-                  ref={grp.id === kebabOpen ? kebabRef : undefined}
-                >
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setKebabOpen((prev) => (prev === grp.id ? null : grp.id));
+                {isEditing ? (
+                  <input
+                    ref={editInputRef}
+                    type="text"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        if (editValue.trim()) {
+                          onRenameGroup(grp.id, editValue.trim());
+                        }
+                        setEditingId(null);
+                      } else if (e.key === 'Escape') {
+                        e.stopPropagation();
+                        setEditingId(null);
+                      }
                     }}
-                    className="w-7 h-7 rounded-lg flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-                  >
-                    <MoreHorizontal className="w-4 h-4" />
-                  </button>
-
-                  {kebabOpen === grp.id && (
-                    <div className="absolute right-0 top-[calc(100%+2px)] w-[130px] bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-[200] animate-fade-in-down">
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          setKebabOpen(null);
+                    onBlur={() => {
+                      if (editValue.trim() && editValue.trim() !== grp.name) {
+                        onRenameGroup(grp.id, editValue.trim());
+                      }
+                      setEditingId(null);
+                    }}
+                    onClick={(e) => e.stopPropagation()}
+                    className="bg-gray-200/60 rounded-md outline-none px-2 py-1 text-[13px] font-medium text-gray-900 w-full min-w-0"
+                    autoFocus
+                  />
+                ) : (
+                  <>
+                    {/* Left side: Group name & Green Checkmark (if selected) */}
+                    <div
+                      onClick={() => {
+                        if (!isSelected) {
+                          onSelect(grp.id);
                           setOpen(false);
-                          onRenameGroup(grp.id);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors"
-                      >
-                        <Pencil className="w-3.5 h-3.5 text-gray-400" />
-                        Rename
-                      </button>
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation();
                           setKebabOpen(null);
-                          setOpen(false);
-                          onRemoveGroup(grp.id);
-                        }}
-                        className="w-full flex items-center gap-2.5 px-3.5 py-2 text-[13px] font-medium text-red-500 hover:bg-red-50 transition-colors"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                        Remove
-                      </button>
+                        }
+                      }}
+                      className={cn(
+                        'flex items-center gap-2 flex-1 min-w-0',
+                        !isSelected && 'cursor-pointer',
+                      )}
+                    >
+                      <span className="truncate">{grp.name}</span>
+                      {isSelected && (
+                        <Check className="w-4 h-4 text-green-500 flex-shrink-0" />
+                      )}
                     </div>
-                  )}
-                </div>
-              )}
-            </div>
-          ))}
+
+                    {/* Right side: Three Dots button (pushed to right side for selected group) */}
+                    {isSelected && (
+                      <div
+                        className="relative ml-auto flex items-center"
+                        ref={kebabOpen === grp.id ? kebabRef : undefined}
+                      >
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setKebabOpen((prev) =>
+                              prev === grp.id ? null : grp.id,
+                            );
+                          }}
+                          className="w-6 h-6 rounded-md flex items-center justify-center text-gray-400 hover:text-gray-600 hover:bg-gray-200/50 transition-colors"
+                          aria-label="Wishlist options"
+                        >
+                          <MoreHorizontal className="w-4 h-4" />
+                        </button>
+
+                        {/* Kebab Popover */}
+                        {kebabOpen === grp.id && (
+                          <div
+                            className="absolute left-[calc(100%+8px)] top-1/2 -translate-y-1/2 w-[124px] bg-white rounded-xl py-1.5 z-[200] border border-gray-100 animate-fade-in-down"
+                            style={{
+                              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
+                            }}
+                          >
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setKebabOpen(null);
+                                setEditingId(grp.id);
+                                setEditValue(grp.name);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors text-left"
+                            >
+                              <Pencil
+                                className="w-3.5 h-3.5 text-gray-500"
+                                strokeWidth={1.8}
+                              />
+                              <span>Rename</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                setKebabOpen(null);
+                                setOpen(false);
+                                onRemoveGroup(grp.id);
+                              }}
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-[13px] font-medium text-red-400 hover:bg-red-50/60 transition-colors text-left"
+                            >
+                              <Trash2
+                                className="w-3.5 h-3.5 text-red-400"
+                                strokeWidth={1.8}
+                              />
+                              <span>Remove</span>
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
     </div>
@@ -509,7 +515,6 @@ export default function WishlistPage() {
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [confirmRemoveGroup, setConfirmRemoveGroup] =
     useState<WishlistGroup | null>(null);
-  const [renameGroup, setRenameGroup] = useState<WishlistGroup | null>(null);
 
   const router = useRouter();
   const { userId, loading: isLoading } = useAuth();
@@ -612,16 +617,21 @@ export default function WishlistPage() {
     }
   };
 
-  const handleRenameGroup = async (newName: string) => {
-    if (!renameGroup || !userId) return;
+  const handleRenameGroup = async (id: string, newName: string) => {
+    if (!newName.trim()) return;
+    if (!userId || id === 'all') {
+      setGroups((prev) =>
+        prev.map((g) => (g.id === id ? { ...g, name: newName.trim() } : g)),
+      );
+      return;
+    }
     try {
-      await api.renameWishlistCategory(renameGroup.id, newName, userId);
+      await api.renameWishlistCategory(id, newName.trim(), userId);
       setGroups((prev) =>
         prev.map((g) =>
-          g.id === renameGroup.id ? { ...g, name: newName } : g,
+          g.id === id ? { ...g, name: newName.trim() } : g,
         ),
       );
-      setRenameGroup(null);
     } catch (error) {
       toast.error(
         error instanceof Error ? error.message : 'Failed to rename wishlist',
@@ -680,10 +690,7 @@ export default function WishlistPage() {
             groups={groups}
             selected={selectedGroup}
             onSelect={setSelectedGroup}
-            onRenameGroup={(id) => {
-              const g = groups.find((g) => g.id === id);
-              if (g) setRenameGroup(g);
-            }}
+            onRenameGroup={handleRenameGroup}
             onRemoveGroup={(id) => {
               const g = groups.find((g) => g.id === id);
               if (g) setConfirmRemoveGroup(g);
@@ -759,46 +766,60 @@ export default function WishlistPage() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-16 mb-14">
-            <div className="text-5xl mb-4">❤️</div>
-            <p className="text-gray-400 text-lg font-medium mb-1">
-              This wishlist is empty
-            </p>
-            <p className="text-gray-400 text-sm mb-6">
-              Explore stays and save your favourites here.
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push('/')}
-              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#003a5c] transition-colors shadow-sm"
-            >
-              Explore stays
-            </button>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 max-w-4xl mx-auto py-12 mb-14 px-4">
+            {/* Left Column: Illustration */}
+            <div className="relative w-[368px] max-w-full h-[386px] flex-shrink-0">
+              <Image
+                src="/images/empty-states/woman-heart-wish.png"
+                alt="Nothing saved yet"
+                fill
+                sizes="(max-width: 768px) 100vw, 368px"
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            {/* Right Column: Typography & Button */}
+            <div className="text-left flex flex-col items-start">
+              <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 italic mb-3">
+                Nothing saved yet
+              </h2>
+              <p className="text-gray-600 text-base md:text-lg italic mb-8 max-w-sm">
+                Explore and tap the heart icon to add your favourites here.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="bg-[#0396EF] text-white px-10 py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-sm"
+              >
+                Explore
+              </button>
+            </div>
           </div>
         )}
       </main>
 
       {/* Custom Graphical Banner replacing old "End of list" and Footer */}
-      <div className="relative w-full h-[250px] overflow-hidden mt-12 flex items-end">
+      <div className="relative w-full h-[250px] overflow-visible mt-20 flex items-end isolate">
         {/* Left Leaf */}
         <img
-          src="/images/green-grass-left.png"
+          src="/images/empty-states/Green-grass-left.png"
           alt="Green grass left decoration"
-          className="absolute bottom-0 left-0 w-48 md:w-64 object-contain z-10 pointer-events-none"
+          className="absolute bottom-0 left-0 w-48 md:w-72 object-contain -z-10 pointer-events-none"
         />
 
         {/* Right Leaf */}
         <img
-          src="/images/green-grass-right.png"
+          src="/images/empty-states/Green-grass-right.png"
           alt="Green grass right decoration"
-          className="absolute bottom-0 right-0 w-48 md:w-64 object-contain z-10 pointer-events-none"
+          className="absolute bottom-0 right-0 w-48 md:w-72 object-contain -z-10 pointer-events-none"
         />
 
         {/* Center Woman */}
         <img
           src="/images/empty-states/woman-beach.png"
           alt="Woman on beach"
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 md:w-56 object-contain z-20 pointer-events-none"
+          className="absolute bottom-12 left-1/2 -translate-x-1/2 w-48 md:w-64 lg:w-[280px] h-auto object-contain z-10 pointer-events-none"
         />
 
         {/* Copyright Bar spanning entire width at absolute bottom */}
@@ -819,13 +840,6 @@ export default function WishlistPage() {
           groupName={confirmRemoveGroup.name}
           onConfirm={handleRemoveGroupConfirm}
           onCancel={() => setConfirmRemoveGroup(null)}
-        />
-      )}
-      {renameGroup && (
-        <RenameModal
-          currentName={renameGroup.name}
-          onConfirm={handleRenameGroup}
-          onCancel={() => setRenameGroup(null)}
         />
       )}
     </div>
