@@ -766,46 +766,60 @@ export default function WishlistPage() {
             </div>
           </div>
         ) : (
-          <div className="text-center py-16 mb-14">
-            <div className="text-5xl mb-4">❤️</div>
-            <p className="text-gray-400 text-lg font-medium mb-1">
-              This wishlist is empty
-            </p>
-            <p className="text-gray-400 text-sm mb-6">
-              Explore stays and save your favourites here.
-            </p>
-            <button
-              type="button"
-              onClick={() => router.push('/')}
-              className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#003a5c] transition-colors shadow-sm"
-            >
-              Explore stays
-            </button>
+          <div className="flex flex-col md:flex-row items-center justify-center gap-8 md:gap-16 max-w-4xl mx-auto py-12 mb-14 px-4">
+            {/* Left Column: Illustration */}
+            <div className="relative w-[368px] max-w-full h-[386px] flex-shrink-0">
+              <Image
+                src="/images/empty-states/woman-heart-wish.png"
+                alt="Nothing saved yet"
+                fill
+                sizes="(max-width: 768px) 100vw, 368px"
+                className="object-contain"
+                priority
+              />
+            </div>
+
+            {/* Right Column: Typography & Button */}
+            <div className="text-left flex flex-col items-start">
+              <h2 className="text-3xl md:text-4xl font-extrabold text-gray-900 italic mb-3">
+                Nothing saved yet
+              </h2>
+              <p className="text-gray-600 text-base md:text-lg italic mb-8 max-w-sm">
+                Explore and tap the heart icon to add your favourites here.
+              </p>
+              <button
+                type="button"
+                onClick={() => router.push('/')}
+                className="bg-[#0396EF] text-white px-10 py-3 rounded-xl font-bold hover:bg-blue-600 transition-colors shadow-sm"
+              >
+                Explore
+              </button>
+            </div>
           </div>
         )}
       </main>
 
       {/* Custom Graphical Banner replacing old "End of list" and Footer */}
-      <div className="relative w-full h-[250px] overflow-hidden mt-12 flex items-end">
+      <div className="relative w-full h-[250px] overflow-visible mt-20 flex items-end isolate">
         {/* Left Leaf */}
         <img
-          src="/images/green-grass-left.png"
+          src="/images/empty-states/Green-grass-left.png"
           alt="Green grass left decoration"
-          className="absolute bottom-0 left-0 w-48 md:w-64 object-contain z-10 pointer-events-none"
+          className="absolute bottom-0 left-0 w-48 md:w-72 object-contain -z-10 pointer-events-none"
         />
 
         {/* Right Leaf */}
         <img
-          src="/images/green-grass-right.png"
+          src="/images/empty-states/Green-grass-right.png"
           alt="Green grass right decoration"
-          className="absolute bottom-0 right-0 w-48 md:w-64 object-contain z-10 pointer-events-none"
+          className="absolute bottom-0 right-0 w-48 md:w-72 object-contain -z-10 pointer-events-none"
         />
 
         {/* Center Woman */}
         <img
           src="/images/empty-states/woman-beach.png"
           alt="Woman on beach"
-          className="absolute bottom-0 left-1/2 -translate-x-1/2 w-40 md:w-56 object-contain z-20 pointer-events-none"
+          className="absolute bottom-12 left-1/2 -translate-x-1/2 w-48 md:w-64 lg:w-[280px] h-auto object-contain z-10 pointer-events-none"
         />
 
         {/* Copyright Bar spanning entire width at absolute bottom */}
