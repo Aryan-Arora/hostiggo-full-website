@@ -41,6 +41,7 @@ type Conversation = {
   role: ChatRole;
   avatar: string;
   propertyImage?: string;
+  propertyId?: string;
   preview: string;
   date: string;
   unread?: number;
@@ -49,9 +50,103 @@ type Conversation = {
   messages: Message[];
 };
 
-const GUEST_CONVERSATIONS: Conversation[] = [];
+const DEFAULT_PROPERTY_IMAGES = [
+  'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=300&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?w=300&auto=format&fit=crop&q=80',
+];
 
-const HOST_CONVERSATIONS: Conversation[] = [];
+const DEFAULT_AVATARS = [
+  'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+  'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+];
+
+const DEFAULT_HOST_CONVERSATIONS: Conversation[] = [
+  {
+    id: 'host-1',
+    name: 'Sarah Jenkins',
+    role: 'host',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+    propertyImage: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&auto=format&fit=crop&q=80',
+    propertyId: '1',
+    preview: 'Looking forward to hosting you this weekend! Let me know if you need anything.',
+    date: '10:42 AM',
+    unread: 2,
+    subtitle: 'Sunset Villa, Goa',
+    messages: [
+      {
+        id: 'm1',
+        body: 'Hi Sarah! What time is check-in on Friday?',
+        time: '10:30 AM',
+        from: 'me',
+      },
+      {
+        id: 'm2',
+        body: 'Check-in is anytime after 2:00 PM. We can also arrange an early check-in if needed!',
+        time: '10:38 AM',
+        from: 'them',
+      },
+      {
+        id: 'm3',
+        body: 'Looking forward to hosting you this weekend! Let me know if you need anything.',
+        time: '10:42 AM',
+        from: 'them',
+      },
+    ],
+  },
+  {
+    id: 'host-2',
+    name: 'Michael Chang',
+    role: 'host',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+    propertyImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=300&auto=format&fit=crop&q=80',
+    propertyId: '2',
+    preview: 'Airport pickup is confirmed for Friday afternoon at 3:00 PM.',
+    date: 'Yesterday',
+    unread: 0,
+    subtitle: 'Mountain View Chalet, Manali',
+    messages: [
+      {
+        id: 'm4',
+        body: 'Can we arrange airport pickup for Friday afternoon?',
+        time: 'Yesterday',
+        from: 'me',
+      },
+      {
+        id: 'm5',
+        body: 'Airport pickup is confirmed for Friday afternoon at 3:00 PM.',
+        time: 'Yesterday',
+        from: 'them',
+      },
+    ],
+  },
+];
+
+const DEFAULT_SUPPORT_CONVERSATION: Conversation = {
+  id: 'support-team',
+  name: 'Hostiggo Support',
+  role: 'support',
+  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  preview: 'How can we help you today with your booking?',
+  date: 'Yesterday',
+  unread: 0,
+  subtitle: '24/7 Customer Care',
+  messages: [
+    {
+      id: 's1',
+      body: 'Welcome to Hostiggo Support! How can we assist your trip today?',
+      time: 'Yesterday',
+      from: 'them',
+    },
+    {
+      id: 's2',
+      body: 'How can we help you today with your booking?',
+      time: 'Yesterday',
+      from: 'them',
+    },
+  ],
+};
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: 'All',
@@ -109,10 +204,10 @@ function FilterDropdown({
     <div ref={dropdownRef} className="relative">
       <button
         onClick={() => onOpenChange(!open)}
-        className="inline-flex h-8 items-center gap-1 rounded-full border border-figma-navy bg-figma-navy/5 px-4 text-sm font-medium text-figma-navy/90"
+        className="inline-flex h-8 items-center gap-1.5 rounded-full border border-blue-300 bg-[#E6F4FE] px-4 text-sm font-medium text-blue-500 transition-colors"
       >
         {filter === 'primary' ? primaryLabel : FILTER_LABELS[filter]}
-        <ChevronDown className="h-3.5 w-3.5" />
+        <ChevronDown className="h-3.5 w-3.5 text-blue-500" />
       </button>
 
       {open && (
@@ -138,6 +233,89 @@ function FilterDropdown({
   );
 }
 
+/**
+ * Composite Avatar Component
+ * - For Hosts: Rounded rectangular property thumbnail base with overlapping circular user profile pic.
+ * - For Support: Standard circular avatar with small headset icon overlay.
+ */
+function CompositeAvatar({
+  conversation,
+  size = 'sidebar',
+}: {
+  conversation: Conversation;
+  size?: 'sidebar' | 'header';
+}) {
+  const isSupport = conversation.role === 'support';
+  const fallbackPropertyImage = DEFAULT_PROPERTY_IMAGES[0];
+  const propertyImg = conversation.propertyImage || fallbackPropertyImage;
+
+  if (isSupport) {
+    if (size === 'header') {
+      return (
+        <div className="relative flex-shrink-0">
+          <Image
+            width={48}
+            height={48}
+            src={conversation.avatar}
+            alt={conversation.name}
+            onError={(e) => {
+              e.currentTarget.src = '/placeholder.svg';
+            }}
+            className="h-11 w-11 rounded-full object-cover shadow-xs"
+          />
+          <span className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-[#0396EF] text-white border-2 border-white shadow-xs">
+            <Headphones className="h-2.5 w-2.5" />
+          </span>
+        </div>
+      );
+    }
+
+    return (
+      <div className="relative flex-shrink-0">
+        <Image
+          width={40}
+          height={40}
+          src={conversation.avatar}
+          alt={conversation.name}
+          onError={(e) => {
+            e.currentTarget.src = '/placeholder.svg';
+          }}
+          className="h-10 w-10 rounded-full object-cover shadow-xs"
+        />
+        <span className="absolute -bottom-1 -right-1 flex h-4.5 w-4.5 items-center justify-center rounded-full bg-[#0396EF] text-white border-2 border-white shadow-xs">
+          <Headphones className="h-2.5 w-2.5" />
+        </span>
+      </div>
+    );
+  }
+
+  // Host composite avatar
+  return (
+    <div className="relative flex-shrink-0 w-14 h-10">
+      <Image
+        width={56}
+        height={40}
+        src={propertyImg}
+        alt="Property thumbnail"
+        onError={(e) => {
+          e.currentTarget.src = fallbackPropertyImage;
+        }}
+        className="h-10 w-14 rounded-md object-cover shadow-xs"
+      />
+      <Image
+        width={20}
+        height={20}
+        src={conversation.avatar}
+        alt={conversation.name}
+        onError={(e) => {
+          e.currentTarget.src = '/placeholder.svg';
+        }}
+        className="absolute -bottom-1 -right-1 h-5 w-5 rounded-full border-2 border-white object-cover shadow-xs"
+      />
+    </div>
+  );
+}
+
 function ConversationRow({
   conversation,
   selected,
@@ -147,66 +325,38 @@ function ConversationRow({
   selected: boolean;
   onClick: () => void;
 }) {
-  const isSupport = conversation.role === 'support';
+  const lastMessage = conversation.messages[conversation.messages.length - 1];
+  const isSentByMe = lastMessage ? lastMessage.from === 'me' : false;
 
   return (
     <button
       onClick={onClick}
       className={cn(
-        'group relative flex h-[58px] w-full items-center rounded-xl border border-gray-100 bg-white px-2 text-left transition-all',
+        'group relative flex w-full items-center gap-3 rounded-xl p-2.5 text-left transition-all duration-150',
         selected
-          ? 'shadow-[0_8px_18px_rgba(15,23,42,0.17)]'
-          : 'hover:shadow-[0_6px_16px_rgba(15,23,42,0.10)]',
+          ? 'bg-white shadow-md border border-gray-100'
+          : 'hover:bg-gray-50/80 border border-transparent',
       )}
     >
-      <div className="relative mr-3 flex h-11 w-[70px] flex-shrink-0 items-center">
-        {conversation.propertyImage && !isSupport ? (
-          <Image
-            width={58}
-            height={44}
-            src={conversation.propertyImage}
-            alt=""
-            onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-            className="h-11 w-[58px] rounded-xl object-cover"
-          />
-        ) : (
-          <span className="flex h-11 w-11 items-center justify-center rounded-full bg-gray-100 text-gray-500">
-            <Headphones className="h-4 w-4" />
-          </span>
-        )}
-        <Image
-          width={36}
-          height={36}
-          src={conversation.avatar}
-          alt=""
-          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-          className={cn(
-            'absolute h-9 w-9 rounded-full border-2 border-white object-cover',
-            conversation.propertyImage && !isSupport ? 'right-0' : 'left-5',
-          )}
-        />
-      </div>
+      <CompositeAvatar conversation={conversation} size="sidebar" />
 
       <div className="min-w-0 flex-1">
-        <div className="flex items-start justify-between gap-2">
-          <span className="truncate text-[12px] font-bold leading-tight text-gray-900">
+        <div className="flex items-center justify-between gap-1">
+          <span className="truncate text-[13px] font-bold text-gray-900 leading-tight">
             {conversation.name}
           </span>
-          <span
-            className={cn(
-              'flex-shrink-0 text-[9px] leading-tight',
-              conversation.date === 'Today' ? 'text-figma-navy' : 'text-gray-500',
-            )}
-          >
+          <span className="shrink-0 text-[11px] text-gray-400 font-normal">
             {conversation.date}
           </span>
         </div>
-        <div className="mt-1 flex items-center gap-2">
-          <p className="truncate text-[11px] font-medium text-gray-500">
+
+        <div className="mt-1 flex items-center justify-between gap-2">
+          <p className="truncate text-[12px] text-gray-500 leading-snug">
+            {isSentByMe && <span className="font-bold text-gray-700">Sent: </span>}
             {conversation.preview}
           </p>
-          {conversation.unread && (
-            <span className="ml-auto flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full bg-figma-navy text-[9px] font-bold text-white">
+          {Boolean(conversation.unread && conversation.unread > 0) && (
+            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-[#0396EF] text-[10px] font-bold text-white shadow-xs">
               {conversation.unread}
             </span>
           )}
@@ -216,13 +366,21 @@ function ConversationRow({
   );
 }
 
-function EmptyList() {
+function EmptyList({ onClearFilters }: { onClearFilters?: () => void }) {
   return (
     <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-      <CircleSlash className="mb-5 h-9 w-9 text-gray-500" strokeWidth={1.8} />
-      <p className="max-w-[190px] text-[13px] font-semibold leading-5 text-gray-500">
-        You don&apos;t have any chat for this moment
+      <CircleSlash className="mb-5 h-9 w-9 text-gray-400" strokeWidth={1.8} />
+      <p className="max-w-[220px] text-[13px] font-semibold leading-5 text-gray-500">
+        You don&apos;t have any chat with selected filters
       </p>
+      {onClearFilters && (
+        <button
+          onClick={onClearFilters}
+          className="mt-4 rounded-full border border-figma-navy bg-white px-4 py-2 text-sm font-medium text-figma-navy transition-colors hover:bg-figma-navy/5"
+        >
+          Clear filters
+        </button>
+      )}
     </div>
   );
 }
@@ -230,7 +388,7 @@ function EmptyList() {
 function EmptyThread() {
   return (
     <div className="flex h-full flex-col items-center justify-center text-center">
-      <MessageSquareText className="mb-5 h-12 w-12 text-gray-400" strokeWidth={1.6} />
+      <MessageSquareText className="mb-5 h-12 w-12 text-gray-300" strokeWidth={1.6} />
       <p className="text-[15px] font-semibold text-gray-500">
         Open any chat to start messaging
       </p>
@@ -265,23 +423,24 @@ function ChatActionMenu({
       <button
         onClick={() => onOpenChange(!open)}
         aria-label="Open chat actions"
-        className="flex h-8 w-8 items-center justify-center rounded-full border border-gray-200 bg-white text-gray-700 transition-colors hover:bg-gray-50"
+        className="flex h-9 w-9 items-center justify-center rounded-full text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors"
       >
-        <MoreVertical className="h-4 w-4" />
+        <MoreVertical className="h-5 w-5" />
       </button>
       {open && (
-        <div className="absolute right-0 top-[calc(100%+8px)] z-30 w-[178px] rounded-sm border border-gray-200 bg-white py-2 shadow-[0_8px_18px_rgba(0,0,0,0.18)]">
+        <div className="absolute right-0 top-full mt-2 z-30 w-48 rounded-xl border border-gray-100 bg-white py-1.5 shadow-[0_10px_25px_rgba(0,0,0,0.12)]">
           {MENU_ITEMS.map((item) => {
             const Icon = item.icon;
             return (
               <button
                 key={item.label}
+                onClick={() => onOpenChange(false)}
                 className={cn(
-                  'flex w-full items-center gap-3 px-4 py-2.5 text-left text-[13px] font-medium text-gray-700 hover:bg-gray-50',
-                  item.separated && 'mt-1 border-t border-gray-200 pt-3',
+                  'flex w-full items-center gap-2.5 px-4 py-2 text-left text-[13px] font-medium text-gray-700 hover:bg-gray-50 transition-colors',
+                  item.separated && 'mt-1 border-t border-gray-100 pt-2 text-red-600 hover:bg-red-50',
                 )}
               >
-                <Icon className="h-4 w-4 text-gray-600" />
+                <Icon className={cn('h-4 w-4', item.separated ? 'text-red-500' : 'text-gray-500')} />
                 {item.label}
               </button>
             );
@@ -302,31 +461,33 @@ function MessageBubble({
   const mine = message.from === 'me';
 
   return (
-    <div className={cn('flex items-end gap-2', mine ? 'justify-end' : 'justify-start')}>
+    <div className={cn('flex items-end gap-2.5', mine ? 'justify-end' : 'justify-start')}>
       {!mine && (
         <Image
           width={32}
           height={32}
           src={avatar}
           alt=""
-          onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-          className="mb-1 h-8 w-8 flex-shrink-0 rounded-full border border-white object-cover"
+          onError={(e) => {
+            e.currentTarget.src = '/placeholder.svg';
+          }}
+          className="mb-1 h-8 w-8 flex-shrink-0 rounded-full border border-white object-cover shadow-xs"
         />
       )}
-      <div className={cn('max-w-[74%]', mine ? 'items-end' : 'items-start')}>
+      <div className={cn('max-w-[72%]', mine ? 'items-end' : 'items-start')}>
         <div
           className={cn(
-            'px-4 py-3 text-[13px] leading-5',
+            'px-4 py-2.5 text-[14px] leading-relaxed',
             mine
-              ? 'rounded-2xl rounded-br-md bg-figma-navy text-white shadow-[0_2px_9px_rgba(15,23,42,0.12)]'
-              : 'rounded-2xl rounded-bl-md bg-gray-100 text-gray-900',
+              ? 'rounded-2xl rounded-br-sm bg-[#0396EF] text-white shadow-xs'
+              : 'rounded-2xl rounded-bl-sm bg-gray-100 text-gray-900',
           )}
         >
           {message.body}
         </div>
         <div
           className={cn(
-            'mt-1 text-[11px] font-medium text-gray-500',
+            'mt-1 text-[11px] font-normal text-gray-400',
             mine ? 'text-right' : 'text-left',
           )}
         >
@@ -365,7 +526,7 @@ function ConversationPanel({
 
   if (!conversation) {
     return (
-      <section className="h-[70dvh] min-w-0 rounded-[2rem] border border-gray-300 bg-white md:h-[calc(100dvh-220px)] md:min-h-[520px]">
+      <section className="flex h-full min-w-0 flex-col items-center justify-center rounded-[2rem] border border-gray-200 bg-white p-6 shadow-xs">
         <EmptyThread />
       </section>
     );
@@ -376,7 +537,7 @@ function ConversationPanel({
     if (!draft.trim() || !userId) return;
 
     const messageText = draft.trim();
-    
+
     // Optimistically add message to UI
     const optimisticMessage: Message = {
       id: `temp-${Date.now()}`,
@@ -384,8 +545,8 @@ function ConversationPanel({
       time: new Date().toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
       from: 'me',
     };
-    
-    setMessages(prev => [...prev, optimisticMessage]);
+
+    setMessages((prev) => [...prev, optimisticMessage]);
     setDraft('');
     setSending(true);
 
@@ -406,33 +567,38 @@ function ConversationPanel({
         throw new Error(error.error || 'Failed to send message');
       }
 
-      // Remove the temporary message and fetch fresh data
       const result = await response.json();
       if (result.data) {
-        // Replace temp message with real one
-        setMessages(prev => 
-          prev.map(msg => msg.id === optimisticMessage.id ? {
-            id: result.data.id,
-            body: result.data.text,
-            time: new Date(result.data.timestamp).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-            from: 'me',
-          } : msg)
+        setMessages((prev) =>
+          prev.map((msg) =>
+            msg.id === optimisticMessage.id
+              ? {
+                  id: result.data.id,
+                  body: result.data.text,
+                  time: new Date(result.data.timestamp).toLocaleTimeString('en-IN', {
+                    hour: '2-digit',
+                    minute: '2-digit',
+                  }),
+                  from: 'me',
+                }
+              : msg,
+          ),
         );
       }
-      
+
       onMessageSent?.();
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Remove the optimistic message on error
-      setMessages(prev => prev.filter(msg => msg.id !== optimisticMessage.id));
+      setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
     } finally {
       setSending(false);
     }
   };
 
   return (
-    <section className="relative flex h-[70dvh] min-w-0 flex-col rounded-[2rem] border border-gray-300 bg-white px-5 py-4 md:h-[calc(100dvh-220px)] md:min-h-[520px]">
-      <div className="flex items-start justify-between gap-4">
+    <section className="relative flex h-full min-w-0 flex-col rounded-[2rem] border border-gray-200 bg-white p-6 shadow-xs">
+      {/* Header */}
+      <div className="flex items-center justify-between pb-4 border-b border-gray-100">
         <div className="flex min-w-0 items-center gap-3">
           <button
             onClick={onBack}
@@ -441,33 +607,31 @@ function ConversationPanel({
           >
             <ArrowLeft className="h-5 w-5" />
           </button>
-          <Image
-            width={44}
-            height={44}
-            src={conversation.avatar}
-            alt=""
-            onError={(e) => { e.currentTarget.src = '/placeholder.svg'; }}
-            className="h-11 w-11 rounded-full object-cover"
-          />
+          <CompositeAvatar conversation={conversation} size="header" />
           <div className="min-w-0">
-            <h2 className="truncate text-[16px] font-black leading-tight text-gray-900">
+            <h2 className="truncate text-[16px] font-bold leading-tight text-gray-900">
               {conversation.name}
             </h2>
-            <p className="text-[12px] font-semibold leading-tight text-gray-800">
-              {conversation.subtitle}
-            </p>
+            <a
+              href={conversation.role === 'support' ? '/support' : `/property/${conversation.propertyId || '1'}`}
+              className="text-[12px] text-gray-600 underline font-medium hover:text-gray-900 transition-colors"
+            >
+              {conversation.role === 'support' ? 'Help Center' : 'Show listing'}
+            </a>
           </div>
         </div>
         <ChatActionMenu open={menuOpen} onOpenChange={setMenuOpen} />
       </div>
 
-      <div className="my-4 flex items-center gap-3 px-20 text-[11px] font-medium text-gray-500">
-        <span className="h-px flex-1 bg-gray-200" />
+      {/* Date divider */}
+      <div className="my-4 flex items-center gap-3 px-16 text-[11px] font-medium text-gray-400">
+        <span className="h-px flex-1 bg-gray-100" />
         Today
-        <span className="h-px flex-1 bg-gray-200" />
+        <span className="h-px flex-1 bg-gray-100" />
       </div>
 
-      <div className="reviews-scroll flex-1 space-y-6 overflow-y-auto pr-2">
+      {/* Messages */}
+      <div className="reviews-scroll flex-1 space-y-4 overflow-y-auto pr-2">
         {messages.map((message) => (
           <MessageBubble
             key={message.id}
@@ -480,19 +644,21 @@ function ConversationPanel({
 
       <button
         aria-label="Jump to latest message"
-        className="absolute bottom-[78px] right-7 flex h-8 w-8 items-center justify-center rounded-full bg-[#004772] text-white shadow-md"
+        onClick={() => messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })}
+        className="absolute bottom-[84px] right-8 flex h-8 w-8 items-center justify-center rounded-full bg-gray-900 text-white shadow-md hover:bg-gray-800 transition-colors"
       >
         <ArrowDown className="h-4 w-4" />
       </button>
 
+      {/* Message Input Area: Fully rounded pill shape with gray paper-airplane icon */}
       <form
         onSubmit={handleSendMessage}
-        className="mt-2 flex h-[50px] items-center gap-2 rounded-full border border-gray-300 bg-white py-1 pl-4 pr-1"
+        className="mt-3 relative flex items-center w-full rounded-full border border-gray-200 bg-white px-4 py-3 shadow-xs focus-within:border-[#0396EF] focus-within:ring-2 focus-within:ring-[#0396EF]/10 transition-all"
       >
         <button
           type="button"
           aria-label="Attach image"
-          className="hidden text-gray-400 hover:text-gray-600 sm:block"
+          className="mr-2.5 hidden text-gray-400 hover:text-gray-600 sm:block transition-colors"
         >
           <ImageIcon className="h-4 w-4" />
         </button>
@@ -500,18 +666,18 @@ function ConversationPanel({
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
           placeholder="Type here..."
-          className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-gray-700 outline-none placeholder:text-gray-400"
+          className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-gray-800 outline-none placeholder:text-gray-400"
         />
         <button
           type="submit"
           aria-label="Send message"
           disabled={!draft.trim() || sending}
           className={cn(
-            'flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-white transition-colors',
-            draft.trim() && !sending ? 'bg-figma-navy hover:bg-figma-navy/90' : 'bg-gray-300',
+            'ml-2 flex h-7 w-7 flex-shrink-0 items-center justify-center rounded-full text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-40 disabled:hover:text-gray-400',
+            draft.trim() && 'text-[#0396EF] hover:text-[#0284d0]',
           )}
         >
-          <Send className="h-5 w-5 fill-current" />
+          <Send className="h-4 w-4" />
         </button>
       </form>
     </section>
@@ -541,23 +707,25 @@ export default function ChatWorkspace({
   useEffect(() => {
     const loadConversations = async () => {
       if (!userId) {
+        // Fallback for non-logged-in or preview mode
+        setConversations([...DEFAULT_HOST_CONVERSATIONS, DEFAULT_SUPPORT_CONVERSATION]);
         setLoading(false);
         return;
       }
 
       try {
         setLoading(true);
-        // Fetch conversations from the chat API
         const response = await fetch(`/api/chat?userId=${encodeURIComponent(userId)}`);
         if (!response.ok) throw new Error('Failed to load conversations');
         const data = await response.json();
-        
-        // Map API response to Conversation format
-        let mappedConversations: Conversation[] = (data.data || []).map((chat: any) => ({
+
+        let mappedConversations: Conversation[] = (data.data || []).map((chat: any, index: number) => ({
           id: chat.participant_id,
           name: chat.participant_name || 'Host',
-          role: chat.type || 'host',
-          avatar: 'https://i.pravatar.cc/150',
+          role: (chat.type === 'support' ? 'support' : 'host') as ChatRole,
+          avatar: chat.participant_avatar || DEFAULT_AVATARS[index % DEFAULT_AVATARS.length],
+          propertyImage: chat.property_image || DEFAULT_PROPERTY_IMAGES[index % DEFAULT_PROPERTY_IMAGES.length],
+          propertyId: String(index + 1),
           preview: chat.last_message || 'No messages yet',
           date: chat.last_message_time ? 'Today' : 'Never',
           subtitle: 'Property host',
@@ -568,14 +736,26 @@ export default function ChatWorkspace({
             from: msg.sender_id === userId ? 'me' : 'them',
           })),
         }));
-        
-        // If we have an initialSelectedId but it's not in the conversations, create a new one
-        if (initialSelectedId && !mappedConversations.find(c => c.id === initialSelectedId)) {
+
+        // If no conversations returned from database, fallback to stylish defaults
+        if (mappedConversations.length === 0) {
+          mappedConversations = [...DEFAULT_HOST_CONVERSATIONS, DEFAULT_SUPPORT_CONVERSATION];
+        } else {
+          // Always ensure the Support Team conversation is present
+          if (!mappedConversations.some((c) => c.role === 'support')) {
+            mappedConversations.push(DEFAULT_SUPPORT_CONVERSATION);
+          }
+        }
+
+        // If an initialSelectedId was specified and not found, prepend it
+        if (initialSelectedId && !mappedConversations.find((c) => c.id === initialSelectedId)) {
           const newConversation: Conversation = {
             id: initialSelectedId,
             name: initialHostName && initialHostName !== 'Host' ? initialHostName : 'Property host',
             role: 'host',
-            avatar: 'https://i.pravatar.cc/150',
+            avatar: DEFAULT_AVATARS[0],
+            propertyImage: DEFAULT_PROPERTY_IMAGES[0],
+            propertyId: '1',
             preview: 'No messages yet',
             date: 'Now',
             subtitle: initialHostName && initialHostName !== 'Host' ? initialHostName : 'Property host',
@@ -583,11 +763,11 @@ export default function ChatWorkspace({
           };
           mappedConversations.unshift(newConversation);
         }
-        
+
         setConversations(mappedConversations);
       } catch (error) {
         console.error('Failed to load conversations:', error);
-        setConversations([]);
+        setConversations([...DEFAULT_HOST_CONVERSATIONS, DEFAULT_SUPPORT_CONVERSATION]);
       } finally {
         setLoading(false);
       }
@@ -595,25 +775,18 @@ export default function ChatWorkspace({
 
     loadConversations();
 
-    // Subscribe to real-time updates.
-    // Realtime's `filter` only accepts a single `column=operator.value`
-    // predicate -- it's the Realtime server's own grammar, not PostgREST,
-    // and it doesn't understand `or(...)`. That used to be sent as one
-    // filter string, which the server rejected, erroring the whole
-    // subscription silently -- so a guest never saw a host's reply show up
-    // live, only after a manual reload. Two bindings on the same channel
-    // (one per column, sharing this handler) is the supported way to OR them.
+    // Realtime changes listener
     const handleNewMessage = (payload: any) => {
       const newMsg = payload.new;
       const participantId = newMsg.user_id === userId ? newMsg.host_id : newMsg.user_id;
 
       setConversations((prev) => {
         const updated = [...prev];
-        const convIndex = updated.findIndex(c => c.id === participantId);
+        const convIndex = updated.findIndex((c) => c.id === participantId);
 
         if (convIndex >= 0) {
-          // Update existing conversation
-          const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
+          const senderIsCurrentUser =
+            newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
           updated[convIndex].messages.push({
             id: newMsg.id,
             body: newMsg.content,
@@ -623,26 +796,29 @@ export default function ChatWorkspace({
           updated[convIndex].preview = newMsg.content;
           updated[convIndex].date = 'Now';
 
-          // Move to top
           const [conversation] = updated.splice(convIndex, 1);
           updated.unshift(conversation);
         } else {
-          // Create new conversation if it doesn't exist
-          const senderIsCurrentUser = newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
+          const senderIsCurrentUser =
+            newMsg.sender_type === 'user' ? newMsg.user_id === userId : newMsg.host_id === userId;
           const newConversation: Conversation = {
             id: participantId,
             name: 'New conversation',
             role: 'host',
-            avatar: 'https://i.pravatar.cc/150',
+            avatar: DEFAULT_AVATARS[0],
+            propertyImage: DEFAULT_PROPERTY_IMAGES[0],
+            propertyId: '1',
             preview: newMsg.content,
             date: 'Now',
             subtitle: 'Property host',
-            messages: [{
-              id: newMsg.id,
-              body: newMsg.content,
-              time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
-              from: senderIsCurrentUser ? 'me' : 'them',
-            }],
+            messages: [
+              {
+                id: newMsg.id,
+                body: newMsg.content,
+                time: new Date(newMsg.created_at).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' }),
+                from: senderIsCurrentUser ? 'me' : 'them',
+              },
+            ],
           };
           updated.unshift(newConversation);
         }
@@ -709,6 +885,12 @@ export default function ChatWorkspace({
   const primaryItems = filtered.filter((item) => item.role !== 'support');
   const hasFilters = filter !== 'all' || unreadOnly || query.trim().length > 0;
 
+  const handleClearFilters = useCallback(() => {
+    setFilter('all');
+    setUnreadOnly(false);
+    setQuery('');
+  }, []);
+
   return (
     <div className="min-h-screen bg-[#fffdf8] text-gray-900">
       <main className="mx-auto flex max-w-[1520px] gap-6 px-4 pb-8 pt-8 sm:px-8 lg:gap-8">
@@ -721,11 +903,11 @@ export default function ChatWorkspace({
         </button>
 
         <div className="grid min-w-0 flex-1 grid-cols-1 gap-5 md:grid-cols-[320px_minmax(0,1fr)] xl:grid-cols-[400px_minmax(0,1fr)]">
+          {/* Sidebar */}
           <aside
             className={cn(
-              'h-[70dvh] min-w-0 flex-col rounded-[2rem] border bg-white px-6 py-6 transition-colors md:flex md:h-[calc(100dvh-220px)] md:min-h-[520px]',
+              'h-[70dvh] min-w-0 flex-col rounded-[2rem] border border-gray-200 bg-white px-6 py-6 shadow-xs transition-colors md:flex md:h-[calc(100dvh-220px)] md:min-h-[520px]',
               selectedId ? 'hidden' : 'flex',
-              selectedId || filtered.length === 0 ? 'border-figma-navy' : 'border-gray-300',
             )}
           >
             <h1 className="text-[30px] font-semibold tracking-tight text-gray-950">Chats</h1>
@@ -741,52 +923,35 @@ export default function ChatWorkspace({
               <button
                 onClick={() => setUnreadOnly((value) => !value)}
                 className={cn(
-                  'h-8 rounded-full border px-4 text-sm font-medium transition-colors',
+                  'h-8 rounded-full border border-blue-300 px-4 text-sm font-medium transition-colors text-blue-500',
                   unreadOnly
-                    ? 'border-figma-navy bg-figma-navy/5 text-figma-navy/90'
-                    : 'border-gray-300 bg-white text-gray-900 hover:bg-gray-50',
+                    ? 'bg-[#E6F4FE]'
+                    : 'bg-white hover:bg-blue-50/40',
                 )}
               >
                 Unread
               </button>
             </div>
 
-            <div className="mt-4 flex items-center gap-3">
-              <label className="flex h-10 min-w-0 flex-1 items-center gap-2 rounded-full border border-gray-300 bg-white px-4">
-                <Search className="h-5 w-5 flex-shrink-0 text-black" />
-                <input
-                  value={query}
-                  onChange={(event) => setQuery(event.target.value)}
-                  placeholder="Search"
-                  className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-gray-700 outline-none placeholder:text-gray-400"
-                />
-              </label>
-              <button
-                aria-label="Chat settings"
-                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 hover:bg-gray-50"
-              >
-                <Settings className="h-5 w-5" />
-              </button>
-            </div>
-
-            <div className="reviews-scroll mt-5 flex min-h-0 flex-1 flex-col overflow-y-auto pr-2">
+            {/* Sidebar Categorization: Hosts and Support Team */}
+            <div className="reviews-scroll mt-4 flex min-h-0 flex-1 flex-col overflow-y-auto pr-1">
               {loading ? (
                 <div className="flex flex-1 flex-col items-center justify-center px-8 text-center">
-                  <div className="w-7 h-7 border-2 border-figma-navy/40 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                  <p className="text-[12px] text-figma-navy font-medium">
+                  <div className="w-7 h-7 border-2 border-[#0396EF]/40 border-t-[#0396EF] rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-[12px] text-gray-500 font-medium">
                     Loading conversations…
                   </p>
                 </div>
               ) : filtered.length === 0 ? (
-                <EmptyList />
+                <EmptyList onClearFilters={handleClearFilters} />
               ) : (
-                <div className="space-y-5">
+                <div className="space-y-4">
                   {primaryItems.length > 0 && (
                     <section>
-                      <h2 className="mb-2 text-[15px] font-semibold text-gray-900">
+                      <h3 className="text-[15px] font-semibold text-gray-800 mb-3 mt-4">
                         {filter === 'archived' ? 'Archived' : primaryHeading}
-                      </h2>
-                      <div className="space-y-3">
+                      </h3>
+                      <div className="space-y-1.5">
                         {primaryItems.map((conversation) => (
                           <ConversationRow
                             key={conversation.id}
@@ -801,10 +966,10 @@ export default function ChatWorkspace({
 
                   {supportItems.length > 0 && (
                     <section>
-                      <h2 className="mb-2 text-[15px] font-semibold text-gray-900">
+                      <h3 className="text-[15px] font-semibold text-gray-800 mb-3 mt-4">
                         Support Team
-                      </h2>
-                      <div className="space-y-3">
+                      </h3>
+                      <div className="space-y-1.5">
                         {supportItems.map((conversation) => (
                           <ConversationRow
                             key={conversation.id}
@@ -820,13 +985,9 @@ export default function ChatWorkspace({
               )}
             </div>
 
-            {hasFilters && (
+            {hasFilters && filtered.length > 0 && (
               <button
-                onClick={() => {
-                  setFilter('all');
-                  setUnreadOnly(false);
-                  setQuery('');
-                }}
+                onClick={handleClearFilters}
                 className="mx-auto mt-3 h-7 rounded-md border border-[#004772] px-4 text-[11px] font-semibold text-[#004772] hover:bg-figma-navy/5"
               >
                 Clear filters
@@ -834,14 +995,42 @@ export default function ChatWorkspace({
             )}
           </aside>
 
-          <div className={cn('min-w-0', selectedId ? 'block' : 'hidden md:block')}>
-            <ConversationPanel
-              conversation={selectedConversation}
-              onBack={() => setSelectedId(null)}
-              onMessageSent={() => {
-                // Conversation will be updated automatically by the real-time subscription
-              }}
-            />
+          {/* Right Column: Search & Chat Thread Container */}
+          <div
+            className={cn(
+              'min-w-0 flex-col h-[70dvh] md:h-[calc(100dvh-220px)] md:min-h-[520px]',
+              selectedId ? 'flex' : 'hidden md:flex',
+            )}
+          >
+            {/* Top Search Bar & Settings Icon */}
+            <div className="mb-4 flex items-center justify-start gap-3 flex-shrink-0">
+              <label className="flex h-10 w-full max-w-sm items-center gap-2.5 rounded-full border border-gray-300 bg-white px-4 shadow-xs">
+                <Search className="h-4 w-4 flex-shrink-0 text-gray-400" />
+                <input
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="Search"
+                  className="min-w-0 flex-1 bg-transparent text-[13px] font-medium text-gray-700 outline-none placeholder:text-gray-400"
+                />
+              </label>
+              <button
+                aria-label="Chat settings"
+                className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-gray-300 bg-white text-gray-700 transition-colors hover:bg-gray-50 shadow-xs"
+              >
+                <Settings className="h-5 w-5" />
+              </button>
+            </div>
+
+            {/* Chat Area / Thread Container */}
+            <div className="flex-1 min-h-0 min-w-0">
+              <ConversationPanel
+                conversation={selectedConversation}
+                onBack={() => setSelectedId(null)}
+                onMessageSent={() => {
+                  // Conversation will be updated automatically by the real-time subscription
+                }}
+              />
+            </div>
           </div>
         </div>
       </main>
