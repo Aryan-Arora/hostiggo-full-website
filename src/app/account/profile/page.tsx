@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
 import { toast } from 'sonner';
-import { ChevronRight, Camera, ShieldCheck, Mail, Phone, Loader2 } from 'lucide-react';
+import { ChevronRight, Camera, ShieldCheck, ShieldAlert, Mail, Phone, Loader2 } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { useAuth } from '@/context/AuthContext';
@@ -138,7 +138,7 @@ export default function GuestProfilePage() {
                 </div>
               </div>
 
-              {user?.is_verified && (
+              {user?.is_verified ? (
                 <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200 flex items-center gap-4">
                   <div className="w-12 h-12 rounded-full bg-figma-navy/5 flex items-center justify-center text-figma-navy">
                     <ShieldCheck className="w-6 h-6" />
@@ -147,6 +147,26 @@ export default function GuestProfilePage() {
                     <p className="text-sm font-bold text-gray-800">Identity verified</p>
                     <p className="text-xs text-gray-500">Your account is verified</p>
                   </div>
+                </div>
+              ) : (
+                <div className="bg-white rounded-3xl p-6 shadow-card border border-gray-200">
+                  <div className="flex items-center gap-4">
+                    <div className="w-12 h-12 rounded-full bg-amber-50 flex items-center justify-center text-amber-600 shrink-0">
+                      <ShieldAlert className="w-6 h-6" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-bold text-gray-800">Verify your account</p>
+                      <p className="text-xs text-gray-500">
+                        Confirm your identity with a government ID to build trust and unlock full access.
+                      </p>
+                    </div>
+                  </div>
+                  <Link
+                    href="/account/verification"
+                    className="mt-4 flex w-full items-center justify-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90 transition-colors"
+                  >
+                    Verify account
+                  </Link>
                 </div>
               )}
             </aside>

@@ -632,7 +632,7 @@ export const api = {
           phone: user.phone || null,
           age: user.user_metadata?.age || null,
           emergency_contact: user.user_metadata?.emergency_contact || null,
-          is_verified: true,
+          is_verified: false,
           is_active: true,
         }),
       });
