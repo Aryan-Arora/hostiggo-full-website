@@ -77,8 +77,8 @@ function BrandPanel({ asset }: { asset: AssetSet }) {
       <img
         src={asset.mascot}
         alt="Hostiggo travel mascot"
-        className="pointer-events-none absolute bottom-0 left-1/2 -translate-x-1/2 -scale-x-100 object-contain"
-        style={{ width: "894px", height: "488px", aspectRatio: "218/119", maxWidth: "none" }}
+        className="pointer-events-none absolute bottom-0 -scale-x-100 object-contain max-w-none left-[53%] -translate-x-1/2 h-[260px] w-auto sm:h-[310px] sm:left-[52%] lg:left-1/2 lg:w-[894px] lg:h-[488px]"
+        style={{ aspectRatio: "218/119" }}
       />
     </div>
   );

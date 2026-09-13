@@ -76,6 +76,7 @@ export const bookingsAPI = {
       .select(
         `
         booking_id,
+        listing_id,
         amount,
         listings (
           latitude, longitude,
@@ -95,6 +96,7 @@ export const bookingsAPI = {
       const listing = extra?.listings;
       return {
         ...r,
+        listing_id: extra?.listing_id ?? r.listing_id ?? null,
         amount: extra?.amount ?? null,
         priceWeekday: listing?.price_weekday ?? null,
         priceWeekend: listing?.price_weekend ?? null,
