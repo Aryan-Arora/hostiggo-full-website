@@ -191,30 +191,28 @@ export default function Navbar() {
   }, []);
 
   return (
-    <nav className="bg-white sticky top-0 z-50 border-b border-gray-50 shadow-[0_8px_30px_rgba(59,130,246,0.12)] flex-shrink-0">
+    <nav className="bg-white sticky top-0 z-50 border-b border-[#EFEFEF] flex-shrink-0 transition-all">
       <div className="w-full px-4 sm:px-6 lg:px-10">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo */}
+        <div className="flex items-center justify-between h-16 md:h-[105px]">
+          {/* Logo matching Figma Component 271 */}
           <Link
             href="/"
-            className="flex items-center gap-2.5 flex-shrink-0 group"
+            className="flex items-center gap-3 flex-shrink-0 group"
           >
-            <Image
-              src="/logo.png"
-              alt="Hostiggo Logo"
-              width={36}
-              height={36}
-              className="transition-transform group-hover:scale-105"
-            />
-            <div className="flex items-baseline">
+            <div className="w-11 h-11 rounded-full bg-[#004772] flex items-center justify-center flex-shrink-0 shadow-xs transition-transform group-hover:scale-105">
+              <span className="text-white text-[22px] font-bold font-['Poppins'] leading-none">
+                H
+              </span>
+            </div>
+            <div className="flex items-baseline tracking-tight">
               <span
-                className="font-semibold text-[#374151] text-[21px] leading-[140%] uppercase tracking-normal"
+                className="font-bold text-[#004772] text-[22px] md:text-[24px] uppercase"
                 style={{ fontFamily: "Poppins, sans-serif" }}
               >
                 Hostig
               </span>
               <span
-                className="font-semibold text-[#0086D8] text-[21px] leading-[140%] uppercase tracking-normal"
+                className="font-bold text-[#0086D8] text-[22px] md:text-[24px] uppercase"
                 style={{ fontFamily: "Poppins, sans-serif" }}
               >
                 go
@@ -373,24 +371,42 @@ export default function Navbar() {
 
             <span className="h-4 w-px bg-gray-200 mx-0.5" />
 
-            {isAuthenticated ? (
+            {/* Sign In text link -- guests only. Was rendered unconditionally,
+                so a signed-in user saw a "Sign In" button next to their own
+                avatar. */}
+            {!isAuthenticated && (
               <>
                 <button
-                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
-                  onClick={() => router.push("/host/list/method")}
+                  type="button"
+                  className="text-[#004772] hover:text-[#002f4c] px-3.5 py-2 rounded-lg transition-colors text-[15px] font-medium font-['Poppins'] cursor-pointer ml-1"
+                  onClick={() => router.push("/signin")}
                 >
-                  List your property
+                  Sign In
                 </button>
+                <span className="h-5 w-px bg-gray-200 mx-1" />
+              </>
+            )}
 
+            {/* List your property button matching Figma Rectangle 22987 */}
+            <button
+              type="button"
+              className="border border-[#004772] text-[#004772] hover:bg-[#004772]/5 px-5 py-2.5 rounded-full text-[14px] md:text-[15px] font-medium transition-colors font-['Poppins'] cursor-pointer ml-1"
+              onClick={() => router.push("/host/list/method")}
+            >
+              List your property
+            </button>
+
+            {isAuthenticated ? (
+              <>
                 {/* Avatar + Dropdown */}
                 <div ref={profileRef} className="relative ml-2">
                   <button
                     onClick={() => setProfileOpen((v) => !v)}
-                    className="w-9 h-9 rounded-full overflow-hidden ring-2 ring-offset-1 ring-transparent hover:ring-figma-accent transition-all"
+                    className="w-11 h-11 rounded-full overflow-hidden border-2 border-gray-200 hover:border-[#004772] transition-all cursor-pointer shadow-xs"
                   >
                     <Image
-                      width={36}
-                      height={36}
+                      width={44}
+                      height={44}
                       src={user?.profile_pic_url || USER.avatar}
                       alt={user?.name || USER.name}
                       className="w-full h-full object-cover"
@@ -466,26 +482,15 @@ export default function Navbar() {
                 </div>
               </>
             ) : (
-              <>
+              <div className="flex items-center gap-1.5 ml-2">
                 <button
-                  className="text-figma-navy hover:bg-figma-navy/5 px-3 py-1.5 rounded-lg transition-colors text-[14px] font-medium ml-0.5"
-                  onClick={() => router.push("/signin")}
-                >
-                  Sign In
-                </button>
-                <button
-                  className="bg-figma-navy hover:bg-figma-navy/90 active:bg-figma-navy text-white px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1 shadow-sm"
+                  type="button"
+                  className="bg-[#004772] hover:bg-[#003859] active:bg-[#002f4c] text-white px-4 py-2.5 rounded-full text-[14px] font-medium transition-colors shadow-xs cursor-pointer font-['Poppins']"
                   onClick={() => router.push("/signin")}
                 >
                   New user
                 </button>
-                <button
-                  onClick={() => router.push("/host/list/method")}
-                  className="border border-figma-navy text-figma-navy hover:bg-figma-navy/5 px-4 py-2 rounded-xl text-[14px] font-medium transition-colors ml-1"
-                >
-                  List your property
-                </button>
-              </>
+              </div>
             )}
           </div>
 

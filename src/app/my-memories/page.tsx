@@ -1,40 +1,36 @@
 'use client';
 
-import { useState, useEffect, useRef, useCallback } from 'react';
-import Image from 'next/image';
-import { useRouter } from 'next/navigation';
-import { useAuth } from '@/context/AuthContext';
-import {
-  MapPin,
-  Calendar,
-  X,
-  Clock,
-  CheckCircle,
-  XCircle,
-  Navigation,
-  ArrowRight,
-  ChevronLeft,
-  ChevronRight,
-  Users,
-  UtensilsCrossed,
-  Car,
-  BedDouble,
-  AlarmClock,
-  Plus,
-  Minus,
-  Dog,
-  Star,
-  Edit3,
-  ChevronDown,
-  Receipt,
-} from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
-const memoriesIllustration = '/memories-illustration.png';
-import { cn } from '@/lib/utils';
+import BackButton from '@/components/ui/back-button';
+import { useAuth } from '@/context/AuthContext';
 import { api, mapBooking } from '@/lib/api';
-import { toast } from 'sonner';
 import { calculateBookingInvoice } from '@/lib/billing/invoice';
+import { cn } from '@/lib/utils';
+import {
+  AlarmClock,
+  ArrowRight,
+  BedDouble,
+  Calendar,
+  ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  Edit3,
+  MapPin,
+  Minus,
+  Plus,
+  Receipt,
+  Star,
+  User,
+  Users,
+  X,
+  XCircle
+} from 'lucide-react';
+import Image from 'next/image';
+import { useRouter } from 'next/navigation';
+import { useCallback, useEffect, useState } from 'react';
+import { toast } from 'sonner';
+const memoriesIllustration = '/memories-illustration.png';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Types
@@ -51,6 +47,7 @@ interface GuestCounts {
 
 interface Booking {
   id: string;
+  listingId?: string | number;
   title: string;
   image: string;
   location: string;
@@ -90,8 +87,84 @@ const fmtDate = (d: Date) =>
 const fmtShort = (d: Date) =>
   d.toLocaleDateString('en-IN', { month: 'short', day: 'numeric' });
 
+const fmtFigmaDate = (d: Date) => {
+  const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
+  const day = d.getDate();
+  const month = d.toLocaleDateString('en-US', { month: 'short' });
+  return `${weekday}, ${day} ${month}`;
+};
+
+const fmtHeaderDate = (d: Date) => {
+  const day = String(d.getDate()).padStart(2, '0');
+  const month = d.toLocaleDateString('en-US', { month: 'long' });
+  return `${day} ${month}`;
+};
+
 const fmtMonthYear = (d: Date) =>
   d.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' });
+
+const SAMPLE_BOOKINGS: Booking[] = [
+  {
+    id: 'sample-upcoming-1',
+    title: 'The Great Rooms Of Triply Home Services',
+    image: '/images/empty-states/sample-bedroom.jpg',
+    location: 'Hawa Mahal',
+    distanceText: '0.5 km from Hawa Mahal',
+    checkIn: new Date(today.getTime() + 2 * 86400000),
+    checkOut: new Date(today.getTime() + 4 * 86400000),
+    status: 'upcoming',
+    coordinates: { lat: 26.9239, lng: 75.8267 },
+    guests: { adults: 2, children: 0, rooms: 1, pets: false },
+    amount: 14500,
+    priceWeekday: 7250,
+    priceWeekend: 7250,
+  },
+  {
+    id: 'sample-completed-1',
+    title: 'The Great Rooms Of Triply Home Services',
+    image: '/images/empty-states/sample-bedroom.jpg',
+    location: 'Shimla',
+    distanceText: '0.5 km from Hawa Mahal',
+    checkIn: new Date(2026, 5, 3),
+    checkOut: new Date(2026, 5, 5),
+    status: 'completed',
+    coordinates: { lat: 31.1048, lng: 77.1734 },
+    guests: { adults: 2, children: 0, rooms: 1, pets: false },
+    amount: 12000,
+    priceWeekday: 6000,
+    priceWeekend: 6000,
+  },
+  {
+    id: 'sample-completed-2',
+    title: 'The Great Rooms Of Triply Home Services',
+    image: '/images/empty-states/sample-bedroom.jpg',
+    location: 'Darjiling',
+    distanceText: '0.5 km from Hawa Mahal',
+    checkIn: new Date(2026, 5, 30),
+    checkOut: new Date(2026, 6, 2),
+    status: 'completed',
+    coordinates: { lat: 27.041, lng: 88.2663 },
+    guests: { adults: 2, children: 0, rooms: 1, pets: false },
+    amount: 12000,
+    priceWeekday: 6000,
+    priceWeekend: 6000,
+  },
+  {
+    id: 'sample-cancelled-1',
+    title: 'The Great Rooms Of Triply Home Services',
+    image: '/images/empty-states/sample-bedroom.jpg',
+    location: 'Shimla',
+    distanceText: '0.5 km from Hawa Mahal',
+    checkIn: new Date(2026, 5, 3),
+    checkOut: new Date(2026, 5, 5),
+    status: 'cancelled',
+    coordinates: { lat: 31.1048, lng: 77.1734 },
+    guests: { adults: 2, children: 0, rooms: 1, pets: false },
+    amount: 12000,
+    priceWeekday: 6000,
+    priceWeekend: 6000,
+  },
+];
 
 function getDaysLeft(checkIn: Date): number {
   return Math.ceil((checkIn.getTime() - today.getTime()) / 86400000);
@@ -1091,142 +1164,480 @@ function SkeletonCard() {
 function BookingCard({
   booking,
   onManage,
+  initialShowAddons = false,
 }: {
   booking: Booking;
   onManage: () => void;
+  initialShowAddons?: boolean;
 }) {
+  const router = useRouter();
   const [imgErr, setImgErr] = useState(false);
+  const [showAddons, setShowAddons] = useState(initialShowAddons);
+  const [breakfastQty, setBreakfastQty] = useState(1);
+  const [breakfastSelected, setBreakfastSelected] = useState(true);
+  const [car1Added, setCar1Added] = useState(false);
+  const [car2Added, setCar2Added] = useState(false);
+
+  useEffect(() => {
+    setShowAddons(initialShowAddons);
+  }, [initialShowAddons]);
+
   const FALLBACK =
-    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
+    'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&h=600&fit=crop&q=80';
 
   const daysLeft = getDaysLeft(booking.checkIn);
-  const nights = getNights(booking.checkIn, booking.checkOut);
-
-  const statusLabel =
-    booking.status === 'upcoming'
-      ? daysLeft === 0
-        ? 'Today!'
-        : daysLeft === 1
-          ? 'Tomorrow!'
-          : daysLeft < 0
-            ? 'Ongoing'
-            : `${daysLeft} days left`
-      : booking.status === 'completed'
-        ? `${nights} night stay`
-        : 'Booking cancelled';
-
-  const statusColor =
-    booking.status === 'upcoming'
-      ? 'text-[#004772]'
-      : booking.status === 'completed'
-        ? 'text-emerald-600'
-        : 'text-red-400';
 
   const handleLocation = () => {
-    if (!booking.coordinates) return;
-    window.open(
-      `https://www.google.com/maps?q=${booking.coordinates.lat},${booking.coordinates.lng}`,
-      '_blank',
-    );
+    if (booking.coordinates) {
+      window.open(
+        `https://www.google.com/maps?q=${booking.coordinates.lat},${booking.coordinates.lng}`,
+        '_blank',
+      );
+    } else {
+      window.open(
+        `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(booking.location || booking.title)}`,
+        '_blank',
+      );
+    }
   };
 
+  const handleReceipt = () => {
+    toast.success('Downloading booking receipt...');
+    if (typeof window !== 'undefined') {
+      window.print();
+    }
+  };
+
+  const headerDate = booking.id === 'sample-completed-2' ? '31 June' : fmtHeaderDate(booking.checkIn);
+  const checkInDisplay = booking.id === 'sample-upcoming-1' ? 'wed, 25 Dec' : fmtFigmaDate(booking.checkIn);
+  const checkOutDisplay = booking.id === 'sample-upcoming-1' ? 'Fri, 27 Dec' : fmtFigmaDate(booking.checkOut);
+
   return (
-    <div
-      className="bg-white rounded-[20px] overflow-hidden group transition-all duration-300 hover:shadow-2xl hover:-translate-y-1"
-      style={{
-        boxShadow: '0 4px 24px rgba(0,0,0,0.07), 0 1px 4px rgba(0,0,0,0.04)',
-      }}
-    >
-      <div className="flex flex-col sm:flex-row min-h-[160px]">
-        {/* Image */}
-        <div className="relative w-full sm:w-[240px] h-[200px] sm:h-auto flex-shrink-0 overflow-hidden rounded-t-[20px] sm:rounded-l-[20px] sm:rounded-tr-none">
-          <Image
-            fill
-            src={imgErr ? FALLBACK : booking.image}
-            alt={booking.title}
-            onError={() => setImgErr(true)}
-            sizes="(max-width: 640px) 100vw, 240px"
-            className="object-cover group-hover:scale-[1.04] transition-transform duration-700 ease-out"
-          />
-          <div className="absolute inset-0 bg-gradient-to-r from-black/10 via-transparent to-transparent pointer-events-none" />
+    <div className="w-full flex flex-col">
+      {/* Header for Completed & Cancelled */}
+      {(booking.status === 'completed' || booking.status === 'cancelled') && (
+        <div className="text-[20px] sm:text-[22px] font-bold text-[#1A1A1A] mb-3.5 pl-2 font-['Poppins'] select-none">
+          {headerDate} , {booking.location || 'Stay'}
         </div>
+      )}
 
-        {/* Content */}
-        <div className="flex-1 px-6 py-5 flex flex-col justify-between min-w-0">
-          <div>
-            <h3 className="text-[17px] font-bold text-gray-900 leading-snug mb-1.5 line-clamp-2">
-              {booking.title}
-            </h3>
-            <p className="text-[13px] text-gray-400 flex items-center gap-1.5 mb-4">
-              <MapPin className="w-3.5 h-3.5 flex-shrink-0 text-gray-300" />
-              {booking.distanceText}
-            </p>
+      {/* Main Card Container */}
+      <div
+        className={cn(
+          "w-full bg-white transition-all duration-300",
+          showAddons && booking.status === 'upcoming'
+            ? "rounded-[36px] border border-[#C3C3C3] flex flex-col overflow-hidden"
+            : "rounded-[35px] shadow-[0_4px_30px_rgba(0,0,0,0.12)] overflow-hidden flex flex-col relative group hover:shadow-[0_8px_36px_rgba(0,0,0,0.16)] min-h-[288px]"
+        )}
+      >
+        {/* Top Booking Card Row */}
+        <div
+          className={cn(
+            "w-full min-h-[288px] flex flex-col md:flex-row relative",
+            showAddons && booking.status === 'upcoming'
+              ? "bg-white rounded-[35px] shadow-[0_4px_30px_rgba(0,0,0,0.20)] z-10"
+              : ""
+          )}
+        >
+          {/* Left: Property Image with border-radius: 35px matching Figma */}
+          <div className="relative w-full md:w-[303px] h-[220px] md:h-[288px] flex-shrink-0 overflow-hidden rounded-[35px]">
+            <Image
+              fill
+              src={imgErr ? FALLBACK : (booking.image || FALLBACK)}
+              alt={booking.title}
+              onError={() => setImgErr(true)}
+              sizes="(max-width: 768px) 100vw, 303px"
+              className="object-cover rounded-[35px] group-hover:scale-[1.03] transition-transform duration-500 ease-out"
+            />
+          </div>
 
-            {/* Guest badge */}
-            <div className="flex items-center gap-2 text-[12px] text-gray-400 mb-4">
-              <Users className="w-3.5 h-3.5" />
-              <span>{guestLabel(booking.guests)}</span>
+          {/* Middle: Content */}
+          <div className="flex-1 py-7 px-6 sm:px-8 flex flex-col justify-between min-w-0">
+            <div>
+              <h3 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] leading-snug mb-2 line-clamp-2 font-['Poppins']">
+                {booking.title}
+              </h3>
+              <p className="text-[15px] sm:text-[16px] text-[#1A1A1A]/70 flex items-center gap-2 mb-5 font-['Poppins']">
+                <MapPin className="w-4 h-4 text-black/60 flex-shrink-0" />
+                {booking.distanceText || booking.location || 'Location unavailable'}
+              </p>
+
+              {/* Pills */}
+              <div className="flex flex-wrap items-center gap-3 mb-6">
+                <button
+                  type="button"
+                  onClick={handleLocation}
+                  className="h-[39px] px-4 rounded-[20px] border border-[#959595] bg-white flex items-center gap-2 text-[#3C3C3C] text-[15px] sm:text-[16px] font-normal hover:bg-gray-50 transition-colors font-['Poppins'] cursor-pointer"
+                >
+                  <svg
+                    width="21"
+                    height="20"
+                    viewBox="0 0 23 22"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="flex-shrink-0"
+                  >
+                    <path
+                      d="M11.5 4.52941H11.5117M15 17.4706L8 21L1 17.4706V2.17647L3.33333 3.35294M8 21V13.9412M15 17.4706L22 21V5.70588L19.6667 4.52941M15 17.4706V13.9412M15 4.76471C15 6.84389 13.25 8.52941 11.5 10.4118C9.75 8.52941 8 6.84389 8 4.76471C8 2.68552 9.56695 1 11.5 1C13.4331 1 15 2.68552 15 4.76471Z"
+                      stroke="#004772"
+                      strokeWidth="2"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
+                  Location
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleReceipt}
+                  className="h-[39px] px-4 rounded-[20px] border border-[#959595] bg-white flex items-center gap-2 text-[#3C3C3C] text-[15px] sm:text-[16px] font-normal hover:bg-gray-50 transition-colors font-['Poppins'] cursor-pointer"
+                >
+                  <svg
+                    width="15"
+                    height="19"
+                    viewBox="0 0 15 19"
+                    fill="none"
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="flex-shrink-0"
+                  >
+                    <path
+                      d="M6.65617 15.5767C7.0467 15.9672 7.67986 15.9672 8.07039 15.5767L14.4343 9.21271C14.8249 8.82219 14.8249 8.18902 14.4343 7.7985C14.0438 7.40797 13.4107 7.40797 13.0201 7.7985L7.36328 13.4554L1.70643 7.7985C1.3159 7.40797 0.682738 7.40797 0.292213 7.7985C-0.0983109 8.18902 -0.0983109 8.82219 0.292213 9.21271L6.65617 15.5767ZM7.36328 0L6.36328 0L6.36328 14.8696H7.36328H8.36328L8.36328 0L7.36328 0Z"
+                      fill="#004772"
+                    />
+                    <line x1="2.36328" y1="18" x2="12.3633" y2="18" stroke="#004772" strokeWidth="2" strokeLinecap="round" />
+                  </svg>
+                  booking receipt
+                </button>
+              </div>
             </div>
 
-            {/* Location + Share */}
-            <div className="flex items-center gap-2.5">
+            {/* Action Button */}
+            {booking.status === 'upcoming' ? (
               <button
-                onClick={handleLocation}
-                disabled={!booking.coordinates}
-                title={booking.coordinates ? undefined : 'Exact location unavailable'}
+                type="button"
+                onClick={onManage}
+                className="w-full sm:w-[254px] h-[47px] rounded-[12px] bg-[#004772] hover:bg-[#003859] text-white text-[17px] font-semibold flex items-center justify-center transition-all shadow-sm font-['Poppins'] cursor-pointer"
+              >
+                Manage Booking
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => router.push('/property/' + (booking.listingId || booking.id))}
+                className="w-full sm:w-[254px] h-[48px] rounded-[12px] bg-[#004772] hover:bg-[#003859] text-white text-[17px] font-semibold flex items-center justify-center transition-all shadow-sm font-['Poppins'] cursor-pointer"
+              >
+                Book Again
+              </button>
+            )}
+          </div>
+
+          {/* Vertical Dashed Line */}
+          <div className="hidden md:block w-0 border-r-2 border-dashed border-[#C2C2C2] self-stretch" />
+
+          {/* Right: Status Specific Panel */}
+          <div className="w-full md:w-[380px] lg:w-[395px] flex-shrink-0 flex flex-col justify-between relative overflow-hidden">
+            {booking.status === 'upcoming' ? (
+              <div className="p-7 sm:p-8 flex flex-col justify-between h-full">
+                <div>
+                  <div className="text-[30px] sm:text-[32px] font-semibold text-[#1A1A1A] leading-tight font-['Poppins']">
+                    {daysLeft > 0 ? `${daysLeft} days left` : daysLeft === 0 ? 'Today!' : 'Ongoing'}
+                  </div>
+                  <div className="text-[17px] text-[#1A1A1A]/70 font-normal font-['Poppins'] mt-1">
+                    For a happy journey
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-6 border-t border-gray-100 md:border-none">
+                  <div>
+                    <div className="text-[20px] sm:text-[22px] font-semibold text-[#1A1A1A] font-['Poppins']">
+                      Check-In
+                    </div>
+                    <div className="text-[15px] sm:text-[16px] text-[#1A1A1A]/80 font-normal font-['Poppins'] mt-0.5">
+                      {checkInDisplay}
+                    </div>
+                  </div>
+
+                  <ArrowRight className="w-5 h-5 text-[#004772] flex-shrink-0 stroke-[2.5]" />
+
+                  <div>
+                    <div className="text-[20px] sm:text-[22px] font-semibold text-[#1A1A1A] font-['Poppins']">
+                      Check-Out
+                    </div>
+                    <div className="text-[15px] sm:text-[16px] text-[#1A1A1A]/80 font-normal font-['Poppins'] mt-0.5">
+                      {checkOutDisplay}
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ) : booking.status === 'completed' ? (
+              <div className="h-full min-h-[288px] flex flex-col items-center justify-end relative pb-3 overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[216px] h-[36px] bg-[#707070] text-white text-[15px] font-medium font-['Poppins'] flex items-center justify-center rounded-b-[18px] shadow-sm select-none z-10">
+                  Completed
+                </div>
+                <img
+                  src="/images/empty-states/yeti-thumbs-up.png"
+                  alt="Completed booking"
+                  className="w-[395px] max-w-full h-[215px] object-contain drop-shadow-sm select-none"
+                />
+              </div>
+            ) : (
+              <div className="h-full min-h-[288px] flex flex-col items-center justify-end relative pb-3 overflow-hidden">
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 w-[216px] h-[36px] bg-gradient-to-r from-[#FF0055] to-[#FF7B90] text-white text-[15px] font-medium font-['Poppins'] flex items-center justify-center rounded-b-[18px] shadow-sm select-none z-10">
+                  Cancelled
+                </div>
+                <img
+                  src="/images/empty-states/yeti-sad.png"
+                  alt="Cancelled booking"
+                  className="w-[380px] max-w-full h-[210px] object-contain drop-shadow-sm select-none"
+                />
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Suggested Add-ons Section (Figma 221-13980) */}
+        {showAddons && booking.status === 'upcoming' && (
+          <div className="w-full pt-8 pb-8 flex flex-col items-center">
+            <h4 className="text-[22px] font-semibold text-black/70 mb-7 font-['Poppins'] text-center">
+              Suggested add ons
+            </h4>
+
+            {/* Horizontal Carousel */}
+            <div className="w-full flex items-center justify-start lg:justify-center gap-[34px] relative px-4 sm:px-8 overflow-x-auto py-3 no-scrollbar">
+              {/* Card 1: Breakfast */}
+              <div
                 className={cn(
-                  'flex items-center gap-2 border text-[12.5px] font-semibold px-4 py-2 rounded-full transition-all duration-200',
-                  booking.coordinates
-                    ? 'border-gray-200 text-gray-600 hover:border-figma-navy/40 hover:text-figma-navy hover:bg-figma-navy/5'
-                    : 'border-gray-100 text-gray-300 cursor-not-allowed',
+                  "w-[324px] h-[287px] rounded-[14px] bg-white p-5 flex flex-col justify-between flex-shrink-0 transition-all",
+                  breakfastSelected
+                    ? "border-2 border-[#2E7D32] shadow-[0_4px_67.5px_rgba(0,0,0,0.29)]"
+                    : "border border-dashed border-black/40"
                 )}
               >
-                <Navigation className="w-3.5 h-3.5" />
-                Location
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-[80px] h-[52px] rounded-[22px] border border-black/30 flex items-center justify-center flex-shrink-0 bg-white overflow-hidden">
+                    <img
+                      src="/images/empty-states/addon-sandwich.png"
+                      alt="Breakfast"
+                      className="w-[80px] h-[50px] object-contain"
+                    />
+                  </div>
+                  <span className="text-[20px] font-semibold text-black font-['Poppins']">
+                    Breakfast
+                  </span>
+                </div>
+
+                {/* Details */}
+                <div className="space-y-2 text-[13px] font-medium font-['Poppins'] text-black">
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Price</span>
+                    <span className="text-black font-medium">₹200 / person / day</span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Includes</span>
+                    <span className="text-black font-medium text-right max-w-[170px] leading-tight">
+                      Home-cooked vegetarian breakfast
+                    </span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Timings</span>
+                    <span className="text-black font-medium">8:00am - 10:00am</span>
+                  </div>
+                </div>
+
+                {/* Controls */}
+                <div className="flex items-center justify-between pt-1">
+                  <div className="w-[110px] h-[34px] rounded-[11px] border border-black/50 flex items-center justify-between px-3">
+                    <button
+                      type="button"
+                      onClick={() => setBreakfastQty((q) => Math.max(1, q - 1))}
+                      className="text-black font-bold text-base hover:opacity-70 cursor-pointer"
+                    >
+                      -
+                    </button>
+                    <div className="flex items-center gap-1 text-black font-medium text-[15px]">
+                      <User className="w-3.5 h-3.5 stroke-[2]" />
+                      <span>{breakfastQty}</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => setBreakfastQty((q) => q + 1)}
+                      className="text-black font-bold text-base hover:opacity-70 cursor-pointer"
+                    >
+                      +
+                    </button>
+                  </div>
+
+                  {breakfastSelected ? (
+                    <button
+                      type="button"
+                      onClick={() => setBreakfastSelected(false)}
+                      className="w-[97px] h-[34px] rounded-[11px] border border-[#FF2D55] text-[#FF2D55] text-[14px] font-medium hover:bg-red-50 flex items-center justify-center transition-all cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      onClick={() => setBreakfastSelected(true)}
+                      className="w-[97px] h-[34px] rounded-[11px] border border-black text-black text-[14px] font-medium hover:bg-black/5 flex items-center justify-center transition-all cursor-pointer"
+                    >
+                      ADD +
+                    </button>
+                  )}
+                </div>
+
+                {/* Footnote */}
+                <p className="text-[11px] font-medium italic text-black/80 text-center font-['Poppins']">
+                  “Please Inform Dietary preferences in advance”
+                </p>
+              </div>
+
+              {/* Card 2: Rent a car */}
+              <div
+                className={cn(
+                  "w-[324px] h-[288px] rounded-[14px] bg-white p-5 flex flex-col justify-between flex-shrink-0 transition-all",
+                  car1Added
+                    ? "border-2 border-[#2E7D32] shadow-[0_4px_67.5px_rgba(0,0,0,0.29)]"
+                    : "border border-dashed border-black/40"
+                )}
+              >
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-[80px] h-[52px] rounded-[22px] border border-black/30 flex items-center justify-center flex-shrink-0 bg-white overflow-hidden">
+                    <img
+                      src="/images/empty-states/addon-car.png"
+                      alt="Rent a car"
+                      className="w-[80px] h-[50px] object-contain"
+                    />
+                  </div>
+                  <span className="text-[20px] font-semibold text-black font-['Poppins'] leading-tight">
+                    Rent a car <br />
+                    <span className="text-[17px] font-semibold">(self drive)</span>
+                  </span>
+                </div>
+
+                {/* Details */}
+                <div className="space-y-2 text-[13px] font-medium font-['Poppins'] text-black">
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Price</span>
+                    <span className="text-black font-medium">₹1300 / day</span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Vehicle</span>
+                    <span className="text-black font-medium">Sedan / Alto /SUV</span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Fuel</span>
+                    <span className="text-black font-medium">Not Included</span>
+                  </div>
+                </div>
+
+                {/* Action */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setCar1Added((prev) => !prev)}
+                    className={cn(
+                      "w-[84px] h-[34px] rounded-[11px] text-[14px] font-medium transition-all flex items-center justify-center cursor-pointer",
+                      car1Added
+                        ? "border border-[#FF2D55] text-[#FF2D55] hover:bg-red-50"
+                        : "border border-black text-black hover:bg-black/5"
+                    )}
+                  >
+                    {car1Added ? "Remove" : "ADD +"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 3: Rent a car (Second) */}
+              <div
+                className={cn(
+                  "w-[324px] h-[288px] rounded-[14px] bg-white p-5 flex flex-col justify-between flex-shrink-0 transition-all",
+                  car2Added
+                    ? "border-2 border-[#2E7D32] shadow-[0_4px_67.5px_rgba(0,0,0,0.29)]"
+                    : "border border-dashed border-black/40"
+                )}
+              >
+                {/* Header */}
+                <div className="flex items-center gap-3">
+                  <div className="w-[80px] h-[52px] rounded-[22px] border border-black/30 flex items-center justify-center flex-shrink-0 bg-white overflow-hidden">
+                    <img
+                      src="/images/empty-states/addon-car.png"
+                      alt="Rent a car"
+                      className="w-[80px] h-[50px] object-contain"
+                    />
+                  </div>
+                  <span className="text-[20px] font-semibold text-black font-['Poppins'] leading-tight">
+                    Rent a car <br />
+                    <span className="text-[17px] font-semibold">(self drive)</span>
+                  </span>
+                </div>
+
+                {/* Details */}
+                <div className="space-y-2 text-[13px] font-medium font-['Poppins'] text-black">
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Price</span>
+                    <span className="text-black font-medium">₹1300 / day</span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Vehicle</span>
+                    <span className="text-black font-medium">Sedan / Alto /SUV</span>
+                  </div>
+                  <div className="flex items-start justify-between">
+                    <span className="text-[16px] text-black font-normal">Fuel</span>
+                    <span className="text-black font-medium">Not Included</span>
+                  </div>
+                </div>
+
+                {/* Action */}
+                <div className="flex justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={() => setCar2Added((prev) => !prev)}
+                    className={cn(
+                      "w-[84px] h-[34px] rounded-[11px] text-[14px] font-medium transition-all flex items-center justify-center cursor-pointer",
+                      car2Added
+                        ? "border border-[#FF2D55] text-[#FF2D55] hover:bg-red-50"
+                        : "border border-black text-black hover:bg-black/5"
+                    )}
+                  >
+                    {car2Added ? "Remove" : "ADD +"}
+                  </button>
+                </div>
+              </div>
+
+              {/* Right Arrow Carousel Button */}
+              <button
+                type="button"
+                className="w-[47px] h-[47px] rounded-full bg-white shadow-[0_4px_33px_rgba(0,0,0,0.25)] flex items-center justify-center hover:scale-105 transition-all cursor-pointer absolute right-2 sm:right-6 z-20"
+              >
+                <ChevronRight className="w-5 h-5 text-[#004772] stroke-[2.5]" />
+              </button>
+            </div>
+
+            {/* Bottom Checkout Bar */}
+            <div className="w-full flex items-center justify-end gap-6 pt-7 pb-4 px-8 sm:px-14">
+              <div className="text-center">
+                <div className="text-[24px] font-semibold text-black leading-none font-['Poppins']">
+                  ₹{200 * breakfastQty * (breakfastSelected ? 2 : 0) + (car1Added ? 1300 : 0) || 400}
+                </div>
+                <div className="text-[16px] font-semibold text-black underline underline-offset-4 mt-1.5 font-['Poppins']">
+                  {(breakfastSelected ? 1 : 0) + (car1Added ? 1 : 0) || 1} add on added
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => router.push('/selected-addons')}
+                className="w-[215px] h-[59px] rounded-[41px] bg-gradient-to-r from-[#004772] to-[#0086D8] hover:opacity-95 text-white font-semibold text-[20px] transition-all shadow-[0_4px_14px_rgba(0,71,114,0.3)] flex items-center justify-center cursor-pointer font-['Poppins']"
+              >
+                Checkout
               </button>
             </div>
           </div>
-
-          <button
-            onClick={onManage}
-            className="self-start mt-4 bg-[#004772] text-white text-[13.5px] font-bold px-6 py-2.5 rounded-xl hover:bg-[#003a5c] active:scale-[0.97] transition-all duration-200 shadow-sm hover:shadow-md"
-          >
-            Manage Booking
-          </button>
-        </div>
-
-        {/* Dates Panel */}
-        <div
-          className="flex sm:flex-col items-center justify-around sm:justify-center gap-3 sm:gap-6 px-6 py-5 sm:min-w-[190px] border-t sm:border-t-0 sm:border-l border-gray-100 flex-shrink-0"
-          style={{ background: '#F8F9FC' }}
-        >
-          <div className="text-center">
-            <p className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-1.5">
-              Check-In
-            </p>
-            <p className="text-[14px] font-bold text-gray-800 whitespace-nowrap">
-              {fmtDate(booking.checkIn)}
-            </p>
-          </div>
-          <div className="hidden sm:block w-8 h-px bg-gray-200" />
-          <div className="sm:hidden text-gray-300 font-bold">-</div>
-          <div className="text-center">
-            <p className="text-[11px] font-bold text-gray-400 tracking-wider uppercase mb-1.5">
-              Check-Out
-            </p>
-            <p className="text-[14px] font-bold text-gray-800 whitespace-nowrap">
-              {fmtDate(booking.checkOut)}
-            </p>
-          </div>
-          <p
-            className={cn(
-              'text-[16px] sm:text-[17px] font-extrabold whitespace-nowrap mt-0 sm:mt-2',
-              statusColor,
-            )}
-          >
-            {statusLabel}
-          </p>
-        </div>
+        )}
       </div>
     </div>
   );
@@ -1238,23 +1649,28 @@ function BookingCard({
 
 const EMPTY_CONFIG: Record<
   TabKey,
-  { heading: string; sub: string; cta?: string; image?: string }
+  { heading: string; sub: string; image: string; imgWidth: number; imgHeight: number }
 > = {
   upcoming: {
     heading: 'No upcoming trips yet,',
     sub: 'Start planning your next stay or services.',
-    cta: 'Explore stays',
     image: '/images/empty-states/woman-walking.png',
+    imgWidth: 566,
+    imgHeight: 436,
   },
   completed: {
-    heading: 'No completed trips yet,',
-    sub: 'Your past stays will appear here.',
+    heading: 'No completed trip yet',
+    sub: 'Your stays and services will appear here after your trip.',
     image: '/images/empty-states/woman-cafe.png',
+    imgWidth: 523,
+    imgHeight: 384,
   },
   cancelled: {
     heading: 'No cancelled bookings,',
-    sub: 'Cancelled trips will be shown here.',
+    sub: 'Your Cancelled bookings will show up here',
     image: '/images/empty-states/suitcase-cobweb.png',
+    imgWidth: 508,
+    imgHeight: 391,
   },
 };
 
@@ -1267,13 +1683,13 @@ function SignedOutState() {
         alt="Sign in to see your trips"
         loading="lazy"
         decoding="async"
-        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm animate-floating"
+        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm"
       />
       <div className="text-center sm:text-left max-w-xs">
-        <h3 className="text-[22px] sm:text-[26px] font-extrabold italic text-gray-900 leading-tight mb-2">
+        <h3 className="text-[22px] sm:text-[26px] font-extrabold italic text-gray-900 leading-tight mb-2 font-['Poppins']">
           Sign in to see your trips
         </h3>
-        <p className="text-[14px] text-gray-500 leading-relaxed mb-6">
+        <p className="text-[14px] text-gray-500 leading-relaxed mb-6 font-['Poppins']">
           Your bookings and stay history will show up here once you&apos;re signed in.
         </p>
         <button
@@ -1288,30 +1704,24 @@ function SignedOutState() {
 }
 
 function EmptyState({ tab }: { tab: TabKey }) {
-  const router = useRouter();
-  const { heading, sub, cta, image } = EMPTY_CONFIG[tab];
+  const { heading, sub, image, imgWidth } = EMPTY_CONFIG[tab];
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-center gap-6 sm:gap-14 py-16 animate-fade-in">
-      <img
-        src={image || memoriesIllustration}
-        alt="No trips"
-        loading="lazy"
-        decoding="async"
-        className="w-[160px] sm:w-[200px] object-contain drop-shadow-sm animate-floating"
-      />
-      <div className="text-center sm:text-left max-w-xs">
-        <h3 className="text-[22px] sm:text-[26px] font-extrabold italic text-gray-900 leading-tight mb-2">
+    <div className="flex-1 min-h-[460px] sm:min-h-[520px] flex flex-col lg:flex-row items-center justify-center gap-10 lg:gap-20 py-8 w-full animate-fade-in select-none">
+      <div className="flex-shrink-0 flex items-center justify-center">
+        <img
+          src={image}
+          alt={heading}
+          style={{ width: imgWidth, maxWidth: '100%', height: 'auto' }}
+          className="object-contain"
+        />
+      </div>
+      <div className="flex flex-col justify-center text-center lg:text-left max-w-[580px]">
+        <h2 className="text-[28px] sm:text-[36px] lg:text-[42px] font-semibold italic text-[#1A1A1A] tracking-[0.126px] leading-[1.3] mb-4 font-['Poppins']">
           {heading}
-        </h3>
-        <p className="text-[14px] text-gray-500 leading-relaxed mb-6">{sub}</p>
-        {cta && (
-          <button
-            onClick={() => router.push('/')}
-            className="bg-[#004772] text-white px-6 py-2.5 rounded-xl text-[14px] font-semibold hover:bg-[#003a5c] transition-all shadow-sm"
-          >
-            {cta}
-          </button>
-        )}
+        </h2>
+        <p className="text-[18px] sm:text-[22px] lg:text-[26px] font-normal italic text-[#1A1A1A] tracking-[0.078px] leading-[1.4] font-['Poppins']">
+          {sub}
+        </p>
       </div>
     </div>
   );
@@ -1321,82 +1731,82 @@ function EmptyState({ tab }: { tab: TabKey }) {
 // Tab Switcher
 // ─────────────────────────────────────────────────────────────────────────────
 
-const TABS: { key: TabKey; label: string; icon: React.ReactNode }[] = [
-  {
-    key: 'upcoming',
-    label: 'Upcoming',
-    icon: <Clock className="w-3.5 h-3.5" />,
-  },
-  {
-    key: 'completed',
-    label: 'Completed',
-    icon: <CheckCircle className="w-3.5 h-3.5" />,
-  },
-  {
-    key: 'cancelled',
-    label: 'Cancelled',
-    icon: <XCircle className="w-3.5 h-3.5" />,
-  },
-];
-
 function TabSwitcher({
   active,
   onChange,
-  counts,
 }: {
   active: TabKey;
   onChange: (t: TabKey) => void;
-  counts: Record<TabKey, number>;
 }) {
-  const containerRef = useRef<HTMLDivElement>(null);
-  const [indicator, setIndicator] = useState({ left: 0, width: 0 });
+  const tabs: { key: TabKey; label: string }[] = [
+    { key: 'upcoming', label: 'Upcoming' },
+    { key: 'completed', label: 'Completed' },
+    { key: 'cancelled', label: 'Cancelled' },
+  ];
 
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-    const btn = container.querySelector(
-      `[data-tab="${active}"]`,
-    ) as HTMLElement;
-    if (btn) setIndicator({ left: btn.offsetLeft, width: btn.offsetWidth });
-  }, [active]);
+  const getIndicatorStyle = () => {
+    switch (active) {
+      case 'upcoming':
+        return {
+          left: '0px',
+          width: 'calc((100% - 2px) / 3 - var(--c))',
+        };
+      case 'completed':
+        return {
+          left: 'calc((100% - 2px) / 3 + 1px + var(--half-c))',
+          width: 'calc((100% - 2px) / 3 - var(--c))',
+        };
+      case 'cancelled':
+        return {
+          left: 'calc((100% - 2px) * 2 / 3 + 2px + var(--c))',
+          width: 'calc((100% - 2px) / 3 - var(--c))',
+        };
+    }
+  };
 
   return (
-    <div
-      ref={containerRef}
-      className="relative flex items-center bg-gray-100 rounded-full p-1 w-full sm:w-fit overflow-x-auto scrollbar-hide"
-    >
-      <div
-        className="absolute top-1 bottom-1 bg-[#004772] rounded-full shadow-md transition-all duration-250 ease-in-out pointer-events-none"
-        style={{ left: indicator.left, width: indicator.width }}
-      />
-      {TABS.map((tab) => (
-        <button
-          key={tab.key}
-          data-tab={tab.key}
-          onClick={() => onChange(tab.key)}
-          className={cn(
-            'relative z-10 flex items-center gap-1.5 px-4 sm:px-5 py-2 rounded-full text-[12.5px] sm:text-[13px] font-semibold transition-colors duration-200 select-none whitespace-nowrap',
-            active === tab.key
-              ? 'text-white'
-              : 'text-gray-600 hover:text-gray-800',
-          )}
-        >
-          {tab.icon}
-          {tab.label}
-          {counts[tab.key] > 0 && (
-            <span
+    <div className="w-full sm:w-[613px] h-[56px] sm:h-[84px] rounded-full border border-[#959595] bg-transparent p-[4px] sm:p-[5px] relative select-none [--c:12px] [--half-c:6px] sm:[--c:16px] sm:[--half-c:8px]">
+      {/* Track containing dividers & sliding pill */}
+      <div className="absolute inset-[4px] sm:inset-[5px] pointer-events-none">
+        {/* Divider 1: between Upcoming & Completed */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-[1px] h-[24px] sm:h-[36px] bg-[#959595]"
+          style={{ left: 'calc((100% - 2px) / 3)' }}
+        />
+        {/* Divider 2: between Completed & Cancelled */}
+        <div
+          className="absolute top-1/2 -translate-y-1/2 w-[1px] h-[24px] sm:h-[36px] bg-[#959595]"
+          style={{ left: 'calc((100% - 2px) * 2 / 3 + 1px)' }}
+        />
+
+        {/* Smooth Sliding Blue Pill */}
+        <div
+          className="absolute top-0 bottom-0 rounded-full bg-gradient-to-t from-[#004772] to-[#0086D8] shadow-[0_2px_8px_rgba(0,71,114,0.25)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          style={getIndicatorStyle()}
+        />
+      </div>
+
+      {/* Interactive Tabs */}
+      <div className="relative z-10 flex items-center justify-between h-full w-full">
+        {tabs.map((tab) => {
+          const isActive = active === tab.key;
+          return (
+            <button
+              key={tab.key}
+              type="button"
+              onClick={() => onChange(tab.key)}
               className={cn(
-                'text-[10px] font-bold px-1.5 py-0.5 rounded-full',
-                active === tab.key
-                  ? 'bg-white/25 text-white'
-                  : 'bg-gray-200 text-gray-600',
+                'flex-1 h-full flex items-center justify-center font-[\'Poppins\'] transition-colors duration-200 cursor-pointer select-none rounded-full',
+                isActive
+                  ? 'text-white text-[15px] sm:text-[20px] font-semibold'
+                  : 'text-[#3C3C3C] text-[15px] sm:text-[20px] font-normal hover:text-black',
               )}
             >
-              {counts[tab.key]}
-            </span>
-          )}
-        </button>
-      ))}
+              {tab.label}
+            </button>
+          );
+        })}
+      </div>
     </div>
   );
 }
@@ -1406,11 +1816,24 @@ function TabSwitcher({
 // ─────────────────────────────────────────────────────────────────────────────
 
 export default function MyMemoriesPage() {
+  const router = useRouter();
   const [activeTab, setActiveTab] = useState<TabKey>('upcoming');
   const [loading, setLoading] = useState(true);
   const [bookings, setBookings] = useState<Booking[]>([]);
   const [managingId, setManagingId] = useState<string | null>(null);
   const { userId, loading: isLoading } = useAuth();
+  const [isPreview, setIsPreview] = useState(false);
+  const [isAddonsMode, setIsAddonsMode] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const params = new URLSearchParams(window.location.search);
+      const hasCardsPreview = params.get('preview') === 'cards';
+      const hasAddons = params.get('addons') === 'true' || params.get('preview') === 'addons';
+      setIsPreview(hasCardsPreview || hasAddons);
+      setIsAddonsMode(hasAddons);
+    }
+  }, []);
 
   useEffect(() => {
     if (isLoading) return;
@@ -1449,14 +1872,9 @@ export default function MyMemoriesPage() {
     };
   }, [userId, isLoading]);
 
-  const counts: Record<TabKey, number> = {
-    upcoming: bookings.filter((b) => b.status === 'upcoming').length,
-    completed: bookings.filter((b) => b.status === 'completed').length,
-    cancelled: bookings.filter((b) => b.status === 'cancelled').length,
-  };
-
-  const filtered = bookings.filter((b) => b.status === activeTab);
-  const managingBooking = bookings.find((b) => b.id === managingId) ?? null;
+  const effectiveBookings = isPreview && bookings.length === 0 ? SAMPLE_BOOKINGS : bookings;
+  const filtered = effectiveBookings.filter((b) => b.status === activeTab);
+  const managingBooking = effectiveBookings.find((b) => b.id === managingId) ?? null;
 
   const handleUpdate = useCallback((id: string, updates: Partial<Booking>) => {
     setBookings((prev) =>
@@ -1465,55 +1883,103 @@ export default function MyMemoriesPage() {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] flex flex-col">
+    <div className="min-h-screen bg-[#FBF9F4] flex flex-col font-['Poppins'] overflow-x-hidden">
       <Navbar />
 
-      <main className="flex-1 max-w-4xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-8 sm:py-12">
+      <main className="flex-1 max-w-[1360px] mx-auto w-full px-6 sm:px-10 lg:px-14 pt-8 sm:pt-10 pb-16 flex flex-col">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-8 mb-8 sm:mb-10">
-          <h1 className="text-[28px] sm:text-[34px] font-extrabold text-gray-900 tracking-tight flex-shrink-0">
-            My Memories
-          </h1>
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 mb-12 sm:mb-16">
+          <div className="flex items-center gap-6 sm:gap-7">
+            <BackButton />
+            <h1 className="text-[32px] sm:text-[42px] font-medium text-[#1A1A1A] tracking-[0.126px] leading-[1.4] select-none font-['Poppins']">
+              My Memories
+            </h1>
+          </div>
           <TabSwitcher
             active={activeTab}
             onChange={setActiveTab}
-            counts={counts}
           />
         </div>
 
         {/* Content */}
-        <div key={activeTab} className="animate-fade-in">
-          {loading ? (
+        <div key={activeTab} className="flex-1 flex flex-col justify-center animate-fade-in">
+          {!userId && !isPreview ? (
+            <SignedOutState />
+          ) : loading && !isPreview ? (
             <div className="flex flex-col gap-4">
               <SkeletonCard />
               <SkeletonCard />
             </div>
-          ) : !userId ? (
-            <SignedOutState />
           ) : filtered.length === 0 ? (
             <EmptyState tab={activeTab} />
           ) : (
-            <div className="flex flex-col gap-4">
+            <div className="flex flex-col gap-6 items-center w-full">
               {filtered.map((booking) => (
-                <BookingCard
-                  key={booking.id}
-                  booking={booking}
-                  onManage={() => setManagingId(booking.id)}
-                />
+                <div key={booking.id} className="w-full max-w-[1140px]">
+                  <BookingCard
+                    booking={booking}
+                    onManage={() => setManagingId(booking.id)}
+                    initialShowAddons={isAddonsMode && booking.status === 'upcoming'}
+                  />
+                </div>
               ))}
             </div>
           )}
         </div>
-
-        {!loading && filtered.length > 0 && (
-          <p className="text-center text-[12px] text-gray-400 mt-10">
-            Showing {filtered.length} {activeTab} booking
-            {filtered.length !== 1 ? 's' : ''}
-          </p>
-        )}
       </main>
 
-      <Footer />
+      {/* Tropical Beach Banner Footer for standard Upcoming (Figma 221:13946), standard Footer otherwise */}
+      {!isAddonsMode && activeTab === 'upcoming' && filtered.length > 0 ? (
+        <div className="relative w-full mt-14 sm:mt-20 lg:mt-28 flex flex-col items-center select-none">
+          
+          {/* Background palm foliage layer - full width, anchored to true bottom-left and bottom-right */}
+          <div className="absolute inset-x-0 top-0 bottom-0 pointer-events-none z-20 overflow-hidden">
+            {/* Outer Left palm decoration */}
+            <img
+              src="/images/empty-states/palm-left.png"
+              alt="Palm foliage left"
+              className="absolute left-0 bottom-0 w-[120px] sm:w-[220px] md:w-[320px] lg:w-[400px] xl:w-[461px] h-auto object-contain pointer-events-none"
+            />
+            {/* Inner Left small palm cluster (Figma 221:14695) */}
+            <img
+              src="/images/empty-states/palm-inner-left.png"
+              alt="Palm foliage inner left"
+              className="absolute bottom-0 left-[10%] sm:left-[12%] md:left-[14%] lg:left-[16%] xl:left-[16.6%] w-[110px] sm:w-[170px] md:w-[220px] lg:w-[260px] xl:w-[300px] h-auto object-contain pointer-events-none hidden sm:block"
+            />
+            {/* Inner Right small palm cluster (Figma 221:14694) */}
+            <img
+              src="/images/empty-states/palm-inner-right.png"
+              alt="Palm foliage inner right"
+              className="absolute bottom-0 right-[10%] sm:right-[12%] md:right-[14%] lg:right-[16%] xl:right-[16.4%] w-[90px] sm:w-[130px] md:w-[165px] lg:w-[195px] xl:w-[227px] h-auto object-contain pointer-events-none hidden sm:block"
+            />
+            {/* Outer Right palm decoration */}
+            <img
+              src="/images/empty-states/palm-right.png"
+              alt="Palm foliage right"
+              className="absolute right-0 bottom-0 w-[130px] sm:w-[240px] md:w-[350px] lg:w-[440px] xl:w-[509px] h-auto object-contain pointer-events-none"
+            />
+          </div>
+
+          {/* Woman sitting on beach chair with umbrella */}
+          <div className="relative z-30 flex justify-center w-full pointer-events-none">
+            <img
+              src="/images/empty-states/woman-beach.png"
+              alt="Vacation"
+              className="w-[150px] sm:w-[190px] md:w-[230px] lg:w-[277px] h-auto object-contain select-none -mb-[28px] sm:-mb-[36px] md:-mb-[44px] lg:-mb-[51px] sm:-translate-x-[8px]"
+            />
+          </div>
+
+          {/* Blue Banner */}
+          <div className="relative w-full h-[64px] sm:h-[80px] lg:h-[101px] bg-[#004772] flex items-center justify-center z-10 mt-auto px-4">
+            <div className="relative z-30 text-white text-[13px] sm:text-[15px] lg:text-[17px] font-semibold tracking-[0.05px] font-['Poppins'] flex items-center gap-1.5 sm:gap-2 text-center">
+              <span className="text-[15px] sm:text-[17px] lg:text-[19px]">©</span>
+              <span>2026 Hostiggo . Travel made simple</span>
+            </div>
+          </div>
+        </div>
+      ) : (
+        <Footer />
+      )}
 
       {managingBooking && userId && (
         <ManageBookingModal

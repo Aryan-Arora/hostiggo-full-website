@@ -251,6 +251,7 @@ export function mapBooking(item: any) {
 
   return {
     id: String(item.booking_id),
+    listingId: item.listing_id ? String(item.listing_id) : undefined,
     title: item.listing_title ?? "Booked stay",
     image: item.cover_photo_url || FALLBACK_IMAGE,
     location: item.location ?? [item.district, item.state].filter(Boolean).join(", "),
@@ -632,7 +633,7 @@ export const api = {
           phone: user.phone || null,
           age: user.user_metadata?.age || null,
           emergency_contact: user.user_metadata?.emergency_contact || null,
-          is_verified: true,
+          is_verified: false,
           is_active: true,
         }),
       });
