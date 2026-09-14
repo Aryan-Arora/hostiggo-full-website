@@ -371,16 +371,21 @@ export default function Navbar() {
 
             <span className="h-4 w-px bg-gray-200 mx-0.5" />
 
-            {/* Sign In text link (always present in desktop navigation per Figma) */}
-            <button
-              type="button"
-              className="text-[#004772] hover:text-[#002f4c] px-3.5 py-2 rounded-lg transition-colors text-[15px] font-medium font-['Poppins'] cursor-pointer ml-1"
-              onClick={() => router.push("/signin")}
-            >
-              Sign In
-            </button>
-
-            <span className="h-5 w-px bg-gray-200 mx-1" />
+            {/* Sign In text link -- guests only. Was rendered unconditionally,
+                so a signed-in user saw a "Sign In" button next to their own
+                avatar. */}
+            {!isAuthenticated && (
+              <>
+                <button
+                  type="button"
+                  className="text-[#004772] hover:text-[#002f4c] px-3.5 py-2 rounded-lg transition-colors text-[15px] font-medium font-['Poppins'] cursor-pointer ml-1"
+                  onClick={() => router.push("/signin")}
+                >
+                  Sign In
+                </button>
+                <span className="h-5 w-px bg-gray-200 mx-1" />
+              </>
+            )}
 
             {/* List your property button matching Figma Rectangle 22987 */}
             <button
