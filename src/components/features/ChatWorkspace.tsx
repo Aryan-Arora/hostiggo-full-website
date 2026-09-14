@@ -62,91 +62,14 @@ const DEFAULT_AVATARS = [
   'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
 ];
 
-const DEFAULT_HOST_CONVERSATIONS: Conversation[] = [
-  {
-    id: 'host-1',
-    name: 'Sarah Jenkins',
-    role: 'host',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    propertyImage: 'https://images.unsplash.com/photo-1580587771525-78b9dba3b914?w=300&auto=format&fit=crop&q=80',
-    propertyId: '1',
-    preview: 'Looking forward to hosting you this weekend! Let me know if you need anything.',
-    date: '10:42 AM',
-    unread: 2,
-    subtitle: 'Sunset Villa, Goa',
-    messages: [
-      {
-        id: 'm1',
-        body: 'Hi Sarah! What time is check-in on Friday?',
-        time: '10:30 AM',
-        from: 'me',
-      },
-      {
-        id: 'm2',
-        body: 'Check-in is anytime after 2:00 PM. We can also arrange an early check-in if needed!',
-        time: '10:38 AM',
-        from: 'them',
-      },
-      {
-        id: 'm3',
-        body: 'Looking forward to hosting you this weekend! Let me know if you need anything.',
-        time: '10:42 AM',
-        from: 'them',
-      },
-    ],
-  },
-  {
-    id: 'host-2',
-    name: 'Michael Chang',
-    role: 'host',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    propertyImage: 'https://images.unsplash.com/photo-1512917774080-9991f1c4c750?w=300&auto=format&fit=crop&q=80',
-    propertyId: '2',
-    preview: 'Airport pickup is confirmed for Friday afternoon at 3:00 PM.',
-    date: 'Yesterday',
-    unread: 0,
-    subtitle: 'Mountain View Chalet, Manali',
-    messages: [
-      {
-        id: 'm4',
-        body: 'Can we arrange airport pickup for Friday afternoon?',
-        time: 'Yesterday',
-        from: 'me',
-      },
-      {
-        id: 'm5',
-        body: 'Airport pickup is confirmed for Friday afternoon at 3:00 PM.',
-        time: 'Yesterday',
-        from: 'them',
-      },
-    ],
-  },
-];
-
-const DEFAULT_SUPPORT_CONVERSATION: Conversation = {
-  id: 'support-team',
-  name: 'Hostiggo Support',
-  role: 'support',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  preview: 'How can we help you today with your booking?',
-  date: 'Yesterday',
-  unread: 0,
-  subtitle: '24/7 Customer Care',
-  messages: [
-    {
-      id: 's1',
-      body: 'Welcome to Hostiggo Support! How can we assist your trip today?',
-      time: 'Yesterday',
-      from: 'them',
-    },
-    {
-      id: 's2',
-      body: 'How can we help you today with your booking?',
-      time: 'Yesterday',
-      from: 'them',
-    },
-  ],
-};
+// NOTE: There used to be hardcoded "sample" conversations here (fake hosts
+// "Sarah Jenkins" / "Michael Chang" and a canned "Hostiggo Support" thread
+// with invented message bodies). Showing those to a real user -- logged out,
+// or logged in with genuinely zero conversations, which is the normal state
+// for a new account -- would present fabricated messages as if a real host
+// had actually contacted them. Real chat comes from `/api/chat`; when there
+// is none, the UI should honestly show the empty state (see `EmptyList`)
+// rather than invent content.
 
 const FILTER_LABELS: Record<FilterKey, string> = {
   all: 'All',
@@ -707,8 +630,8 @@ export default function ChatWorkspace({
   useEffect(() => {
     const loadConversations = async () => {
       if (!userId) {
-        // Fallback for non-logged-in or preview mode
-        setConversations([...DEFAULT_HOST_CONVERSATIONS, DEFAULT_SUPPORT_CONVERSATION]);
+        // Not signed in -- nothing real to show, let the empty state render.
+        setConversations([]);
         setLoading(false);
         return;
       }
@@ -737,16 +660,6 @@ export default function ChatWorkspace({
           })),
         }));
 
-        // If no conversations returned from database, fallback to stylish defaults
-        if (mappedConversations.length === 0) {
-          mappedConversations = [...DEFAULT_HOST_CONVERSATIONS, DEFAULT_SUPPORT_CONVERSATION];
-        } else {
-          // Always ensure the Support Team conversation is present
-          if (!mappedConversations.some((c) => c.role === 'support')) {
-            mappedConversations.push(DEFAULT_SUPPORT_CONVERSATION);
-          }
-        }
-
         // If an initialSelectedId was specified and not found, prepend it
         if (initialSelectedId && !mappedConversations.find((c) => c.id === initialSelectedId)) {
           const newConversation: Conversation = {
@@ -767,7 +680,7 @@ export default function ChatWorkspace({
         setConversations(mappedConversations);
       } catch (error) {
         console.error('Failed to load conversations:', error);
-        setConversations([...DEFAULT_HOST_CONVERSATIONS, DEFAULT_SUPPORT_CONVERSATION]);
+        setConversations([]);
       } finally {
         setLoading(false);
       }
