@@ -65,7 +65,7 @@ const modeCopy = {
 
 function BrandPanel({ asset }: { asset: AssetSet }) {
   return (
-    <div className="relative flex h-full min-h-[385px] flex-col overflow-hidden rounded-[20px] bg-[linear-gradient(to_bottom,#fff_0%,#73a7c7_100%)] px-6 pb-0 pt-4 sm:min-h-[480px] sm:px-8 sm:pt-5 lg:min-h-[598px] sm:rounded-[26px] lg:px-9 lg:pt-5">
+    <div className="relative flex h-full min-h-[385px] flex-col overflow-hidden rounded-[20px] bg-[linear-gradient(to_bottom,#fff_0%,#73a7c7_100%)] px-6 pb-0 pt-4 sm:min-h-[480px] sm:px-8 sm:pt-5 lg:min-h-[598px] sm:rounded-[26px] lg:rounded-r-none lg:px-9 lg:pt-5">
       <div className="relative z-10">
         <p className="text-[25px] leading-[1.25] text-[#404040] sm:text-[29px] lg:text-[33px]">
           Welcome to,
@@ -418,34 +418,44 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
         <div className="absolute inset-0 bg-[#162d30]/35 backdrop-blur-[0.5px]" />
       </div>
 
-      <div className="relative z-10 flex min-h-screen items-center justify-center px-3 py-8 sm:px-6 lg:px-10">
+      <div className="relative z-10 flex min-h-screen items-center justify-center px-3 py-16 sm:px-6 sm:py-20 lg:px-10">
         <div className="relative w-full max-w-[1114px]">
-          {/* Floating Close Button at top-right corner of card */}
+          {/* Floating Close Button in tropical background above top-right of card (exact Figma / Sign in.svg coords) */}
           <button
             type="button"
             aria-label="Close"
             onClick={() => router.push(redirect || "/")}
-            className="absolute -top-3.5 -right-3.5 sm:-top-4 sm:-right-4 z-30 flex h-9 w-9 items-center justify-center rounded-full bg-white shadow-[0_2px_12px_rgba(0,0,0,0.2)] transition hover:scale-105 cursor-pointer"
+            className="absolute -top-[52px] right-2 sm:-top-[58px] sm:right-3 lg:right-4 z-30 flex h-[42px] w-[42px] items-center justify-center rounded-full bg-white shadow-[0_0_23px_rgba(0,0,0,0.25)] transition hover:scale-105 active:scale-95 cursor-pointer"
           >
-            <span className="relative h-5 w-5">
-              <img
-                src={asset.closeCircle}
-                alt=""
-                className="absolute -inset-1 h-7 w-7"
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 16 16"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              className="h-4 w-4 text-[#1D1D1D]"
+            >
+              <path
+                d="M12 4L4 12M4 4L12 12"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
               />
-              <img
-                src={asset.closeIcon}
-                alt=""
-                className="absolute inset-0 h-5 w-5"
-              />
-            </span>
+            </svg>
           </button>
 
           <section className="relative grid w-full overflow-hidden rounded-[28px] sm:rounded-[35px] bg-white shadow-[0_12px_60px_rgba(0,0,0,0.38)] lg:min-h-[630px] lg:grid-cols-[1fr_495px]">
-            <div className="h-full p-2.5 sm:p-3 lg:p-3.5 lg:pr-0">
+            <div className="h-full p-2.5 sm:p-3 lg:p-3.5 lg:pr-0 lg:-mr-12">
               <BrandPanel asset={asset} />
             </div>
-            <div className="relative z-10 flex min-h-[470px] flex-col rounded-b-[28px] bg-white shadow-[-16px_0_35px_rgba(0,0,0,0.10),-4px_0_12px_rgba(0,0,0,0.05)] px-7 pb-6 pt-9 sm:px-10 sm:pt-11 lg:min-h-[630px] lg:rounded-b-none lg:rounded-l-[32px] lg:px-9 lg:pt-[54px]">
+            <div
+              style={{
+                background:
+                  "radial-gradient(ellipse 115% 90% at 16% 12%, #D8F4FF 0%, #E9FEFF 42%, #FFFFFF 80%)",
+              }}
+              className="relative z-10 flex min-h-[470px] flex-col rounded-b-[28px] shadow-[-16px_0_35px_rgba(0,0,0,0.10),-4px_0_12px_rgba(0,0,0,0.05)] px-7 pb-6 pt-9 sm:px-10 sm:pt-11 lg:min-h-[630px] lg:rounded-b-none lg:rounded-l-[32px] lg:px-9 lg:pt-[54px]"
+            >
               {/* Back button on OTP */}
               {isOtp && (
                 <button
