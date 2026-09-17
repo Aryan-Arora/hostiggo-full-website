@@ -1096,8 +1096,7 @@ function BookingCard({
   onManage: () => void;
 }) {
   const [imgErr, setImgErr] = useState(false);
-  const FALLBACK =
-    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80';
+  const FALLBACK = '/placeholder.svg';
 
   const daysLeft = getDaysLeft(booking.checkIn);
   const nights = getNights(booking.checkIn, booking.checkOut);

@@ -10,8 +10,7 @@ import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 
-const FALLBACK_IMAGE =
-  'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=450&fit=crop&q=80';
+const FALLBACK_IMAGE = '/placeholder.svg';
 
 type Listing = {
   id: string;

@@ -405,8 +405,7 @@ function WishlistCard({
   removing,
 }: WishlistCardProps) {
   const [imgErr, setImgErr] = useState(false);
-  const FALLBACK =
-    'https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=450&fit=crop&q=80';
+  const FALLBACK = '/placeholder.svg';
 
   return (
     <div

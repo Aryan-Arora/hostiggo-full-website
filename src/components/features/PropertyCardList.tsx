@@ -15,8 +15,7 @@ interface PropertyCardListProps {
   property: Property;
 }
 
-const FALLBACK =
-  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=600&h=400&fit=crop&q=80";
+const FALLBACK = "/placeholder.svg";
 
 export default function PropertyCardList({ property }: PropertyCardListProps) {
   const [imgErr, setImgErr] = useState(false);
