@@ -48,8 +48,7 @@ import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 
-const FALLBACK =
-  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
+const FALLBACK = "/placeholder.svg";
 
 // Site-wide kill switch for the real booking CTA -- flip back to false to
 // re-enable. The button stays visible (greyed out, non-clickable) so the

@@ -2,8 +2,7 @@ import type { AmenityItem, Host, Property, Review, SearchFilters } from "@/types
 import { supabase } from "@/lib/supabase";
 import { toISODate } from "@/lib/utils";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
+const FALLBACK_IMAGE = "/placeholder.svg";
 
 export const AUTH_USER_ID_KEY = "hostiggo:user-id";
 export const AUTH_PHONE_KEY = "hostiggo:phone";

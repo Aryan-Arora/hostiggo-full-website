@@ -1182,8 +1182,7 @@ function BookingCard({
     setShowAddons(initialShowAddons);
   }, [initialShowAddons]);
 
-  const FALLBACK =
-    'https://images.unsplash.com/photo-1590490360182-c33d57733427?w=800&h=600&fit=crop&q=80';
+  const FALLBACK = '/placeholder.svg';
 
   const daysLeft = getDaysLeft(booking.checkIn);
 
