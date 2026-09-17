@@ -250,6 +250,7 @@ export function mapBooking(item: any) {
 
   return {
     id: String(item.booking_id),
+    listingId: item.listing_id ? String(item.listing_id) : undefined,
     title: item.listing_title ?? "Booked stay",
     image: item.cover_photo_url || FALLBACK_IMAGE,
     location: item.location ?? [item.district, item.state].filter(Boolean).join(", "),
