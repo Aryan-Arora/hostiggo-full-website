@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRazorpayWebhookSignature } from "@/lib/billing/razorpay";
 import { finalizeBookingFromRazorpayOrder } from "@/lib/services/admin-writes";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -76,6 +77,40 @@ export async function POST(req: NextRequest) {
     // /api/bookings/reserve), so a failed payment leaves nothing to clean
     // up. Logged for visibility only.
     console.log("[/api/webhooks/razorpay] payment.failed:", payload?.payload?.payment?.entity?.id);
+    return NextResponse.json({ ok: true });
+  }
+
+  // Route split-payment lifecycle (see createHostTransferForBooking in
+  // admin-writes.ts, which creates the transfer this event confirms).
+  // Idempotent by construction: both are plain status/id updates keyed by
+  // razorpay_transfer_id, so a duplicate webhook delivery just writes the
+  // same value again rather than creating anything new.
+  if (event === "transfer.processed") {
+    const transfer = payload?.payload?.transfer?.entity;
+    if (!transfer?.id) {
+      console.error("[/api/webhooks/razorpay] transfer.processed missing transfer id");
+      return NextResponse.json({ error: "Malformed transfer.processed payload" }, { status: 400 });
+    }
+    const { error } = await supabaseAdmin
+      .from("bookings")
+      .update({ transfer_status: "processed" })
+      .eq("razorpay_transfer_id", transfer.id);
+    if (error) {
+      console.error("[/api/webhooks/razorpay] failed to update transfer_status:", error);
+      return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+    }
+    return NextResponse.json({ ok: true });
+  }
+
+  if (event === "settlement.processed") {
+    const settlement = payload?.payload?.settlement?.entity;
+    // A settlement can cover multiple transfers; Razorpay's payload for
+    // Route settlements includes which transfer(s) it settles -- but the
+    // exact field name for that isn't confirmed against a real payload
+    // (never tested against live Route settlements, see razorpayRoute.ts).
+    // Logged so a real webhook delivery can be inspected before this branch
+    // is trusted to update the right booking(s).
+    console.log("[/api/webhooks/razorpay] settlement.processed (not yet wired to a booking):", settlement);
     return NextResponse.json({ ok: true });
   }
 

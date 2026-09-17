@@ -26,8 +26,27 @@ export const setStoredSession = (accessToken: string, refreshToken?: string | nu
   if (refreshToken) window.localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
 };
 
+async function getBearerToken(): Promise<string | null> {
+  // The authoritative source: whatever Supabase's own client currently
+  // considers the live session, refreshed automatically in the background
+  // by autoRefreshToken. This works for every sign-in method (Google OAuth,
+  // email/phone OTP, password) with no per-flow wiring -- unlike the
+  // separately-tracked AUTH_ACCESS_TOKEN_KEY below, which some sign-in
+  // paths (notably the Google OAuth callback) never populate at all, and
+  // which none of them keep in sync across a background token refresh.
+  // getSession() is a local read (no network call unless a refresh is due),
+  // safe to call on every request.
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.access_token) return data.session.access_token;
+  } catch {
+    // fall through to the stored fallback below
+  }
+  return getStoredAccessToken();
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getStoredAccessToken();
+  const token = await getBearerToken();
   const res = await fetch(path, {
     ...init,
     headers: {

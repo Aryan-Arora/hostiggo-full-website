@@ -26,7 +26,7 @@ export async function GET(req: NextRequest) {
 
     const { data, error } = await supabaseAdmin
       .from('aadhaar_kyc')
-      .select('status, aadhaar_last4, submitted_at, updated_at')
+      .select('status, aadhaar_last4, submitted_at, updated_at, reason')
       .eq('user_id', userId)
       .maybeSingle();
 
@@ -49,6 +49,7 @@ export async function GET(req: NextRequest) {
         last4: data.aadhaar_last4 ?? null,
         submittedAt: data.submitted_at ?? null,
         updatedAt: data.updated_at ?? null,
+        reason: data.reason ?? null,
       },
     });
   } catch (err) {
@@ -87,6 +88,47 @@ export async function POST(req: NextRequest) {
     const last4 = digits.slice(-4);
     const hash = createHash('sha256').update(digits).digest('hex');
 
+    // Live verification via the same "surepass-verify-id" Supabase Edge
+    // Function the Hostiggo mobile app already uses (same Supabase project:
+    // jhihqmkqvbwfniwculhk). The SurePass API key is a secret only that
+    // function's environment holds -- it is never copied into this repo.
+    // The function authenticates the caller from their own Supabase session
+    // JWT (not the service-role key), so we forward whatever Authorization
+    // header the client sent. No token (or the call failing) fails soft to
+    // 'pending', same as every other failure path in this route.
+    const authHeader = req.headers.get('authorization');
+    let status: 'pending' | 'verified' | 'rejected' = 'pending';
+    let providerReference: string | null = null;
+    let reason: string | null = null;
+
+    if (authHeader) {
+      try {
+        const { data: fnData, error: fnError } = await supabaseAdmin.functions.invoke(
+          'surepass-verify-id',
+          {
+            body: { userId, idType: 'aadhaar', idNumber: digits, documentPath: frontImagePath },
+            headers: { Authorization: authHeader },
+          },
+        );
+
+        if (fnError) {
+          console.error('[api/kyc/aadhaar] surepass-verify-id invoke failed:', fnError);
+        } else {
+          const result = (fnData || {}) as Record<string, unknown>;
+          if (result.status === 'verified' || result.status === 'rejected') {
+            status = result.status;
+          }
+          providerReference =
+            typeof result.provider_reference === 'string' ? result.provider_reference : null;
+          reason = typeof result.reason === 'string' ? result.reason : null;
+        }
+      } catch (err) {
+        console.error('[api/kyc/aadhaar] unexpected error calling surepass-verify-id:', err);
+      }
+    } else {
+      console.warn('[api/kyc/aadhaar] no Authorization header -- skipping live verification');
+    }
+
     const { error } = await supabaseAdmin
       .from('aadhaar_kyc')
       .upsert(
@@ -97,7 +139,9 @@ export async function POST(req: NextRequest) {
           aadhaar_hash: hash,
           front_image_path: frontImagePath,
           back_image_path: backImagePath,
-          status: 'pending',
+          status,
+          provider_reference: providerReference,
+          reason,
           updated_at: new Date().toISOString(),
         },
         { onConflict: 'user_id' },
@@ -113,7 +157,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ data: { persisted: false } }, { status: 200 });
     }
 
-    return NextResponse.json({ data: { persisted: true } });
+    // If this user is a host who also already has a verified bank account,
+    // this Aadhaar verification may be the second of the two conditions
+    // needed to auto-onboard them to Razorpay Route -- see
+    // maybeAutoOnboardHostToRoute for the full gating logic. No-op for
+    // guests or hosts who aren't there yet; never blocks this response.
+    if (status === 'verified') {
+      const { maybeAutoOnboardHostToRoute } = await import('@/lib/services/hostRouteOnboarding');
+      await maybeAutoOnboardHostToRoute(userId);
+    }
+
+    return NextResponse.json({ data: { persisted: true, status, reason } });
   } catch (err) {
     console.error('[api/kyc/aadhaar] unexpected error:', err);
     return NextResponse.json({ data: { persisted: false } }, { status: 200 });

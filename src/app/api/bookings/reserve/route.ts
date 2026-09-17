@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { validateAndPriceBooking } from "@/lib/services/admin-writes";
 import { createRazorpayOrder } from "@/lib/billing/razorpay";
+import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -13,11 +14,17 @@ export const dynamic = "force-dynamic";
 // up -- no pending row, no held calendar nights.
 export async function POST(req: NextRequest) {
   try {
+    // The caller's own verified identity, never a client-supplied userId --
+    // this is who the Razorpay order (and, once paid, the booking itself)
+    // gets created for. A spoofed userId here would let anyone pay for a
+    // booking that lands on someone else's account. See getAuthenticatedUserId().
+    const userId = await getAuthenticatedUserId(req);
+
     const body = await req.json();
-    const { listingId, userId, startDate, endDate, numAdults, numChildren, addonIds } = body ?? {};
-    if (!listingId || !userId || !startDate || !endDate) {
+    const { listingId, startDate, endDate, numAdults, numChildren, addonIds } = body ?? {};
+    if (!listingId || !startDate || !endDate) {
       return NextResponse.json(
-        { error: "listingId, userId, startDate and endDate are required" },
+        { error: "listingId, startDate and endDate are required" },
         { status: 400 },
       );
     }
@@ -101,6 +108,9 @@ export async function POST(req: NextRequest) {
       },
     });
   } catch (err: any) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
     console.error("[/api/bookings/reserve] error:", err?.message, err?.code, err?.details, err?.hint);
     return NextResponse.json(
       { error: err?.message || "Request failed", code: err?.code, details: err?.details },

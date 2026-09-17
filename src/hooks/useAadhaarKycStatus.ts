@@ -17,6 +17,8 @@ export interface AadhaarKycState {
   last4: string | null;
   /** ISO timestamp of the submission, if any. */
   submittedAt: string | null;
+  /** Why a 'rejected' submission failed, from the SurePass verification result. */
+  reason: string | null;
   /** The host chose "verify later" -- KYC is optional, so we honor this. */
   deferred: boolean;
   loading: boolean;
@@ -34,6 +36,7 @@ export function useAadhaarKycStatus(): AadhaarKycState {
   const [status, setStatus] = useState<AadhaarKycStatus>('unknown');
   const [last4, setLast4] = useState<string | null>(null);
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
+  const [reason, setReason] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(false);
   const [loading, setLoading] = useState(true);
   const [nonce, setNonce] = useState(0);
@@ -71,6 +74,7 @@ export function useAadhaarKycStatus(): AadhaarKycState {
         setStatus(next);
         setLast4(data.last4 ?? null);
         setSubmittedAt(data.submittedAt ?? null);
+        setReason(data.reason ?? null);
       })
       .catch(() => {
         if (!active) return;
@@ -85,5 +89,5 @@ export function useAadhaarKycStatus(): AadhaarKycState {
     };
   }, [userId, nonce]);
 
-  return { status, last4, submittedAt, deferred, loading, refresh };
+  return { status, last4, submittedAt, reason, deferred, loading, refresh };
 }

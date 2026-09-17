@@ -539,7 +539,79 @@ export async function finalizeBookingFromRazorpayOrder(params: {
     );
   }
 
-  return insertConfirmedBooking(input, priced, { orderId: params.orderId, paymentId: params.paymentId });
+  const booking = await insertConfirmedBooking(input, priced, {
+    orderId: params.orderId,
+    paymentId: params.paymentId,
+  });
+
+  // Split the host's net share off to their Razorpay Route Linked Account.
+  // The guest's payment and the booking are already final by this point --
+  // a Route failure (host never onboarded, Route not enabled on this
+  // account yet, transient API error) must never undo either, so this is
+  // fully isolated in its own try/catch and only ever adjusts
+  // bookings.transfer_status + a manual_settlement_flags row for ops to
+  // follow up on, the same pattern already used for a failed race-loss
+  // refund above.
+  await createHostTransferForBooking(booking, priced, params.paymentId).catch((err) => {
+    console.error(
+      `[finalizeBookingFromRazorpayOrder] transfer step failed for booking ${booking.booking_id}:`,
+      err,
+    );
+  });
+
+  return booking;
+}
+
+async function createHostTransferForBooking(
+  booking: { booking_id: number; host_uuid: string },
+  priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
+  paymentId: string,
+) {
+  const { data: payout, error: payoutError } = await supabaseAdmin
+    .from("host_payout_methods")
+    .select("razorpay_account_id, status")
+    .eq("host_uuid", booking.host_uuid)
+    .maybeSingle();
+  if (payoutError) throw payoutError;
+
+  // No Route account yet (host hasn't finished onboarding) -- nothing to
+  // transfer to. Leave transfer_status null so this booking is easy to find
+  // once the host does onboard, rather than flagging every booking made
+  // before a host's first Route setup as an error.
+  if (!payout?.razorpay_account_id) return;
+
+  const { calculateHostPayout } = await import("../billing/payout");
+  const { createTransferForPayment } = await import("../billing/razorpayRoute");
+
+  const { invoice } = priced;
+  const hostPayout = calculateHostPayout({
+    propertyPrice: invoice.propertyPricePaise / 100,
+    breakfastPrice: invoice.breakfastPricePaise / 100,
+    otherServicesPrice: invoice.otherServicesPricePaise / 100,
+  });
+
+  try {
+    const result = await createTransferForPayment(paymentId, {
+      linkedAccountId: payout.razorpay_account_id,
+      amountPaise: hostPayout.netHostPayoutPaise,
+      notes: { bookingId: String(booking.booking_id) },
+    });
+    const transferId = result.items?.[0]?.id ?? null;
+    await supabaseAdmin
+      .from("bookings")
+      .update({ razorpay_transfer_id: transferId, transfer_status: "created" })
+      .eq("booking_id", booking.booking_id);
+  } catch (err) {
+    await supabaseAdmin
+      .from("bookings")
+      .update({ transfer_status: "failed" })
+      .eq("booking_id", booking.booking_id);
+    await supabaseAdmin.from("manual_settlement_flags").insert({
+      booking_id: booking.booking_id,
+      reason: `Route transfer failed: ${err instanceof Error ? err.message : "unknown error"}`,
+    });
+    throw err;
+  }
 }
 
 function eachDateInRange(startDate: string, endDate: string): string[] {

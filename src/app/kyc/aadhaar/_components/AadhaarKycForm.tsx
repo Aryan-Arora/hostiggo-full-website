@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Camera, CreditCard, Loader2, X } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
+import { supabase } from '@/lib/supabase';
 import {
   deferAadhaarKyc,
   formatAadhaarInput,
@@ -167,9 +168,19 @@ export function AadhaarKycForm({
 
     setSubmitting(true);
     try {
+      // Forward the signed-in user's own Supabase access token so the
+      // server can call the surepass-verify-id Edge Function on their
+      // behalf -- that function authenticates the caller from this token,
+      // not from userId in the body.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData?.session?.access_token;
+
       const res = await fetch('/api/kyc/aadhaar', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           userId,
           fullName: fullName.trim(),
@@ -182,8 +193,16 @@ export function AadhaarKycForm({
         const body = await res.json().catch(() => ({}));
         throw new Error(body.error || 'Could not submit your details. Please try again.');
       }
+      const body = await res.json().catch(() => ({}));
+      const resultStatus = body?.data?.status;
       markAadhaarKycSubmitted(userId);
-      toast.success('Aadhaar details received -- verification is in progress.');
+      if (resultStatus === 'verified') {
+        toast.success('Your identity has been verified!');
+      } else if (resultStatus === 'rejected') {
+        toast.error(body?.data?.reason || 'Verification failed. Please re-submit your Aadhaar details.');
+      } else {
+        toast.success('Aadhaar details received -- verification is in progress.');
+      }
       onCompleted();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong');

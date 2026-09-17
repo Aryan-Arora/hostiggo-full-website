@@ -7,6 +7,9 @@ import { useAuth } from '@/context/AuthContext';
 import { useAadhaarKycStatus } from '@/hooks/useAadhaarKycStatus';
 import KycModal from '@/components/features/KycModal';
 
+const DEFAULT_REJECTED_REASON =
+  'Something was unclear in the documents you submitted. Please re-submit a clear photo of your Aadhaar card to finish verification.';
+
 type Tone = 'amber' | 'blue' | 'red';
 
 const TONES: Record<Tone, { wrap: string; icon: string; title: string; body: string; cta: string }> = {
@@ -43,7 +46,7 @@ const TONES: Record<Tone, { wrap: string; icon: string; title: string; body: str
  */
 export default function KycStatusBanner() {
   const { userId, user } = useAuth();
-  const { status, loading, refresh } = useAadhaarKycStatus();
+  const { status, reason, loading, refresh } = useAadhaarKycStatus();
   const [dismissed, setDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 
@@ -64,14 +67,14 @@ export default function KycStatusBanner() {
             tone: 'red' as Tone,
             Icon: ShieldAlert,
             title: 'Your KYC could not be verified',
-            body: 'Something was unclear in the documents you submitted. Please re-submit a clear photo of your Aadhaar card to finish verification.',
+            body: reason || DEFAULT_REJECTED_REASON,
             ctaLabel: 'Re-submit KYC',
           }
         : {
             // status === 'none'
             tone: 'amber' as Tone,
             Icon: ShieldAlert,
-            title: 'Your KYC is pending',
+            title: 'All hosts are requested to verify their identity',
             body: 'Complete your identity verification to build guest trust, rank higher in search results, and receive payouts without holds.',
             ctaLabel: 'Complete KYC',
           };
