@@ -305,7 +305,7 @@ export const HotelServiceApi = {
   ): Promise<{
     data: SearchListingRpcRow[];
     hasMore: boolean;
-    totalCount: number;
+    totalCount: number | null;
     stateBounds: any;
   }> => {
     const amenityIds = filters.amenities ? filters.amenities.map(Number) : [];
@@ -334,7 +334,7 @@ export const HotelServiceApi = {
       }
     }
 
-    const { data, error, count } = await supabase.rpc('search_listings_by_state', {
+    const { data, error } = await supabase.rpc('search_listings_by_state', {
       p_state: searchState || null,
       p_district: searchDistrict || null,
       p_cursor: cursor,
@@ -347,11 +347,44 @@ export const HotelServiceApi = {
       p_amenities: amenityIds,
       p_roomtypes: filters.roomTypes,
       p_limit: pageSize,
-    }, { count: 'exact' });
+    });
 
     if (error) {
       console.error('[filterHotelsByState] RPC error:', JSON.stringify(error, null, 2));
       throw error;
+    }
+
+    // True match count, independent of p_limit. search_listings_by_state ends
+    // with `LIMIT p_limit`, so a PostgREST `count: 'exact'` on it only ever
+    // counts the current page -- which is why the header capped at the page
+    // size regardless of how many listings matched. Get the real total from
+    // the dedicated no-LIMIT count RPC (migration 003). Only needed on the
+    // first page; later cursor pages return null so the client keeps the count
+    // it already has instead of overwriting it with a per-page number.
+    let totalCount: number | null = null;
+    if (cursor === null) {
+      const { data: cnt, error: cntErr } = await supabase.rpc(
+        'search_listings_by_state_count',
+        {
+          p_state: searchState || null,
+          p_district: searchDistrict || null,
+          p_start_date: filters.startDate,
+          p_end_date: filters.endDate,
+          p_min_price: filters.minPrice,
+          p_max_price: filters.maxPrice,
+          p_total_guests: filters.totalGuests,
+          p_ratings: selectedRatings,
+          p_amenities: amenityIds,
+          p_roomtypes: filters.roomTypes,
+        },
+      );
+      if (cntErr) {
+        console.error('[filterHotelsByState] count RPC error:', JSON.stringify(cntErr, null, 2));
+        // Fall back to the loaded page size so the header still shows a number.
+        totalCount = data?.length ?? 0;
+      } else {
+        totalCount = Number(cnt ?? 0);
+      }
     }
 
     // Get state boundaries for map (if state-level search). District
@@ -398,7 +431,7 @@ export const HotelServiceApi = {
     return {
       data: (data || []) as SearchListingRpcRow[],
       hasMore,
-      totalCount: count || 0,
+      totalCount,
       stateBounds,
     };
   },

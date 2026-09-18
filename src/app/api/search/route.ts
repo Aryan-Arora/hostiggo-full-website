@@ -69,6 +69,10 @@ export async function POST(req: NextRequest) {
         0,
       );
       data = rows.map((row: any) => ({ listing: row, distance: null }));
+      // The count RPC mirrors search_listings_by_state's WHERE, so it missed
+      // this district too and returned 0. Use the fallback's own row count so
+      // the header isn't stuck at 0 while cards are showing.
+      totalCount = data.length;
       console.log("[/api/search] district fallback used:", filters.district, "→", data.length);
     }
 
