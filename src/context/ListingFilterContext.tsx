@@ -240,7 +240,10 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
 
         setCursor(response.cursor || null);
         setHasMore(response.hasMore);
-        setTotalCount(response.totalCount);
+        // Only the first page (cursor === null) carries the true total; later
+        // pages return null so we keep the count already shown rather than
+        // overwriting it with a per-page number.
+        if (response.totalCount != null) setTotalCount(response.totalCount);
         if (response.stateBounds) {
           setStateBounds(response.stateBounds);
         }
