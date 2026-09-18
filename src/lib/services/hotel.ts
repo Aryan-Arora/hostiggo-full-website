@@ -312,8 +312,27 @@ export const HotelServiceApi = {
     const selectedRatings = filters.ratings || [];
 
     // Determine search scope: use state if provided, otherwise use district (location)
-    const searchState = filters.state;
-    const searchDistrict = filters.district;
+    let searchState = filters.state;
+    let searchDistrict = filters.district;
+
+    // The destination box always sends the typed text as `district`. Listings
+    // are stored per city/district, so typing a STATE name (e.g. "Uttarakhand")
+    // matches no district and returns nothing. Detect that: if the typed value
+    // is actually a state, search the whole state instead of a same-named
+    // district. (A city that shares its name with its state still works, since
+    // we then match every listing in that state, which includes it.)
+    if (!searchState && searchDistrict) {
+      const { data: stateMatch } = await supabase
+        .from('locations')
+        .select('state')
+        .ilike('state', searchDistrict.trim())
+        .limit(1)
+        .maybeSingle();
+      if (stateMatch?.state) {
+        searchState = stateMatch.state;
+        searchDistrict = undefined; // match the whole state, not a district
+      }
+    }
 
     const { data, error, count } = await supabase.rpc('search_listings_by_state', {
       p_state: searchState || null,
