@@ -156,11 +156,18 @@ export async function createRazorpayRefund(params: {
   amountPaise: number;
   idempotencyKey: string;
   notes?: Record<string, string>;
+  /**
+   * Set when the payment was split to a host via Route. Without reverse_all the
+   * refund is paid out of Hostiggo's own balance while the host keeps their
+   * transferred share; with it Razorpay claws the transfer back proportionally.
+   */
+  reverseTransfers?: boolean;
 }) {
   const razorpay = getRazorpayClient();
   return razorpay.payments.refund(params.razorpayPaymentId, {
     amount: params.amountPaise,
     notes: params.notes,
+    ...(params.reverseTransfers ? { reverse_all: 1 } : {}),
     // The Razorpay Node SDK forwards this as the X-Razorpay-Idempotency-Key
     // header when supported by the installed SDK version -- if the SDK in
     // use doesn't expose it here, pass it via a raw HTTP call using the

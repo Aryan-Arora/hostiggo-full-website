@@ -8,12 +8,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { AadhaarKycForm } from '@/app/kyc/aadhaar/_components/AadhaarKycForm';
+import { KycVerificationForm } from '@/app/kyc/aadhaar/_components/KycVerificationForm';
 
 /**
- * In-flow Aadhaar KYC prompt. Replaces the old full-page redirect to
- * /kyc/aadhaar when a host enters the listing flow -- same form, shown as a
- * modal over the page they were already on.
+ * In-flow KYC prompt. Replaces the old full-page redirect to /kyc/aadhaar
+ * when a host enters the listing flow -- same form, shown as a modal over
+ * the page they were already on. Covers both id proof (Aadhaar or PAN) and
+ * bank account verification -- the two things
+ * src/lib/services/hostRouteOnboarding.ts needs before it will auto-onboard
+ * a host to Razorpay Route.
  *
  * KYC is optional, so dismissing the modal (X) is treated the same as the
  * form's "Skip for now": a permanent defer. The host dashboard banner and
@@ -40,7 +43,7 @@ export default function KycModal({
       }}
     >
       <DialogContent
-        className="max-w-[480px] max-h-[90vh] overflow-y-auto rounded-3xl p-7"
+        className="max-w-[480px] max-h-[90vh] overflow-y-auto rounded-3xl p-7 bg-white"
         // Require a deliberate choice -- clicking the backdrop or hitting
         // Escape shouldn't silently dismiss identity verification.
         onInteractOutside={(e) => e.preventDefault()}
@@ -55,12 +58,12 @@ export default function KycModal({
           </DialogTitle>
           <DialogDescription className="text-sm text-gray-500 leading-relaxed">
             Verified hosts earn more guest trust and bookings. It&apos;s optional and takes a
-            minute — upload a photo of your Aadhaar card once. You can also finish this later
-            from your host dashboard.
+            minute — verify your Aadhaar or PAN, plus your bank account. No documents to upload.
+            You can also finish this later from your host dashboard.
           </DialogDescription>
         </DialogHeader>
 
-        <AadhaarKycForm
+        <KycVerificationForm
           userId={userId}
           defaultName={defaultName}
           onCompleted={onCompleted}

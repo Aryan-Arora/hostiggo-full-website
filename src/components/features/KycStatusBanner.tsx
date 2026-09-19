@@ -8,7 +8,7 @@ import { useAadhaarKycStatus } from '@/hooks/useAadhaarKycStatus';
 import KycModal from '@/components/features/KycModal';
 
 const DEFAULT_REJECTED_REASON =
-  'Something was unclear in the documents you submitted. Please re-submit a clear photo of your Aadhaar card to finish verification.';
+  'We could not verify the id details you submitted. Please double-check the number and re-submit to finish verification.';
 
 type Tone = 'amber' | 'blue' | 'red';
 
@@ -37,12 +37,12 @@ const TONES: Record<Tone, { wrap: string; icon: string; title: string; body: str
 };
 
 /**
- * Dashboard-wide reminder that Aadhaar KYC still needs attention. Rendered
- * at the top of every host dashboard page (see HostDashboardShell). The KYC
- * form is never auto-popped anywhere -- this banner's button is the only
- * thing that opens it, so verification stays entirely host-initiated.
- * Hidden once verification is complete, while status is still loading, or if
- * it can't be resolved at all.
+ * Dashboard-wide reminder that identity KYC (Aadhaar or PAN) still needs
+ * attention. Rendered at the top of every host dashboard page (see
+ * HostDashboardShell). The KYC form is never auto-popped anywhere -- this
+ * banner's button is the only thing that opens it, so verification stays
+ * entirely host-initiated. Hidden once verification is complete, while
+ * status is still loading, or if it can't be resolved at all.
  */
 export default function KycStatusBanner() {
   const { userId, user } = useAuth();
@@ -59,7 +59,7 @@ export default function KycStatusBanner() {
           tone: 'blue' as Tone,
           Icon: Clock,
           title: 'Your KYC is pending',
-          body: "We've received your Aadhaar details and verification is in progress — this usually takes 24–48 hours. No action needed from you.",
+          body: "We've received your identity details and verification is in progress — this usually takes 24–48 hours. No action needed from you.",
           ctaLabel: null as string | null,
         }
       : status === 'rejected'

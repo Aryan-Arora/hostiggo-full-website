@@ -459,8 +459,19 @@ export const api = {
       status: "submitted" | "onboarding" | "active" | "rejected";
       created_at: string;
       updated_at: string;
+      bank_name: string | null;
+      bank_branch: string | null;
+      upi_id: string | null;
+      // What SurePass actually confirmed, read back from the database.
+      verification: {
+        bank: { verified: boolean; holderName: string | null; verifiedAt: string | null };
+        pan: { verified: boolean; maskedPan: string | null; name: string | null; verifiedAt: string | null };
+        aadhaar: { status: string; last4: string | null; name: string | null };
+      };
     } | null>(`/api/host/payout-methods`),
-  savePayoutMethod: (payload: {
+  // PATCH: send only the fields that changed; each is updated independently.
+  // Bank and PAN changes are re-verified with SurePass server-side.
+  updatePayoutMethod: (payload: Partial<{
     accountHolderName: string;
     bankAccountNumber: string;
     bankIfsc: string;
@@ -469,8 +480,58 @@ export const api = {
     city: string;
     state: string;
     postalCode: string;
-  }) =>
-    request<{ status: string }>(`/api/host/payout-methods`, {
+  }>) =>
+    request<{ status: string; updated?: string[] }>(`/api/host/payout-methods`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  // Full payment + payout history for the host dashboard. See
+  // src/app/api/host/payment-history/route.ts.
+  hostPaymentHistory: () =>
+    request<import("@/app/api/host/payment-history/route").PaymentHistoryRow[]>(
+      `/api/host/payment-history`,
+    ),
+  // Live Razorpay Route onboarding state for the signed-in host. See
+  // src/app/api/host/onboarding-status/route.ts.
+  getOnboardingStatus: () =>
+    request<{
+      status: "none" | "submitted" | "onboarding" | "active" | "rejected";
+      activationStatus: string | null;
+      requirements: Array<{ field_reference?: string; reason_code?: string }>;
+    }>(`/api/host/onboarding-status`),
+  // Number-only Aadhaar lookup -- same family as verifyPan/verifyBank below.
+  // See src/app/api/kyc/aadhaar/route.ts (POST).
+  verifyAadhaar: (payload: { fullName: string; aadhaarNumber: string }) =>
+    request<{
+      persisted: boolean;
+      status?: "verified" | "rejected" | "pending";
+      reason?: string | null;
+    }>(`/api/kyc/aadhaar`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  // Direct SurePass number-only lookups -- same family as verifyBank below,
+  // no document photo. See src/app/api/verify/pan/route.ts.
+  verifyPan: (idNumber: string) =>
+    request<{
+      status: "verified" | "rejected" | "pending";
+      reason: string | null;
+      providerReference: string | null;
+    }>(`/api/verify/pan`, {
+      method: "POST",
+      body: JSON.stringify({ idNumber }),
+    }),
+  // "Bank Verification" -- reverse penny-drop lookup keyed on the account
+  // number + IFSC. See src/app/api/verify/bank/route.ts.
+  verifyBank: (payload: { accountNumber: string; ifsc: string }) =>
+    request<{
+      verified: boolean;
+      reason?: string | null;
+      accountHolderName?: string | null;
+      upiId?: string | null;
+      bankName?: string | null;
+      branch?: string | null;
+    }>(`/api/verify/bank`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),

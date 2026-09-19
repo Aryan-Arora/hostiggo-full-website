@@ -14,6 +14,7 @@ import {
   normalizeEmail,
   setStoredSession,
 } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { useAuth } from '@/context/AuthContext';
 
@@ -144,8 +145,25 @@ export default function OTPPageContent() {
       const session = data?.session;
       
       if (userId && session) {
-        // Store the real Supabase session JWT so API routes can verify who's
-        // actually calling instead of trusting a client-claimed userId.
+        // OTP verification runs server-side (POST /api/auth/otp), so the
+        // browser's own Supabase client was never told this session exists
+        // -- without this, supabase.auth.getSession() keeps returning null
+        // for this user forever, and autoRefreshToken has nothing to
+        // refresh: the access token silently hard-expires (~1hr) with no
+        // recovery short of logging in again. setSession() hydrates the
+        // real client-side session so it behaves exactly like a Google
+        // OAuth sign-in from here on (live-refreshed, visible to
+        // getSession() everywhere, incl. the Authorization header builder
+        // in src/lib/api.ts).
+        const { error: setSessionError } = await supabase.auth.setSession({
+          access_token: session.access_token,
+          refresh_token: session.refresh_token,
+        });
+        if (setSessionError) {
+          console.error('[otp] supabase.auth.setSession failed:', setSessionError);
+        }
+        // Kept as a fallback for src/lib/api.ts's getBearerToken() in case
+        // the client-side session above ever fails to hydrate.
         setStoredSession(session.access_token, session.refresh_token);
         await signIn(userId);
         if (next === 'create-password' || next === 'reset-password') {

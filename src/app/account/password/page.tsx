@@ -27,9 +27,12 @@ function PasswordSecurityContent() {
   const reason = searchParams?.get("reason"); // 'create-password' | 'reset-password'
   const next = searchParams?.get("next");
 
-  // Phone-OTP-only accounts never establish a Supabase client session (see
-  // AuthContext), so there's no bearer token to prove identity with here --
-  // same limitation as every other bearer-token-gated route in this app.
+  // OTP and password sign-in now both hydrate a real Supabase client
+  // session via supabase.auth.setSession() right after verifying (see
+  // OTPPageContent.tsx / signin/page.tsx) -- getStoredAccessToken() is kept
+  // as the check here since it's set by both of those as a side effect, and
+  // this only needs to know "did some sign-in flow already run," not read
+  // the token's actual value.
   const hasSession = !!getStoredAccessToken();
 
   const handleSubmit = async () => {

@@ -48,12 +48,18 @@ function authHeader(): string {
   return `Basic ${Buffer.from(`${RAZORPAY_KEY_ID}:${RAZORPAY_KEY_SECRET}`).toString("base64")}`;
 }
 
-async function routeRequest<T>(path: string, method: "POST" | "GET", body?: unknown): Promise<T> {
+async function routeRequest<T>(
+  path: string,
+  method: "POST" | "GET" | "PATCH",
+  body?: unknown,
+  extraHeaders?: Record<string, string>,
+): Promise<T> {
   const res = await fetch(`${RAZORPAY_API_BASE}${path}`, {
     method,
     headers: {
       Authorization: authHeader(),
       "Content-Type": "application/json",
+      ...extraHeaders,
     },
     ...(body ? { body: JSON.stringify(body) } : {}),
   });
@@ -88,17 +94,29 @@ export async function createLinkedAccount(
     email: params.email,
     phone: params.phone,
     type: "route",
-    reference_id: params.referenceId,
+    // Verified: this field 20-char max ("The code may not be greater than
+    // 20 characters") -- a host_uuid (36 chars incl. dashes) blows past it.
+    // Just a dashboard trace field, not a lookup key we ever read back, so
+    // truncating is safe; collision odds across hosts are negligible.
+    reference_id: params.referenceId.replace(/-/g, "").slice(0, 20),
     legal_business_name: params.legalBusinessName,
     business_type: "individual",
     contact_name: params.contactName,
     profile: {
-      category: "hospitality",
-      subcategory: "guest_house",
+      // Verified against a real test-mode account -- "hospitality" /
+      // "guest_house" (the initial guess) is rejected outright with
+      // "Invalid business subcategory for business category". This is the
+      // pairing Razorpay's own category/subcategory reference lists for a
+      // homestay/vacation-rental marketplace host.
+      category: "tours_and_travel",
+      subcategory: "accommodation",
       addresses: {
         registered: {
           street1: params.addressLine1,
-          street2: "",
+          // Verified: street2 is REQUIRED and rejects an empty string --
+          // host_payout_methods only collects one address line, so this
+          // repeats it rather than leaving it blank.
+          street2: params.addressLine1,
           city: params.city,
           state: params.state,
           postal_code: params.postalCode,
@@ -113,40 +131,94 @@ export type CreateStakeholderParams = {
   name: string;
   email: string;
   panNumber: string;
-  bankAccountNumber: string;
-  bankIfsc: string;
 };
 
 export async function createStakeholder(
   accountId: string,
   params: CreateStakeholderParams,
 ): Promise<{ id: string }> {
+  // Verified against a real test-mode account: bank_account is NOT a valid
+  // field here at all ("bank_account is/are not required and should not be
+  // sent") -- bank details go on the Route product config instead, see
+  // activateRouteProduct below. Also verified: kyc.pan must be a PAN whose
+  // 4th character is "P" (the individual-entity marker) or this 400s with
+  // "The pan field is invalid" -- a real host's individual PAN already has
+  // this by construction, so no extra validation needed on our side.
   return routeRequest<{ id: string }>(`/v2/accounts/${accountId}/stakeholders`, "POST", {
     name: params.name,
     email: params.email,
     kyc: { pan: params.panNumber },
-    bank_account: {
-      ifsc_code: params.bankIfsc,
-      beneficiary_name: params.name,
-      account_number: params.bankAccountNumber,
-    },
   });
 }
 
-export async function activateRouteProduct(
+export type RouteProductResult = { id: string; activation_status: string };
+
+// Verified against a real test-mode account: this is a TWO-phase flow, not
+// one call. The initial POST creates the product config and accepts T&Cs,
+// but always comes back activation_status: 'needs_clarification' with a
+// `requirements` list asking for settlements.account_number/ifsc_code/
+// beneficiary_name -- bank details belong here, NOT on the Stakeholder
+// (see createStakeholder above). Call createRouteProduct once, persist the
+// returned id, then submitRouteSettlementDetails with it (repeatable/
+// idempotent -- PATCHing the same details again is harmless, and is in
+// fact how you'd retry after Razorpay's own penny-test verification fails,
+// e.g. on a typo'd account number).
+export async function createRouteProduct(accountId: string): Promise<RouteProductResult> {
+  return routeRequest<RouteProductResult>(`/v2/accounts/${accountId}/products`, "POST", {
+    product_name: "route",
+    tnc_accepted: true,
+  });
+}
+
+export async function submitRouteSettlementDetails(
   accountId: string,
-): Promise<{ id: string; activation_status: string }> {
-  return routeRequest<{ id: string; activation_status: string }>(
-    `/v2/accounts/${accountId}/products`,
-    "POST",
-    { product_name: "route", tnc_accepted: true },
+  productId: string,
+  bank: { accountNumber: string; ifscCode: string; beneficiaryName: string },
+): Promise<RouteProductResult> {
+  return routeRequest<RouteProductResult>(
+    `/v2/accounts/${accountId}/products/${productId}`,
+    "PATCH",
+    {
+      settlements: {
+        account_number: bank.accountNumber,
+        ifsc_code: bank.ifscCode,
+        beneficiary_name: bank.beneficiaryName,
+      },
+      tnc_accepted: true,
+    },
   );
+}
+
+export type RouteProductStatus = {
+  id: string;
+  activation_status: string;
+  requirements?: Array<{ field_reference?: string; reason_code?: string; resolution_url?: string }>;
+};
+
+// Read-only poll of the product config's current state. Razorpay penny-tests
+// the settlement bank account asynchronously after submitRouteSettlementDetails,
+// so activation_status only reaches 'activated' some time later.
+export async function fetchRouteProduct(
+  accountId: string,
+  productId: string,
+): Promise<RouteProductStatus> {
+  return routeRequest<RouteProductStatus>(`/v2/accounts/${accountId}/products/${productId}`, "GET");
 }
 
 export type CreateTransferParams = {
   linkedAccountId: string;
   amountPaise: number;
   notes?: Record<string, string>;
+  /**
+   * REQUIRED in practice, not just in the type: without this, a retried
+   * call (finalizeBookingFromRazorpayOrder's own idempotency-on-payment_id
+   * already stops the normal webhook/callback race from double-firing this,
+   * but a future manual reconciliation re-run would not be so lucky) could
+   * create a second, duplicate transfer -- i.e. double-pay the host for the
+   * same booking. Pass a stable key like `transfer:${bookingId}`, mirroring
+   * createRazorpayRefund's `refund:${bookingId}` in razorpay.ts.
+   */
+  idempotencyKey: string;
 };
 
 export type CreateTransferResult = {
@@ -161,15 +233,20 @@ export async function createTransferForPayment(
   paymentId: string,
   params: CreateTransferParams,
 ): Promise<CreateTransferResult> {
-  return routeRequest<CreateTransferResult>(`/v1/payments/${paymentId}/transfers`, "POST", {
-    transfers: [
-      {
-        account: params.linkedAccountId,
-        amount: params.amountPaise,
-        currency: "INR",
-        notes: params.notes,
-        on_hold: false,
-      },
-    ],
-  });
+  return routeRequest<CreateTransferResult>(
+    `/v1/payments/${paymentId}/transfers`,
+    "POST",
+    {
+      transfers: [
+        {
+          account: params.linkedAccountId,
+          amount: params.amountPaise,
+          currency: "INR",
+          notes: params.notes,
+          on_hold: false,
+        },
+      ],
+    },
+    { "X-Razorpay-Idempotency-Key": params.idempotencyKey },
+  );
 }

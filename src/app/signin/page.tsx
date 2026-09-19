@@ -148,6 +148,19 @@ function SignInContent() {
         toast.error("Could not sign in. Please try again.");
         return;
       }
+      // Password sign-in runs server-side (POST /api/auth/password), so the
+      // browser's own Supabase client doesn't know this session exists yet
+      // -- without this, autoRefreshToken has nothing to refresh and the
+      // access token silently hard-expires (~1hr) with no recovery short of
+      // signing in again. See the identical fix + explanation in
+      // OTPPageContent.tsx.
+      const { error: setSessionError } = await supabase.auth.setSession({
+        access_token: result.session.access_token,
+        refresh_token: result.session.refresh_token,
+      });
+      if (setSessionError) {
+        console.error("[signin] supabase.auth.setSession failed:", setSessionError);
+      }
       setStoredSession(result.session.access_token, result.session.refresh_token);
       await signIn(result.user.id);
       toast.success("Signed in!");

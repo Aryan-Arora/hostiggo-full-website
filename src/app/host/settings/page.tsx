@@ -25,6 +25,7 @@ import {
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { useAadhaarKycStatus } from '@/hooks/useAadhaarKycStatus';
+import KycModal from '@/components/features/KycModal';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 
@@ -75,9 +76,22 @@ function SettingsLinkRow({
   );
 }
 
+function VerifiedBadge({ ok, label }: { ok: boolean; label?: string }) {
+  return ok ? (
+    <span className="inline-flex items-center gap-1 text-[11px] font-bold text-green-700 bg-green-100 px-2 py-0.5 rounded-full">
+      <CheckCircle2 className="w-3 h-3" /> Verified
+    </span>
+  ) : (
+    <span className="inline-flex items-center text-[11px] font-bold text-amber-700 bg-amber-100 px-2 py-0.5 rounded-full">
+      {label ?? 'Not verified'}
+    </span>
+  );
+}
+
 export default function HostSettingsPage() {
   const { userId } = useAuth();
-  const { status: kycStatus } = useAadhaarKycStatus();
+  const { status: kycStatus, refresh: refreshKyc } = useAadhaarKycStatus();
+  const [kycModalOpen, setKycModalOpen] = useState(false);
   const [tab, setTab] = useState('personal');
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
@@ -125,8 +139,29 @@ export default function HostSettingsPage() {
   const handleSavePayoutMethod = async () => {
     setSavingPayoutMethod(true);
     try {
-      await api.savePayoutMethod(payoutForm);
-      toast.success('Payout details saved.');
+      // Send only what actually changed -- untouched fields (and a blank
+      // account number / PAN, meaning "keep what's on file") are omitted.
+      const f = payoutForm;
+      const m = payoutMethod;
+      const diff: Parameters<typeof api.updatePayoutMethod>[0] = {};
+      if (f.accountHolderName.trim() && f.accountHolderName.trim() !== m?.account_holder_name)
+        diff.accountHolderName = f.accountHolderName.trim();
+      if (f.bankAccountNumber) diff.bankAccountNumber = f.bankAccountNumber;
+      if (f.bankIfsc && f.bankIfsc !== m?.bank_ifsc) diff.bankIfsc = f.bankIfsc;
+      if (f.panNumber && f.panNumber !== m?.pan_number) diff.panNumber = f.panNumber;
+      if (f.addressLine1.trim() !== (m?.address_line1 ?? '') && (m || f.addressLine1.trim()))
+        diff.addressLine1 = f.addressLine1.trim();
+      if (f.city.trim() !== (m?.city ?? '') && (m || f.city.trim())) diff.city = f.city.trim();
+      if (f.state.trim() !== (m?.state ?? '') && (m || f.state.trim())) diff.state = f.state.trim();
+      if (f.postalCode !== (m?.postal_code ?? '') && (m || f.postalCode)) diff.postalCode = f.postalCode;
+
+      if (Object.keys(diff).length === 0) {
+        toast.info('No changes to save.');
+        setEditingPayoutMethod(false);
+        return;
+      }
+      await api.updatePayoutMethod(diff);
+      toast.success('Saved. Any bank or PAN change was verified with SurePass.');
       await loadPayoutMethod();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not save payout details.');
@@ -363,7 +398,7 @@ export default function HostSettingsPage() {
                       }}
                       className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
                     >
-                      <Pencil className="w-4 h-4" /> Edit
+                      <Pencil className="w-4 h-4" /> Update details
                     </button>
                   )}
                 </div>
@@ -381,7 +416,16 @@ export default function HostSettingsPage() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-gray-500 mb-0.5">Bank account</p>
-                        <p className="text-sm font-medium text-gray-900">{payoutMethod.bank_account_number}</p>
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          {payoutMethod.bank_account_number}
+                          <VerifiedBadge ok={payoutMethod.verification.bank.verified} />
+                        </p>
+                        {payoutMethod.bank_name && (
+                          <p className="text-xs text-gray-500 mt-0.5">
+                            {payoutMethod.bank_name}
+                            {payoutMethod.bank_branch ? `, ${payoutMethod.bank_branch}` : ''}
+                          </p>
+                        )}
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-gray-500 mb-0.5">IFSC</p>
@@ -389,9 +433,59 @@ export default function HostSettingsPage() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-gray-500 mb-0.5">PAN</p>
-                        <p className="text-sm font-medium text-gray-900">{payoutMethod.pan_number}</p>
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          {payoutMethod.pan_number ||
+                            payoutMethod.verification.pan.maskedPan ||
+                            'Not added'}
+                          {(payoutMethod.pan_number || payoutMethod.verification.pan.maskedPan) && (
+                            <VerifiedBadge ok={payoutMethod.verification.pan.verified} />
+                          )}
+                        </p>
+                      </div>
+                      {payoutMethod.upi_id && (
+                        <div>
+                          <p className="text-xs font-semibold text-gray-500 mb-0.5">UPI</p>
+                          <p className="text-sm font-medium text-gray-900">{payoutMethod.upi_id}</p>
+                        </div>
+                      )}
+                      <div>
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Aadhaar</p>
+                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
+                          {payoutMethod.verification.aadhaar.last4
+                            ? `•••• •••• ${payoutMethod.verification.aadhaar.last4}`
+                            : payoutMethod.verification.pan.verified
+                              ? 'Optional -- not needed'
+                              : 'Not added'}
+                          {(payoutMethod.verification.aadhaar.last4 ||
+                            !payoutMethod.verification.pan.verified) && (
+                          <VerifiedBadge
+                            ok={payoutMethod.verification.aadhaar.status === 'verified'}
+                            label={
+                              payoutMethod.verification.aadhaar.status === 'pending'
+                                ? 'Pending'
+                                : payoutMethod.verification.aadhaar.status === 'rejected'
+                                  ? 'Rejected'
+                                  : undefined
+                            }
+                          />
+                          )}
+                        </p>
+                      </div>
+                      <div className="col-span-2">
+                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Address</p>
+                        <p className="text-sm font-medium text-gray-900">
+                          {[payoutMethod.address_line1, payoutMethod.city, payoutMethod.state, payoutMethod.postal_code]
+                            .filter(Boolean)
+                            .join(', ')}
+                        </p>
                       </div>
                     </div>
+                    <button
+                      onClick={() => setKycModalOpen(true)}
+                      className="text-xs font-bold text-figma-navy hover:underline"
+                    >
+                      Update Aadhaar / PAN / bank verification
+                    </button>
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
                       <Landmark className="w-4 h-4 text-amber-600 shrink-0" />
                       <p className="text-xs text-amber-800">
@@ -453,7 +547,14 @@ export default function HostSettingsPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">PAN</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">
+                          PAN{' '}
+                          {kycStatus === 'verified' && (
+                            <span className="font-normal text-gray-400">
+                              (optional -- your identity is already verified)
+                            </span>
+                          )}
+                        </label>
                         <input
                           type="text"
                           value={payoutForm.panNumber}
@@ -513,8 +614,9 @@ export default function HostSettingsPage() {
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-figma-navy/5 border border-figma-navy/10">
                       <Landmark className="w-4 h-4 text-figma-navy shrink-0" />
                       <p className="text-xs text-gray-600">
-                        Automatic payouts aren&apos;t live yet -- saving your details now means you
-                        won&apos;t need to re-enter them once they are.
+                        Changing your bank account or PAN re-checks it with SurePass before saving.
+                        Already-verified details don&apos;t need to be re-entered -- leave the account
+                        number or PAN blank to keep what&apos;s on file.
                       </p>
                     </div>
 
@@ -525,7 +627,7 @@ export default function HostSettingsPage() {
                         className="px-6 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all disabled:opacity-60 disabled:cursor-not-allowed flex items-center gap-2"
                       >
                         {savingPayoutMethod && <Loader2 className="w-4 h-4 animate-spin" />}
-                        {savingPayoutMethod ? 'Saving…' : 'Save payout details'}
+                        {savingPayoutMethod ? 'Saving…' : 'Save changes'}
                       </button>
                       {payoutMethod && (
                         <button
@@ -552,7 +654,7 @@ export default function HostSettingsPage() {
                         : kycStatus === 'pending'
                           ? 'Your documents are in -- verification is in progress.'
                           : kycStatus === 'rejected'
-                            ? 'We could not verify your last submission. Please re-submit a clear photo of your Aadhaar.'
+                            ? 'We could not verify your last submission. Please double-check your Aadhaar/PAN number and re-submit.'
                             : 'Optional. Verified hosts get more guest trust and bookings.'}
                     </p>
                   </div>
@@ -635,6 +737,23 @@ export default function HostSettingsPage() {
           )}
         </div>
       </div>
+      {userId && (
+        <KycModal
+          open={kycModalOpen}
+          userId={userId}
+          defaultName={payoutMethod?.account_holder_name ?? name}
+          onCompleted={() => {
+            setKycModalOpen(false);
+            refreshKyc();
+            loadPayoutMethod();
+          }}
+          onSkipped={() => {
+            setKycModalOpen(false);
+            refreshKyc();
+            loadPayoutMethod();
+          }}
+        />
+      )}
     </HostDashboardShell>
   );
 }

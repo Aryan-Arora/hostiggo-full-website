@@ -26,7 +26,16 @@ export async function GET(req: NextRequest) {
       calendarServiceAPI.fetchBookingsForListing(listingId, startDate, endDate),
     ]);
 
-    return NextResponse.json({ data: { entries, bookings } });
+    // Public endpoint: only which dates are taken, never who booked or what
+    // they paid.
+    const publicBookings = bookings.map((b) => ({
+      booking_id: b.booking_id,
+      start_date: b.start_date,
+      end_date: b.end_date,
+      status_id: b.status_id,
+    }));
+
+    return NextResponse.json({ data: { entries, bookings: publicBookings } });
   } catch (err) {
     return jsonError(err);
   }

@@ -2,23 +2,30 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import {
   createLinkedAccount,
   createStakeholder,
-  activateRouteProduct,
+  createRouteProduct,
+  submitRouteSettlementDetails,
 } from "@/lib/billing/razorpayRoute";
 
 /**
- * The actual 3-step Route setup (Account -> Stakeholder -> Product
- * activation), shared by both /api/host/create-linked-account (a host
- * manually retrying/resuming onboarding) and
- * maybeAutoOnboardHostToRoute below (triggered automatically once
- * verification conditions are met, no separate authenticated call needed).
- * Idempotent/resumable: persists razorpay_account_id/razorpay_stakeholder_id
- * after each step so a failure partway through only retries what's left.
+ * The actual 4-step Route setup -- Account -> Stakeholder -> create Product
+ * config -> submit settlement bank details against that product config --
+ * verified against a real Razorpay test-mode account (bank details do NOT
+ * go on the Stakeholder; they go in a separate step against the product
+ * config's own id, see razorpayRoute.ts). Shared by both
+ * /api/host/create-linked-account (a host manually retrying/resuming) and
+ * maybeAutoOnboardHostToRoute below (automatic trigger, no separate
+ * authenticated call needed). Idempotent/resumable: persists each id right
+ * after it's returned, so a failure partway through only retries what's
+ * left -- including step 4 alone, which is the one expected to need
+ * retrying in practice (Razorpay penny-tests the bank account and will
+ * reject a wrong number/IFSC after a delay, well after this function has
+ * already returned).
  */
 export async function runRouteOnboarding(hostUuid: string, userId: string) {
   const { data: payout, error: payoutError } = await supabaseAdmin
     .from("host_payout_methods")
     .select(
-      "account_holder_name, bank_account_number, bank_ifsc, pan_number, address_line1, city, state, postal_code, razorpay_account_id, razorpay_stakeholder_id, status",
+      "account_holder_name, bank_account_number, bank_ifsc, pan_number, address_line1, city, state, postal_code, razorpay_account_id, razorpay_stakeholder_id, razorpay_product_id, status",
     )
     .eq("host_uuid", hostUuid)
     .maybeSingle();
@@ -26,8 +33,23 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
   if (!payout) {
     throw new Error("No payout details on file for this host yet.");
   }
-  if (payout.razorpay_account_id && payout.razorpay_stakeholder_id && payout.status !== "rejected") {
+  if (
+    payout.razorpay_account_id &&
+    payout.razorpay_stakeholder_id &&
+    payout.razorpay_product_id &&
+    payout.status === "active"
+  ) {
     return { razorpayAccountId: payout.razorpay_account_id, status: payout.status };
+  }
+
+  if (!payout.pan_number) {
+    // Razorpay Route's stakeholder KYC needs a PAN even when the host's id
+    // proof on our side is Aadhaar -- payouts can't activate without one.
+    throw new Error("Add your PAN in Settings to finish payout setup -- Razorpay requires it.");
+  }
+
+  if (!payout.address_line1 || !payout.city || !payout.state || !payout.postal_code) {
+    throw new Error("Add your address, city, state and postal code in Settings to finish payout setup -- Razorpay requires them.");
   }
 
   const { data: userRow, error: userError } = await supabaseAdmin
@@ -42,6 +64,7 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
 
   let accountId = payout.razorpay_account_id;
   let stakeholderId = payout.razorpay_stakeholder_id;
+  let productId = payout.razorpay_product_id;
 
   if (!accountId) {
     const account = await createLinkedAccount({
@@ -67,8 +90,6 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
       name: payout.account_holder_name,
       email: userRow.email,
       panNumber: payout.pan_number,
-      bankAccountNumber: payout.bank_account_number,
-      bankIfsc: payout.bank_ifsc,
     });
     stakeholderId = stakeholder.id;
     await supabaseAdmin
@@ -77,8 +98,25 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
       .eq("host_uuid", hostUuid);
   }
 
-  const product = await activateRouteProduct(accountId);
-  const finalStatus = product.activation_status === "activated" ? "active" : "onboarding";
+  if (!productId) {
+    const product = await createRouteProduct(accountId);
+    productId = product.id;
+    await supabaseAdmin
+      .from("host_payout_methods")
+      .update({ razorpay_product_id: productId, updated_at: new Date().toISOString() })
+      .eq("host_uuid", hostUuid);
+  }
+
+  const resolved = await submitRouteSettlementDetails(accountId, productId, {
+    accountNumber: payout.bank_account_number,
+    ifscCode: payout.bank_ifsc,
+    beneficiaryName: payout.account_holder_name,
+  });
+  // 'needs_clarification' is the expected status right after submitting --
+  // Razorpay penny-tests the account asynchronously and only reaches
+  // 'activated' once that succeeds, which this function has no way to wait
+  // for. See /api/host/onboarding-status for polling that.
+  const finalStatus = resolved.activation_status === "activated" ? "active" : "onboarding";
   await supabaseAdmin
     .from("host_payout_methods")
     .update({ status: finalStatus, updated_at: new Date().toISOString() })

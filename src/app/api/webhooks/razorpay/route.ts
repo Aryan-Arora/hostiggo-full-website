@@ -47,6 +47,44 @@ export async function POST(req: NextRequest) {
 
   const event = payload?.event;
 
+  // Record every delivery in razorpay_webhook_events (PK = Razorpay's event
+  // id) so a redelivery of an already-processed event is a no-op and every
+  // outcome/error is inspectable. Fail-soft: if the log table can't be
+  // written, still process the event -- the handlers below are idempotent.
+  const eventId = req.headers.get("x-razorpay-event-id");
+  if (eventId) {
+    const { error: logError } = await supabaseAdmin
+      .from("razorpay_webhook_events")
+      .insert({ event_id: eventId, event_type: String(event ?? "unknown"), payload });
+    if (logError?.code === "23505") {
+      const { data: prior } = await supabaseAdmin
+        .from("razorpay_webhook_events")
+        .select("processed_at")
+        .eq("event_id", eventId)
+        .maybeSingle();
+      if (prior?.processed_at) return NextResponse.json({ ok: true, duplicate: true });
+    } else if (logError) {
+      console.error("[/api/webhooks/razorpay] could not log event:", logError.message);
+    }
+  }
+
+  const response = await processEvent(event, payload);
+
+  if (eventId) {
+    const failed = response.status >= 400;
+    await supabaseAdmin
+      .from("razorpay_webhook_events")
+      .update(
+        failed
+          ? { error: `HTTP ${response.status}` }
+          : { processed_at: new Date().toISOString(), error: null },
+      )
+      .eq("event_id", eventId);
+  }
+  return response;
+}
+
+async function processEvent(event: string | undefined, payload: any): Promise<NextResponse> {
   if (event === "payment.captured") {
     const payment = payload?.payload?.payment?.entity;
     const orderId = payment?.order_id;
@@ -91,26 +129,72 @@ export async function POST(req: NextRequest) {
       console.error("[/api/webhooks/razorpay] transfer.processed missing transfer id");
       return NextResponse.json({ error: "Malformed transfer.processed payload" }, { status: 400 });
     }
-    const { error } = await supabaseAdmin
+    // recipient_settlement_id links this transfer to the settlement that
+    // will later pay it out (settlement.processed below matches on it).
+    const update: Record<string, unknown> = { transfer_status: "processed" };
+    if (transfer.recipient_settlement_id) {
+      update.settlement_id = transfer.recipient_settlement_id;
+      update.settlement_status = "pending";
+    }
+    const { data: rows, error } = await supabaseAdmin
       .from("bookings")
-      .update({ transfer_status: "processed" })
-      .eq("razorpay_transfer_id", transfer.id);
+      .update(update)
+      .eq("razorpay_transfer_id", transfer.id)
+      .select("booking_id, host_uuid");
     if (error) {
       console.error("[/api/webhooks/razorpay] failed to update transfer_status:", error);
       return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+    }
+    for (const b of rows ?? []) {
+      const { notify, hostUserId } = await import("@/lib/services/notifications");
+      const hostUser = await hostUserId(b.host_uuid);
+      if (hostUser) {
+        await notify({
+          userId: hostUser,
+          type: "account",
+          title: "Payout on its way",
+          message: `Your earnings for booking #${b.booking_id} have been transferred and will be settled to your bank account.`,
+          metadata: { bookingId: b.booking_id, transferId: transfer.id },
+        });
+      }
     }
     return NextResponse.json({ ok: true });
   }
 
   if (event === "settlement.processed") {
     const settlement = payload?.payload?.settlement?.entity;
-    // A settlement can cover multiple transfers; Razorpay's payload for
-    // Route settlements includes which transfer(s) it settles -- but the
-    // exact field name for that isn't confirmed against a real payload
-    // (never tested against live Route settlements, see razorpayRoute.ts).
-    // Logged so a real webhook delivery can be inspected before this branch
-    // is trusted to update the right booking(s).
-    console.log("[/api/webhooks/razorpay] settlement.processed (not yet wired to a booking):", settlement);
+    if (!settlement?.id) {
+      console.error("[/api/webhooks/razorpay] settlement.processed missing settlement id");
+      return NextResponse.json({ error: "Malformed settlement.processed payload" }, { status: 400 });
+    }
+    const { data: rows, error } = await supabaseAdmin
+      .from("bookings")
+      .update({
+        settlement_status: "processed",
+        utr: settlement.utr ?? null,
+        payout_released_at: new Date().toISOString(),
+      })
+      .eq("settlement_id", settlement.id)
+      .select("booking_id, host_uuid");
+    if (error) {
+      console.error("[/api/webhooks/razorpay] failed to update settlement:", error);
+      return NextResponse.json({ error: "DB update failed" }, { status: 500 });
+    }
+    const { setPayoutStatusForBooking } = await import("@/lib/services/admin-writes");
+    const { notify, hostUserId } = await import("@/lib/services/notifications");
+    for (const b of rows ?? []) {
+      await setPayoutStatusForBooking(b.booking_id, "credited", settlement.utr ?? null).catch(() => {});
+      const hostUser = await hostUserId(b.host_uuid);
+      if (hostUser) {
+        await notify({
+          userId: hostUser,
+          type: "account",
+          title: "Payout credited",
+          message: `Your earnings for booking #${b.booking_id} were credited to your bank account${settlement.utr ? ` (UTR ${settlement.utr})` : ""}.`,
+          metadata: { bookingId: b.booking_id, utr: settlement.utr ?? null },
+        });
+      }
+    }
     return NextResponse.json({ ok: true });
   }
 

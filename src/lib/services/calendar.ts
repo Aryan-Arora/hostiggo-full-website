@@ -1,4 +1,5 @@
-import { supabase } from "../supabase";
+// Server-only (used by /api routes); anon has no privileges on bookings.
+import { supabaseAdmin as supabase } from "../supabase-admin";
 import { SCHEMA } from "../schema.constants";
 
 const DB_SCHEMA = SCHEMA.testingSchema;

@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import ProfileCompletionBanner from '@/components/features/ProfileCompletionBanner';
 import {
   Clock,
   Gift,
@@ -124,6 +125,7 @@ export default function Navbar() {
   }, []);
 
   return (
+    <>
     <nav className="bg-white sticky top-0 z-50 border-b border-gray-50 shadow-[0_8px_30px_rgba(59,130,246,0.12)] flex-shrink-0">
       <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between h-16">
@@ -379,5 +381,7 @@ export default function Navbar() {
         )}
       </div>
     </nav>
+    <ProfileCompletionBanner />
+    </>
   );
 }

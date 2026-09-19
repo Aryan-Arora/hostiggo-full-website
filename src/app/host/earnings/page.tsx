@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Download,
   Wallet,
@@ -9,12 +10,14 @@ import {
   TrendingUp,
   Landmark,
   RotateCcw,
+  CalendarClock,
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
 import { cn } from '@/lib/utils';
 import { calculateHostPayout } from '@/lib/billing/payout';
+import { expectedSettlementDate, formatSettlementDate } from '@/lib/billing/settlement';
 
 // Bookings are instant-confirmed on creation, status_id is only ever
 // 2 (confirmed) or 3 (cancelled), there is no pending/approval step.
@@ -29,7 +32,25 @@ type Earn = {
   amount: number;
   cancelled: boolean;
   confirmed: boolean;
+  transferStatus: 'created' | 'processed' | 'failed' | null;
+  settlementStatus: 'pending' | 'processed' | null;
+  utr: string | null;
+  /** Estimated bank-credit date (T+2 working days after payment), until settled. */
+  expectedSettlement: Date | null;
 };
+
+// The real Razorpay Route payout state for a booking, not a guess -- these
+// three columns are written by /api/webhooks/razorpay (transfer.processed,
+// settlement.processed) and src/lib/services/admin-writes.ts
+// (createHostTransferForBooking), so this is what actually happened to the
+// money, not just whether the stay is over.
+function payoutLabel(r: Earn): { text: string; tone: 'green' | 'blue' | 'gray' | 'red' } {
+  if (r.settlementStatus === 'processed') return { text: 'Paid out', tone: 'green' };
+  if (r.transferStatus === 'processed') return { text: 'Transferred', tone: 'blue' };
+  if (r.transferStatus === 'failed') return { text: 'Transfer failed', tone: 'red' };
+  if (r.transferStatus === 'created') return { text: 'Processing', tone: 'blue' };
+  return { text: 'Awaiting payout', tone: 'gray' };
+}
 
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 
@@ -40,16 +61,28 @@ const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDat
 // same simplification previewCancellationRefund() already uses (add-on
 // price isn't tracked per-booking yet).
 const mapEarn = (row: any): Earn => {
+  // Prefer the payout snapshotted on the booking at payment time
+  // (bookings.host_payout_paise); only bookings that predate it fall back to
+  // recomputing from the listing's current price.
+  const storedPaise = row.host_payout_paise != null ? Number(row.host_payout_paise) : null;
   const propertyPrice = Number(row.property?.price_weekday ?? 0);
-  const payout = calculateHostPayout({ propertyPrice });
+  const netHostPayoutRupees =
+    storedPaise != null ? storedPaise / 100 : calculateHostPayout({ propertyPrice }).netHostPayoutRupees;
   return {
     id: String(row.booking_id),
     title: row.property?.title?.trim() || 'Booked stay',
     start: row.start_date ? new Date(row.start_date) : null,
     end: row.end_date ? new Date(row.end_date) : null,
-    amount: payout.netHostPayoutRupees,
+    amount: netHostPayoutRupees,
     cancelled: Number(row.status_id) === STATUS_CANCELLED,
     confirmed: Number(row.status_id) === STATUS_CONFIRMED,
+    transferStatus: row.transfer_status ?? null,
+    settlementStatus: row.settlement_status ?? null,
+    utr: row.utr ?? null,
+    expectedSettlement:
+      row.settlement_status === 'processed' || row.transfer_status === 'failed'
+        ? null
+        : expectedSettlementDate(row.paid_at),
   };
 };
 
@@ -97,14 +130,28 @@ export default function EarningsPage() {
   const [rows, setRows] = useState<Earn[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
+  const [payoutMethod, setPayoutMethod] = useState<Awaited<
+    ReturnType<typeof api.getPayoutMethod>
+  > | null>(null);
+  const [history, setHistory] = useState<Awaited<ReturnType<typeof api.hostPaymentHistory>>>([]);
 
   const load = useCallback(async () => {
     if (!userId) return;
     setLoading(true);
     setError(false);
     try {
-      const data = await api.hostBookings(userId);
-      setRows(data.map(mapEarn));
+      const [bookings, payout, paymentHistory] = await Promise.all([
+        api.hostBookings(userId),
+        // Payouts need a bank account on file at all -- purely informational
+        // here (drives the empty-state copy below), so a failure to load it
+        // must never block earnings from rendering.
+        api.getPayoutMethod().catch(() => null),
+        // Full payment/payout ledger; a failure here only hides that table.
+        api.hostPaymentHistory().catch(() => []),
+      ]);
+      setHistory(paymentHistory);
+      setRows(bookings.map(mapEarn));
+      setPayoutMethod(payout);
     } catch (err) {
       console.error('[host/earnings] load failed:', err);
       setError(true);
@@ -325,6 +372,34 @@ export default function EarningsPage() {
             <RotateCcw className="w-4 h-4" /> Try again
           </button>
         </div>
+      ) : rows.length === 0 ? (
+        // Nothing to compute a chart/history/upcoming-payouts grid from yet
+        // -- showing five separate empty widgets at once used to read as
+        // "this is broken", not "no data". One clear message instead, with
+        // copy that reflects whether payouts are actually ready to receive
+        // money (bank verified and onboarded to Razorpay Route) or the host
+        // still needs to set that up.
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-card py-20 text-center px-6">
+          <div className="w-16 h-16 mx-auto mb-5 rounded-2xl bg-figma-navy/5 flex items-center justify-center text-figma-navy">
+            <CalendarClock className="w-8 h-8" />
+          </div>
+          <h3 className="text-lg font-bold text-gray-800 mb-2">Waiting on your first booking</h3>
+          <p className="text-sm text-gray-500 max-w-md mx-auto mb-6">
+            {payoutMethod?.status === 'active'
+              ? "Your payout account is verified and ready. As soon as a guest books one of your properties, your earnings and payout status will show up here."
+              : payoutMethod
+                ? "Your payout details are on file and being set up with Razorpay. Once that's done and a guest books, your earnings will show up here."
+                : 'Once a guest books one of your properties, your earnings will show up here. Add your payout details in Settings so you get paid as soon as it happens.'}
+          </p>
+          {!payoutMethod && (
+            <Link
+              href="/host/settings"
+              className="inline-flex items-center gap-2 bg-figma-navy text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-figma-navy/90"
+            >
+              <Landmark className="w-4 h-4" /> Set up payouts
+            </Link>
+          )}
+        </div>
       ) : (
         <div className="grid grid-cols-12 gap-6">
           {/* Total earnings */}
@@ -397,6 +472,11 @@ export default function EarningsPage() {
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-bold text-gray-800 truncate">{u.title}</p>
                       <p className="text-xs text-gray-500">Check-in {fmtDate(u.start)}</p>
+                      {u.expectedSettlement && (
+                        <p className="text-[11px] text-figma-navy/80">
+                          Settles by {formatSettlementDate(u.expectedSettlement)}, 1 PM
+                        </p>
+                      )}
                     </div>
                     <div className="text-right">
                       <p className="text-sm font-bold text-figma-navy">{inr(u.amount)}</p>
@@ -452,7 +532,7 @@ export default function EarningsPage() {
               <table className="w-full border-collapse">
                 <thead>
                   <tr className="text-left text-gray-400 border-b border-gray-200">
-                    {['Booking', 'Checkout Date', 'Property', 'Amount', 'Status'].map((th, i) => (
+                    {['Booking', 'Checkout Date', 'Property', 'Amount', 'Payout'].map((th, i) => (
                       <th
                         key={th}
                         className={cn(
@@ -481,12 +561,109 @@ export default function EarningsPage() {
                       </td>
                       <td className="py-5 px-4 text-right font-bold text-gray-800">{inr(r.amount)}</td>
                       <td className="py-5 px-4 text-center">
-                        <span className="bg-green-100 text-green-700 px-3 py-1 rounded-full text-[11px] font-bold uppercase">
-                          Completed
-                        </span>
+                        {(() => {
+                          const { text, tone } = payoutLabel(r);
+                          return (
+                            <span
+                              className={cn(
+                                'px-3 py-1 rounded-full text-[11px] font-bold uppercase',
+                                tone === 'green' && 'bg-green-100 text-green-700',
+                                tone === 'blue' && 'bg-figma-navy/10 text-figma-navy',
+                                tone === 'red' && 'bg-red-100 text-red-700',
+                                tone === 'gray' && 'bg-gray-100 text-gray-500',
+                              )}
+                            >
+                              {text}
+                            </span>
+                          );
+                        })()}
                       </td>
                     </tr>
                   ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+
+          {/* Full payment & payout history -- every booking, nothing sliced */}
+          <div className="col-span-12 bg-white rounded-2xl p-6 border border-gray-200 shadow-card overflow-x-auto">
+            <div className="flex justify-between items-center mb-6 px-1">
+              <div>
+                <h3 className="text-lg font-bold text-gray-800">Payments &amp; Payout History</h3>
+                <p className="text-xs text-gray-500">Every booking, what the guest paid and what reached you.</p>
+              </div>
+            </div>
+            {history.length === 0 ? (
+              <div className="text-sm text-gray-400 py-10 text-center">No payments yet.</div>
+            ) : (
+              <table className="w-full border-collapse min-w-[900px]">
+                <thead>
+                  <tr className="text-left text-gray-400 border-b border-gray-200">
+                    {['Booking', 'Property', 'Paid on', 'Guest paid', 'Fees & GST', 'Your payout', 'Payout status', 'Reference'].map((th, i) => (
+                      <th
+                        key={th}
+                        className={cn(
+                          'pb-4 text-xs uppercase tracking-widest px-4 font-semibold',
+                          (i === 3 || i === 4 || i === 5) && 'text-right',
+                        )}
+                      >
+                        {th}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {history.map((h) => {
+                    const { text, tone } = h.cancelled
+                      ? { text: h.refundStatus === 'processed' ? 'Refunded' : 'Cancelled', tone: 'red' as const }
+                      : payoutLabel({
+                          transferStatus: h.transferStatus as Earn['transferStatus'],
+                          settlementStatus: h.settlementStatus as Earn['settlementStatus'],
+                        } as Earn);
+                    const fees = (h.commission ?? 0) + (h.gst ?? 0);
+                    return (
+                      <tr key={h.bookingId} className="hover:bg-gray-50 transition-colors">
+                        <td className="py-4 px-4 text-sm text-gray-800 font-mono">
+                          #{h.bookingId}
+                          {h.invoiceNumber && <div className="text-[10px] text-gray-400">{h.invoiceNumber}</div>}
+                        </td>
+                        <td className="py-4 px-4 text-sm text-gray-800 max-w-[200px] truncate">{h.title}</td>
+                        <td className="py-4 px-4 text-sm text-gray-500">
+                          {fmtDate(h.paidAt ?? h.bookedAt ? new Date((h.paidAt ?? h.bookedAt) as string) : null)}
+                        </td>
+                        <td className="py-4 px-4 text-right text-sm text-gray-800">
+                          {h.guestAmount != null ? inr(h.guestAmount) : 'N/A'}
+                        </td>
+                        <td className="py-4 px-4 text-right text-sm text-gray-500">
+                          {h.commission != null || h.gst != null ? inr(fees) : 'N/A'}
+                        </td>
+                        <td className="py-4 px-4 text-right font-bold text-gray-800">
+                          {h.hostPayout != null ? inr(h.hostPayout) : 'N/A'}
+                        </td>
+                        <td className="py-4 px-4">
+                          <span
+                            className={cn(
+                              'px-3 py-1 rounded-full text-[11px] font-bold uppercase whitespace-nowrap',
+                              tone === 'green' && 'bg-green-100 text-green-700',
+                              tone === 'blue' && 'bg-figma-navy/10 text-figma-navy',
+                              tone === 'red' && 'bg-red-100 text-red-700',
+                              tone === 'gray' && 'bg-gray-100 text-gray-500',
+                            )}
+                          >
+                            {text}
+                          </span>
+                          {h.expectedSettlementAt && (
+                            <p className="mt-1 text-[11px] text-gray-500">
+                              Settles by {formatSettlementDate(new Date(h.expectedSettlementAt))}, 1 PM
+                            </p>
+                          )}
+                        </td>
+                        <td className="py-4 px-4 text-xs text-gray-500 font-mono">
+                          {h.utr ?? h.payoutReference ?? '-'}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             )}

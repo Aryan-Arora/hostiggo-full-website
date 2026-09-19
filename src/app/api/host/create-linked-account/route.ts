@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { ensureHostProfile } from "@/lib/services/admin-writes";
+import { findHostUuid } from "@/lib/services/admin-writes";
 import { runRouteOnboarding } from "@/lib/services/hostRouteOnboarding";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 import { RazorpayRouteError } from "@/lib/billing/razorpayRoute";
@@ -16,7 +16,12 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const userId = await getAuthenticatedUserId(req);
-    const hostUuid = await ensureHostProfile(userId);
+    // A retry only makes sense for an existing host with saved payout details;
+    // it must never create the host row itself.
+    const hostUuid = await findHostUuid(userId);
+    if (!hostUuid) {
+      return NextResponse.json({ error: "Save your payout details first." }, { status: 400 });
+    }
     const result = await runRouteOnboarding(hostUuid, userId);
     return NextResponse.json({ data: result });
   } catch (err) {

@@ -5,8 +5,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
-import { hasSubmittedAadhaarKyc } from '@/lib/aadhaar';
-import { AadhaarKycForm } from './_components/AadhaarKycForm';
+import { KycVerificationForm } from './_components/KycVerificationForm';
 
 const authBg = '/auth-bg.jpg';
 
@@ -16,16 +15,15 @@ function AadhaarKycContent() {
   const { userId, user, loading: authLoading } = useAuth();
   const redirect = searchParams?.get('redirect') || '/';
 
-  // Not signed in, or this browser already has a submission on file for
-  // this user -- nothing to do here, move on.
+  // Not signed in -- nothing to do here, move on. Unlike the old
+  // Aadhaar-only version of this page, a prior submission no longer bounces
+  // the visitor straight back to `redirect`: id proof (Aadhaar/PAN) and
+  // bank verification are independent, so "already submitted one" must not
+  // hide the form before the other is done too.
   useEffect(() => {
     if (authLoading) return;
     if (!userId) {
       router.replace(`/signin?redirect=${encodeURIComponent(`/kyc/aadhaar?redirect=${redirect}`)}`);
-      return;
-    }
-    if (hasSubmittedAadhaarKyc(userId)) {
-      router.replace(redirect);
     }
   }, [authLoading, userId, redirect, router]);
 
@@ -50,12 +48,12 @@ function AadhaarKycContent() {
         <h1 className="text-xl font-bold text-gray-900 mb-1.5">Verify your identity</h1>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
           Verified hosts earn more guest trust and bookings. It&apos;s optional and takes a
-          minute -- upload a photo of your Aadhaar card once. You can also do this later from
-          Settings. We use it only for identity verification.
+          minute -- verify your Aadhaar or PAN, plus your bank account. No documents to upload.
+          You can also do this later from Settings.
         </p>
 
         {userId && (
-          <AadhaarKycForm
+          <KycVerificationForm
             userId={userId}
             defaultName={user?.name ?? ''}
             onCompleted={() => router.push(redirect)}

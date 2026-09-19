@@ -4,15 +4,13 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Server-only SurePass config. NEVER prefix these with NEXT_PUBLIC_ -- the
 // API key must never reach the client bundle. Routes call SurePass directly
-// (see src/app/api/verify/*) using this key; the Aadhaar flow at
-// src/app/api/kyc/aadhaar instead calls the surepass-verify-id Supabase Edge
-// Function, which holds its own separate copy of this same key.
+// (see src/app/api/verify/* and src/app/api/kyc/aadhaar) using this key --
+// all of PAN, bank, passport, and Aadhaar are number-only lookups, no
+// document photo upload required.
 //
-// Base URL gotcha: sandbox tokens ONLY work against sandbox.surepass.io --
-// kyc-api.surepass.io is production-only and rejects sandbox tokens with a
-// signature error. There's also a separate sandbox-encrypted.surepass.app
-// gateway that needs an x-client-id header -- don't confuse the two.
-export const SUREPASS_BASE_URL = process.env.SUREPASS_BASE_URL || "https://sandbox.surepass.io";
+// Production only -- the account's sandbox environment has been retired, so
+// every verify route calls kyc-api.surepass.app directly with a live token.
+export const SUREPASS_BASE_URL = process.env.SUREPASS_BASE_URL || "https://kyc-api.surepass.app";
 const SUREPASS_API_KEY = process.env.SUREPASS_API_KEY || "";
 
 export const isSurepassConfigured = (): boolean => Boolean(SUREPASS_API_KEY);

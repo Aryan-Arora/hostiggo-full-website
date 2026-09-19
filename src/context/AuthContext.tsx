@@ -67,12 +67,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadUser]);
 
-  // Google OAuth and email OTP both establish a real Supabase Auth session
-  // (phone OTP doesn't -- it's verified server-side and only ever gives us
-  // a userId, never a client-side session). This listener keeps our
-  // locally-stored userId in sync when one of those sessions ends outside
-  // our own signOut() call -- e.g. token refresh failure after being idle,
-  // or signing out in another tab.
+  // Google OAuth, email OTP and phone OTP all now establish a real Supabase
+  // Auth session client-side -- OTP/password verify happens server-side
+  // (POST /api/auth/otp, /api/auth/password), so OTPPageContent.tsx and
+  // signin/page.tsx explicitly call supabase.auth.setSession() with the
+  // tokens that route returns, right after verifying. Without that, this
+  // client never learns the session exists and autoRefreshToken has
+  // nothing to refresh -- the access token would silently hard-expire
+  // (~1hr) with no recovery short of signing in again, which was happening
+  // until that fix. This listener keeps our locally-stored userId in sync
+  // when one of those sessions ends outside our own signOut() call -- e.g.
+  // token refresh failure after being idle, or signing out in another tab.
   useEffect(() => {
     const {
       data: { subscription },

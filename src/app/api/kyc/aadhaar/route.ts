@@ -2,21 +2,40 @@ import { createHash } from 'crypto';
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { isValidAadhaarNumber } from '@/lib/aadhaar';
+import { getAuthenticatedUserId, UnauthorizedError } from '@/lib/auth-server';
+import { isSurepassConfigured, surepassPost } from '@/lib/surepass';
 
 export const dynamic = 'force-dynamic';
 
-// Live KYC status for a user, so the host dashboard banner and Settings ->
-// Identity Verification reflect the real verification state instead of a
-// client-only "I submitted once" localStorage flag. Follows the same
-// ?userId= convention as GET /api/users and /api/host/profile-info.
+// SurePass "Aadhaar Validation" -- a direct number lookup against UIDAI, no
+// OTP and no document photo. Same family as PAN Advanced (/api/verify/pan)
+// and Bank Verification (/api/verify/bank): a masked-data live check keyed
+// only off the number itself.
+const AADHAAR_VALIDATION_ENDPOINT = '/api/v1/aadhaar-validation/aadhaar-validation';
+
+// Live id-proof KYC status for a user, so the host dashboard banner and
+// Settings -> Identity Verification reflect the real verification state
+// instead of a client-only "I submitted once" localStorage flag. Follows
+// the same ?userId= convention as GET /api/users and /api/host/profile-info.
+//
+// Id proof is Aadhaar OR PAN -- not Aadhaar only. This endpoint's name and
+// the aadhaar_kyc table predate PAN being an option in the KYC modal
+// (src/app/kyc/aadhaar/_components/KycVerificationForm.tsx), but the status
+// it reports must cover both, the same way
+// src/lib/services/hostRouteOnboarding.ts already treats them as
+// interchangeable when deciding Route eligibility: a host who verified via
+// PAN only must show as verified here too, not "none" forever because they
+// never touched the Aadhaar tab.
 //
 // status:
-//   'none'     -- no submission on file
+//   'none'     -- no submission on file (neither Aadhaar nor PAN)
 //   'pending'  -- submitted, awaiting review
-//   'verified' -- verified by a reviewer/provider
-//   'rejected' -- submission was rejected, host needs to re-submit
+//   'verified' -- verified by a reviewer/provider (either id type)
+//   'rejected' -- most recent submission was rejected, host needs to re-submit
 //   'unknown'  -- couldn't read (table missing, storage error); caller
 //                 should fall back to its local flag rather than assume 'none'
+const STATUS_RANK = { verified: 3, pending: 2, rejected: 1 } as const;
+
 export async function GET(req: NextRequest) {
   try {
     const userId = req.nextUrl.searchParams.get('userId');
@@ -24,32 +43,53 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'userId is required' }, { status: 400 });
     }
 
-    const { data, error } = await supabaseAdmin
-      .from('aadhaar_kyc')
-      .select('status, aadhaar_last4, submitted_at, updated_at, reason')
-      .eq('user_id', userId)
-      .maybeSingle();
+    const [aadhaarResult, panResult] = await Promise.all([
+      supabaseAdmin
+        .from('aadhaar_kyc')
+        .select('status, aadhaar_last4, submitted_at, updated_at, reason')
+        .eq('user_id', userId)
+        .maybeSingle(),
+      supabaseAdmin
+        .from('kyc_requests')
+        .select('status, error_message, created_at')
+        .eq('user_id', userId)
+        .eq('service_type', 'pan')
+        .order('created_at', { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
 
-    if (error) {
+    if (aadhaarResult.error && panResult.error) {
       // Same reasoning as the POST handler below: a storage problem (e.g.
       // the migration not applied) must never break the pages that call
       // this. Report 'unknown' and let the client fall back to its local
       // flag.
-      console.error('[api/kyc/aadhaar] failed to read status:', error);
+      console.error('[api/kyc/aadhaar] failed to read status:', aadhaarResult.error, panResult.error);
       return NextResponse.json({ data: { status: 'unknown' } }, { status: 200 });
     }
 
-    if (!data) {
+    const aadhaarRow = aadhaarResult.data;
+    const panRow = panResult.data;
+    // kyc_requests rows for service_type='pan' only ever carry these two
+    // literal statuses (see src/app/api/verify/pan/route.ts) -- no 'pending'
+    // state exists for PAN since it's a synchronous SurePass lookup.
+    const panStatus = panRow?.status as 'verified' | 'rejected' | undefined;
+
+    const aadhaarRank = aadhaarRow ? STATUS_RANK[aadhaarRow.status as 'pending' | 'verified' | 'rejected'] : 0;
+    const panRank = panStatus ? STATUS_RANK[panStatus] : 0;
+
+    if (aadhaarRank === 0 && panRank === 0) {
       return NextResponse.json({ data: { status: 'none' } });
     }
 
+    const aadhaarWins = aadhaarRank >= panRank;
     return NextResponse.json({
       data: {
-        status: data.status ?? 'pending',
-        last4: data.aadhaar_last4 ?? null,
-        submittedAt: data.submitted_at ?? null,
-        updatedAt: data.updated_at ?? null,
-        reason: data.reason ?? null,
+        status: aadhaarWins ? aadhaarRow!.status : panStatus,
+        last4: aadhaarRow?.aadhaar_last4 ?? null,
+        submittedAt: aadhaarRow?.submitted_at ?? panRow?.created_at ?? null,
+        updatedAt: aadhaarRow?.updated_at ?? null,
+        reason: aadhaarWins ? (aadhaarRow?.reason ?? null) : (panRow?.error_message ?? null),
       },
     });
   } catch (err) {
@@ -60,22 +100,14 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const { userId, fullName, aadhaarNumber, frontImagePath, backImagePath } = await req.json();
+    // The verified caller identity, not the (spoofable) userId in the body,
+    // is what we actually write against -- same rule /api/verify/* follows.
+    const userId = await getAuthenticatedUserId(req);
 
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
+    const { fullName, aadhaarNumber } = await req.json();
+
     if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
       return NextResponse.json({ error: 'fullName is required' }, { status: 400 });
-    }
-    // Both sides required -- a single-side submission isn't enough to
-    // actually verify identity against, same reasoning real Aadhaar
-    // verification flows use.
-    if (typeof frontImagePath !== 'string' || !frontImagePath) {
-      return NextResponse.json({ error: 'Front photo of Aadhaar is required' }, { status: 400 });
-    }
-    if (typeof backImagePath !== 'string' || !backImagePath) {
-      return NextResponse.json({ error: 'Back photo of Aadhaar is required' }, { status: 400 });
     }
 
     const digits = String(aadhaarNumber ?? '').replace(/\s+/g, '');
@@ -88,45 +120,32 @@ export async function POST(req: NextRequest) {
     const last4 = digits.slice(-4);
     const hash = createHash('sha256').update(digits).digest('hex');
 
-    // Live verification via the same "surepass-verify-id" Supabase Edge
-    // Function the Hostiggo mobile app already uses (same Supabase project:
-    // jhihqmkqvbwfniwculhk). The SurePass API key is a secret only that
-    // function's environment holds -- it is never copied into this repo.
-    // The function authenticates the caller from their own Supabase session
-    // JWT (not the service-role key), so we forward whatever Authorization
-    // header the client sent. No token (or the call failing) fails soft to
-    // 'pending', same as every other failure path in this route.
-    const authHeader = req.headers.get('authorization');
+    // Live verification via a direct SurePass call -- same pattern as
+    // /api/verify/pan and /api/verify/bank (number-only lookup, no document
+    // photo, no OTP). Failure of any kind fails soft to 'pending' so a
+    // provider hiccup never blocks the host's submission from being saved.
     let status: 'pending' | 'verified' | 'rejected' = 'pending';
     let providerReference: string | null = null;
     let reason: string | null = null;
 
-    if (authHeader) {
+    if (!isSurepassConfigured()) {
+      reason = 'Identity verification is not configured yet (missing SUREPASS_API_KEY).';
+    } else {
       try {
-        const { data: fnData, error: fnError } = await supabaseAdmin.functions.invoke(
-          'surepass-verify-id',
-          {
-            body: { userId, idType: 'aadhaar', idNumber: digits, documentPath: frontImagePath },
-            headers: { Authorization: authHeader },
-          },
-        );
+        const res = await surepassPost(AADHAAR_VALIDATION_ENDPOINT, { id_number: digits });
+        const json = await res.json().catch(() => ({}));
 
-        if (fnError) {
-          console.error('[api/kyc/aadhaar] surepass-verify-id invoke failed:', fnError);
+        if (!res.ok || !json?.success) {
+          console.error('[api/kyc/aadhaar] aadhaar-validation error:', res.status, json);
+          reason = json?.message || `Verification provider error (${res.status}).`;
         } else {
-          const result = (fnData || {}) as Record<string, unknown>;
-          if (result.status === 'verified' || result.status === 'rejected') {
-            status = result.status;
-          }
-          providerReference =
-            typeof result.provider_reference === 'string' ? result.provider_reference : null;
-          reason = typeof result.reason === 'string' ? result.reason : null;
+          const data = (json.data ?? {}) as Record<string, unknown>;
+          status = 'verified';
+          providerReference = typeof data.client_id === 'string' ? data.client_id : null;
         }
       } catch (err) {
-        console.error('[api/kyc/aadhaar] unexpected error calling surepass-verify-id:', err);
+        console.error('[api/kyc/aadhaar] unexpected error calling SurePass:', err);
       }
-    } else {
-      console.warn('[api/kyc/aadhaar] no Authorization header -- skipping live verification');
     }
 
     const { error } = await supabaseAdmin
@@ -137,8 +156,6 @@ export async function POST(req: NextRequest) {
           full_name: fullName.trim(),
           aadhaar_last4: last4,
           aadhaar_hash: hash,
-          front_image_path: frontImagePath,
-          back_image_path: backImagePath,
           status,
           provider_reference: providerReference,
           reason,
@@ -169,6 +186,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({ data: { persisted: true, status, reason } });
   } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
     console.error('[api/kyc/aadhaar] unexpected error:', err);
     return NextResponse.json({ data: { persisted: false } }, { status: 200 });
   }
