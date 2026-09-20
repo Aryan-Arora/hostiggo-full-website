@@ -584,7 +584,7 @@ export const api = {
       data: any[];
       cursor: number | null;
       hasMore: boolean;
-      totalCount: number;
+      totalCount: number | null;
       stateBounds?: any;
       error?: string;
     };
