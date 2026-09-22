@@ -1,5 +1,6 @@
 import { supabase, supabaseCacheable } from '../supabase';
 import { supabaseAdmin } from '../supabase-admin';
+import { resolveDestinationAlias } from '../destinationAliases';
 import {
   SearchFilters,
   GuestlistingSearchResults,
@@ -261,6 +262,16 @@ export const HotelServiceApi = {
     // Determine search scope: use state if provided, otherwise use district (location)
     let searchState = filters.state;
     let searchDistrict = filters.district;
+
+    // Map names the stored locations don't use ("New Delhi", "Gurgaon") onto
+    // ones they do, before the exact state/district matching below.
+    if (!searchState && searchDistrict) {
+      const alias = resolveDestinationAlias(searchDistrict);
+      if (alias) {
+        searchState = alias.state;
+        searchDistrict = alias.district;
+      }
+    }
 
     // The destination box always sends the typed text as `district`. Listings
     // are stored per city/district, so typing a STATE name (e.g. "Uttarakhand")
