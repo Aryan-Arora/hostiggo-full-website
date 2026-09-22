@@ -23,6 +23,16 @@ export interface BookingWithGuestRow {
   guest: { name: string } | null;
 }
 
+// Narrow shape returned by the public `get_listing_booked_dates` RPC --
+// deliberately excludes amount/user_id/host_uuid/guest name so it's safe
+// to expose to anonymous visitors on the public property-page calendar.
+export interface BookedDateRangeRow {
+  listing_id: number;
+  start_date: string;
+  end_date: string;
+  status_id: number;
+}
+
 export interface CalendarUpsertPayload {
   listing_id: number;
   date: string;
@@ -102,6 +112,33 @@ export const calendarServiceAPI = {
       amount: b.amount,
       guest: b.user_id ? { name: userMap.get(b.user_id) || "Guest" } : null,
     }));
+  },
+
+  // Public, anon-safe path for the property-page availability calendar.
+  // Calls the `get_listing_booked_dates` SECURITY DEFINER Postgres function
+  // (hostiggo_testing_schema) which returns only listing_id/start_date/
+  // end_date/status_id -- no amount, user_id, host_uuid, or guest name --
+  // so it works under the authenticated-only RLS policies on `bookings`
+  // without re-exposing PII to the `anon` role. Use fetchBookingsForListing
+  // (above) only for authenticated, host-only contexts that need the full
+  // row (e.g. amount/guest name).
+  async fetchPublicBookedDates(
+    listingId: number,
+    startDate: string,
+    endDate: string,
+  ): Promise<BookedDateRangeRow[]> {
+    const { data, error } = await supabase.rpc("get_listing_booked_dates", {
+      p_listing_id: listingId,
+      p_start: startDate,
+      p_end: endDate,
+    });
+
+    if (error) {
+      console.error("[calendarService] fetchPublicBookedDates error:", error);
+      throw error;
+    }
+
+    return (data ?? []) as BookedDateRangeRow[];
   },
 
   async upsertCalendarEntry(payload: CalendarUpsertPayload) {
