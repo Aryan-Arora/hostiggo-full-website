@@ -13,6 +13,7 @@ import {
   api,
   getStoredUserId,
   setStoredUserId,
+  setStoredSession,
   clearStoredAuth,
   type CurrentUser,
 } from '@/lib/api';
@@ -124,6 +125,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       const { error } = await supabase.auth.setSession({ access_token, refresh_token });
       if (error) throw error;
+      // Mirrors the pattern in signin/page.tsx and OTPPageContent.tsx: also
+      // populate the AUTH_ACCESS_TOKEN_KEY fallback that getBearerToken()
+      // (src/lib/api.ts) reads when supabase.auth.getSession() hasn't
+      // resolved yet -- e.g. right after a fresh page load/navigation, while
+      // the supabase-js client is still hydrating the session it just
+      // persisted to localStorage. Without this, requests fired in that
+      // window (like the bookings page's mount-time fetch) have no token at
+      // all and 401 with "Missing or malformed Authorization header", even
+      // though the real session was set correctly moments before.
+      setStoredSession(access_token, refresh_token);
       await signIn(id);
     },
     [signIn],
