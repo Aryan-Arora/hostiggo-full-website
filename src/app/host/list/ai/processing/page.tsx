@@ -105,11 +105,23 @@ async function runRealImport(
     }
   }
 
+  // The AI-lister backend (github.com/Hostiggo-Codebase/AI-lister, Railway)
+  // can return the literal string "<UNKNOWN>" for a field it couldn't
+  // extract, instead of null/empty -- observed on a syntactically-valid but
+  // non-existent source URL. `draft.title || 'Untitled listing'` alone only
+  // catches a falsy (null/empty) title, so that sentinel string was leaking
+  // straight into the review form's "Listing Title" fields verbatim. Treat
+  // it the same as an empty title here, at the boundary where we read the
+  // external response, rather than needing every field consumer downstream
+  // to know about this backend's sentinel.
+  const isUnknownSentinel = (v: string | null | undefined) =>
+    !v || v.trim().toUpperCase() === '<UNKNOWN>';
+
   return {
     ok: true,
     listing: {
-      title: draft.title || 'Untitled listing',
-      description: draft.description || '',
+      title: isUnknownSentinel(draft.title) ? 'Untitled listing' : draft.title!,
+      description: isUnknownSentinel(draft.description) ? '' : draft.description!,
       numGuests: draft.capacity?.max_guests ?? 2,
       numBedrooms: draft.capacity?.bedrooms ?? 1,
       numBeds: draft.capacity?.beds ?? 1,
