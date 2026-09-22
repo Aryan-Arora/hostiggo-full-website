@@ -144,12 +144,30 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
     if (typeof window === "undefined") return;
     if (paramValue) {
       setActiveValue(paramValue);
-    } else if (otpMode === "email") {
-      setActiveValue(localStorage.getItem(AUTH_EMAIL_KEY) || "");
-    } else {
-      setActiveValue(localStorage.getItem(AUTH_PHONE_KEY) || "");
+      return;
     }
-  }, [paramValue, otpMode]);
+    const stored =
+      otpMode === "email"
+        ? localStorage.getItem(AUTH_EMAIL_KEY)
+        : localStorage.getItem(AUTH_PHONE_KEY);
+    if (stored) {
+      setActiveValue(stored);
+      return;
+    }
+    // No pending OTP session to show: /otp is a public route, reachable by
+    // typing the URL directly with no ?value= and nothing in localStorage
+    // (e.g. a fresh browser, or after clearing site data). This used to
+    // fall through to a hardcoded "83183 XXXXX" placeholder phone number
+    // below and render a fabricated "OTP sent successfully" screen despite
+    // no OTP ever having been sent -- misleading, and a possible stale-
+    // number leak on a shared device. Send them back to sign in instead;
+    // this doesn't touch OTP verification itself, only this display state.
+    if (isOtp) {
+      router.replace(
+        `/signin${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`,
+      );
+    }
+  }, [paramValue, otpMode, isOtp, redirect, router]);
 
   // Masked string calculation
   const cleanPhone = activeValue.replace(/^\+91/, "").replace(/\D/g, "");
@@ -157,7 +175,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
     otpMode === "phone"
       ? cleanPhone.length >= 10
         ? `+91 ${cleanPhone.slice(0, 2)}XXXX${cleanPhone.slice(-2)}`
-        : `+91 ${cleanPhone || "83183 XXXXX"}`
+        : "your mobile number"
       : activeValue.replace(/(.{2}).*(@.*)/, "$1****$2") || "your email";
 
   // Auto-focus first input on OTP screen
@@ -246,7 +264,14 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
     }
   };
 
-  // Submit phone/email entry
+  // Submit phone/email entry. Validates length/format itself (below) and
+  // toasts an inline error -- the submit button used to be `disabled`
+  // whenever this validation would fail, which meant a user typing a too-
+  // short number or leaving the field empty and clicking "Send OTP" got a
+  // completely silent no-op (a disabled button doesn't fire onClick/submit
+  // at all) instead of ever seeing this toast. The button is no longer
+  // disabled for invalid input so this validation is actually reachable;
+  // it's still disabled while a request is in flight (`sending`).
   const submitEntry = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (sendingRef.current) return;
@@ -601,11 +626,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
 
                   <button
                     type="submit"
-                    disabled={
-                      sending ||
-                      (activeMode === "mobile" && mobileValue.trim().length < 10) ||
-                      (activeMode === "email" && !emailValue.includes("@"))
-                    }
+                    disabled={sending}
                     className="mt-7 h-[57px] w-full rounded-[11px] bg-gradient-to-r from-[#004772] to-[#0086d8] text-[16px] font-semibold text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed sm:text-[18px] shadow-sm flex items-center justify-center cursor-pointer"
                   >
                     {sending ? "Sending..." : "Send OTP"}
