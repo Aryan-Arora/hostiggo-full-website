@@ -50,6 +50,40 @@ import { toast } from "sonner";
 
 const FALLBACK = "/placeholder.svg";
 
+// Shared "Share" button handler for the property page (used by both the
+// header Share button and the sticky-bar one). Previously this just fired
+// `navigator.clipboard.writeText(...)` without awaiting or catching it --
+// on browsers/contexts that deny clipboard-write permission (e.g. no user
+// gesture, insecure context, or a strict permissions policy) that promise
+// rejects and was never caught, showing an uncaught error in the console
+// while the user got zero feedback either way (one call site even always
+// toasted "Link copied!" regardless of whether the write actually
+// succeeded). Now: try the native share sheet first when available, fall
+// back to clipboard, and always resolve to a user-visible success or
+// failure toast.
+async function shareProperty(url: string, title?: string) {
+  if (typeof navigator !== "undefined" && navigator.share) {
+    try {
+      await navigator.share({ title, url });
+      return;
+    } catch (err: any) {
+      // AbortError just means the user closed the native share sheet --
+      // that's not a failure, so don't show an error toast for it.
+      if (err?.name === "AbortError") return;
+      // Fall through to the clipboard fallback for any other failure.
+    }
+  }
+
+  try {
+    if (!navigator.clipboard) throw new Error("Clipboard API unavailable");
+    await navigator.clipboard.writeText(url);
+    toast.success("Link copied!");
+  } catch (err) {
+    console.error("[property] share/copy link failed:", err);
+    toast.error("Couldn't copy the link. Please copy it from your browser's address bar.");
+  }
+}
+
 // Site-wide kill switch for the real booking CTA -- flip back to false to
 // re-enable. The button stays visible (greyed out, non-clickable) so the
 // page layout doesn't shift.
@@ -1650,9 +1684,7 @@ function StickyBookingBar({
         {/* Actions */}
         <div className="ml-auto flex items-center gap-2 flex-shrink-0">
           <button
-            onClick={() => {
-              navigator.clipboard?.writeText(window.location.href);
-            }}
+            onClick={() => shareProperty(window.location.href, property.propertyName)}
             className="w-8 h-8 rounded-full border border-gray-200 hover:border-gray-300 bg-white flex items-center justify-center text-gray-500 hover:text-figma-navy transition-colors"
             title="Share"
           >
@@ -1913,10 +1945,7 @@ export default function PropertyDetailsPage() {
 
             <div className="flex items-center gap-2 flex-shrink-0 md:mt-2">
               <button
-                onClick={() => {
-                  navigator.clipboard?.writeText(window.location.href);
-                  toast.success("Link copied!");
-                }}
+                onClick={() => shareProperty(window.location.href, property.propertyName)}
                 className="flex items-center gap-2 px-4 py-2 rounded-full border border-gray-200 bg-white text-gray-700 hover:bg-gray-50 transition-colors shadow-sm text-[13px] font-bold"
               >
                 <Share2 className="w-4 h-4" /> Share
