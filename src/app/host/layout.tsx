@@ -11,7 +11,7 @@ const DEMO_HOST_ID = '7701820c-50fe-4ee8-a4e6-e18068c1fb0b';
 const IS_DEV = process.env.NODE_ENV !== 'production';
 
 export default function HostLayout({ children }: { children: React.ReactNode }) {
-  const { isAuthenticated, loading, signIn } = useAuth();
+  const { isAuthenticated, loading, signInAsDemoHost } = useAuth();
   const router = useRouter();
   // usePathname (not useSearchParams -- that requires a Suspense boundary
   // and this layout wraps statically-prerendered pages like /host/account)
@@ -50,8 +50,12 @@ export default function HostLayout({ children }: { children: React.ReactNode }) 
           {IS_DEV && (
             <button
               onClick={async () => {
-                await signIn(DEMO_HOST_ID);
-                router.refresh();
+                try {
+                  await signInAsDemoHost(DEMO_HOST_ID);
+                  router.refresh();
+                } catch (err) {
+                  console.error('[dev] failed to establish demo host session:', err);
+                }
               }}
               className="mt-3 w-full border border-gray-200 text-gray-600 font-semibold py-3 rounded-xl hover:bg-gray-50 transition-all"
             >

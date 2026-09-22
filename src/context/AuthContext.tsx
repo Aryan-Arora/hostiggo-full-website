@@ -28,6 +28,15 @@ interface AuthState {
 interface AuthActions {
   /** Persist the user id and load the profile (call after OTP verify or OAuth callback). */
   signIn: (userId: string) => Promise<void>;
+  /**
+   * Dev-only: establishes a REAL Supabase Auth session for the demo host via
+   * /api/dev/demo-session, then calls signIn() for the local state. Unlike
+   * plain signIn(), this is what the "Continue as demo host (dev)" button
+   * should call -- without a real session, getBearerToken() (src/lib/api.ts)
+   * has no access token to attach to authenticated requests, and anything
+   * requiring real auth (KYC submission, listing creation, etc.) 401s.
+   */
+  signInAsDemoHost: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -102,6 +111,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     [loadUser],
   );
 
+  const signInAsDemoHost = useCallback(
+    async (id: string) => {
+      const res = await fetch('/api/dev/demo-session', { method: 'POST' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.error) {
+        throw new Error(payload.error || `Failed to establish demo session: ${res.status}`);
+      }
+      const { access_token, refresh_token } = payload.data ?? {};
+      if (!access_token || !refresh_token) {
+        throw new Error('Demo session response missing tokens');
+      }
+      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) throw error;
+      await signIn(id);
+    },
+    [signIn],
+  );
+
   const signOut = useCallback(async () => {
     // Invalidates the real Supabase session (Google/email OTP). Phone OTP
     // never has one client-side, so this is a harmless no-op for that case.
@@ -126,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAuthenticated: Boolean(userId),
         signIn,
+        signInAsDemoHost,
         signOut,
         refresh,
       }}
