@@ -4,11 +4,11 @@ import { useState } from 'react';
 import { Clock, ShieldAlert, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
-import { useAadhaarKycStatus } from '@/hooks/useAadhaarKycStatus';
+import { useKycStatus } from '@/hooks/useKycStatus';
 import KycModal from '@/components/features/KycModal';
 
 const DEFAULT_REJECTED_REASON =
-  'We could not verify the id details you submitted. Please double-check the number and re-submit to finish verification.';
+  'We could not verify the PAN you submitted. Please double-check the number and re-submit to finish verification.';
 
 type Tone = 'amber' | 'blue' | 'red';
 
@@ -37,7 +37,7 @@ const TONES: Record<Tone, { wrap: string; icon: string; title: string; body: str
 };
 
 /**
- * Dashboard-wide reminder that identity KYC (Aadhaar or PAN) still needs
+ * Dashboard-wide reminder that identity KYC (PAN) still needs
  * attention. Rendered at the top of every host dashboard page (see
  * HostDashboardShell). The KYC form is never auto-popped anywhere -- this
  * banner's button is the only thing that opens it, so verification stays
@@ -46,7 +46,7 @@ const TONES: Record<Tone, { wrap: string; icon: string; title: string; body: str
  */
 export default function KycStatusBanner() {
   const { userId, user } = useAuth();
-  const { status, reason, loading, refresh } = useAadhaarKycStatus();
+  const { status, reason, loading, refresh } = useKycStatus();
   const [dismissed, setDismissed] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
 

@@ -4,8 +4,8 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 
 // Server-only SurePass config. NEVER prefix these with NEXT_PUBLIC_ -- the
 // API key must never reach the client bundle. Routes call SurePass directly
-// (see src/app/api/verify/* and src/app/api/kyc/aadhaar) using this key --
-// all of PAN, bank, passport, and Aadhaar are number-only lookups, no
+// (see src/app/api/verify/*) using this key -- PAN, bank and passport are
+// all number-only lookups, no
 // document photo upload required.
 //
 // Production only -- the account's sandbox environment has been retired, so
@@ -27,8 +27,8 @@ export async function surepassPost(path: string, body: unknown): Promise<Respons
 }
 
 // First 2 + last 2 characters visible, everything else starred -- enough to
-// recognize the record without storing the full number. Same convention as
-// aadhaar_kyc.aadhaar_last4 (display) + aadhaar_hash (dedupe).
+// recognize the record without storing the full number. Pair with
+// sha256Hex() below when a record needs to be deduped.
 export function maskMiddle(value: string): string {
   const v = value.trim();
   if (v.length <= 4) return "*".repeat(v.length);
@@ -39,7 +39,7 @@ export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export type KycServiceType = "pan" | "passport" | "bank" | "aadhaar";
+export type KycServiceType = "pan" | "passport" | "bank";
 
 // Logs every verification attempt -- success or failure -- to kyc_requests
 // so a rejection is debuggable and there's a record for compliance. Returns

@@ -9,21 +9,20 @@ import { KycVerificationForm } from './_components/KycVerificationForm';
 
 const authBg = '/auth-bg.jpg';
 
-function AadhaarKycContent() {
+function KycContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId, user, loading: authLoading } = useAuth();
   const redirect = searchParams?.get('redirect') || '/';
 
-  // Not signed in -- nothing to do here, move on. Unlike the old
-  // Aadhaar-only version of this page, a prior submission no longer bounces
-  // the visitor straight back to `redirect`: id proof (Aadhaar/PAN) and
-  // bank verification are independent, so "already submitted one" must not
-  // hide the form before the other is done too.
+  // Not signed in -- nothing to do here, move on. A prior submission never
+  // bounces the visitor straight back to `redirect`: PAN and bank
+  // verification are independent, so "already submitted one" must not hide
+  // the form before the other is done too.
   useEffect(() => {
     if (authLoading) return;
     if (!userId) {
-      router.replace(`/signin?redirect=${encodeURIComponent(`/kyc/aadhaar?redirect=${redirect}`)}`);
+      router.replace(`/signin?redirect=${encodeURIComponent(`/kyc?redirect=${redirect}`)}`);
     }
   }, [authLoading, userId, redirect, router]);
 
@@ -48,7 +47,7 @@ function AadhaarKycContent() {
         <h1 className="text-xl font-bold text-gray-900 mb-1.5">Verify your identity</h1>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
           Verified hosts earn more guest trust and bookings. It&apos;s optional and takes a
-          minute -- verify your Aadhaar or PAN, plus your bank account. No documents to upload.
+          minute -- verify your PAN and your bank account. No documents to upload.
           You can also do this later from Settings.
         </p>
 
@@ -65,7 +64,7 @@ function AadhaarKycContent() {
   );
 }
 
-function AadhaarKycFallback() {
+function KycFallback() {
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-100">
       <div className="w-10 h-10 border-2 border-figma-navy/30 border-t-figma-navy rounded-full animate-spin" />
@@ -73,10 +72,10 @@ function AadhaarKycFallback() {
   );
 }
 
-export default function AadhaarKycPage() {
+export default function KycPage() {
   return (
-    <Suspense fallback={<AadhaarKycFallback />}>
-      <AadhaarKycContent />
+    <Suspense fallback={<KycFallback />}>
+      <KycContent />
     </Suspense>
   );
 }

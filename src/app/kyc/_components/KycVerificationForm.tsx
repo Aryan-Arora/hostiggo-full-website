@@ -5,15 +5,10 @@ import { CreditCard, Landmark, CheckCircle2, XCircle, Clock } from 'lucide-react
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
-import {
-  deferAadhaarKyc,
-  formatAadhaarInput,
-  isValidAadhaarNumber,
-  markAadhaarKycSubmitted,
-} from '@/lib/aadhaar';
+import { deferKyc, markKycSubmitted } from '@/lib/kyc';
 import { formatPanInput, isValidPanNumber } from '@/lib/pan';
+import BankDetailsNotice from '@/components/features/BankDetailsNotice';
 
-type IdType = 'aadhaar' | 'pan';
 type IdResult = { status: 'verified' | 'rejected' | 'pending'; reason: string | null } | null;
 type BankResult =
   | { verified: true; accountHolderName: string | null; bankName: string | null }
@@ -54,10 +49,9 @@ function ResultBanner({ result }: { result: IdResult | BankResult }) {
 }
 
 /**
- * ID + bank verification, shared by the standalone /kyc/aadhaar page and the
+ * ID + bank verification, shared by the standalone /kyc page and the
  * in-flow KYC modal. Two independent sections, each backed by a direct
- * SurePass call (see src/lib/surepass.ts) -- an id proof (Aadhaar or PAN)
- * and a bank account, mirroring exactly what
+ * SurePass call (see src/lib/surepass.ts) -- a PAN and a bank account, mirroring exactly what
  * src/lib/services/hostRouteOnboarding.ts checks for before auto-onboarding
  * a host to Razorpay Route: one verified id proof + one verified bank
  * account. Either section can be submitted on its own; neither blocks the
@@ -76,9 +70,7 @@ export function KycVerificationForm({
   onSkipped: () => void;
   showSkip?: boolean;
 }) {
-  const [idType, setIdType] = useState<IdType>('aadhaar');
   const [fullName, setFullName] = useState(defaultName);
-  const [aadhaar, setAadhaar] = useState('');
   const [pan, setPan] = useState('');
   const [consent, setConsent] = useState(false);
   const [idSubmitting, setIdSubmitting] = useState(false);
@@ -93,9 +85,7 @@ export function KycVerificationForm({
     if (defaultName) setFullName((current) => current || defaultName);
   }, [defaultName]);
 
-  const aadhaarDigits = aadhaar.replace(/\s+/g, '');
-  const isIdValid =
-    idType === 'aadhaar' ? isValidAadhaarNumber(aadhaarDigits) : isValidPanNumber(pan);
+  const isIdValid = isValidPanNumber(pan);
   const canSubmitId = fullName.trim().length > 1 && isIdValid && consent && !idSubmitting;
 
   const isBankValid = ACCOUNT_RE.test(accountNumber) && IFSC_RE.test(ifsc);
@@ -106,7 +96,7 @@ export function KycVerificationForm({
   // anytime from Host Settings -> Identity Verification, and the dashboard
   // banner keeps nudging them until it's done.
   const handleSkip = () => {
-    deferAadhaarKyc(userId);
+    deferKyc(userId);
     onSkipped();
   };
 
@@ -116,22 +106,13 @@ export function KycVerificationForm({
 
     setIdSubmitting(true);
     try {
-      if (idType === 'aadhaar') {
-        const body = await api.verifyAadhaar({ fullName: fullName.trim(), aadhaarNumber: aadhaarDigits });
-        const status = body?.status ?? 'pending';
-        setIdResult({ status, reason: body?.reason ?? null });
-        if (status === 'verified') toast.success('Your Aadhaar has been verified!');
-        else if (status === 'rejected') toast.error(body?.reason || 'Aadhaar verification failed.');
-        else toast.success('Aadhaar details received -- verification is in progress.');
-      } else {
-        const body = await api.verifyPan(pan.trim().toUpperCase());
-        const status = body?.status ?? 'pending';
-        setIdResult({ status, reason: body?.reason ?? null });
-        if (status === 'verified') toast.success('Your PAN has been verified!');
-        else if (status === 'rejected') toast.error(body?.reason || 'PAN verification failed.');
-        else toast.success('PAN details received -- verification is in progress.');
-      }
-      markAadhaarKycSubmitted(userId);
+      const body = await api.verifyPan(pan.trim().toUpperCase());
+      const status = body?.status ?? 'pending';
+      setIdResult({ status, reason: body?.reason ?? null });
+      if (status === 'verified') toast.success('Your PAN has been verified!');
+      else if (status === 'rejected') toast.error(body?.reason || 'PAN verification failed.');
+      else toast.success('PAN details received -- verification is in progress.');
+      markKycSubmitted(userId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong');
     } finally {
@@ -176,30 +157,13 @@ export function KycVerificationForm({
 
   return (
     <div className="space-y-6">
+      <BankDetailsNotice />
+
       {/* ID verification */}
       <form onSubmit={handleSubmitId} className="space-y-4">
-        <div className="flex rounded-xl bg-gray-100 p-1">
-          {(['aadhaar', 'pan'] as const).map((t) => (
-            <button
-              key={t}
-              type="button"
-              onClick={() => {
-                setIdType(t);
-                setIdResult(null);
-              }}
-              className={cn(
-                'flex-1 rounded-lg py-2 text-sm font-semibold transition-all',
-                idType === t ? 'bg-white text-figma-navy shadow-sm' : 'text-gray-500 hover:text-gray-700',
-              )}
-            >
-              {t === 'aadhaar' ? 'Aadhaar' : 'PAN'}
-            </button>
-          ))}
-        </div>
-
         <div>
           <label htmlFor="fullName" className="block text-xs font-semibold text-gray-600 mb-1.5">
-            Full name (as on {idType === 'aadhaar' ? 'Aadhaar' : 'PAN'})
+            Full name (as on PAN and bank account)
           </label>
           <input
             id="fullName"
@@ -212,46 +176,24 @@ export function KycVerificationForm({
           />
         </div>
 
-        {idType === 'aadhaar' ? (
-          <div>
-            <label htmlFor="aadhaar" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
-              <CreditCard className="w-3.5 h-3.5" />
-              Aadhaar number
-            </label>
-            <input
-              id="aadhaar"
-              type="text"
-              inputMode="numeric"
-              value={aadhaar}
-              onChange={(e) => setAadhaar(formatAadhaarInput(e.target.value))}
-              placeholder="XXXX XXXX XXXX"
-              maxLength={14}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
-            />
-            {aadhaarDigits.length === 12 && !isIdValid && (
-              <p className="text-xs text-red-500 mt-1.5">That doesn&apos;t look like a valid Aadhaar number.</p>
-            )}
-          </div>
-        ) : (
-          <div>
-            <label htmlFor="pan" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
-              <CreditCard className="w-3.5 h-3.5" />
-              PAN number
-            </label>
-            <input
-              id="pan"
-              type="text"
-              value={pan}
-              onChange={(e) => setPan(formatPanInput(e.target.value))}
-              placeholder="ABCDE1234F"
-              maxLength={10}
-              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
-            />
-            {pan.length === 10 && !isIdValid && (
-              <p className="text-xs text-red-500 mt-1.5">That doesn&apos;t look like a valid PAN.</p>
-            )}
-          </div>
-        )}
+        <div>
+          <label htmlFor="pan" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+            <CreditCard className="w-3.5 h-3.5" />
+            PAN number
+          </label>
+          <input
+            id="pan"
+            type="text"
+            value={pan}
+            onChange={(e) => setPan(formatPanInput(e.target.value))}
+            placeholder="ABCDE1234F"
+            maxLength={10}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+          />
+          {pan.length === 10 && !isIdValid && (
+            <p className="text-xs text-red-500 mt-1.5">That doesn&apos;t look like a valid PAN.</p>
+          )}
+        </div>
 
         <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
           <input
@@ -261,7 +203,7 @@ export function KycVerificationForm({
             className="mt-0.5 w-4 h-4 rounded border-gray-300 text-figma-navy focus:ring-figma-navy/30"
           />
           <span className="text-xs text-gray-500 leading-relaxed">
-            I consent to Hostiggo collecting my {idType === 'aadhaar' ? 'Aadhaar' : 'PAN'} details for
+            I consent to Hostiggo collecting my PAN details for
             identity verification, in accordance with the{' '}
             <a href="/privacy" target="_blank" className="text-figma-navy underline">
               Privacy Policy
@@ -277,7 +219,7 @@ export function KycVerificationForm({
           disabled={!canSubmitId}
           className="w-full py-3 bg-figma-navy text-white text-sm font-semibold rounded-xl hover:bg-figma-navy/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
-          {idSubmitting ? 'Submitting…' : `Verify ${idType === 'aadhaar' ? 'Aadhaar' : 'PAN'}`}
+          {idSubmitting ? 'Verifying…' : 'Verify PAN'}
         </button>
       </form>
 
@@ -338,8 +280,8 @@ export function KycVerificationForm({
 
       {idVerified && !bankVerified ? (
         <p className="text-center text-xs font-medium text-gray-500">
-          Bank verification is required to finish -- your id proof is verified, now add your
-          bank details above.
+          Bank verification is required to finish -- your PAN is verified, now add your bank
+          details above.
         </p>
       ) : (
         (showSkip || somethingSubmitted) && (

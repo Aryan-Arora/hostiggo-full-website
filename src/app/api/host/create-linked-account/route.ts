@@ -8,8 +8,8 @@ export const dynamic = "force-dynamic";
 
 // Manual fallback/retry for Route onboarding. Normal path is automatic --
 // see maybeAutoOnboardHostToRoute() in hostRouteOnboarding.ts, triggered
-// from inside /api/kyc/aadhaar, /api/verify/pan and /api/verify/bank as
-// soon as a host has both a verified ID proof and a verified bank account,
+// from inside /api/verify/pan and /api/verify/bank as
+// soon as a host has both a verified PAN and a verified bank account,
 // no separate call needed. This endpoint exists for a host stuck mid-way
 // (e.g. a transient Razorpay error) to explicitly retry from wherever
 // runRouteOnboarding's own idempotency left off.

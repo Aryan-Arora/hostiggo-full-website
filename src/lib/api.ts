@@ -466,7 +466,6 @@ export const api = {
       verification: {
         bank: { verified: boolean; holderName: string | null; verifiedAt: string | null };
         pan: { verified: boolean; maskedPan: string | null; name: string | null; verifiedAt: string | null };
-        aadhaar: { status: string; last4: string | null; name: string | null };
       };
     } | null>(`/api/host/payout-methods`),
   // PATCH: send only the fields that changed; each is updated independently.
@@ -499,17 +498,6 @@ export const api = {
       activationStatus: string | null;
       requirements: Array<{ field_reference?: string; reason_code?: string }>;
     }>(`/api/host/onboarding-status`),
-  // Number-only Aadhaar lookup -- same family as verifyPan/verifyBank below.
-  // See src/app/api/kyc/aadhaar/route.ts (POST).
-  verifyAadhaar: (payload: { fullName: string; aadhaarNumber: string }) =>
-    request<{
-      persisted: boolean;
-      status?: "verified" | "rejected" | "pending";
-      reason?: string | null;
-    }>(`/api/kyc/aadhaar`, {
-      method: "POST",
-      body: JSON.stringify(payload),
-    }),
   // Direct SurePass number-only lookups -- same family as verifyBank below,
   // no document photo. See src/app/api/verify/pan/route.ts.
   verifyPan: (idNumber: string) =>

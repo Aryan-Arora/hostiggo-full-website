@@ -43,8 +43,8 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
   }
 
   if (!payout.pan_number) {
-    // Razorpay Route's stakeholder KYC needs a PAN even when the host's id
-    // proof on our side is Aadhaar -- payouts can't activate without one.
+    // Razorpay Route's stakeholder KYC needs a PAN -- payouts can't
+    // activate without one.
     throw new Error("Add your PAN in Settings to finish payout setup -- Razorpay requires it.");
   }
 
@@ -127,7 +127,7 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
 
 /**
  * Called from inside the verification routes themselves
- * (/api/kyc/aadhaar, /api/verify/pan, /api/verify/bank) right after each
+ * (/api/verify/pan, /api/verify/bank) right after each
  * records a 'verified'/'success' result -- not exposed as its own HTTP
  * endpoint, so there's no separate auth check to add here: the caller
  * (whichever verification route just ran) already authenticated this
@@ -137,9 +137,8 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
  * Fires the Route setup once BOTH are true:
  *   1. Bank account verified -- latest kyc_requests row for this user with
  *      service_type = 'bank' and status = 'success' (see /api/verify/bank).
- *   2. At least one ID proof verified -- aadhaar_kyc.status = 'verified'
- *      OR the latest kyc_requests row with service_type = 'pan' and
- *      status = 'verified' (see /api/kyc/aadhaar, /api/verify/pan).
+ *   2. PAN verified -- any kyc_requests row with service_type = 'pan'
+ *      and status = 'verified' (see /api/verify/pan).
  * Only ever acts on users who already have a host profile -- a guest
  * completing ordinary identity verification at login must never trigger
  * Razorpay account creation.
@@ -174,25 +173,17 @@ export async function maybeAutoOnboardHostToRoute(userId: string): Promise<void>
       .maybeSingle();
     if (bankRequest?.status !== "success") return;
 
-    const { data: aadhaar } = await supabaseAdmin
-      .from("aadhaar_kyc")
-      .select("status")
+    // Any verified PAN counts, even if a later retry was rejected -- same
+    // rule as /api/kyc/status and the payout-methods save check.
+    const { data: verifiedPan } = await supabaseAdmin
+      .from("kyc_requests")
+      .select("id")
       .eq("user_id", userId)
+      .eq("service_type", "pan")
+      .eq("status", "verified")
+      .limit(1)
       .maybeSingle();
-    let idProofVerified = aadhaar?.status === "verified";
-
-    if (!idProofVerified) {
-      const { data: panRequest } = await supabaseAdmin
-        .from("kyc_requests")
-        .select("status")
-        .eq("user_id", userId)
-        .eq("service_type", "pan")
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle();
-      idProofVerified = panRequest?.status === "verified";
-    }
-    if (!idProofVerified) return;
+    if (!verifiedPan) return;
 
     await runRouteOnboarding(hostUuid, userId);
   } catch (err) {

@@ -2,19 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
-import {
-  hasDeferredAadhaarKyc,
-  hasSubmittedAadhaarKyc,
-  markAadhaarKycSubmitted,
-} from '@/lib/aadhaar';
+import { hasDeferredKyc, hasSubmittedKyc, markKycSubmitted } from '@/lib/kyc';
 
-export type AadhaarKycStatus = 'none' | 'pending' | 'verified' | 'rejected' | 'unknown';
+export type KycStatus = 'none' | 'pending' | 'verified' | 'rejected' | 'unknown';
 
-export interface AadhaarKycState {
+export interface KycState {
   /** Server-authoritative status, with a local-flag fallback when the API is unreachable. */
-  status: AadhaarKycStatus;
-  /** Last 4 digits of the submitted Aadhaar number, for display. */
-  last4: string | null;
+  status: KycStatus;
   /** ISO timestamp of the submission, if any. */
   submittedAt: string | null;
   /** Why a 'rejected' submission failed, from the SurePass verification result. */
@@ -27,14 +21,13 @@ export interface AadhaarKycState {
 }
 
 /**
- * Resolves a user's Aadhaar KYC state from GET /api/kyc/aadhaar, falling back
- * to the per-browser localStorage flags in src/lib/aadhaar.ts when the API
- * can't be reached. Used by the host dashboard banner and Settings.
+ * Resolves a user's PAN KYC state from GET /api/kyc/status, falling back to
+ * the per-browser localStorage flags in src/lib/kyc.ts when the API can't be
+ * reached. Used by the host dashboard banner and Settings.
  */
-export function useAadhaarKycStatus(): AadhaarKycState {
+export function useKycStatus(): KycState {
   const { userId } = useAuth();
-  const [status, setStatus] = useState<AadhaarKycStatus>('unknown');
-  const [last4, setLast4] = useState<string | null>(null);
+  const [status, setStatus] = useState<KycStatus>('unknown');
   const [submittedAt, setSubmittedAt] = useState<string | null>(null);
   const [reason, setReason] = useState<string | null>(null);
   const [deferred, setDeferred] = useState(false);
@@ -53,32 +46,31 @@ export function useAadhaarKycStatus(): AadhaarKycState {
 
     let active = true;
     setLoading(true);
-    setDeferred(hasDeferredAadhaarKyc(userId));
+    setDeferred(hasDeferredKyc(userId));
 
-    fetch(`/api/kyc/aadhaar?userId=${encodeURIComponent(userId)}`)
+    fetch(`/api/kyc/status?userId=${encodeURIComponent(userId)}`)
       .then((res) => res.json())
       .then((body) => {
         if (!active) return;
         const data = body?.data ?? {};
-        let next: AadhaarKycStatus = data.status ?? 'unknown';
+        let next: KycStatus = data.status ?? 'unknown';
 
-        // The server is the source of truth, but if the row/table isn't
-        // reachable, trust the local "submitted" flag so a host who just
-        // uploaded still sees "pending" rather than "not started".
-        if ((next === 'none' || next === 'unknown') && hasSubmittedAadhaarKyc(userId)) {
+        // The server is the source of truth, but if it can't be read, trust
+        // the local "submitted" flag so a host who just submitted still sees
+        // "pending" rather than "not started".
+        if (next === 'unknown' && hasSubmittedKyc(userId)) {
           next = 'pending';
         }
         // Keep the local flag in sync so offline reads stay accurate.
-        if (next === 'pending' || next === 'verified') markAadhaarKycSubmitted(userId);
+        if (next === 'verified') markKycSubmitted(userId);
 
         setStatus(next);
-        setLast4(data.last4 ?? null);
         setSubmittedAt(data.submittedAt ?? null);
         setReason(data.reason ?? null);
       })
       .catch(() => {
         if (!active) return;
-        setStatus(hasSubmittedAadhaarKyc(userId) ? 'pending' : 'unknown');
+        setStatus(hasSubmittedKyc(userId) ? 'pending' : 'unknown');
       })
       .finally(() => {
         if (active) setLoading(false);
@@ -89,5 +81,5 @@ export function useAadhaarKycStatus(): AadhaarKycState {
     };
   }, [userId, nonce]);
 
-  return { status, last4, submittedAt, reason, deferred, loading, refresh };
+  return { status, submittedAt, reason, deferred, loading, refresh };
 }

@@ -8,12 +8,12 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { KycVerificationForm } from '@/app/kyc/aadhaar/_components/KycVerificationForm';
+import { KycVerificationForm } from '@/app/kyc/_components/KycVerificationForm';
 
 /**
- * In-flow KYC prompt. Replaces the old full-page redirect to /kyc/aadhaar
+ * In-flow KYC prompt. Replaces the old full-page redirect to /kyc
  * when a host enters the listing flow -- same form, shown as a modal over
- * the page they were already on. Covers both id proof (Aadhaar or PAN) and
+ * the page they were already on. Covers both id proof (PAN) and
  * bank account verification -- the two things
  * src/lib/services/hostRouteOnboarding.ts needs before it will auto-onboard
  * a host to Razorpay Route.
@@ -58,7 +58,7 @@ export default function KycModal({
           </DialogTitle>
           <DialogDescription className="text-sm text-gray-500 leading-relaxed">
             Verified hosts earn more guest trust and bookings. It&apos;s optional and takes a
-            minute — verify your Aadhaar or PAN, plus your bank account. No documents to upload.
+            minute — verify your PAN and your bank account. No documents to upload.
             You can also finish this later from your host dashboard.
           </DialogDescription>
         </DialogHeader>

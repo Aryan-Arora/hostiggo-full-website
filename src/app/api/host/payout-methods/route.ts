@@ -37,14 +37,8 @@ async function latestValidBankVerification(userId: string, accountNumber: string
   return data;
 }
 
-// One verified id proof (Aadhaar OR PAN) is all that's required.
-async function hasVerifiedIdProof(userId: string): Promise<boolean> {
-  const { data: aadhaar } = await supabaseAdmin
-    .from("aadhaar_kyc")
-    .select("status")
-    .eq("user_id", userId)
-    .maybeSingle();
-  if (aadhaar?.status === "verified") return true;
+// A verified PAN is the id proof payouts require.
+async function hasVerifiedPan(userId: string): Promise<boolean> {
   const { data: pan } = await supabaseAdmin
     .from("kyc_requests")
     .select("id")
@@ -98,15 +92,9 @@ export async function GET(req: NextRequest) {
 
     // Everything the settings page shows as "verified" is read back from
     // what SurePass actually returned and we stored -- never a UI guess.
-    const [bankVerification, panVerification, aadhaar, bankProfile] = await Promise.all([
+    const [bankVerification, panVerification, bankProfile] = await Promise.all([
       latestValidBankVerification(userId, data.bank_account_number),
       latestVerifiedPan(userId),
-      supabaseAdmin
-        .from("aadhaar_kyc")
-        .select("status, aadhaar_last4, full_name, updated_at")
-        .eq("user_id", userId)
-        .maybeSingle()
-        .then((r) => r.data),
       supabaseAdmin
         .from("host_bank_details")
         .select("bank_branch_name, upi_id")
@@ -136,11 +124,6 @@ export async function GET(req: NextRequest) {
           maskedPan: panVerification?.maskedPan ?? null,
           name: panVerification?.name ?? null,
           verifiedAt: panVerification?.verifiedAt ?? null,
-        },
-        aadhaar: {
-          status: aadhaar?.status ?? "none",
-          last4: aadhaar?.aadhaar_last4 ?? null,
-          name: aadhaar?.full_name ?? null,
         },
       },
     };
@@ -235,9 +218,9 @@ export async function PATCH(req: NextRequest) {
       if (!changes.account_holder_name) {
         return NextResponse.json({ error: "Enter the account holder's full name." }, { status: 400 });
       }
-      if (!pan && !(await hasVerifiedIdProof(userId))) {
+      if (!pan && !(await hasVerifiedPan(userId))) {
         return NextResponse.json(
-          { error: "Verify your Aadhaar or PAN first (enter your PAN here to verify it)." },
+          { error: "Enter your PAN to verify it -- it's required to receive payouts." },
           { status: 400 },
         );
       }

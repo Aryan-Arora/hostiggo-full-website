@@ -24,7 +24,8 @@ import {
 } from 'lucide-react';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 import { useAuth } from '@/context/AuthContext';
-import { useAadhaarKycStatus } from '@/hooks/useAadhaarKycStatus';
+import { useKycStatus } from '@/hooks/useKycStatus';
+import BankDetailsNotice from '@/components/features/BankDetailsNotice';
 import KycModal from '@/components/features/KycModal';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -90,7 +91,7 @@ function VerifiedBadge({ ok, label }: { ok: boolean; label?: string }) {
 
 export default function HostSettingsPage() {
   const { userId } = useAuth();
-  const { status: kycStatus, refresh: refreshKyc } = useAadhaarKycStatus();
+  const { status: kycStatus, refresh: refreshKyc } = useKycStatus();
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [tab, setTab] = useState('personal');
   const [profile, setProfile] = useState<ProfileData | null>(null);
@@ -448,29 +449,6 @@ export default function HostSettingsPage() {
                           <p className="text-sm font-medium text-gray-900">{payoutMethod.upi_id}</p>
                         </div>
                       )}
-                      <div>
-                        <p className="text-xs font-semibold text-gray-500 mb-0.5">Aadhaar</p>
-                        <p className="text-sm font-medium text-gray-900 flex items-center gap-2">
-                          {payoutMethod.verification.aadhaar.last4
-                            ? `•••• •••• ${payoutMethod.verification.aadhaar.last4}`
-                            : payoutMethod.verification.pan.verified
-                              ? 'Optional -- not needed'
-                              : 'Not added'}
-                          {(payoutMethod.verification.aadhaar.last4 ||
-                            !payoutMethod.verification.pan.verified) && (
-                          <VerifiedBadge
-                            ok={payoutMethod.verification.aadhaar.status === 'verified'}
-                            label={
-                              payoutMethod.verification.aadhaar.status === 'pending'
-                                ? 'Pending'
-                                : payoutMethod.verification.aadhaar.status === 'rejected'
-                                  ? 'Rejected'
-                                  : undefined
-                            }
-                          />
-                          )}
-                        </p>
-                      </div>
                       <div className="col-span-2">
                         <p className="text-xs font-semibold text-gray-500 mb-0.5">Address</p>
                         <p className="text-sm font-medium text-gray-900">
@@ -484,7 +462,7 @@ export default function HostSettingsPage() {
                       onClick={() => setKycModalOpen(true)}
                       className="text-xs font-bold text-figma-navy hover:underline"
                     >
-                      Update Aadhaar / PAN / bank verification
+                      Update PAN / bank verification
                     </button>
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
                       <Landmark className="w-4 h-4 text-amber-600 shrink-0" />
@@ -494,7 +472,7 @@ export default function HostSettingsPage() {
                         {payoutMethod.status === 'onboarding' &&
                           'Your payout account is being verified.'}
                         {payoutMethod.status === 'active' &&
-                          'This account is active and ready to receive payouts.'}
+                          'This account is active and ready to receive payouts. Once a payout is released, your bank may take some time to credit it.'}
                         {payoutMethod.status === 'rejected' &&
                           'This account could not be verified -- please review and resubmit your details.'}
                       </p>
@@ -505,7 +483,7 @@ export default function HostSettingsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
                         <label className="block text-xs font-bold text-gray-500 mb-1">
-                          Account holder name (as per bank/PAN)
+                          Account holder name (exactly as on your bank account and PAN)
                         </label>
                         <input
                           type="text"
@@ -611,6 +589,8 @@ export default function HostSettingsPage() {
                       </div>
                     </div>
 
+                    <BankDetailsNotice />
+
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-figma-navy/5 border border-figma-navy/10">
                       <Landmark className="w-4 h-4 text-figma-navy shrink-0" />
                       <p className="text-xs text-gray-600">
@@ -654,7 +634,7 @@ export default function HostSettingsPage() {
                         : kycStatus === 'pending'
                           ? 'Your documents are in -- verification is in progress.'
                           : kycStatus === 'rejected'
-                            ? 'We could not verify your last submission. Please double-check your Aadhaar/PAN number and re-submit.'
+                            ? 'We could not verify your last submission. Please double-check your PAN and re-submit.'
                             : 'Optional. Verified hosts get more guest trust and bookings.'}
                     </p>
                   </div>
@@ -669,7 +649,7 @@ export default function HostSettingsPage() {
                   </span>
                 ) : (
                   <Link
-                    href="/kyc/aadhaar?redirect=/host/settings"
+                    href="/kyc?redirect=/host/settings"
                     className="px-5 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90 active:scale-95 transition-all whitespace-nowrap"
                   >
                     {kycStatus === 'rejected' ? 'Re-verify' : 'Verify now'}

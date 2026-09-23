@@ -23,6 +23,11 @@ const nextConfig = {
     minimumCacheTTL: 604800,
     deviceSizes: [360, 640, 828, 1080, 1200, 1920],
   },
+  // KYC is PAN-only now; the page moved from /kyc/aadhaar to /kyc. Keeps
+  // old bookmarks working (query string, e.g. ?redirect=, is carried over).
+  redirects() {
+    return [{ source: '/kyc/aadhaar', destination: '/kyc', permanent: true }];
+  },
 };
 
 module.exports = nextConfig;
