@@ -32,7 +32,10 @@ export const WIZARD_STEPS = [
   { slug: 'discount', label: 'Discounts' },
   { slug: 'cancellation-policy', label: 'Cancellation policy' },
   { slug: 'house-rules', label: 'House rules' },
-  { slug: 'verification', label: 'Verification' },
+  // The former final "Verification" step (scan a QR code / record a video in
+  // the Hostiggo mobile app) was removed: the app doesn't exist yet, so it
+  // was a dead end. House rules is now the last step and its button is
+  // "Finish", which submits the listing.
 ] as const;
 
 export const WIZARD_TOTAL = WIZARD_STEPS.length;
