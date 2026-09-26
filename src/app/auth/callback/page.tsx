@@ -43,6 +43,15 @@ function AuthCallbackContent() {
 
     const finish = async (session: Session) => {
       if (!active) return;
+      // The one-time ?code= (or #access_token fragment) has been consumed by
+      // now; drop it from the address bar/history immediately instead of
+      // leaving it visible while the profile loads. The path itself has to
+      // stay /auth/callback -- it's the redirect URL registered with Supabase.
+      try {
+        window.history.replaceState(null, '', window.location.pathname);
+      } catch {
+        /* ignore */
+      }
       const user = session.user;
       try {
         // Upsert the profile from Google's identity data before signIn()
@@ -50,7 +59,10 @@ function AuthCallbackContent() {
         // back empty.
         await fetch('/api/users', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({
             user_id: user.id,
             name: user.user_metadata?.full_name || user.user_metadata?.name || '',

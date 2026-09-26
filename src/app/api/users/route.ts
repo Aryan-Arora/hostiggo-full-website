@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
 import { updateUserProfile, deactivateUserAccount } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
+import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,22 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) ?? {};
     if (!body.user_id || !body.name) {
       return NextResponse.json({ error: "user_id and name are required" }, { status: 400 });
+    }
+    // The write below uses the service-role client (see usersAPI.upsertUser),
+    // so the caller's identity must be proven here: the bearer token is
+    // verified against Supabase Auth and must belong to the user_id being
+    // written. Without this, anyone could overwrite anyone's profile.
+    let authedUserId: string;
+    try {
+      authedUserId = await getAuthenticatedUserId(req);
+    } catch (e) {
+      if (e instanceof UnauthorizedError) {
+        return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+      }
+      throw e;
+    }
+    if (authedUserId !== String(body.user_id)) {
+      return NextResponse.json({ error: "You can only update your own profile." }, { status: 403 });
     }
     // Whitelist the columns the onboarding flow actually owns -- passing the
     // raw body to .upsert() meant any extra key 500'd with "column not

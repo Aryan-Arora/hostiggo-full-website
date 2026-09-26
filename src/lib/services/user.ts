@@ -1,7 +1,6 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../supabase";
 import { supabaseAdmin } from "../supabase-admin";
 
-const TESTING_SCHEMA = "hostiggo_testing_schema";
 const PROFILE_IMAGE_BUCKET = "profile-images";
 
 export type UpsertUserPayload = {
@@ -38,9 +37,17 @@ export type UserRow = {
   activity_status: boolean | null;
 };
 
+// Server-side profile writes go through the service-role client. This used
+// to use the shared anon `supabase` client, which on the server carries no
+// session of its own -- so RLS (users_insert_own / users_update_own:
+// user_id = auth.uid()) rejected the write and onboarding failed with
+// "Failed to save". It only ever "worked" when that process-wide client
+// happened to still hold a session left behind by an earlier server-side
+// verifyOtp() call for the *same* user. Callers (the /api/users POST route
+// and ensureProfile) are responsible for verifying the caller's identity
+// first; this function trusts the user_id it is given.
 const upsertUserWithSchema = async (payload: UpsertUserPayload) => {
-  const client = supabase.schema(TESTING_SCHEMA);
-  return client
+  return supabaseAdmin
     .from("users")
     .upsert(payload, { onConflict: "user_id" })
     .select("*")
