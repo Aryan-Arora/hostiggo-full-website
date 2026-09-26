@@ -23,6 +23,25 @@ const nextConfig = {
     minimumCacheTTL: 604800,
     deviceSizes: [360, 640, 828, 1080, 1200, 1920],
   },
+  // TEMPORARY, this-branch-only: proxy the listing-search endpoints to the
+  // standalone Go search service (github.com/Aryan-Arora/search-service-backend)
+  // for integration testing, instead of this app's own route handlers.
+  // beforeFiles makes the rewrite win over the filesystem routes at
+  // src/app/api/{search,locations,hotels}, so those route.ts files never
+  // run while this is in place. Remove this block (and revert to the
+  // original route handlers) once the search service is the confirmed,
+  // permanent backend for these three endpoints.
+  async rewrites() {
+    const searchServiceUrl =
+      process.env.SEARCH_SERVICE_URL || 'https://search-service-backend.vercel.app';
+    return {
+      beforeFiles: [
+        { source: '/api/search', destination: `${searchServiceUrl}/api/search` },
+        { source: '/api/locations', destination: `${searchServiceUrl}/api/locations` },
+        { source: '/api/hotels', destination: `${searchServiceUrl}/api/hotels` },
+      ],
+    };
+  },
 };
 
 module.exports = nextConfig;
