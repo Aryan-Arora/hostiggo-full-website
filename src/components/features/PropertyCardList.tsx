@@ -1,7 +1,7 @@
 import { useAuth } from "@/context/AuthContext";
 import { useListingState } from "@/context/ListingFilterContext";
 import { useWishlist } from "@/hooks/useWishlist";
-import { calculateBookingInvoice } from "@/lib/billing/invoice";
+import { allInNightlyPrice } from "@/lib/billing/invoice";
 import { cn, toISODate } from "@/lib/utils";
 import type { Property } from "@/types";
 import { Car, Coffee, Heart, Star, Wifi } from "lucide-react";
@@ -32,12 +32,9 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         )
       : null;
   const totalGuests = guests.adults + guests.children;
-  const invoice = calculateBookingInvoice({
-    basePropertyPrice: property.price,
-  });
-  const feesAndTaxes = Math.round(
-    invoice.grandTotalPaise / 100 - property.price,
-  );
+  // All-in price for one night, same math as the checkout invoice.
+  const allInPerNight = allInNightlyPrice(property.price);
+  const feesAndTaxes = Math.max(0, allInPerNight - Math.round(property.price));
   const { isAuthenticated, userId } = useAuth();
   const { isSaved } = useWishlist(userId);
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -204,7 +201,7 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
             )}
             {property.originalPrice && (
               <p className="text-[13px] text-figma-ink/40 font-medium line-through mb-0.5">
-                ₹ {property.originalPrice.toLocaleString("en-IN")}
+                ₹ {allInNightlyPrice(property.originalPrice).toLocaleString("en-IN")}
               </p>
             )}
             <p
@@ -216,10 +213,10 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
                 letterSpacing: "0.075px",
               }}
             >
-              ₹ {property.price.toLocaleString("en-IN")}
+              ₹ {allInPerNight.toLocaleString("en-IN")}
             </p>
             <p className="text-[11px] text-figma-ink/50">
-              +₹ {feesAndTaxes.toLocaleString("en-IN")} taxes and fees
+              per night, incl. ₹ {feesAndTaxes.toLocaleString("en-IN")} taxes &amp; fees
             </p>
           </div>
         </div>

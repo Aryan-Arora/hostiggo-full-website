@@ -23,6 +23,7 @@ import { cn } from '@/lib/utils';
 import { api, mapWishlistListing } from '@/lib/api';
 import { getRecentlyViewedIds, RECENTLY_VIEWED_EVENT } from '@/lib/recentlyViewed';
 import { toast } from 'sonner';
+import { allInNightlyPrice } from '@/lib/billing/invoice';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -502,10 +503,10 @@ function WishlistCard({
 
           <div className="inline-flex items-center gap-1 bg-gray-50 border border-gray-100 rounded-lg px-2.5 py-1">
             <span className="text-[12px] font-extrabold text-gray-900">
-              ₹ {property.price.toLocaleString('en-IN')}
+              ₹ {allInNightlyPrice(property.price).toLocaleString('en-IN')}
             </span>
             <span className="text-[11px] text-gray-400">
-              / {property.nights} Nights
+              / night incl. taxes
             </span>
           </div>
         </div>
