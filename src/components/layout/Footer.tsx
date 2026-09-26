@@ -17,7 +17,9 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
     links: [
       { label: "Become a host", href: "/become-a-host" },
       { label: "Hosting standards", href: "/host" },
-      { label: "Add-on services", href: "#", soon: true },
+      // Add-ons are live (hosts attach them in the listing wizard / manage
+      // page, guests pick them at booking) -- the stale "SOON" badge is gone.
+      { label: "Add-on services", href: "/become-a-host#add-on-services" },
       { label: "Earnings & payouts", href: "/host/earnings" },
     ],
   },

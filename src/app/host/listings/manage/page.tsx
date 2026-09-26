@@ -34,6 +34,44 @@ import ListingLocationMap from '@/components/features/ListingLocationMap';
 import AddressSearch from '../../list/_components/AddressSearch';
 import { reverseGeocode, resolveLocationId } from '@/lib/services/geocoding';
 import { cn } from '@/lib/utils';
+import { getStoredAccessToken } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
+
+type DelistStatus = {
+  state: 'none' | 'pending' | 'delisted';
+  delistRequestedAt: string | null;
+  delistedAt: string | null;
+  earliestDelistAt: string | null;
+  upcomingBookings: number;
+};
+
+async function authHeaders(): Promise<Record<string, string>> {
+  const { data } = await supabase.auth.getSession();
+  const token = data.session?.access_token || getStoredAccessToken();
+  return token
+    ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` }
+    : { 'Content-Type': 'application/json' };
+}
+
+const fmtDateTime = (iso: string | null) =>
+  iso
+    ? new Date(iso).toLocaleString('en-IN', {
+        day: 'numeric',
+        month: 'short',
+        hour: 'numeric',
+        minute: '2-digit',
+      })
+    : '';
 
 interface ListingDetails {
   listing_id: number;
@@ -103,6 +141,8 @@ export default function ManageListingPage() {
   const [saving, setSaving] = useState(false);
   const [pausing, setPausing] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [showRemoveDialog, setShowRemoveDialog] = useState(false);
+  const [delist, setDelist] = useState<DelistStatus | null>(null);
   const [formData, setFormData] = useState<ListingDetails | null>(null);
   const [activeSection, setActiveSection] = useState<SectionType>('overview');
 
@@ -110,7 +150,22 @@ export default function ManageListingPage() {
     if (!listingId || !userId) return;
     loadListing();
     loadLocations();
+    loadDelistStatus();
   }, [listingId, userId]);
+
+  const loadDelistStatus = async () => {
+    if (!listingId) return;
+    try {
+      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}/delist`, {
+        headers: await authHeaders(),
+      });
+      if (!res.ok) return;
+      const { data } = await res.json();
+      setDelist(data);
+    } catch {
+      /* non-fatal: the page still works without the status banner */
+    }
+  };
 
   const loadListing = async () => {
     if (!listingId || !userId) return;
@@ -214,29 +269,51 @@ export default function ManageListingPage() {
     }
   };
 
+  // "Remove listing" no longer deletes anything. It records a delist
+  // request; the listing stays live until the request is 24h old and every
+  // upcoming booking has checked out, then a scheduled job hides it
+  // (see /api/host/listings/[listingId]/delist). The confirmation is an
+  // in-app dialog instead of the browser's native confirm().
   const handleRemove = async () => {
     if (!listingId) return;
-    if (
-      !window.confirm(
-        'Remove this listing permanently? This cannot be undone. Listings with existing bookings can\'t be removed -- pause them instead.',
-      )
-    ) {
-      return;
-    }
     setRemoving(true);
     try {
-      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}`, {
-        method: 'DELETE',
+      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}/delist`, {
+        method: 'POST',
+        headers: await authHeaders(),
+        body: JSON.stringify({}),
       });
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error.error || 'Failed to remove listing');
-      }
-      toast.success('Listing removed.');
-      router.push('/host/listings');
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to submit removal request');
+      setDelist(payload.data);
+      setShowRemoveDialog(false);
+      toast.success(
+        payload.data?.upcomingBookings > 0
+          ? 'Removal requested. Your listing stays live until your upcoming bookings are completed.'
+          : 'Removal requested. Your listing will be delisted within 24 hours.',
+      );
     } catch (err) {
       console.error('Remove listing error:', err);
-      toast.error(err instanceof Error ? err.message : 'Failed to remove listing');
+      toast.error(err instanceof Error ? err.message : 'Failed to submit removal request');
+    } finally {
+      setRemoving(false);
+    }
+  };
+
+  const handleCancelRemoval = async () => {
+    if (!listingId) return;
+    setRemoving(true);
+    try {
+      const res = await fetch(`/api/host/listings/${encodeURIComponent(listingId)}/delist`, {
+        method: 'DELETE',
+        headers: await authHeaders(),
+      });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok) throw new Error(payload.error || 'Failed to cancel removal request');
+      setDelist(payload.data);
+      toast.success('Removal request cancelled. Your listing stays live.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Failed to cancel removal request');
     } finally {
       setRemoving(false);
     }
@@ -384,14 +461,37 @@ export default function ManageListingPage() {
                     {pausing ? 'Updating...' : formData?.is_active ? 'Pause listing' : 'Reactivate listing'}
                   </span>
                 </button>
-                <button
-                  onClick={handleRemove}
-                  disabled={removing || pausing}
-                  className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
-                >
-                  <Trash2 className="w-5 h-5" />
-                  <span className="font-medium text-sm">{removing ? 'Removing...' : 'Remove Listing'}</span>
-                </button>
+                {delist?.state === 'pending' ? (
+                  <div className="mx-1 mt-1 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900 space-y-2">
+                    <p className="font-semibold">Removal requested</p>
+                    <p>
+                      {delist.upcomingBookings > 0
+                        ? `Stays live until your ${delist.upcomingBookings} upcoming booking${delist.upcomingBookings === 1 ? ' is' : 's are'} completed, then it will be delisted.`
+                        : `Will be delisted after ${fmtDateTime(delist.earliestDelistAt)}.`}
+                    </p>
+                    <button
+                      type="button"
+                      onClick={handleCancelRemoval}
+                      disabled={removing}
+                      className="font-semibold text-figma-navy hover:underline disabled:opacity-60"
+                    >
+                      {removing ? 'Updating...' : 'Cancel removal request'}
+                    </button>
+                  </div>
+                ) : delist?.state === 'delisted' ? (
+                  <div className="mx-1 mt-1 rounded-lg border border-gray-200 bg-gray-50 p-3 text-xs text-gray-700">
+                    This listing was delisted on {fmtDateTime(delist.delistedAt)}. Contact support to restore it.
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setShowRemoveDialog(true)}
+                    disabled={removing || pausing}
+                    className="w-full flex items-center gap-3 px-3 py-3 rounded-lg text-red-600 hover:bg-red-50 transition-all disabled:opacity-60 disabled:cursor-not-allowed"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                    <span className="font-medium text-sm">Remove Listing</span>
+                  </button>
+                )}
               </div>
             </nav>
           </div>
@@ -412,6 +512,47 @@ export default function ManageListingPage() {
           </div>
         </div>
       </div>
+      <AlertDialog open={showRemoveDialog} onOpenChange={(o) => !removing && setShowRemoveDialog(o)}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Remove this listing?</AlertDialogTitle>
+            <AlertDialogDescription asChild>
+              <div className="space-y-2 text-sm text-gray-600">
+                <p>We&apos;ll record your removal request. Nothing is deleted right away.</p>
+                <ul className="list-disc pl-5 space-y-1">
+                  <li>
+                    <strong>No upcoming bookings:</strong> the listing is delisted within 24 hours.
+                  </li>
+                  <li>
+                    <strong>Upcoming bookings:</strong> the listing stays live and bookable until all of
+                    them are completed, then it is delisted.
+                  </li>
+                </ul>
+                {delist && delist.upcomingBookings > 0 && (
+                  <p className="font-medium text-gray-800">
+                    This listing currently has {delist.upcomingBookings} upcoming booking
+                    {delist.upcomingBookings === 1 ? '' : 's'}.
+                  </p>
+                )}
+                <p>You can cancel the request any time before it takes effect.</p>
+              </div>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={removing}>Keep listing</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={(e) => {
+                e.preventDefault();
+                handleRemove();
+              }}
+              disabled={removing}
+              className="bg-red-600 hover:bg-red-700"
+            >
+              {removing ? 'Submitting…' : 'Request removal'}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </HostDashboardShell>
   );
 }

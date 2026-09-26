@@ -21,6 +21,23 @@ export async function PATCH(req: NextRequest) {
     }
     await assertListingOwnedBy(Number(listingId), String(userId));
 
+    // A listing that has been delisted (see ../[listingId]/delist) must not
+    // be switched back on from the pause toggle.
+    if (isActive) {
+      const { data: row, error: rowErr } = await supabaseAdmin
+        .from("listings")
+        .select("delisted_at")
+        .eq("listing_id", listingId)
+        .maybeSingle();
+      if (rowErr) throw rowErr;
+      if (row?.delisted_at) {
+        return NextResponse.json(
+          { error: "This listing has been removed. Contact support to restore it." },
+          { status: 409 },
+        );
+      }
+    }
+
     // Update listing active status
     const { data, error } = await supabaseAdmin
       .from("listings")
