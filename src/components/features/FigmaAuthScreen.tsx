@@ -198,15 +198,42 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
   }, [isOtp, timer]);
 
   // OTP input handlers
+  // Each box accepts whatever the browser delivers: normally one digit, but
+  // a fast typist can land a second keystroke in a box before focus has
+  // moved on, and OS/browser one-time-code autofill (autocomplete=
+  // "one-time-code") drops the whole 6-digit code into a single box. The
+  // old handler kept only the last character (`slice(-1)`) against
+  // `maxLength={1}` and wrote into a stale `otp` closure, so digits were
+  // silently dropped and "Verify" stayed disabled or sent a wrong code --
+  // reproduced on production: typing 346491 left only "3", "4", "6".
+  // Now every digit received is spread across this box and the ones after
+  // it, using a functional state update so no keystroke is lost.
   const handleDigitChange = (index: number, val: string) => {
-    const digit = val.replace(/\D/g, "").slice(-1);
-    const newOtp = [...otp];
-    newOtp[index] = digit;
-    setOtp(newOtp);
-
-    if (digit && index < 5) {
-      inputRefs.current[index + 1]?.focus();
+    const digits = val.replace(/\D/g, "");
+    if (!digits) {
+      setOtp((prev) => {
+        const next = [...prev];
+        next[index] = "";
+        return next;
+      });
+      return;
     }
+    // If the box already held a digit and one more was typed, the new
+    // keystroke is the character that isn't the old value.
+    const incoming =
+      digits.length === 2 && otp[index] && digits.includes(otp[index])
+        ? digits.replace(otp[index], "")
+        : digits;
+    const chars = incoming.slice(0, 6 - index).split("");
+    setOtp((prev) => {
+      const next = [...prev];
+      chars.forEach((c, i) => {
+        next[index + i] = c;
+      });
+      return next;
+    });
+    const focusIndex = Math.min(index + chars.length, 5);
+    inputRefs.current[focusIndex]?.focus();
   };
 
   const handleKeyDown = (
@@ -291,9 +318,10 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
           window.localStorage.setItem(AUTH_PHONE_KEY, normalized);
         }
         router.push(
-          `/otp?mode=phone&value=${encodeURIComponent(normalized)}${
-            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
-          }`,
+          // The number is kept in localStorage (AUTH_PHONE_KEY, set just
+          // above) instead of the URL, so it doesn't show in the address
+          // bar, browser history, or Referer headers.
+          `/otp?mode=phone${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`,
         );
       } catch (error) {
         const msg = error instanceof Error ? error.message : "Failed to send OTP";
@@ -321,12 +349,22 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
           window.localStorage.setItem(AUTH_EMAIL_KEY, normalized);
         }
         router.push(
-          `/otp?mode=email&value=${encodeURIComponent(normalized)}${
-            redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""
-          }`,
+          // Email kept in localStorage (AUTH_EMAIL_KEY), not the URL --
+          // see the phone branch above.
+          `/otp?mode=email${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`,
         );
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Failed to send OTP");
+        const msg = error instanceof Error ? error.message : "Failed to send OTP";
+        // Supabase returns 429 over_email_send_rate_limit ("email rate limit
+        // exceeded") when the project's email quota is used up -- show
+        // something a guest can act on instead of the raw provider string.
+        if (msg.toLowerCase().includes("rate limit")) {
+          toast.error(
+            "We couldn't send a code right now. Please try again in a few minutes, or sign in with Google or your mobile number.",
+          );
+        } else {
+          toast.error(msg);
+        }
       } finally {
         sendingRef.current = false;
         setSending(false);
@@ -535,9 +573,9 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                           handleDigitChange(index, e.target.value)
                         }
                         onKeyDown={(e) => handleKeyDown(index, e)}
-                        maxLength={1}
                         type="text"
                         inputMode="numeric"
+                        autoComplete={index === 0 ? "one-time-code" : "off"}
                         aria-label={`OTP digit ${index + 1}`}
                         className={`h-[48px] w-[48px] sm:h-[56px] sm:w-[56px] rounded-full border text-center text-[22px] font-bold outline-none transition-all caret-transparent ${
                           digit

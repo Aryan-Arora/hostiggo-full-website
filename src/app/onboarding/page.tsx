@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { api } from '@/lib/api';
+import { api, getStoredAccessToken } from '@/lib/api';
+import { supabase } from '@/lib/supabase';
 import { toast } from 'sonner';
 import { Camera, Loader2 } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
@@ -75,9 +76,17 @@ function OnboardingContent() {
 
     setSaving(true);
     try {
+      // /api/users now requires proof of identity (a verified bearer token
+      // that matches user_id). Google/email-OTP sign-ins hold the session in
+      // the Supabase client; phone-OTP sign-ins store it via setStoredSession.
+      const { data: sessionData } = await supabase.auth.getSession();
+      const accessToken = sessionData.session?.access_token || getStoredAccessToken();
       const res = await fetch('/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(accessToken ? { Authorization: `Bearer ${accessToken}` } : {}),
+        },
         body: JSON.stringify({
           user_id: userId,
           name: trimmed,
@@ -93,7 +102,10 @@ function OnboardingContent() {
         }),
       });
 
-      if (!res.ok) throw new Error('Failed to save');
+      if (!res.ok) {
+        const payload = await res.json().catch(() => ({}));
+        throw new Error(payload?.error || 'Failed to save');
+      }
 
       await refresh();
       toast.success('Welcome to Hostiggo!');

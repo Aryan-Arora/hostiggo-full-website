@@ -4,6 +4,7 @@ import { MapPin, Clock, Navigation, Loader2 } from 'lucide-react';
 import { SUGGESTED_DESTINATIONS, findCityGuide } from '@/constants/data';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { buildDestinationOptions } from '@/lib/destinationOptions';
 import { reverseGeocode } from '@/lib/services/geocoding';
 
 interface DestinationDropdownProps {
@@ -89,12 +90,12 @@ export default function DestinationDropdown({
     [listingCountByState],
   );
 
-  // Live results re-ranked on every change (as the user types) so states with
-  // the most listings come first; Array.sort is stable, so ties keep the DB
-  // order they arrived in.
-  const sortedResults = useMemo(
-    () => [...results].sort((a, b) => countOf(b?.state) - countOf(a?.state)),
-    [results, countOf],
+  // Live results, one option per place (plus the whole state when the query
+  // names one), re-ranked on every change so states with the most listings
+  // come first.
+  const destinationOptions = useMemo(
+    () => buildDestinationOptions(results, query, countOf),
+    [results, query, countOf],
   );
 
   // Same ranking for the default "click to open" suggestions.
@@ -367,7 +368,7 @@ export default function DestinationDropdown({
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">Searching...</p>
               </div>
-            ) : results.length === 0 ? (
+            ) : destinationOptions.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">
                   No exact match found in database
@@ -377,12 +378,11 @@ export default function DestinationDropdown({
                 </p>
               </div>
             ) : (
-              sortedResults.map((dest) => {
-                const displayName =
-                  dest.district || dest.lower_division_name || dest.state;
+              destinationOptions.map((dest) => {
+                const displayName = dest.name;
                 return (
                   <button
-                    key={dest.location_id}
+                    key={dest.key}
                     onClick={() => handleSelect(displayName)}
                     className={cn(
                       'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group',
@@ -397,7 +397,7 @@ export default function DestinationDropdown({
                         {displayName}
                       </p>
                       <p className="text-[11px] text-gray-400 truncate">
-                        {dest.state}
+                        {dest.wholeState ? `All stays in ${dest.state}` : dest.state}
                       </p>
                     </div>
                     {value === displayName && (
