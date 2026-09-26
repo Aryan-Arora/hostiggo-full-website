@@ -1,5 +1,6 @@
 "use client";
 
+import { allInNightlyPrice } from "@/lib/billing/invoice";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { cn } from "@/lib/utils";
@@ -105,13 +106,16 @@ export default function PropertyCard({ property }: PropertyCardProps) {
             · {property.reviewCount} reviews
           </span>
         </div>
-        {/* Price — clean outline pill, no taxes line */}
+        {/* Price -- all-in per night (base + GST + Hostiggo fee + GST on
+            fee), the same calculation as checkout. This used to show the
+            bare weekday rate labelled "/ 2 Nights", which was neither the
+            2-night total nor tax-inclusive. */}
         <div className="-ml-5 flex w-fit items-baseline gap-1.5 bg-white border border-figma-navy/30 border-l-0 pl-4 pr-4 py-2 rounded-r-2xl">
           <span className="text-[18px] font-semibold leading-[1.28] tracking-[0.003em] text-figma-ink whitespace-nowrap">
-            ₹{property.price.toLocaleString("en-IN")}
+            ₹{allInNightlyPrice(property.price).toLocaleString("en-IN")}
           </span>
           <span className="text-[12px] font-normal leading-[1.4] tracking-[0.003em] text-figma-ink/60 whitespace-nowrap">
-            / 2 Nights
+            / night incl. taxes
           </span>
         </div>
       </div>
