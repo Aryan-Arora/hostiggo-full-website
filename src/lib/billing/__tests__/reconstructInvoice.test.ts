@@ -39,3 +39,20 @@ describe("reconstructInvoice", () => {
     expect(invoice.propertyGstRate).toBe(0.05); // 5000 <= 7500 threshold
   });
 });
+
+describe("splitBookingAddons + reconstructInvoice with real booking_addons rows", () => {
+  it("buckets breakfast vs other add-ons the same way booking-time pricing does, and the invoice total includes them", async () => {
+    const { splitBookingAddons } = await import("../reconstructInvoice");
+    const addonPrices = splitBookingAddons([
+      { price: "600", type: "Food & Dining - Breakfast" },
+      { price: 1500, type: "Drive, Car & Transport" },
+      { price: null, type: null },
+    ]);
+    expect(addonPrices).toEqual({ breakfastPrice: 600, otherServicesPrice: 1500 });
+    const withAddons = reconstructInvoice(START, END, PRICE_WEEKDAY, PRICE_WEEKEND, addonPrices).invoice;
+    const without = reconstructInvoice(START, END, PRICE_WEEKDAY, PRICE_WEEKEND).invoice;
+    expect(withAddons.breakfastPricePaise).toBe(60_000);
+    expect(withAddons.otherServicesPricePaise).toBe(150_000);
+    expect(withAddons.grandTotalPaise).toBeGreaterThan(without.grandTotalPaise + 210_000 - 1);
+  });
+});

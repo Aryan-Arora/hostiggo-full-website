@@ -2,7 +2,7 @@ import "server-only";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { calculateRefund } from "./refund";
 import { createRazorpayRefund } from "./razorpay";
-import { reconstructInvoice } from "./reconstructInvoice";
+import { reconstructInvoice, splitBookingAddons } from "./reconstructInvoice";
 import type { CancellationPolicyConfig, CancellationPolicyType } from "./types";
 
 const CONFIRMED_STATUS_ID = 2;
@@ -27,6 +27,19 @@ interface BookingRow {
   razorpay_payment_id: string | null;
   refund_status: string | null;
   payout_released_at: string | null;
+}
+
+// Add-ons the guest paid for with this booking (recorded at booking time
+// by insertConfirmedBooking). Their price is part of bookings.amount, so
+// the refund invoice must include them -- otherwise add-on spend silently
+// drops out of the refund math entirely.
+async function fetchBookingAddonPrices(bookingId: number) {
+  const { data, error } = await supabaseAdmin
+    .from("booking_addons")
+    .select("price, type")
+    .eq("booking_id", bookingId);
+  if (error) throw error;
+  return splitBookingAddons(data as { price: number | null; type: string | null }[] | null);
 }
 
 export interface CancelBookingResult {
@@ -87,7 +100,14 @@ export async function previewCancellationRefund(params: {
   const policy = (listing.cancellation_policy ?? "moderate") as CancellationPolicyType;
   const priceWeekday = Number(listing.price_weekday ?? 0);
   const priceWeekend = Number(listing.price_weekend ?? priceWeekday);
-  const { invoice } = reconstructInvoice(booking.start_date, booking.end_date, priceWeekday, priceWeekend);
+  const addonPrices = await fetchBookingAddonPrices(bookingId);
+  const { invoice } = reconstructInvoice(
+    booking.start_date,
+    booking.end_date,
+    priceWeekday,
+    priceWeekend,
+    addonPrices,
+  );
   const refundCalc = calculateRefund({
     invoice,
     checkIn: new Date(booking.start_date + "T00:00:00Z"),
@@ -184,13 +204,17 @@ export async function cancelBookingWithRefund(params: {
     // -- weekend nights at price_weekend, the check-in night's own rate
     // deciding the GST slab -- so the refund calc has the real subtotal and
     // real GST/service-fee line items to exclude, not a flat-rate stand-in.
-    // Add-ons are intentionally not itemized here per spec 4.3 (single
-    // final amount, no per-line-item cancellation).
+    // Add-ons the guest bought are included in the invoice (their price is
+    // refundable under the policy, their GST is not -- same as the stay).
+    // Spec 4.3 still holds: the refund is one final amount for the whole
+    // booking; add-ons can't be cancelled separately.
+    const addonPrices = await fetchBookingAddonPrices(bookingId);
     const { nights, invoice } = reconstructInvoice(
       booking.start_date,
       booking.end_date,
       priceWeekday,
       priceWeekend,
+      addonPrices,
     );
 
     const policyConfig: CancellationPolicyConfig = {
