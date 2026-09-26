@@ -46,6 +46,7 @@ import {
 import Image from "next/image";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { recordRecentlyViewed } from "@/lib/recentlyViewed";
 import { toast } from "sonner";
 
 const FALLBACK = "/placeholder.svg";
@@ -1746,6 +1747,12 @@ export default function PropertyDetailsPage() {
   const [barNights, setBarNights] = useState(0);
   const [barGuests, setBarGuests] = useState(1);
   const galleryRef = useRef<HTMLDivElement>(null);
+
+  // Feed the wishlist page's "Recently viewed" section -- only once the
+  // listing actually loaded, so a bad/removed id isn't recorded.
+  useEffect(() => {
+    if (property?.id) recordRecentlyViewed(property.id);
+  }, [property?.id]);
 
   useEffect(() => {
     let mounted = true;

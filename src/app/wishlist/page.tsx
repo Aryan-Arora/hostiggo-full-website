@@ -21,6 +21,7 @@ import Navbar from '@/components/layout/Navbar';
 import CopyrightBar from '@/components/layout/CopyrightBar';
 import { cn } from '@/lib/utils';
 import { api, mapWishlistListing } from '@/lib/api';
+import { getRecentlyViewedIds, RECENTLY_VIEWED_EVENT } from '@/lib/recentlyViewed';
 import { toast } from 'sonner';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,7 +48,11 @@ interface WishlistGroup {
 // ── Data ──────────────────────────────────────────────────────────────────────
 
 const DEFAULT_GROUPS: WishlistGroup[] = [
-  { id: 'all', name: 'Recent viewed', isDefault: true },
+  // 'all' is a client-side pseudo-group ("every saved listing"), not a real
+  // categories row -- it must never be sent to the API as a category id.
+  // It used to be labelled "Recent viewed" even though it only ever listed
+  // saved items; real recently-viewed listings now have their own section.
+  { id: 'all', name: 'All saved', isDefault: true },
 ];
 
 // ── Confirmation Modal ────────────────────────────────────────────────────────
@@ -311,7 +316,12 @@ function GroupDropdown({
                     </div>
 
                     {/* Right side: Three Dots button (pushed to right side for selected group) */}
-                    {isSelected && (
+                    {/* Rename/Remove only for real, user-created lists. The
+                        built-in 'all' group used to show them too, and
+                        "Remove" sent categoryId 'all' to the API, which
+                        Postgres rejected: invalid input syntax for type
+                        uuid: "all". */}
+                    {isSelected && !grp.isDefault && (
                       <div
                         className="relative ml-auto flex items-center"
                         ref={kebabOpen === grp.id ? kebabRef : undefined}
@@ -394,6 +404,7 @@ interface WishlistCardProps {
   onRemove: () => void;
   onClick: () => void;
   removing: boolean;
+  showHeart?: boolean;
 }
 
 function WishlistCard({
@@ -403,6 +414,7 @@ function WishlistCard({
   onRemove,
   onClick,
   removing,
+  showHeart = true,
 }: WishlistCardProps) {
   const [imgErr, setImgErr] = useState(false);
   const FALLBACK = '/placeholder.svg';
@@ -443,7 +455,7 @@ function WishlistCard({
           >
             <X className="w-3.5 h-3.5 text-gray-600" strokeWidth={2.5} />
           </button>
-        ) : (
+        ) : !showHeart ? null : (
           /* Normal mode: heart icon */
           <button
             type="button"
@@ -517,6 +529,51 @@ export default function WishlistPage() {
 
   const router = useRouter();
   const { userId, loading: isLoading } = useAuth();
+
+  // Recently viewed (see src/lib/recentlyViewed.ts). Re-read whenever this
+  // tab regains focus/visibility, another tab records a view (`storage`),
+  // or this tab does (custom event) -- so it always reflects new views.
+  const [recent, setRecent] = useState<WishlistProperty[]>([]);
+  useEffect(() => {
+    let cancelled = false;
+    const load = async () => {
+      const ids = getRecentlyViewedIds();
+      if (ids.length === 0) {
+        if (!cancelled) setRecent([]);
+        return;
+      }
+      try {
+        const res = await fetch(`/api/hotels?ids=${ids.join(',')}`, { cache: 'no-store' });
+        const payload = await res.json();
+        if (!res.ok) throw new Error(payload?.error || 'Failed to load');
+        const byId = new Map<string, WishlistProperty>(
+          (payload.data ?? []).map((row: any) => {
+            const mapped = mapWishlistListing(row);
+            return [mapped.id, { ...mapped, liked: false }];
+          }),
+        );
+        const ordered = ids.map((id) => byId.get(id)).filter(Boolean) as WishlistProperty[];
+        if (!cancelled) setRecent(ordered);
+      } catch (error) {
+        console.error('[wishlist] failed to load recently viewed:', error);
+      }
+    };
+    load();
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') load();
+    };
+    window.addEventListener('storage', load);
+    window.addEventListener(RECENTLY_VIEWED_EVENT, load);
+    window.addEventListener('focus', load);
+    document.addEventListener('visibilitychange', onVisible);
+    return () => {
+      cancelled = true;
+      window.removeEventListener('storage', load);
+      window.removeEventListener(RECENTLY_VIEWED_EVENT, load);
+      window.removeEventListener('focus', load);
+      document.removeEventListener('visibilitychange', onVisible);
+    };
+  }, []);
 
   useEffect(() => {
     if (!userId) {
@@ -618,12 +675,7 @@ export default function WishlistPage() {
 
   const handleRenameGroup = async (id: string, newName: string) => {
     if (!newName.trim()) return;
-    if (!userId || id === 'all') {
-      setGroups((prev) =>
-        prev.map((g) => (g.id === id ? { ...g, name: newName.trim() } : g)),
-      );
-      return;
-    }
+    if (!userId || groups.find((g) => g.id === id)?.isDefault) return;
     try {
       await api.renameWishlistCategory(id, newName.trim(), userId);
       setGroups((prev) =>
@@ -640,6 +692,10 @@ export default function WishlistPage() {
 
   const handleRemoveGroupConfirm = async () => {
     if (!confirmRemoveGroup || !userId) return;
+    if (confirmRemoveGroup.isDefault) {
+      setConfirmRemoveGroup(null);
+      return;
+    }
     try {
       await api.deleteWishlistCategory(confirmRemoveGroup.id, userId);
       setGroups((prev) => prev.filter((g) => g.id !== confirmRemoveGroup.id));
@@ -795,6 +851,31 @@ export default function WishlistPage() {
               </button>
             </div>
           </div>
+        )}
+
+        {recent.length > 0 && (
+          <section className="mb-14" aria-labelledby="recently-viewed-heading">
+            <h2
+              id="recently-viewed-heading"
+              className="text-[20px] sm:text-[22px] font-extrabold text-gray-900 mb-5"
+            >
+              Recently viewed
+            </h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
+              {recent.map((prop) => (
+                <WishlistCard
+                  key={`recent-${prop.id}`}
+                  property={prop}
+                  editMode={false}
+                  onToggleHeart={() => {}}
+                  onRemove={() => {}}
+                  showHeart={false}
+                  onClick={() => router.push(`/property/${prop.id}`)}
+                  removing={false}
+                />
+              ))}
+            </div>
+          </section>
         )}
       </main>
 
