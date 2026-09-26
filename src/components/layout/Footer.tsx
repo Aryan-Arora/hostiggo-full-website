@@ -16,17 +16,19 @@ const footerSections: { title: string; links: FooterLink[] }[] = [
     title: "Hosting",
     links: [
       { label: "Become a host", href: "/become-a-host" },
-      { label: "Hosting standards", href: "/host" },
-      // Add-ons are live (hosts attach them in the listing wizard / manage
-      // page, guests pick them at booking) -- the stale "SOON" badge is gone.
-      { label: "Add-on services", href: "/become-a-host#add-on-services" },
-      { label: "Earnings & payouts", href: "/host/earnings" },
+      { label: "Hosting guides", href: "/help" },
+      { label: "Add-on services", href: "/help/add-ons" },
+      { label: "Earnings & payouts", href: "/help/payouts" },
+      { label: "Verify your identity", href: "/help/verify-identity" },
+      { label: "Removing a listing", href: "/help/delisting" },
     ],
   },
   {
     title: "Support",
     links: [
-      { label: "Help centre", href: "/support" },
+      { label: "Help centre", href: "/help" },
+      { label: "Chat guidelines", href: "/help/chat-guidelines" },
+      { label: "Refunds explained", href: "/help/refunds" },
       { label: "Contact host support", href: "/contact" },
       { label: "Safety information", href: "/safety" },
       { label: "Report an issue", href: "/report-issue" },
