@@ -16,15 +16,24 @@ export async function POST(req: NextRequest) {
     if (!PAN_RE.test(idNumber)) {
       return NextResponse.json({ error: "Enter a valid PAN (e.g. ABCDE1234F)." }, { status: 400 });
     }
+    // Required, not optional -- otherwise omitting it would skip the
+    // name-vs-PAN check in verifyPanNumber.
+    const fullName = String(body?.fullName ?? "").trim().slice(0, 100);
+    if (fullName.length < 2) {
+      return NextResponse.json({ error: "Enter your full name as it appears on your PAN." }, { status: 400 });
+    }
 
-    const { status, reason, providerReference } = await verifyPanNumber(userId, idNumber);
+    const { status, reason, providerReference } = await verifyPanNumber(userId, idNumber, fullName);
 
     // Second of the two conditions needed to auto-onboard a host to
     // Razorpay Route may now be met -- see maybeAutoOnboardHostToRoute.
     // No-op for non-hosts or hosts missing the other condition; never
     // blocks this response.
     if (status === "verified") {
-      const { maybeAutoOnboardHostToRoute } = await import("@/lib/services/hostRouteOnboarding");
+      const { maybeAutoOnboardHostToRoute, saveVerifiedPayoutDetails } = await import(
+        "@/lib/services/hostRouteOnboarding"
+      );
+      await saveVerifiedPayoutDetails(userId, { accountHolderName: fullName, panNumber: idNumber });
       await maybeAutoOnboardHostToRoute(userId);
     }
 

@@ -4,7 +4,7 @@ import { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
-import { api } from '@/lib/api';
+import { api, getBearerToken } from '@/lib/api';
 import { toast } from 'sonner';
 import { Camera, Loader2 } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
@@ -75,9 +75,13 @@ function OnboardingContent() {
 
     setSaving(true);
     try {
+      const token = await getBearerToken();
       const res = await fetch('/api/users', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           user_id: userId,
           name: trimmed,
@@ -133,6 +137,7 @@ function OnboardingContent() {
                 src={photoUrl || DEFAULT_AVATAR}
                 alt="Profile"
                 sizes="96px"
+                loading="eager"
                 className="rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
               />
               <input

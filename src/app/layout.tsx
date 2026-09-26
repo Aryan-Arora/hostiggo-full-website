@@ -27,7 +27,9 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={poppins.variable} data-scroll-behavior="smooth">
-      <body className={poppins.className}>
+      {/* Extensions like Grammarly inject data-* attributes on <body> before
+          hydration; suppress that one-level attribute mismatch warning. */}
+      <body className={poppins.className} suppressHydrationWarning>
         <AuthProvider>
           <ListingFilterProvider>
             <Toaster position="top-center" richColors closeButton />

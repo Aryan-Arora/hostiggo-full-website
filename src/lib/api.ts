@@ -26,7 +26,7 @@ export const setStoredSession = (accessToken: string, refreshToken?: string | nu
   if (refreshToken) window.localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
 };
 
-async function getBearerToken(): Promise<string | null> {
+export async function getBearerToken(): Promise<string | null> {
   // The authoritative source: whatever Supabase's own client currently
   // considers the live session, refreshed automatically in the background
   // by autoRefreshToken. This works for every sign-in method (Google OAuth,
@@ -480,7 +480,7 @@ export const api = {
     state: string;
     postalCode: string;
   }>) =>
-    request<{ status: string; updated?: string[] }>(`/api/host/payout-methods`, {
+    request<{ status: string; updated?: string[]; onboardingError?: string | null }>(`/api/host/payout-methods`, {
       method: "PATCH",
       body: JSON.stringify(payload),
     }),
@@ -500,18 +500,20 @@ export const api = {
     }>(`/api/host/onboarding-status`),
   // Direct SurePass number-only lookups -- same family as verifyBank below,
   // no document photo. See src/app/api/verify/pan/route.ts.
-  verifyPan: (idNumber: string) =>
+  // `fullName` is checked server-side against the name on the PAN.
+  verifyPan: (idNumber: string, fullName: string) =>
     request<{
       status: "verified" | "rejected" | "pending";
       reason: string | null;
       providerReference: string | null;
     }>(`/api/verify/pan`, {
       method: "POST",
-      body: JSON.stringify({ idNumber }),
+      body: JSON.stringify({ idNumber, fullName }),
     }),
   // "Bank Verification" -- reverse penny-drop lookup keyed on the account
-  // number + IFSC. See src/app/api/verify/bank/route.ts.
-  verifyBank: (payload: { accountNumber: string; ifsc: string }) =>
+  // number + IFSC; `fullName` is checked against the account holder's name.
+  // See src/app/api/verify/bank/route.ts.
+  verifyBank: (payload: { accountNumber: string; ifsc: string; fullName: string }) =>
     request<{
       verified: boolean;
       reason?: string | null;

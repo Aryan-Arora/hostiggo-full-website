@@ -1,7 +1,6 @@
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../supabase";
 import { supabaseAdmin } from "../supabase-admin";
 
-const TESTING_SCHEMA = "hostiggo_testing_schema";
 const PROFILE_IMAGE_BUCKET = "profile-images";
 
 export type UpsertUserPayload = {
@@ -39,8 +38,11 @@ export type UserRow = {
 };
 
 const upsertUserWithSchema = async (payload: UpsertUserPayload) => {
-  const client = supabase.schema(TESTING_SCHEMA);
-  return client
+  // Admin client: this only runs server-side (/api/users, ensureProfile),
+  // where the anon client has no session and no write grant on `users`
+  // ("permission denied for table users", 42501). Callers must verify the
+  // caller owns `payload.user_id` before getting here.
+  return supabaseAdmin
     .from("users")
     .upsert(payload, { onConflict: "user_id" })
     .select("*")

@@ -3,7 +3,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensureHostProfile, findHostUuid } from "@/lib/services/admin-writes";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 import { sha256Hex } from "@/lib/surepass";
-import { verifyBankAccount, verifyPanNumber } from "@/lib/services/kycVerify";
+import { samePerson, verifyBankAccount, verifyPanNumber } from "@/lib/services/kycVerify";
 
 export const dynamic = "force-dynamic";
 
@@ -79,14 +79,24 @@ export async function GET(req: NextRequest) {
     const hostUuid = await findHostUuid(userId);
     if (!hostUuid) return NextResponse.json({ data: null });
 
-    const { data, error } = await supabaseAdmin
-      .from("host_payout_methods")
-      .select(
-        "account_holder_name, bank_account_number, bank_ifsc, pan_number, address_line1, city, state, postal_code, status, created_at, updated_at",
-      )
-      .eq("host_uuid", hostUuid)
-      .maybeSingle();
+    const readPayout = () =>
+      supabaseAdmin
+        .from("host_payout_methods")
+        .select(
+          "account_holder_name, bank_account_number, bank_ifsc, pan_number, address_line1, city, state, postal_code, status, created_at, updated_at",
+        )
+        .eq("host_uuid", hostUuid)
+        .maybeSingle();
+    let { data, error } = await readPayout();
     if (error) throw error;
+    if (!data) {
+      // Host verified their bank before verification started saving into
+      // payout details -- build the row from that verified account.
+      const { saveVerifiedPayoutDetails } = await import("@/lib/services/hostRouteOnboarding");
+      await saveVerifiedPayoutDetails(userId);
+      ({ data, error } = await readPayout());
+      if (error) throw error;
+    }
 
     if (!data) return NextResponse.json({ data: null });
 
@@ -109,7 +119,7 @@ export async function GET(req: NextRequest) {
     // needed at submit time; nothing after that should render it in full.
     const masked = {
       ...data,
-      bank_account_number: `••••${data.bank_account_number.slice(-4)}`,
+      bank_account_number: data.bank_account_number ? `••••${data.bank_account_number.slice(-4)}` : "",
       bank_name: bankVerification?.bank_name ?? null,
       bank_branch: bankProfile?.bank_branch_name ?? null,
       upi_id: bankProfile?.upi_id ?? null,
@@ -226,8 +236,37 @@ export async function PATCH(req: NextRequest) {
       }
     }
 
+    // Everything Razorpay Route onboarding needs is mandatory -- checked
+    // before the SurePass lookups so an incomplete form costs nothing.
+    const final: Record<string, string | null | undefined> = {
+      ...existing,
+      ...changes,
+      bank_account_number: accountNumber,
+      bank_ifsc: ifsc,
+      pan_number: pan || existing?.pan_number,
+    };
+    const missing = (
+      [
+        ["account_holder_name", "account holder name"],
+        ["bank_account_number", "bank account number"],
+        ["bank_ifsc", "IFSC code"],
+        ["pan_number", "PAN"],
+        ["address_line1", "address"],
+        ["city", "city"],
+        ["state", "state"],
+        ["postal_code", "postal code"],
+      ] as const
+    )
+      .filter(([column]) => !final[column]?.trim())
+      .map(([, label]) => label);
+    if (missing.length > 0) {
+      return NextResponse.json({ error: `Please fill in: ${missing.join(", ")}.` }, { status: 400 });
+    }
+
+    // Both lookups must match the name payouts will be made out to.
+    const holderName = changes.account_holder_name ?? existing?.account_holder_name ?? null;
     if (bankChanged) {
-      const bank = await verifyBankAccount(userId, accountNumber, ifsc);
+      const bank = await verifyBankAccount(userId, accountNumber, ifsc, holderName);
       if (!bank.verified) {
         return NextResponse.json(
           { error: `Bank account could not be verified: ${bank.reason ?? "please check the account number and IFSC."}` },
@@ -238,7 +277,7 @@ export async function PATCH(req: NextRequest) {
       changes.bank_ifsc = ifsc;
     }
     if (panChanged) {
-      const result = await verifyPanNumber(userId, pan);
+      const result = await verifyPanNumber(userId, pan, holderName);
       if (result.status !== "verified") {
         return NextResponse.json(
           { error: `PAN could not be verified: ${result.reason ?? "please check the number and try again."}` },
@@ -248,10 +287,49 @@ export async function PATCH(req: NextRequest) {
       changes.pan_number = pan;
     }
 
-    if (existing && Object.keys(changes).length === 0) {
-      return NextResponse.json({ data: { status: "unchanged" } });
+    // A name-only edit skips both lookups above, but this name is what
+    // Razorpay pays out to (beneficiaryName in hostRouteOnboarding), so it
+    // must still match the verified bank account and PAN on file.
+    if (changes.account_holder_name && existing) {
+      if (!bankChanged && accountNumber) {
+        const onFile = await latestValidBankVerification(userId, accountNumber);
+        if (onFile?.account_holder_name) {
+          if (!samePerson(changes.account_holder_name, onFile.account_holder_name)) {
+            return NextResponse.json(
+              { error: "The account holder name must match the name on your bank account." },
+              { status: 400 },
+            );
+          }
+        } else {
+          // No stored verification for this account -- re-check it live.
+          const bank = await verifyBankAccount(userId, accountNumber, ifsc, changes.account_holder_name);
+          if (!bank.verified) {
+            return NextResponse.json(
+              { error: `Bank account could not be verified: ${bank.reason ?? "please check the account number and IFSC."}` },
+              { status: 400 },
+            );
+          }
+        }
+      }
+      if (!panChanged) {
+        const verifiedPan = await latestVerifiedPan(userId);
+        if (verifiedPan?.name && !samePerson(changes.account_holder_name, verifiedPan.name)) {
+          return NextResponse.json(
+            { error: "The account holder name must match the name on your verified PAN." },
+            { status: 400 },
+          );
+        }
+      }
     }
 
+    if (existing && Object.keys(changes).length === 0) {
+      // Nothing to write, but still retry payout setup -- it may have failed
+      // earlier for something fixed elsewhere (e.g. a phone number added in
+      // Personal Info).
+      const { maybeAutoOnboardHostToRoute } = await import("@/lib/services/hostRouteOnboarding");
+      const onboardingError = await maybeAutoOnboardHostToRoute(userId);
+      return NextResponse.json({ data: { status: "unchanged", onboardingError } });
+    }
     // Any real change starts Route onboarding over -- the linked account,
     // stakeholder and product config on Razorpay's side were created from
     // the old details and would otherwise be reused stale.
@@ -299,7 +377,7 @@ export async function PATCH(req: NextRequest) {
     // Verified details are on file, so Route onboarding can start right away
     // rather than waiting for another verification call. Fail-soft.
     const { maybeAutoOnboardHostToRoute } = await import("@/lib/services/hostRouteOnboarding");
-    await maybeAutoOnboardHostToRoute(userId);
+    const onboardingError = await maybeAutoOnboardHostToRoute(userId);
     const { data: after } = await supabaseAdmin
       .from("host_payout_methods")
       .select("status")
@@ -307,7 +385,7 @@ export async function PATCH(req: NextRequest) {
       .maybeSingle();
 
     return NextResponse.json({
-      data: { status: after?.status ?? "submitted", updated: Object.keys(changes) },
+      data: { status: after?.status ?? "submitted", updated: Object.keys(changes), onboardingError },
     });
   } catch (err) {
     if (err instanceof UnauthorizedError) {

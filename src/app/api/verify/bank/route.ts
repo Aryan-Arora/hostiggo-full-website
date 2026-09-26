@@ -23,7 +23,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Enter a valid IFSC code (e.g. HDFC0001234)." }, { status: 400 });
     }
 
-    const result = await verifyBankAccount(userId, accountNumber, ifsc);
+    // Required, not optional -- otherwise omitting it would skip the
+    // name-vs-account-holder check in verifyBankAccount.
+    const fullName = String(body?.fullName ?? "").trim().slice(0, 100);
+    if (fullName.length < 2) {
+      return NextResponse.json(
+        { error: "Enter your full name as it appears on your bank account." },
+        { status: 400 },
+      );
+    }
+
+    const result = await verifyBankAccount(userId, accountNumber, ifsc, fullName);
     if (!result.verified) {
       return NextResponse.json({ data: result });
     }
@@ -32,7 +42,14 @@ export async function POST(req: NextRequest) {
     // Razorpay Route may now be met -- see maybeAutoOnboardHostToRoute.
     // No-op for non-hosts or hosts missing the other condition; never
     // blocks this response.
-    const { maybeAutoOnboardHostToRoute } = await import("@/lib/services/hostRouteOnboarding");
+    const { maybeAutoOnboardHostToRoute, saveVerifiedPayoutDetails } = await import(
+      "@/lib/services/hostRouteOnboarding"
+    );
+    await saveVerifiedPayoutDetails(userId, {
+      accountHolderName: fullName,
+      bankAccountNumber: accountNumber,
+      bankIfsc: ifsc,
+    });
     await maybeAutoOnboardHostToRoute(userId);
 
     return NextResponse.json({ data: result });

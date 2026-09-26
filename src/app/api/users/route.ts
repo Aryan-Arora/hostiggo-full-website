@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
 import { updateUserProfile, deactivateUserAccount } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
+import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,20 @@ export async function POST(req: NextRequest) {
     const body = (await req.json()) ?? {};
     if (!body.user_id || !body.name) {
       return NextResponse.json({ error: "user_id and name are required" }, { status: 400 });
+    }
+    // The upsert runs with the service-role client, so RLS no longer stops
+    // one user from writing another's row -- check it here instead.
+    let callerId: string;
+    try {
+      callerId = await getAuthenticatedUserId(req);
+    } catch (err) {
+      if (err instanceof UnauthorizedError) {
+        return NextResponse.json({ error: err.message }, { status: 401 });
+      }
+      throw err;
+    }
+    if (callerId !== String(body.user_id)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
     // Whitelist the columns the onboarding flow actually owns -- passing the
     // raw body to .upsert() meant any extra key 500'd with "column not

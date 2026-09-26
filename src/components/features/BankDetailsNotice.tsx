@@ -18,13 +18,13 @@ export default function BankDetailsNotice({ className }: { className?: string })
       <Info className="mt-0.5 h-4 w-4 shrink-0 text-figma-navy" />
       <div className="space-y-1 text-xs leading-relaxed text-gray-600">
         <p>
-          <span className="font-semibold text-gray-800">Keep your details consistent.</span> Your full
-          name and PAN must exactly match the details registered with your bank account. A mismatch can
-          cause verification to fail or payouts to be held.
+          <span className="font-semibold text-gray-800">Keep your details consistent.</span> The full
+          name you enter, your PAN and your bank account must all be in exactly the same name. A
+          mismatch can cause verification to fail or payouts to be held.
         </p>
         <p>
-          Once a payout is released, some banks take longer than others to credit it to your account
-          -- each bank processes payments at its own pace.
+          Once a payout is released, some banks take longer than others to credit it to your bank
+          account -- each bank processes payments at its own pace.
         </p>
       </div>
     </div>

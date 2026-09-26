@@ -119,13 +119,50 @@ export default function HostSettingsPage() {
     postalCode: '',
   });
   const [savingPayoutMethod, setSavingPayoutMethod] = useState(false);
+  // Why Razorpay payout setup didn't go through on the last attempt, if it didn't.
+  const [payoutSetupError, setPayoutSetupError] = useState<string | null>(null);
+
+  const fillPayoutForm = (m: NonNullable<typeof payoutMethod>) =>
+    setPayoutForm({
+      accountHolderName: m.account_holder_name,
+      bankAccountNumber: '', // never re-shown in full; re-enter to change
+      bankIfsc: m.bank_ifsc,
+      panNumber: m.pan_number,
+      addressLine1: m.address_line1,
+      city: m.city,
+      state: m.state,
+      postalCode: m.postal_code,
+    });
 
   const loadPayoutMethod = async () => {
     setLoadingPayoutMethod(true);
     try {
-      const data = await api.getPayoutMethod();
+      let data = await api.getPayoutMethod();
+      // Razorpay finishes checking the bank account some time after setup,
+      // so ask it for the live state while the account is still pending.
+      if (data?.status === 'onboarding') {
+        const live = await api.getOnboardingStatus().catch(() => null);
+        if (live && live.status !== 'none' && live.status !== data.status) {
+          data = { ...data, status: live.status };
+        }
+      }
       setPayoutMethod(data);
-      setEditingPayoutMethod(!data);
+      // Verified PAN / bank details arrive pre-filled; stay in the form until
+      // every mandatory field (usually just the address) is in.
+      const incomplete =
+        !data ||
+        ![
+          data.account_holder_name,
+          data.bank_account_number,
+          data.bank_ifsc,
+          data.pan_number,
+          data.address_line1,
+          data.city,
+          data.state,
+          data.postal_code,
+        ].every((v) => v?.trim());
+      if (data) fillPayoutForm(data);
+      setEditingPayoutMethod(incomplete);
     } catch (err) {
       console.error('[host/settings] payout method load failed:', err);
     } finally {
@@ -144,6 +181,26 @@ export default function HostSettingsPage() {
       // account number / PAN, meaning "keep what's on file") are omitted.
       const f = payoutForm;
       const m = payoutMethod;
+      const missing = [
+        [f.accountHolderName, 'account holder name'],
+        [f.bankAccountNumber || m?.bank_account_number, 'bank account number'],
+        [f.bankIfsc, 'IFSC code'],
+        [f.panNumber, 'PAN'],
+        [f.addressLine1, 'address'],
+        [f.city, 'city'],
+        [f.state, 'state'],
+        [f.postalCode, 'postal code'],
+      ]
+        .filter(([v]) => !v?.trim())
+        .map(([, label]) => label);
+      if (missing.length > 0) {
+        toast.error(`Please fill in: ${missing.join(', ')}.`);
+        return;
+      }
+      if (!/^\d{6}$/.test(f.postalCode)) {
+        toast.error('Enter a valid 6-digit postal code.');
+        return;
+      }
       const diff: Parameters<typeof api.updatePayoutMethod>[0] = {};
       if (f.accountHolderName.trim() && f.accountHolderName.trim() !== m?.account_holder_name)
         diff.accountHolderName = f.accountHolderName.trim();
@@ -156,13 +213,14 @@ export default function HostSettingsPage() {
       if (f.state.trim() !== (m?.state ?? '') && (m || f.state.trim())) diff.state = f.state.trim();
       if (f.postalCode !== (m?.postal_code ?? '') && (m || f.postalCode)) diff.postalCode = f.postalCode;
 
-      if (Object.keys(diff).length === 0) {
-        toast.info('No changes to save.');
-        setEditingPayoutMethod(false);
-        return;
+      // An empty diff still goes through: the server retries payout setup.
+      const result = await api.updatePayoutMethod(diff);
+      setPayoutSetupError(result.onboardingError ?? null);
+      if (result.onboardingError) {
+        toast.warning(`Saved, but payout setup isn't complete: ${result.onboardingError}`);
+      } else {
+        toast.success('Saved. Any bank or PAN change was verified.');
       }
-      await api.updatePayoutMethod(diff);
-      toast.success('Saved. Any bank or PAN change was verified with SurePass.');
       await loadPayoutMethod();
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Could not save payout details.');
@@ -198,6 +256,21 @@ export default function HostSettingsPage() {
 
   const handleSave = async () => {
     if (!userId) return;
+    const missing = [
+      [name, 'legal name'],
+      [email, 'email address'],
+      [phone, 'phone number'],
+    ]
+      .filter(([v]) => !v.trim())
+      .map(([, label]) => label);
+    if (missing.length > 0) {
+      toast.error(`Please fill in: ${missing.join(', ')}.`);
+      return;
+    }
+    if (phone.replace(/\D/g, '').slice(-10).length !== 10) {
+      toast.error('Enter a valid 10-digit phone number.');
+      return;
+    }
     setSaving(true);
     try {
       await Promise.all([
@@ -212,6 +285,15 @@ export default function HostSettingsPage() {
       ]);
       toast.success('Profile updated.');
       await loadProfile();
+      // Payout setup needs these details too -- retry it if it's still pending.
+      if (payoutMethod && payoutMethod.status !== 'active') {
+        const result = await api.updatePayoutMethod({});
+        setPayoutSetupError(result.onboardingError ?? null);
+        if (result.onboardingError) {
+          toast.warning(`Payout setup isn't complete: ${result.onboardingError}`);
+        }
+        await loadPayoutMethod();
+      }
     } catch (err) {
       console.error('[host/settings] save failed:', err);
       toast.error(err instanceof Error ? err.message : 'Could not save your profile.');
@@ -316,10 +398,20 @@ export default function HostSettingsPage() {
 
               {/* Fields */}
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-                <h3 className="text-lg font-bold text-gray-800 mb-6">Personal Details</h3>
+                <h3 className="text-lg font-bold text-gray-800 mb-4">Personal Details</h3>
+                {(!name.trim() || !email.trim() || !phone.trim()) && (
+                  <div className="mb-6 flex items-start gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
+                    <Landmark className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-800">
+                      <span className="font-bold">To continue as a host, fields marked * are mandatory.</span>{' '}
+                      We need your legal name, email and phone number to set up payouts so you can
+                      receive your earnings.
+                    </p>
+                  </div>
+                )}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-500 ml-1">Legal Name</label>
+                    <label className="text-sm font-bold text-gray-500 ml-1">Legal Name <span className="text-red-500">*</span></label>
                     <input
                       type="text"
                       value={name}
@@ -328,7 +420,7 @@ export default function HostSettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-500 ml-1">Email Address</label>
+                    <label className="text-sm font-bold text-gray-500 ml-1">Email Address <span className="text-red-500">*</span></label>
                     <input
                       type="email"
                       value={email}
@@ -349,7 +441,7 @@ export default function HostSettingsPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <label className="text-sm font-bold text-gray-500 ml-1">Phone Number</label>
+                    <label className="text-sm font-bold text-gray-500 ml-1">Phone Number <span className="text-red-500">*</span></label>
                     <input
                       type="tel"
                       value={phone}
@@ -385,16 +477,7 @@ export default function HostSettingsPage() {
                   {!editingPayoutMethod && payoutMethod && (
                     <button
                       onClick={() => {
-                        setPayoutForm({
-                          accountHolderName: payoutMethod.account_holder_name,
-                          bankAccountNumber: '', // never re-shown in full; re-enter to change
-                          bankIfsc: payoutMethod.bank_ifsc,
-                          panNumber: payoutMethod.pan_number,
-                          addressLine1: payoutMethod.address_line1,
-                          city: payoutMethod.city,
-                          state: payoutMethod.state,
-                          postalCode: payoutMethod.postal_code,
-                        });
+                        fillPayoutForm(payoutMethod);
                         setEditingPayoutMethod(true);
                       }}
                       className="flex items-center gap-2 px-4 py-2 border border-gray-200 text-gray-700 rounded-xl font-bold hover:bg-gray-50 transition-colors"
@@ -468,7 +551,9 @@ export default function HostSettingsPage() {
                       <Landmark className="w-4 h-4 text-amber-600 shrink-0" />
                       <p className="text-xs text-amber-800">
                         {payoutMethod.status === 'submitted' &&
-                          "Your details are saved. We're setting up automatic payouts and will notify you once this account is ready to receive money."}
+                          (payoutSetupError
+                            ? `Payout setup isn't complete: ${payoutSetupError}`
+                            : "Your details are saved. We're setting up automatic payouts and will notify you once this account is ready to receive money.")}
                         {payoutMethod.status === 'onboarding' &&
                           'Your payout account is being verified.'}
                         {payoutMethod.status === 'active' &&
@@ -483,7 +568,7 @@ export default function HostSettingsPage() {
                     <div className="grid grid-cols-2 gap-4">
                       <div className="col-span-2">
                         <label className="block text-xs font-bold text-gray-500 mb-1">
-                          Account holder name (exactly as on your bank account and PAN)
+                          Account holder name (exactly as on your bank account and PAN) <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -496,7 +581,7 @@ export default function HostSettingsPage() {
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1">
-                          Bank account number
+                          Bank account number <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -508,12 +593,16 @@ export default function HostSettingsPage() {
                               bankAccountNumber: e.target.value.replace(/\D/g, ''),
                             }))
                           }
-                          placeholder={payoutMethod ? 'Re-enter to change' : undefined}
+                          placeholder={
+                            payoutMethod?.bank_account_number
+                              ? `${payoutMethod.bank_account_number} (verified -- re-enter to change)`
+                              : undefined
+                          }
                           className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">IFSC code</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">IFSC code <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={payoutForm.bankIfsc}
@@ -526,12 +615,7 @@ export default function HostSettingsPage() {
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1">
-                          PAN{' '}
-                          {kycStatus === 'verified' && (
-                            <span className="font-normal text-gray-400">
-                              (optional -- your identity is already verified)
-                            </span>
-                          )}
+                          PAN <span className="text-red-500">*</span>
                         </label>
                         <input
                           type="text"
@@ -544,7 +628,7 @@ export default function HostSettingsPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Postal code</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Postal code <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           inputMode="numeric"
@@ -559,7 +643,7 @@ export default function HostSettingsPage() {
                         />
                       </div>
                       <div className="col-span-2">
-                        <label className="block text-xs font-bold text-gray-500 mb-1">Address</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">Address <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={payoutForm.addressLine1}
@@ -570,7 +654,7 @@ export default function HostSettingsPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">City</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">City <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={payoutForm.city}
@@ -579,7 +663,7 @@ export default function HostSettingsPage() {
                         />
                       </div>
                       <div>
-                        <label className="block text-xs font-bold text-gray-500 mb-1">State</label>
+                        <label className="block text-xs font-bold text-gray-500 mb-1">State <span className="text-red-500">*</span></label>
                         <input
                           type="text"
                           value={payoutForm.state}
@@ -594,7 +678,7 @@ export default function HostSettingsPage() {
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-figma-navy/5 border border-figma-navy/10">
                       <Landmark className="w-4 h-4 text-figma-navy shrink-0" />
                       <p className="text-xs text-gray-600">
-                        Changing your bank account or PAN re-checks it with SurePass before saving.
+                        Changing your bank account or PAN re-verifies it before saving.
                         Already-verified details don&apos;t need to be re-entered -- leave the account
                         number or PAN blank to keep what&apos;s on file.
                       </p>

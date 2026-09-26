@@ -86,10 +86,12 @@ export function KycVerificationForm({
   }, [defaultName]);
 
   const isIdValid = isValidPanNumber(pan);
-  const canSubmitId = fullName.trim().length > 1 && isIdValid && consent && !idSubmitting;
+  const hasName = fullName.trim().length > 1;
+  const canSubmitId = hasName && isIdValid && consent && !idSubmitting;
 
+  // The bank check also compares the account holder against `fullName`.
   const isBankValid = ACCOUNT_RE.test(accountNumber) && IFSC_RE.test(ifsc);
-  const canSubmitBank = isBankValid && !bankSubmitting;
+  const canSubmitBank = hasName && isBankValid && !bankSubmitting;
 
   // KYC is optional. Deferring is a permanent choice -- the listing flow
   // won't prompt again. The host can come back and finish verification
@@ -106,7 +108,7 @@ export function KycVerificationForm({
 
     setIdSubmitting(true);
     try {
-      const body = await api.verifyPan(pan.trim().toUpperCase());
+      const body = await api.verifyPan(pan.trim().toUpperCase(), fullName.trim());
       const status = body?.status ?? 'pending';
       setIdResult({ status, reason: body?.reason ?? null });
       if (status === 'verified') toast.success('Your PAN has been verified!');
@@ -126,7 +128,11 @@ export function KycVerificationForm({
 
     setBankSubmitting(true);
     try {
-      const body = await api.verifyBank({ accountNumber, ifsc: ifsc.trim().toUpperCase() });
+      const body = await api.verifyBank({
+        accountNumber,
+        ifsc: ifsc.trim().toUpperCase(),
+        fullName: fullName.trim(),
+      });
       if (body?.verified) {
         setBankResult({
           verified: true,

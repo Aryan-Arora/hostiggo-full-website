@@ -5,7 +5,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
-import { api } from '@/lib/api';
+import { api, setStoredSession } from '@/lib/api';
 
 const POST_AUTH_REDIRECT_KEY = 'hostiggo:post-auth-redirect';
 
@@ -54,13 +54,20 @@ function AuthCallbackContent() {
     const finish = async (session: Session) => {
       if (!active) return;
       const user = session.user;
+      // Same fallback the demo-host/OTP flows populate: getBearerToken()
+      // reads it when supabase.auth.getSession() comes back empty right after
+      // the navigation to /onboarding, which otherwise 401s the profile save.
+      setStoredSession(session.access_token, session.refresh_token);
       try {
         // Upsert the profile from Google's identity data before signIn()
         // loads it -- otherwise the first load races the write and can come
         // back empty.
         await fetch('/api/users', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${session.access_token}`,
+          },
           body: JSON.stringify({
             user_id: user.id,
             name: user.user_metadata?.full_name || user.user_metadata?.name || '',
