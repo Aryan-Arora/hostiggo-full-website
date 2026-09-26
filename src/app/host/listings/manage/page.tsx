@@ -534,7 +534,12 @@ export default function ManageListingPage() {
                     {delist.upcomingBookings === 1 ? '' : 's'}.
                   </p>
                 )}
-                <p>You can cancel the request any time before it takes effect.</p>
+                <p>
+                  You can cancel the request any time before it takes effect.{' '}
+                  <Link href="/help/delisting" className="text-figma-navy underline">
+                    How delisting works
+                  </Link>
+                </p>
               </div>
             </AlertDialogDescription>
           </AlertDialogHeader>
