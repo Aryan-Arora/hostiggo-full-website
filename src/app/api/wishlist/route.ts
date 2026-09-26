@@ -3,6 +3,14 @@ import { wishlistAPI } from "@/lib/services/wishlist";
 
 export const dynamic = "force-dynamic";
 
+// Wishlist category ids are uuids. The page's built-in "all" pseudo-group
+// was once sent through as a category id and Postgres answered with
+// 'invalid input syntax for type uuid: "all"' (a 500). Treat anything that
+// isn't a uuid as "no specific category" on reads, and reject it on writes.
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const asCategoryId = (value: unknown): string | undefined =>
+  typeof value === "string" && UUID_RE.test(value) ? value : undefined;
+
 const jsonError = (err: unknown, status = 500) => {
   console.error("[/api/wishlist] error:", err);
   const message =
@@ -18,7 +26,7 @@ export async function GET(req: NextRequest) {
     const resource = req.nextUrl.searchParams.get("resource") ?? "items";
     if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
 
-    const categoryId = req.nextUrl.searchParams.get("categoryId") ?? undefined;
+    const categoryId = asCategoryId(req.nextUrl.searchParams.get("categoryId"));
     const listingId = req.nextUrl.searchParams.get("listingId") ?? undefined;
     if (resource === "listing-categories" && !listingId) {
       return NextResponse.json({ error: "listingId is required" }, { status: 400 });
@@ -49,7 +57,8 @@ export async function POST(req: NextRequest) {
       // Only pass the real wishlists columns through, the raw body also
       // carries `action`, which isn't a column and made every insert fail
       // with "Could not find the 'action' column of 'wishlists'".
-      const { user_id, listing_id, category_id } = body;
+      const { user_id, listing_id } = body;
+      const category_id = asCategoryId(body.category_id);
       const data = await wishlistAPI.addToWishlist({ user_id, listing_id, category_id });
       return NextResponse.json({ data });
     }
@@ -68,7 +77,8 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const { categoryId, name, userId } = await req.json();
+    const { categoryId: rawCategoryId, name, userId } = await req.json();
+    const categoryId = asCategoryId(rawCategoryId);
     if (!categoryId || !name || !userId) {
       return NextResponse.json(
         { error: "categoryId, name and userId are required" },
@@ -91,7 +101,11 @@ export async function PATCH(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const { userId, listingId, categoryId } = await req.json();
+    const { userId, listingId, categoryId: rawCategoryId } = await req.json();
+    if (rawCategoryId && !listingId && !asCategoryId(rawCategoryId)) {
+      return NextResponse.json({ error: "That list can't be removed." }, { status: 400 });
+    }
+    const categoryId = asCategoryId(rawCategoryId);
 
     if (categoryId && !listingId) {
       if (!userId) {
