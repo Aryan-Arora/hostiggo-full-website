@@ -87,10 +87,9 @@ export default function AddOnsHelpPage() {
               </P>
               <Note>
                 Add-ons are part of your booking and can&apos;t be cancelled separately. If you cancel the
-                booking, the automatic refund is calculated on the stay price only, so add-on charges
-                aren&apos;t included. See <A href="/help/refunds">Cancellations &amp; refunds</A>, and email{" "}
-                <a href="mailto:support@hostiggo.com" className="text-figma-navy underline">support@hostiggo.com</a>{" "}
-                about add-on charges.
+                booking, the add-on price is refunded together with the stay under the listing&apos;s
+                cancellation policy (the GST on add-ons isn&apos;t refundable). See{" "}
+                <A href="/help/refunds">Cancellations &amp; refunds</A>.
               </Note>
             </>
           ),

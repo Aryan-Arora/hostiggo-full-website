@@ -6,10 +6,14 @@ const DAY_MS = 24 * HOUR_MS;
 
 export const CANCELLATION_POLICY_DEFAULTS = {
   // Matches Airbnb's Flexible policy (24hr full-refund window). Moderate
-  // (5 days) and Strict (7 days, 50%) already matched Airbnb's Moderate/
-  // Firm cutoffs and were left as-is.
+  // and Strict (7 days, 50%) match Airbnb's Moderate/Firm cutoffs.
   flexibleFullRefundHours: 24,
+  // Moderate (Airbnb semantics): full refund >= 5 days out; between 5 days
+  // and 24h out, moderatePartialRefundPercent of the refundable base;
+  // under 24h, no refund.
   moderateFullRefundDays: 5,
+  moderatePartialRefundPercent: 0.5,
+  moderateNoRefundHours: 24,
   strictPartialRefundDays: 7,
   // Platform-wide fallback for the Strict policy's partial refund when
   // cancelled >= strictPartialRefundDays out. Hosts can override this per
@@ -41,6 +45,10 @@ export function calculateRefund(input: RefundCalculationInput): RefundCalculatio
     policyConfig.strictPartialRefundDays ?? DEFAULTS.strictPartialRefundDays;
   const strictPartialRefundPercent =
     policyConfig.strictPartialRefundPercent ?? DEFAULTS.strictPartialRefundPercent;
+  const moderatePartialRefundPercent =
+    policyConfig.moderatePartialRefundPercent ?? DEFAULTS.moderatePartialRefundPercent;
+  const moderateNoRefundHours =
+    policyConfig.moderateNoRefundHours ?? DEFAULTS.moderateNoRefundHours;
   const nonRefundableChargesPaise = rupeesToPaise(policyConfig.nonRefundableChargesRupees ?? 0);
 
   // Taxes and Hostiggo's own fees are never refundable, no matter which
@@ -77,10 +85,16 @@ export function calculateRefund(input: RefundCalculationInput): RefundCalculatio
         refundAmountPaise = refundableBasePaise;
         refundPercent = invoice.grandTotalPaise > 0 ? refundAmountPaise / invoice.grandTotalPaise : 0;
         reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (>= ${moderateFullRefundDays}d) -- full refund excluding taxes and Hostiggo fees.`;
+      } else if (hoursUntilCheckIn >= moderateNoRefundHours) {
+        refundAmountPaise = roundPaise(
+          Math.max(0, refundableBasePaise * moderatePartialRefundPercent - nonRefundableChargesPaise),
+        );
+        refundPercent = moderatePartialRefundPercent;
+        reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (< ${moderateFullRefundDays}d, >= ${moderateNoRefundHours}h) -- ${(moderatePartialRefundPercent * 100).toFixed(0)}% partial refund excluding taxes, Hostiggo fees, and any non-refundable charges.`;
       } else {
-        refundAmountPaise = roundPaise(Math.max(0, refundableBasePaise - nonRefundableChargesPaise));
-        refundPercent = invoice.grandTotalPaise > 0 ? refundAmountPaise / invoice.grandTotalPaise : 0;
-        reason = `Moderate policy: cancelled ${daysUntilCheckIn.toFixed(2)}d before check-in (< ${moderateFullRefundDays}d) -- partial refund excluding taxes, Hostiggo fees, and non-refundable charges.`;
+        refundAmountPaise = 0;
+        refundPercent = 0;
+        reason = `Moderate policy: cancelled ${hoursUntilCheckIn.toFixed(1)}h before check-in (< ${moderateNoRefundHours}h) -- no refund.`;
       }
       break;
     }

@@ -22,7 +22,7 @@ const POLICIES: { id: Policy; icon: typeof CalendarClock; name: string; desc: st
     id: 'moderate',
     icon: CalendarX2,
     name: 'Moderate',
-    desc: 'Full refund if cancelled 5+ days before check-in. Partial refund within 5 days.',
+    desc: 'Full refund if cancelled 5+ days before check-in. 50% refund if cancelled between 5 days and 24 hours before. No refund within 24 hours.',
   },
   {
     id: 'strict',

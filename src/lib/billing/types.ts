@@ -70,10 +70,14 @@ export interface HostPayoutResult {
 
 export interface CancellationPolicyConfig {
   policy: CancellationPolicyType;
-  /** Hours before check-in required for a 100% refund under the Flexible policy. Default 48. */
+  /** Hours before check-in required for a 100% refund under the Flexible policy. Default 24. */
   flexibleFullRefundHours?: number;
   /** Days before check-in required for a 100% refund under the Moderate policy. Default 5. */
   moderateFullRefundDays?: number;
+  /** Refund fraction (0-1) under Moderate when cancelled < moderateFullRefundDays but >= moderateNoRefundHours before check-in. Default 0.5. */
+  moderatePartialRefundPercent?: number;
+  /** Hours before check-in under which a Moderate cancellation gets no refund. Default 24. */
+  moderateNoRefundHours?: number;
   /** Days before check-in required for a partial refund under the Strict policy. Default 7. */
   strictPartialRefundDays?: number;
   /**
@@ -83,7 +87,7 @@ export interface CancellationPolicyConfig {
    * default (CANCELLATION_POLICY_DEFAULTS.strictPartialRefundPercent, 50%).
    */
   strictPartialRefundPercent?: number;
-  /** Any additional non-refundable charges (rupees) configured for this booking/listing, excluded from Moderate partial refunds. */
+  /** Any additional non-refundable charges (rupees) configured for this booking/listing, deducted from Moderate partial refunds after the partial percentage is applied. Optional; unset by default. */
   nonRefundableChargesRupees?: number;
 }
 

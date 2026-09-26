@@ -41,7 +41,7 @@ export default function RefundsHelpPage() {
                   <tr className="border-t border-figma-border">
                     <td className="p-3 font-semibold">Moderate</td>
                     <td className="p-3">Full refund if cancelled at least 5 days before check-in</td>
-                    <td className="p-3">Partial refund within 5 days: the same refundable amount minus any non-refundable charges</td>
+                    <td className="p-3">50% refund if cancelled less than 5 days but at least 24 hours before check-in. No refund within 24 hours of check-in</td>
                   </tr>
                   <tr className="border-t border-figma-border">
                     <td className="p-3 font-semibold">Strict</td>
@@ -59,13 +59,14 @@ export default function RefundsHelpPage() {
           body: (
             <>
               <P>
-                Refunds are calculated on the stay price. Taxes (GST) and Hostiggo&apos;s service fee, plus the
+                Refunds are calculated on what you paid for the stay and any add-ons you booked with it. Taxes (GST) and Hostiggo&apos;s service fee, plus the
                 GST on that fee, are <strong>never refundable</strong> under any policy. A &ldquo;full refund&rdquo;
                 means the full amount you paid minus those taxes and fees.
               </P>
               <P>
-                Add-ons can&apos;t be cancelled separately from the booking, and add-on charges aren&apos;t part of
-                the automatic refund. See <A href="/help/add-ons">Add-on services</A>.
+                Add-ons can&apos;t be cancelled separately from the booking, but their price is included in the
+                refund: the same policy percentage applies to the stay and add-ons together, and only the GST
+                on add-ons is kept. See <A href="/help/add-ons">Add-on services</A>.
               </P>
             </>
           ),
