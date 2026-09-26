@@ -623,8 +623,14 @@ export const api = {
       const user = data.user;
       if (!user) return data;
 
+      // The app's own stored token isn't written until the caller calls
+      // setStoredSession() after this returns, so pass the fresh session's
+      // token explicitly -- /api/users requires a verified bearer token.
       const profile = await request<CurrentUser>("/api/users", {
         method: "POST",
+        headers: data.session?.access_token
+          ? { Authorization: `Bearer ${data.session.access_token}` }
+          : undefined,
         body: JSON.stringify({
           user_id: user.id,
           name: user.user_metadata?.full_name || user.user_metadata?.name || "",

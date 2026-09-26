@@ -1,4 +1,18 @@
-import { supabase } from "../supabase";
+import { createClient } from "@supabase/supabase-js";
+import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../supabase";
+
+// authApi runs inside /app/api/* route handlers. Calls that *establish* a
+// session (verifyOtp, signInWithPassword, signUp) must not run on the
+// shared module-level `supabase` client: on the server that client is a
+// process-wide singleton, so the session it stores would leak into every
+// later request served by the same instance (another user's requests would
+// silently run as whoever signed in last). A fresh, non-persisting client
+// per call keeps each sign-in isolated; the session is returned to the
+// browser in the response body, which is where it belongs.
+const isolatedClient = () =>
+  createClient(SUPABASE_URL as string, SUPABASE_ANON_KEY as string, {
+    auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false },
+  });
 
 export const authApi = {
   getSession: async () => {
@@ -29,14 +43,14 @@ export const authApi = {
 
   verifyOtp: async (params: { phone?: string; email?: string; token: string; type: "sms" | "email" }) => {
     if (params.type === "email" && params.email) {
-      return await supabase.auth.verifyOtp({
+      return await isolatedClient().auth.verifyOtp({
         email: params.email,
         token: params.token,
         type: "email",
       });
     }
     if (params.phone) {
-      return await supabase.auth.verifyOtp({
+      return await isolatedClient().auth.verifyOtp({
         phone: params.phone,
         token: params.token,
         type: "sms",
@@ -50,11 +64,11 @@ export const authApi = {
   },
 
   signUpWithPassword: async (email: string, password: string) => {
-    return await supabase.auth.signUp({ email, password });
+    return await isolatedClient().auth.signUp({ email, password });
   },
 
   signInWithPassword: async (email: string, password: string) => {
-    return await supabase.auth.signInWithPassword({ email, password });
+    return await isolatedClient().auth.signInWithPassword({ email, password });
   },
 
   signOut: async () => {
