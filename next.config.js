@@ -23,14 +23,19 @@ const nextConfig = {
     minimumCacheTTL: 604800,
     deviceSizes: [360, 640, 828, 1080, 1200, 1920],
   },
-  // TEMPORARY, this-branch-only: proxy the listing-search endpoints to the
-  // standalone Go search service (github.com/Aryan-Arora/search-service-backend)
-  // for integration testing, instead of this app's own route handlers.
-  // beforeFiles makes the rewrite win over the filesystem routes at
-  // src/app/api/{search,locations,hotels}, so those route.ts files never
-  // run while this is in place. Remove this block (and revert to the
-  // original route handlers) once the search service is the confirmed,
-  // permanent backend for these three endpoints.
+  // Proxy listing-search and location-lookup to the standalone Go search
+  // service (github.com/Aryan-Arora/search-service-backend) instead of this
+  // app's own route handlers. beforeFiles makes the rewrite win over the
+  // filesystem routes at src/app/api/{search,locations}, so those route.ts
+  // files never run while this is in place.
+  //
+  // /api/hotels is deliberately NOT proxied here: this app's route also
+  // serves GET /api/hotels?ids=1,2,3 (card lookups for Recently Viewed /
+  // wishlist, added after this Go service was first built), which the Go
+  // service's HotelsService only supports as a location-scoped teaser
+  // query (?locationId=&limit=), not an arbitrary ID list. Proxying it as-is
+  // would silently return empty results for every ids= lookup. Add /api/hotels
+  // back here once the Go service supports that query shape too.
   async rewrites() {
     const searchServiceUrl =
       process.env.SEARCH_SERVICE_URL || 'https://search-service-backend.vercel.app';
@@ -38,7 +43,6 @@ const nextConfig = {
       beforeFiles: [
         { source: '/api/search', destination: `${searchServiceUrl}/api/search` },
         { source: '/api/locations', destination: `${searchServiceUrl}/api/locations` },
-        { source: '/api/hotels', destination: `${searchServiceUrl}/api/hotels` },
       ],
     };
   },
