@@ -2,8 +2,7 @@ import type { AmenityItem, Host, Property, Review, SearchFilters } from "@/types
 import { supabase } from "@/lib/supabase";
 import { toISODate } from "@/lib/utils";
 
-const FALLBACK_IMAGE =
-  "https://images.unsplash.com/photo-1631049307264-da0ec9d70304?w=800&h=600&fit=crop&q=80";
+const FALLBACK_IMAGE = "/placeholder.svg";
 
 export const AUTH_USER_ID_KEY = "hostiggo:user-id";
 export const AUTH_PHONE_KEY = "hostiggo:phone";
@@ -271,6 +270,7 @@ export function mapBooking(item: any) {
 
   return {
     id: String(item.booking_id),
+    listingId: item.listing_id ? String(item.listing_id) : undefined,
     title: item.listing_title ?? "Booked stay",
     image: item.cover_photo_url || FALLBACK_IMAGE,
     location: item.location ?? [item.district, item.state].filter(Boolean).join(", "),
@@ -674,7 +674,7 @@ export const api = {
       data: any[];
       cursor: number | null;
       hasMore: boolean;
-      totalCount: number;
+      totalCount: number | null;
       stateBounds?: any;
       error?: string;
     };
@@ -713,8 +713,14 @@ export const api = {
       const user = data.user;
       if (!user) return data;
 
+      // The app's own stored token isn't written until the caller calls
+      // setStoredSession() after this returns, so pass the fresh session's
+      // token explicitly -- /api/users requires a verified bearer token.
       const profile = await request<CurrentUser>("/api/users", {
         method: "POST",
+        headers: data.session?.access_token
+          ? { Authorization: `Bearer ${data.session.access_token}` }
+          : undefined,
         body: JSON.stringify({
           user_id: user.id,
           name: user.user_metadata?.full_name || user.user_metadata?.name || "",
@@ -722,7 +728,7 @@ export const api = {
           phone: user.phone || null,
           age: user.user_metadata?.age || null,
           emergency_contact: user.user_metadata?.emergency_contact || null,
-          is_verified: true,
+          is_verified: false,
           is_active: true,
         }),
       });

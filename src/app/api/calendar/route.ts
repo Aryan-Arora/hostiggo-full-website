@@ -23,13 +23,15 @@ export async function GET(req: NextRequest) {
 
     const [entries, bookings] = await Promise.all([
       calendarServiceAPI.fetchCalendarEntries(listingId, startDate, endDate),
-      calendarServiceAPI.fetchBookingsForListing(listingId, startDate, endDate),
+      // Public route: use the anon-safe RPC (no amount/user_id/host_uuid/
+      // guest name) instead of querying `bookings` directly, since the
+      // anon role has no table grants under the current RLS policies.
+      calendarServiceAPI.fetchPublicBookedDates(listingId, startDate, endDate),
     ]);
 
     // Public endpoint: only which dates are taken, never who booked or what
     // they paid.
     const publicBookings = bookings.map((b) => ({
-      booking_id: b.booking_id,
       start_date: b.start_date,
       end_date: b.end_date,
       status_id: b.status_id,

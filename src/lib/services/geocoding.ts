@@ -257,11 +257,31 @@ export function formatAddress(address: GeocodingResult['address']): string {
  * post-listing "manage" edit page, so both auto-detect the same way.
  */
 export async function resolveLocationId(city?: string, county?: string): Promise<number | undefined> {
+  // The search endpoint is a *prefix* full-text match
+  // (search_locations_partial: `term:*`), and this used to accept whatever
+  // row came back first. So a geocoded name that merely starts like, or
+  // shares a word with, a curated location got silently tagged with it
+  // (e.g. "Dehra" -> Dehradun), and the listing then displayed that city.
+  // Only accept a row whose district/area name actually equals the
+  // geocoded name; otherwise leave location_id unset for the host to pick.
+  const norm = (v: unknown) =>
+    String(v ?? "")
+      .normalize("NFD")
+      .replace(/[̀-ͯ]/g, "")
+      .toLowerCase()
+      .replace(/\b(district|city|division|tehsil)\b/g, "")
+      .replace(/[^a-z0-9]+/g, " ")
+      .trim();
   for (const candidate of [city, county]) {
     if (!candidate) continue;
     try {
+      const wanted = norm(candidate);
+      if (!wanted) continue;
       const results = await api.locations(1, candidate);
-      if (results?.[0]?.location_id) return results[0].location_id;
+      const match = (results ?? []).find(
+        (l: any) => norm(l?.district) === wanted || norm(l?.lower_division_name) === wanted,
+      );
+      if (match?.location_id) return match.location_id;
     } catch {
       // Non-fatal -- callers shouldn't fail because location lookup failed.
     }

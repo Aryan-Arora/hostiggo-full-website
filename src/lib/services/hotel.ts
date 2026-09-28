@@ -1,5 +1,6 @@
 import { supabase, supabaseCacheable } from '../supabase';
 import { supabaseAdmin } from '../supabase-admin';
+import { resolveDestinationAlias } from '../destinationAliases';
 import {
   SearchFilters,
   GuestlistingSearchResults,
@@ -160,59 +161,6 @@ export const HotelServiceApi = {
     return (data || []) as ListingRow[];
   },
 
-  // Listings whose location matches a district name (case-insensitive). Used as
-  // a fallback for the search flow: the `search_listings` RPC currently returns
-  // nothing for some districts (e.g. New Delhi) even though active listings
-  // exist there, so a plain destination search can query them directly.
-  // TODO: remove once the search_listings RPC district matching is fixed.
-  getListingsByDistrict: async (
-    district: string,
-    limit: number = 20,
-    offset: number = 0,
-  ): Promise<ListingRow[]> => {
-    // Resolve matching location ids first (filtering listings on an embedded
-    // location column is unreliable via PostgREST), then fetch listings in those
-    // locations, mirroring the proven getListingsByLocationId path.
-    const { data: locs, error: locErr } = await supabase
-      .from('locations')
-      .select('location_id')
-      .ilike('district', district)
-      .limit(1000);
-
-    if (locErr) {
-      console.error('Fetch error (getListingsByDistrict/locations):', locErr);
-      throw locErr;
-    }
-
-    const locationIds = (locs || []).map((l: any) => l.location_id);
-    if (locationIds.length === 0) return [];
-
-    const { data, error } = await supabase
-      .from('listings')
-      .select(
-        `
-        listing_id,
-        title,
-        price_weekday,
-        location_id,
-        locations (state, district),
-        listing_media (media_url, is_cover)
-      `,
-      )
-      .eq('is_active', true)
-      .in('location_id', locationIds)
-      .eq('listing_media.is_cover', true)
-      .order('listing_id', { ascending: false })
-      .range(offset, offset + limit - 1);
-
-    if (error) {
-      console.error('Fetch error (getListingsByDistrict/listings):', error);
-      throw error;
-    }
-
-    return (data || []) as ListingRow[];
-  },
-
   // Listings owned by a given user (resolves host_uuid via the host table).
   // Paginated via offset/limit so hosts with more than a page of listings
   // (the demo host has 150+) aren't silently capped.
@@ -305,17 +253,46 @@ export const HotelServiceApi = {
   ): Promise<{
     data: SearchListingRpcRow[];
     hasMore: boolean;
-    totalCount: number;
+    totalCount: number | null;
     stateBounds: any;
   }> => {
     const amenityIds = filters.amenities ? filters.amenities.map(Number) : [];
     const selectedRatings = filters.ratings || [];
 
     // Determine search scope: use state if provided, otherwise use district (location)
-    const searchState = filters.state;
-    const searchDistrict = filters.district;
+    let searchState = filters.state;
+    let searchDistrict = filters.district;
 
-    const { data, error, count } = await supabase.rpc('search_listings_by_state', {
+    // Map names the stored locations don't use ("New Delhi", "Gurgaon") onto
+    // ones they do, before the exact state/district matching below.
+    if (!searchState && searchDistrict) {
+      const alias = resolveDestinationAlias(searchDistrict);
+      if (alias) {
+        searchState = alias.state;
+        searchDistrict = alias.district;
+      }
+    }
+
+    // The destination box always sends the typed text as `district`. Listings
+    // are stored per city/district, so typing a STATE name (e.g. "Uttarakhand")
+    // matches no district and returns nothing. Detect that: if the typed value
+    // is actually a state, search the whole state instead of a same-named
+    // district. (A city that shares its name with its state still works, since
+    // we then match every listing in that state, which includes it.)
+    if (!searchState && searchDistrict) {
+      const { data: stateMatch } = await supabase
+        .from('locations')
+        .select('state')
+        .ilike('state', searchDistrict.trim())
+        .limit(1)
+        .maybeSingle();
+      if (stateMatch?.state) {
+        searchState = stateMatch.state;
+        searchDistrict = undefined; // match the whole state, not a district
+      }
+    }
+
+    const { data, error } = await supabase.rpc('search_listings_by_state', {
       p_state: searchState || null,
       p_district: searchDistrict || null,
       p_cursor: cursor,
@@ -328,11 +305,44 @@ export const HotelServiceApi = {
       p_amenities: amenityIds,
       p_roomtypes: filters.roomTypes,
       p_limit: pageSize,
-    }, { count: 'exact' });
+    });
 
     if (error) {
       console.error('[filterHotelsByState] RPC error:', JSON.stringify(error, null, 2));
       throw error;
+    }
+
+    // True match count, independent of p_limit. search_listings_by_state ends
+    // with `LIMIT p_limit`, so a PostgREST `count: 'exact'` on it only ever
+    // counts the current page -- which is why the header capped at the page
+    // size regardless of how many listings matched. Get the real total from
+    // the dedicated no-LIMIT count RPC (migration 003). Only needed on the
+    // first page; later cursor pages return null so the client keeps the count
+    // it already has instead of overwriting it with a per-page number.
+    let totalCount: number | null = null;
+    if (cursor === null) {
+      const { data: cnt, error: cntErr } = await supabase.rpc(
+        'search_listings_by_state_count',
+        {
+          p_state: searchState || null,
+          p_district: searchDistrict || null,
+          p_start_date: filters.startDate,
+          p_end_date: filters.endDate,
+          p_min_price: filters.minPrice,
+          p_max_price: filters.maxPrice,
+          p_total_guests: filters.totalGuests,
+          p_ratings: selectedRatings,
+          p_amenities: amenityIds,
+          p_roomtypes: filters.roomTypes,
+        },
+      );
+      if (cntErr) {
+        console.error('[filterHotelsByState] count RPC error:', JSON.stringify(cntErr, null, 2));
+        // Fall back to the loaded page size so the header still shows a number.
+        totalCount = data?.length ?? 0;
+      } else {
+        totalCount = Number(cnt ?? 0);
+      }
     }
 
     // Get state boundaries for map (if state-level search). District
@@ -379,7 +389,7 @@ export const HotelServiceApi = {
     return {
       data: (data || []) as SearchListingRpcRow[],
       hasMore,
-      totalCount: count || 0,
+      totalCount,
       stateBounds,
     };
   },
@@ -472,28 +482,36 @@ export const HotelServiceApi = {
         .lte('end_date', today),
     ]);
 
-    if (hostRow.error) console.error('[getHotelDetail] host lookup failed:', hostRow.error.message);
-    if (tripsHosted.error) console.error('[getHotelDetail] trips count failed:', tripsHosted.error.message);
-    const hostData = hostRow.data?.[0] as
-      | { host_uuid: string; user_id: string; photo: string | null; is_verified: boolean | null }
-      | undefined;
-    const { data: hostUsers } = hostData
-      ? await supabaseAdmin.from('users').select('name, created_at').eq('user_id', hostData.user_id).limit(1)
-      : { data: null };
-    const hostUser = hostUsers?.[0] as { name: string | null; created_at: string | null } | undefined;
+    // Resolve the owner for the "Hosted by" section. The listings query above
+    // can't embed this (host_uuid -> host.user_id -> users.name spans two
+    // hops), so look it up and attach as `host`, which the guest page reads
+    // instead of falling back to the literal string "Host".
+    let host: Record<string, unknown> | null = null;
+    if ((data as any).host_uuid) {
+      const { data: hostRow } = await supabaseAdmin
+        .from('host')
+        .select('host_uuid, user_id, photo, is_verified, about')
+        .eq('host_uuid', (data as any).host_uuid)
+        .maybeSingle();
+      if (hostRow) {
+        const { data: userRow } = await supabaseAdmin
+          .from('users')
+          .select('name, profile_pic_url')
+          .eq('user_id', hostRow.user_id)
+          .maybeSingle();
+        host = {
+          id: hostRow.host_uuid,
+          name: userRow?.name ?? 'Host',
+          photo: hostRow.photo ?? userRow?.profile_pic_url ?? null,
+          is_verified: hostRow.is_verified ?? false,
+          about: hostRow.about ?? null,
+        };
+      }
+    }
 
     return {
       ...data,
-      host: hostData
-        ? {
-            id: hostData.host_uuid,
-            name: hostUser?.name ?? null,
-            photo: hostData.photo ?? null,
-            is_verified: Boolean(hostData.is_verified),
-            joinDate: hostUser?.created_at ?? '',
-            tripsHosted: tripsHosted.count ?? 0,
-          }
-        : null,
+      host,
       listing_house_rules: houseRules.data?.[0] ?? null,
       listing_safety_details: safetyDetails.data ?? [],
     };

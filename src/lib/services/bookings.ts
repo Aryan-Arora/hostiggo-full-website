@@ -79,6 +79,7 @@ export const bookingsAPI = {
       .select(
         `
         booking_id,
+        listing_id,
         amount,
         refund_amount,
         refund_status,
@@ -100,6 +101,7 @@ export const bookingsAPI = {
       const listing = extra?.listings;
       return {
         ...r,
+        listing_id: extra?.listing_id ?? r.listing_id ?? null,
         amount: extra?.amount ?? null,
         refundAmount: extra?.refund_amount ?? null,
         refundStatus: extra?.refund_status ?? null,

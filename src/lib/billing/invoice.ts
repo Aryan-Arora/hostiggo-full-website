@@ -87,3 +87,17 @@ export function calculateBookingInvoice(input: BookingInvoiceInput): BookingInvo
     grandTotalRupees: grandTotalPaise / 100,
   };
 }
+
+/**
+ * Guest-facing all-in price for ONE night at `nightlyRupees`: base rate +
+ * GST on the property (slab chosen from that nightly rate) + Hostiggo
+ * service fee + GST on the service fee -- the exact same math as the
+ * checkout invoice above (calculateBookingInvoice), so the number on a
+ * listing card matches what a one-night booking actually costs before
+ * optional add-ons. Rounded to whole rupees for display.
+ */
+export function allInNightlyPrice(nightlyRupees: number): number {
+  if (!Number.isFinite(nightlyRupees) || nightlyRupees <= 0) return 0;
+  const invoice = calculateBookingInvoice({ basePropertyPrice: nightlyRupees });
+  return Math.round(invoice.grandTotalPaise / 100);
+}

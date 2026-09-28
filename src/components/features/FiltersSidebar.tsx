@@ -166,16 +166,23 @@ function PriceSlider({
   onPriceChange: (min: number, max: number) => void;
 }) {
   const MIN = 0;
-  const MAX = 15000;
+  // Must match the "no upper filter" sentinel used everywhere else
+  // (ListingFilterContext/HomeSections/api.ts all treat priceMax=100000 as
+  // "unbounded"). This used to be hardcoded to 15000 -- a stale value from
+  // before the price ceiling was raised -- which clamped the max thumb to
+  // 100% no matter the actual filters.priceMax, and put the tick labels on
+  // a completely different, much smaller scale than the "Min - Max" text
+  // directly above them.
+  const MAX = 100000;
   const pct1 = Math.min(100, Math.max(0, (min / MAX) * 100));
   const pct2 = Math.min(100, Math.max(0, (max / MAX) * 100));
 
   const ticks = [
     { v: 0, label: '₹0' },
-    { v: 1000, label: '₹1000' },
-    { v: 4000, label: '₹4000' },
-    { v: 10000, label: '₹10,000' },
-    { v: 15000, label: '₹15k+' },
+    { v: 25000, label: '₹25k' },
+    { v: 50000, label: '₹50k' },
+    { v: 75000, label: '₹75k' },
+    { v: 100000, label: '₹100k+' },
   ];
 
   return (

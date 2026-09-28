@@ -471,7 +471,10 @@ export default function HostSettingsPage() {
                   <div>
                     <h3 className="text-lg font-bold text-gray-800">Payout Methods</h3>
                     <p className="text-sm text-gray-500">
-                      Manage how you receive your hosting earnings.
+                      Manage how you receive your hosting earnings.{' '}
+                      <Link href="/help/payouts" className="text-figma-navy underline">
+                        How payouts work
+                      </Link>
                     </p>
                   </div>
                   {!editingPayoutMethod && payoutMethod && (
@@ -721,9 +724,10 @@ export default function HostSettingsPage() {
                         ? 'Your identity has been successfully verified.'
                         : kycStatus === 'pending'
                           ? 'Your documents are in -- verification is in progress.'
-                          : kycStatus === 'rejected'
-                            ? 'We could not verify your last submission. Please double-check your PAN and re-submit.'
-                            : 'Optional. Verified hosts get more guest trust and bookings.'}
+                          : 'Optional. Verified hosts get more guest trust and bookings.'}{' '}
+                      <Link href="/help/verify-identity" className="text-figma-navy underline">
+                        Learn more
+                      </Link>
                     </p>
                   </div>
                 </div>

@@ -57,8 +57,14 @@ export function clearAiImportDraft(): void {
 }
 
 // The AI-generated listing content a host reviews/edits before publishing.
-// Populated by Processing from the real AI-lister job result.
+// Populated by Processing from the real AI-lister job result. One of these
+// per source URL -- Review/Publish always work over an array (a single
+// import is just an array of length 1), so the single- and multi-listing
+// paths share one code path instead of branching.
 export type AiGeneratedListing = {
+  // Which Setup row this came from -- lets Review label tabs and lets a
+  // re-import attempt find the right slot to replace.
+  sourceUrl: string;
   title: string;
   description: string;
   numGuests: number;
@@ -94,31 +100,70 @@ export type AiGeneratedListing = {
   roomType?: string;
 };
 
-const GENERATED_KEY = 'hostiggo:ai-listing-generated';
+// A source URL that failed to import -- kept alongside the successful ones
+// so Review/Publish can show "3 of 4 imported, 1 failed" instead of
+// silently dropping it.
+export type FailedImport = {
+  sourceUrl: string;
+  error: string;
+};
 
-export function loadGeneratedListing(): AiGeneratedListing | null {
-  if (typeof window === 'undefined') return null;
+const GENERATED_LIST_KEY = 'hostiggo:ai-listing-generated-list';
+const FAILED_LIST_KEY = 'hostiggo:ai-listing-failed-list';
+
+export function loadGeneratedListings(): AiGeneratedListing[] {
+  if (typeof window === 'undefined') return [];
   try {
-    const raw = window.localStorage.getItem(GENERATED_KEY);
-    return raw ? JSON.parse(raw) : null;
+    const raw = window.localStorage.getItem(GENERATED_LIST_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
   } catch {
-    return null;
+    return [];
   }
 }
 
-export function saveGeneratedListing(listing: AiGeneratedListing): void {
+export function saveGeneratedListings(listings: AiGeneratedListing[]): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.setItem(GENERATED_KEY, JSON.stringify(listing));
+    window.localStorage.setItem(GENERATED_LIST_KEY, JSON.stringify(listings));
   } catch {
     /* ignore */
   }
 }
 
-export function clearGeneratedListing(): void {
+export function clearGeneratedListings(): void {
   if (typeof window === 'undefined') return;
   try {
-    window.localStorage.removeItem(GENERATED_KEY);
+    window.localStorage.removeItem(GENERATED_LIST_KEY);
+  } catch {
+    /* ignore */
+  }
+}
+
+export function loadFailedImports(): FailedImport[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = window.localStorage.getItem(FAILED_LIST_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveFailedImports(failed: FailedImport[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.setItem(FAILED_LIST_KEY, JSON.stringify(failed));
+  } catch {
+    /* ignore */
+  }
+}
+
+export function clearFailedImports(): void {
+  if (typeof window === 'undefined') return;
+  try {
+    window.localStorage.removeItem(FAILED_LIST_KEY);
   } catch {
     /* ignore */
   }

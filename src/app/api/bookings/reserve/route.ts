@@ -14,10 +14,12 @@ export const dynamic = "force-dynamic";
 // up -- no pending row, no held calendar nights.
 export async function POST(req: NextRequest) {
   try {
-    // The caller's own verified identity, never a client-supplied userId --
-    // this is who the Razorpay order (and, once paid, the booking itself)
-    // gets created for. A spoofed userId here would let anyone pay for a
-    // booking that lands on someone else's account. See getAuthenticatedUserId().
+    // The caller's identity comes from their verified Supabase session, not
+    // a client-supplied userId -- this endpoint opens a real Razorpay order,
+    // so a spoofed userId here could create charges/bookings attributed to
+    // someone else's account. src/lib/api.ts's request() helper already
+    // sends the real Bearer token on every call; this was the one place
+    // that never checked it.
     const userId = await getAuthenticatedUserId(req);
 
     const body = await req.json();
@@ -109,7 +111,7 @@ export async function POST(req: NextRequest) {
     });
   } catch (err: any) {
     if (err instanceof UnauthorizedError) {
-      return NextResponse.json({ error: err.message }, { status: 401 });
+      return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
     }
     console.error("[/api/bookings/reserve] error:", err?.message, err?.code, err?.details, err?.hint);
     return NextResponse.json(

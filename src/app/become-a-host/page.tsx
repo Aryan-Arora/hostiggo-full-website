@@ -1,5 +1,5 @@
 import Link from 'next/link';
-import { ArrowRight, TrendingUp } from 'lucide-react';
+import { ArrowRight, TrendingUp, Percent, Package, CalendarDays, Wallet, ShieldCheck } from 'lucide-react';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 
@@ -14,6 +14,45 @@ import Footer from '@/components/layout/Footer';
 // CTABanner.tsx pending a real design_context pass.
 const FEATURES = ['Add Services', 'Manage bookings', 'Get Paid Securely'];
 const CHART_BARS = [35, 60, 45, 88, 62, 75, 50, 92];
+
+// Target of the hero's "Learn More" button (href="#why-hostiggo"), which
+// previously pointed at an anchor that didn't exist on the page, so the
+// button did nothing. Every point here restates something the product
+// already offers/states elsewhere (CTABanner commission offer, the listing
+// wizard's Add-ons / Cancellation policy steps, calendar, payouts) -- no
+// new claims.
+const WHY_HOSTIGGO = [
+  {
+    id: 'commission',
+    icon: Percent,
+    title: '0% commission to start',
+    body: 'Your first 10 bookings are commission-free. After that, a low 2% platform commission applies.',
+  },
+  {
+    id: 'add-on-services',
+    icon: Package,
+    title: 'Add-on services',
+    body: 'Offer extras like meals or experiences alongside your stay, with your own price, timings and what is included. Guests add them while booking.',
+  },
+  {
+    id: 'bookings',
+    icon: CalendarDays,
+    title: 'Manage bookings in one place',
+    body: 'Set weekday and weekend prices, discounts and availability from your host dashboard and calendar.',
+  },
+  {
+    id: 'policy',
+    icon: ShieldCheck,
+    title: 'Your cancellation policy',
+    body: 'Choose Flexible, Moderate or Strict for each listing. Refunds are calculated from the policy you pick.',
+  },
+  {
+    id: 'payouts',
+    icon: Wallet,
+    title: 'Get paid securely',
+    body: 'Add your bank details once and track earnings and payouts from the dashboard.',
+  },
+];
 
 export default function BecomeAHostPage() {
   return (
@@ -104,6 +143,37 @@ export default function BecomeAHostPage() {
                 </div>
               </div>
             </div>
+          </div>
+        </section>
+
+        <section id="why-hostiggo" className="scroll-mt-24 mt-14 md:mt-20">
+          <h2 className="text-2xl md:text-3xl font-extrabold text-gray-900 mb-2">Why host with Hostiggo</h2>
+          <p className="text-gray-600 mb-8 max-w-2xl">
+            Everything you need to list your homestay and start receiving bookings.
+          </p>
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+            {WHY_HOSTIGGO.map(({ id, icon: Icon, title, body }) => (
+              <div
+                key={id}
+                id={id}
+                className="scroll-mt-24 bg-white rounded-2xl border border-gray-200 p-6 shadow-sm"
+              >
+                <div className="w-10 h-10 rounded-xl bg-figma-navy/10 text-figma-navy flex items-center justify-center mb-4">
+                  <Icon className="w-5 h-5" />
+                </div>
+                <h3 className="font-bold text-gray-900 mb-1.5">{title}</h3>
+                <p className="text-sm text-gray-600 leading-relaxed">{body}</p>
+              </div>
+            ))}
+          </div>
+          <div className="mt-8">
+            <Link
+              href="/host/list/method"
+              className="inline-flex items-center gap-2 bg-figma-navy hover:bg-figma-navy/90 text-white px-6 py-3 rounded-xl font-semibold text-sm transition-all"
+            >
+              List your homestay
+              <ArrowRight className="w-4 h-4" />
+            </Link>
           </div>
         </section>
       </main>

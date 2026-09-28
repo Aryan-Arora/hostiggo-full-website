@@ -53,6 +53,15 @@ function AuthCallbackContent() {
 
     const finish = async (session: Session) => {
       if (!active) return;
+      // The one-time ?code= (or #access_token fragment) has been consumed by
+      // now; drop it from the address bar/history immediately instead of
+      // leaving it visible while the profile loads. The path itself has to
+      // stay /auth/callback -- it's the redirect URL registered with Supabase.
+      try {
+        window.history.replaceState(null, '', window.location.pathname);
+      } catch {
+        /* ignore */
+      }
       const user = session.user;
       // Same fallback the demo-host/OTP flows populate: getBearerToken()
       // reads it when supabase.auth.getSession() comes back empty right after
@@ -74,7 +83,7 @@ function AuthCallbackContent() {
             email: user.email || user.user_metadata?.email || '',
             phone: user.phone || null,
             profile_pic_url: user.user_metadata?.avatar_url || user.user_metadata?.picture || null,
-            is_verified: true,
+            is_verified: false,
             is_active: true,
           }),
         });

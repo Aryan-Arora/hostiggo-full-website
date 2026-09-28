@@ -1,9 +1,10 @@
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { MapPin, Clock, Navigation, Loader2 } from 'lucide-react';
 import { SUGGESTED_DESTINATIONS, findCityGuide } from '@/constants/data';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { buildDestinationOptions } from '@/lib/destinationOptions';
 import { reverseGeocode } from '@/lib/services/geocoding';
 
 interface DestinationDropdownProps {
@@ -51,6 +52,60 @@ export default function DestinationDropdown({
   const inputRef = useRef<HTMLInputElement>(null);
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const router = useRouter();
+  const [allListings, setAllListings] = useState<any[]>([]);
+
+  // Load every active listing once so destinations can be ranked by how many
+  // listings each state actually has. Cheap (cached, cover-photo rows only).
+  useEffect(() => {
+    let mounted = true;
+    api
+      .hotels()
+      .then((rows) => {
+        if (mounted) setAllListings(Array.isArray(rows) ? rows : []);
+      })
+      .catch(() => {
+        /* ranking is a nicety -- fall back to the original order on error */
+      });
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  // state name (normalised) -> number of listings in that state.
+  const listingCountByState = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const row of allListings) {
+      const state = (row?.locations?.state ?? '').trim().toLowerCase();
+      if (!state) continue;
+      counts.set(state, (counts.get(state) ?? 0) + 1);
+    }
+    return counts;
+  }, [allListings]);
+
+  // Listings in the state a destination points at. Drives both the ranking
+  // and the "(N stays)" label so the two always agree.
+  const countOf = useCallback(
+    (place?: string | null) =>
+      listingCountByState.get((place ?? '').trim().toLowerCase()) ?? 0,
+    [listingCountByState],
+  );
+
+  // Live results, one option per place (plus the whole state when the query
+  // names one), re-ranked on every change so states with the most listings
+  // come first.
+  const destinationOptions = useMemo(
+    () => buildDestinationOptions(results, query, countOf),
+    [results, query, countOf],
+  );
+
+  // Same ranking for the default "click to open" suggestions.
+  const sortedSuggested = useMemo(
+    () =>
+      [...SUGGESTED_DESTINATIONS].sort(
+        (a, b) => countOf(b.state || b.name) - countOf(a.state || a.name),
+      ),
+    [countOf],
+  );
 
   useEffect(() => {
     setRecent(getRecentSearches());
@@ -201,7 +256,7 @@ export default function DestinationDropdown({
                   {cityGuide.city}
                 </p>
                 <p className="text-[12px] text-gray-400 mt-0.5">
-                  ({cityGuide.stayCount.toLocaleString('en-IN')} stays)
+                  ({countOf(cityGuide.state).toLocaleString('en-IN')} stays)
                 </p>
               </div>
             </button>
@@ -277,7 +332,7 @@ export default function DestinationDropdown({
               Suggested destinations
             </p>
             <div className="px-4 pb-4 grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-3.5">
-              {SUGGESTED_DESTINATIONS.map((dest) => (
+              {sortedSuggested.map((dest) => (
                 <button
                   key={dest.id}
                   onClick={() => handleSelect(dest.name)}
@@ -299,7 +354,7 @@ export default function DestinationDropdown({
                       </p>
                     )}
                     <p className="text-[11px] text-gray-400 mt-0.5">
-                      ({dest.stayCount.toLocaleString('en-IN')} stays)
+                      ({countOf(dest.state || dest.name).toLocaleString('en-IN')} stays)
                     </p>
                   </div>
                 </button>
@@ -313,7 +368,7 @@ export default function DestinationDropdown({
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">Searching...</p>
               </div>
-            ) : results.length === 0 ? (
+            ) : destinationOptions.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-sm text-gray-400 font-medium">
                   No exact match found in database
@@ -323,12 +378,11 @@ export default function DestinationDropdown({
                 </p>
               </div>
             ) : (
-              results.map((dest) => {
-                const displayName =
-                  dest.district || dest.lower_division_name || dest.state;
+              destinationOptions.map((dest) => {
+                const displayName = dest.name;
                 return (
                   <button
-                    key={dest.location_id}
+                    key={dest.key}
                     onClick={() => handleSelect(displayName)}
                     className={cn(
                       'w-full flex items-center gap-3 px-4 py-2.5 hover:bg-figma-navy/5 transition-colors text-left group',
@@ -343,7 +397,7 @@ export default function DestinationDropdown({
                         {displayName}
                       </p>
                       <p className="text-[11px] text-gray-400 truncate">
-                        {dest.state}
+                        {dest.wholeState ? `All stays in ${dest.state}` : dest.state}
                       </p>
                     </div>
                     {value === displayName && (

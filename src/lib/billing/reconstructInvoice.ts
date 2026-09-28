@@ -12,6 +12,24 @@ export function eachDateInRange(startDate: string, endDate: string): string[] {
   return dates;
 }
 
+// Splits a booking's recorded add-ons (booking_addons rows: price + the
+// catalogue category stored as `type` at booking time) into the same
+// breakfast / other-services buckets validateAndPriceBooking() used when it
+// priced the booking, so the reconstructed invoice carries the same add-on
+// cost and the same add-on GST lines the guest actually paid.
+export function splitBookingAddons(
+  rows: { price: number | string | null; type: string | null }[] | null | undefined,
+): { breakfastPrice: number; otherServicesPrice: number } {
+  let breakfastPrice = 0;
+  let otherServicesPrice = 0;
+  for (const r of rows ?? []) {
+    const price = Number(r.price ?? 0);
+    if (r.type?.toLowerCase().includes("breakfast")) breakfastPrice += price;
+    else otherServicesPrice += price;
+  }
+  return { breakfastPrice, otherServicesPrice };
+}
+
 // Reconstructs the same subtotal + GST-slab basis createBooking() computed
 // at booking time: weekend nights (Fri/Sat) priced at price_weekend,
 // everything else at price_weekday, with the check-in night's own rate
