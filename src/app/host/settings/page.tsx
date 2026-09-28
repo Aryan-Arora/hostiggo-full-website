@@ -626,6 +626,10 @@ export default function HostSettingsPage() {
                           placeholder="ABCDE1234F"
                           className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
                         />
+                        <p className="text-[11px] text-gray-400 mt-1">
+                          Required to receive payouts, even if you verified your identity with Aadhaar or
+                          passport.
+                        </p>
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1">Postal code <span className="text-red-500">*</span></label>

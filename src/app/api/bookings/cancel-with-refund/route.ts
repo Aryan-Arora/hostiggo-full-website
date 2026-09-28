@@ -4,14 +4,10 @@ import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
-// Deliberately a new, separate endpoint from the existing
-// /api/bookings/cancel (a simple status-flip with no refund logic, still
-// used by the guest my-memories cancel flow today). This one runs the full
-// Section 4 policy-aware refund engine. The two aren't merged in this pass
-// so the already-working simple cancel flow can't regress -- switching
-// guest-facing cancellation over to this endpoint is a separate, deliberate
-// follow-up once the billing migrations have been run and this has been
-// tested against a real Razorpay payment.
+// The cancel path for both guests (my-memories) and hosts (host/bookings/
+// cancel): runs the full Section 4 policy-aware refund engine. The older
+// /api/bookings/cancel is a plain status flip with no refund and no longer
+// has a caller in the app.
 export async function POST(req: NextRequest) {
   try {
     // The caller's identity comes from their verified Supabase session, not

@@ -115,7 +115,7 @@ export function ListingDraftProvider({ children }: { children: ReactNode }) {
   const submit = useCallback(async () => {
     if (!isAuthenticated || !userId) {
       toast('Please sign in to publish your listing.');
-      router.push('/signin?redirect=/host/list/verification');
+      router.push('/signin?redirect=/host/list/house-rules');
       return;
     }
     setSubmitting(true);

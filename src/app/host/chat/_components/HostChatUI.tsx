@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useRef, useCallback, useMemo } from 'react';
 import Image from 'next/image';
-import { Send, Search, MoreVertical, X } from 'lucide-react';
+import { Send, Search, ArrowLeft, Loader2, MessageSquare, MessagesSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
 
@@ -37,6 +37,8 @@ export default function HostChatUI() {
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  // Mobile shows either the list or the open thread, not both.
+  const [mobileShowChat, setMobileShowChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const fetchConversations = useCallback(async () => {
@@ -53,7 +55,7 @@ export default function HostChatUI() {
       const formattedConversations: ConversationUser[] = chats.map((chat: any) => ({
         id: chat.participant_id,
         name: chat.participant_name || 'Guest',
-        avatar: chat.participant_avatar || 'https://i.pravatar.cc/150',
+        avatar: chat.participant_avatar || '',
         lastMessage: chat.last_message || 'No messages yet',
         lastMessageTime: chat.last_message_time ? formatTime(new Date(chat.last_message_time)) : 'Never',
         unreadCount: chat.unread_count || 0,
@@ -180,147 +182,170 @@ export default function HostChatUI() {
   }, [messageText, selectedConversationId, userId, sending, fetchConversations]);
 
   const selectedConversation = conversations.find((c) => c.id === selectedConversationId);
-  
+
   const filteredConversations = conversations.filter((conv) =>
     conv.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const openConversation = (id: string) => {
+    setSelectedConversationId(id);
+    setMobileShowChat(true);
+  };
+
+  const inboxEmpty = !loading && conversations.length === 0;
+
   return (
-    <div className="flex h-full gap-4">
-      {/* Conversations Sidebar */}
-      <div className="w-full md:w-80 flex flex-col bg-white rounded-2xl border border-gray-200 overflow-hidden">
-        {/* Header */}
-        <div className="p-4 border-b border-gray-200">
-          <h2 className="text-xl font-bold text-gray-900 mb-4">Guest Conversations</h2>
-          
-          {/* Search */}
+    <div className="flex h-[calc(100dvh-220px)] min-h-[520px] gap-4">
+      {/* Conversations sidebar -- on mobile, hidden while a thread is open */}
+      <aside
+        className={`${
+          mobileShowChat ? 'hidden md:flex' : 'flex'
+        } w-full md:w-80 shrink-0 flex-col bg-white rounded-2xl border border-gray-200 shadow-card overflow-hidden`}
+      >
+        <div className="p-4 border-b border-gray-100">
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-base font-bold text-gray-900">Guest conversations</h3>
+            {conversations.length > 0 && (
+              <span className="text-xs font-semibold text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">
+                {conversations.length}
+              </span>
+            )}
+          </div>
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
             <input
               type="text"
               placeholder="Search guests..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-figma-navy focus:ring-1 focus:ring-figma-navy text-sm"
+              className="w-full pl-9 pr-3 py-2.5 bg-gray-50 border border-gray-200 rounded-xl focus:outline-none focus:bg-white focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 text-sm transition-all"
             />
           </div>
         </div>
 
-        {/* Conversations List */}
         <div className="flex-1 overflow-y-auto">
           {loading ? (
-            <div className="flex items-center justify-center h-full">
-              <div className="text-center">
-                <div className="w-8 h-8 border-2 border-figma-navy/60 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
-                <p className="text-sm text-gray-500">Loading conversations...</p>
-              </div>
+            <div className="p-3 space-y-2">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="flex items-center gap-3 p-3 animate-pulse">
+                  <div className="w-11 h-11 rounded-full bg-gray-100" />
+                  <div className="flex-1 space-y-2">
+                    <div className="h-3 w-1/2 rounded bg-gray-100" />
+                    <div className="h-3 w-3/4 rounded bg-gray-100" />
+                  </div>
+                </div>
+              ))}
             </div>
           ) : filteredConversations.length === 0 ? (
-            <div className="flex items-center justify-center h-full">
-              <p className="text-sm text-gray-500 text-center px-4">
-                {searchQuery ? 'No conversations found' : 'No conversations yet'}
+            <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+              <div className="w-12 h-12 rounded-full bg-figma-navy/5 flex items-center justify-center mb-3">
+                {searchQuery ? (
+                  <Search className="w-5 h-5 text-figma-navy" />
+                ) : (
+                  <MessageSquare className="w-5 h-5 text-figma-navy" />
+                )}
+              </div>
+              <p className="text-sm font-semibold text-gray-800">
+                {searchQuery ? 'No matching guests' : 'No conversations yet'}
+              </p>
+              <p className="text-xs text-gray-500 mt-1 max-w-[220px]">
+                {searchQuery
+                  ? 'Try a different name.'
+                  : 'When a guest messages you about a stay, the conversation will show up here.'}
               </p>
             </div>
           ) : (
-            <div className="space-y-2 p-2">
-              {filteredConversations.map((conv) => (
-                <button
-                  key={conv.id}
-                  onClick={() => setSelectedConversationId(conv.id)}
-                  className={`w-full text-left p-3 rounded-lg transition-all ${
-                    selectedConversationId === conv.id
-                      ? 'bg-figma-navy/10 border border-figma-navy/40'
-                      : 'hover:bg-gray-100 border border-transparent'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <Image
-                      width={40}
-                      height={40}
-                      src={conv.avatar}
-                      alt={conv.name}
-                      className="w-10 h-10 rounded-full object-cover flex-shrink-0"
-                      onError={(e) => {
-                        e.currentTarget.src = 'https://i.pravatar.cc/150';
-                      }}
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-2">
-                        <h3 className="font-semibold text-gray-900 truncate text-sm">
-                          {conv.name}
-                        </h3>
-                        <span className="text-xs text-gray-500 flex-shrink-0">
-                          {conv.lastMessageTime}
-                        </span>
+            <ul className="p-2 space-y-1">
+              {filteredConversations.map((conv) => {
+                const active = selectedConversationId === conv.id;
+                const unread = conv.unreadCount > 0;
+                return (
+                  <li key={conv.id}>
+                    <button
+                      onClick={() => openConversation(conv.id)}
+                      className={`w-full text-left p-3 rounded-xl transition-colors flex items-center gap-3 ${
+                        active ? 'bg-figma-navy/[0.07]' : 'hover:bg-gray-50'
+                      }`}
+                    >
+                      <Avatar name={conv.name} src={conv.avatar} />
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-2">
+                          <span
+                            className={`truncate text-sm ${
+                              unread ? 'font-bold text-gray-900' : 'font-semibold text-gray-800'
+                            }`}
+                          >
+                            {conv.name}
+                          </span>
+                          <span className="text-[11px] text-gray-400 shrink-0">{conv.lastMessageTime}</span>
+                        </div>
+                        <div className="flex items-center justify-between gap-2 mt-0.5">
+                          <p
+                            className={`text-xs truncate ${
+                              unread ? 'text-gray-800 font-medium' : 'text-gray-500'
+                            }`}
+                          >
+                            {conv.lastMessage}
+                          </p>
+                          {unread && (
+                            <span className="min-w-5 h-5 px-1.5 inline-flex items-center justify-center bg-figma-navy text-white text-[11px] font-bold rounded-full shrink-0">
+                              {conv.unreadCount}
+                            </span>
+                          )}
+                        </div>
                       </div>
-                      <p className="text-xs text-gray-500 truncate mt-1">
-                        {conv.lastMessage}
-                      </p>
-                    </div>
-                    {conv.unreadCount > 0 && (
-                      <span className="inline-flex items-center justify-center w-5 h-5 bg-figma-navy text-white text-xs font-bold rounded-full flex-shrink-0">
-                        {conv.unreadCount}
-                      </span>
-                    )}
-                  </div>
-                </button>
-              ))}
-            </div>
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
           )}
         </div>
-      </div>
+      </aside>
 
-      {/* Chat Area */}
-      <div className="flex-1 flex flex-col bg-white rounded-2xl border border-gray-200 overflow-hidden md:min-w-0">
+      {/* Chat area */}
+      <section
+        className={`${
+          mobileShowChat ? 'flex' : 'hidden md:flex'
+        } flex-1 min-w-0 flex-col bg-white rounded-2xl border border-gray-200 shadow-card overflow-hidden`}
+      >
         {selectedConversation ? (
           <>
-            {/* Chat Header */}
-            <div className="p-4 border-b border-gray-200 flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <Image
-                  width={40}
-                  height={40}
-                  src={selectedConversation.avatar}
-                  alt={selectedConversation.name}
-                  className="w-10 h-10 rounded-full object-cover"
-                  onError={(e) => {
-                    e.currentTarget.src = 'https://i.pravatar.cc/150';
-                  }}
-                />
-                <div>
-                  <h3 className="font-bold text-gray-900">{selectedConversation.name}</h3>
-                </div>
-              </div>
-              <button className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
-                <MoreVertical className="w-5 h-5 text-gray-500" />
+            <header className="px-4 py-3 border-b border-gray-100 flex items-center gap-3">
+              <button
+                onClick={() => setMobileShowChat(false)}
+                className="md:hidden p-1.5 -ml-1 rounded-lg hover:bg-gray-100"
+                aria-label="Back to conversations"
+              >
+                <ArrowLeft className="w-5 h-5 text-gray-600" />
               </button>
-            </div>
+              <Avatar name={selectedConversation.name} src={selectedConversation.avatar} />
+              <div className="min-w-0">
+                <h3 className="font-bold text-gray-900 truncate">{selectedConversation.name}</h3>
+                <p className="text-xs text-gray-500">Guest</p>
+              </div>
+            </header>
 
-            {/* Messages */}
-            <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+            <div className="flex-1 overflow-y-auto px-4 py-5 space-y-3 bg-[#f7f8fa]">
               {messages.length === 0 ? (
-                <div className="flex items-center justify-center h-full">
-                  <p className="text-sm text-gray-500">No messages yet. Start a conversation!</p>
+                <div className="flex flex-col items-center justify-center h-full text-center">
+                  <MessageSquare className="w-8 h-8 text-gray-300 mb-2" />
+                  <p className="text-sm text-gray-500">
+                    No messages yet. Say hello to {selectedConversation.name}.
+                  </p>
                 </div>
               ) : (
                 messages.map((msg) => (
-                  <div
-                    key={msg.id}
-                    className={`flex ${msg.isFromMe ? 'justify-end' : 'justify-start'}`}
-                  >
+                  <div key={msg.id} className={`flex ${msg.isFromMe ? 'justify-end' : 'justify-start'}`}>
                     <div
-                      className={`max-w-xs lg:max-w-md px-4 py-2 rounded-lg ${
+                      className={`max-w-[75%] lg:max-w-md px-4 py-2.5 rounded-2xl shadow-sm ${
                         msg.isFromMe
-                          ? 'bg-figma-navy text-white rounded-br-none'
-                          : 'bg-gray-200 text-gray-900 rounded-bl-none'
+                          ? 'bg-figma-navy text-white rounded-br-md'
+                          : 'bg-white text-gray-900 border border-gray-100 rounded-bl-md'
                       }`}
                     >
-                      <p className="text-sm break-words">{msg.text}</p>
-                      <p
-                        className={`text-xs mt-1 ${
-                          msg.isFromMe ? 'text-white/90' : 'text-gray-600'
-                        }`}
-                      >
+                      <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{msg.text}</p>
+                      <p className={`text-[11px] mt-1 text-right ${msg.isFromMe ? 'text-white/70' : 'text-gray-400'}`}>
                         {msg.timestamp}
                       </p>
                     </div>
@@ -330,37 +355,78 @@ export default function HostChatUI() {
               <div ref={messagesEndRef} />
             </div>
 
-            {/* Message Input */}
-            <form
-              onSubmit={handleSendMessage}
-              className="p-4 border-t border-gray-200 bg-white flex gap-2"
-            >
-              <input
-                type="text"
+            <form onSubmit={handleSendMessage} className="p-3 border-t border-gray-100 bg-white flex items-end gap-2">
+              <textarea
+                rows={1}
                 value={messageText}
                 onChange={(e) => setMessageText(e.target.value)}
-                placeholder="Type your message..."
+                onKeyDown={(e) => {
+                  // Enter sends, Shift+Enter adds a new line.
+                  if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    handleSendMessage(e as unknown as React.FormEvent);
+                  }
+                }}
+                placeholder={`Message ${selectedConversation.name}...`}
                 disabled={sending}
-                className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-figma-navy focus:ring-1 focus:ring-figma-navy text-sm disabled:bg-gray-100 disabled:cursor-not-allowed"
+                className="flex-1 resize-none max-h-32 px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-2xl focus:outline-none focus:bg-white focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 text-sm disabled:opacity-60 transition-all"
               />
               <button
                 type="submit"
                 disabled={sending || !messageText.trim()}
-                className="p-2 bg-figma-navy text-white rounded-lg hover:bg-figma-navy/90 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+                aria-label="Send message"
+                className="h-10 w-10 shrink-0 inline-flex items-center justify-center bg-figma-navy text-white rounded-full hover:bg-figma-navy/90 active:scale-95 transition-all disabled:bg-gray-300 disabled:cursor-not-allowed"
               >
-                <Send className="w-5 h-5" />
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
               </button>
             </form>
           </>
         ) : (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center">
-              <p className="text-gray-500 text-lg font-medium">Select a conversation to start chatting</p>
+          <div className="flex flex-col items-center justify-center h-full px-6 text-center">
+            <div className="w-16 h-16 rounded-full bg-figma-navy/5 flex items-center justify-center mb-4">
+              <MessagesSquare className="w-7 h-7 text-figma-navy" />
             </div>
+            <p className="text-lg font-bold text-gray-900">
+              {inboxEmpty ? 'Your inbox is empty' : 'Select a conversation'}
+            </p>
+            <p className="text-sm text-gray-500 mt-1 max-w-sm">
+              {inboxEmpty
+                ? 'Guests can message you from your listing page or after booking. Replying quickly helps you win more bookings.'
+                : 'Choose a guest on the left to read and reply to their messages.'}
+            </p>
           </div>
         )}
-      </div>
+      </section>
     </div>
+  );
+}
+
+// Initials instead of a random stock face when a guest has no photo.
+function Avatar({ name, src }: { name: string; src: string }) {
+  const [failed, setFailed] = useState(false);
+  const initials =
+    name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((w) => w[0]?.toUpperCase())
+      .join('') || 'G';
+  if (!src || failed) {
+    return (
+      <span className="w-11 h-11 shrink-0 rounded-full bg-figma-navy/10 text-figma-navy font-bold text-sm inline-flex items-center justify-center">
+        {initials}
+      </span>
+    );
+  }
+  return (
+    <Image
+      width={44}
+      height={44}
+      src={src}
+      alt={name}
+      className="w-11 h-11 shrink-0 rounded-full object-cover"
+      onError={() => setFailed(true)}
+    />
   );
 }
 

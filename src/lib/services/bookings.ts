@@ -80,6 +80,8 @@ export const bookingsAPI = {
         `
         booking_id,
         amount,
+        refund_amount,
+        refund_status,
         listings (
           latitude, longitude,
           price_weekday, price_weekend,
@@ -99,6 +101,8 @@ export const bookingsAPI = {
       return {
         ...r,
         amount: extra?.amount ?? null,
+        refundAmount: extra?.refund_amount ?? null,
+        refundStatus: extra?.refund_status ?? null,
         priceWeekday: listing?.price_weekday ?? null,
         priceWeekend: listing?.price_weekend ?? null,
         latitude: listing?.latitude ?? null,

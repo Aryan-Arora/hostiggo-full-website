@@ -66,6 +66,9 @@ interface Booking {
   // lines shown at checkout (see calculateBookingInvoice), instead of only
   // ever showing that breakdown once, live, and never again.
   amount: number | null;
+  // Set once a cancellation has gone through the refund engine.
+  refundAmount?: number | null;
+  refundStatus?: string | null;
   priceWeekday: number | null;
   priceWeekend: number | null;
 }
@@ -1115,6 +1118,23 @@ function BookingCard({
         ? `${nights} night stay`
         : 'Booking cancelled';
 
+  // What happened to the guest's money -- the card otherwise only says
+  // "Booking cancelled", which reads as if nothing was refunded.
+  const refundText = (b: typeof booking) => {
+    const amt = b.refundAmount != null ? `₹${b.refundAmount.toLocaleString('en-IN')}` : null;
+    switch (b.refundStatus) {
+      case 'processed':
+        return amt ? `Refund of ${amt} processed · 3–5 working days to reach your account` : null;
+      case 'failed':
+      case 'flagged_for_manual_settlement':
+        return 'Refund pending -- our team will process it and contact you';
+      case 'not_applicable':
+        return 'No refund for this cancellation, as per the cancellation policy';
+      default:
+        return null;
+    }
+  };
+
   const statusColor =
     booking.status === 'upcoming'
       ? 'text-[#004772]'
@@ -1226,6 +1246,11 @@ function BookingCard({
           >
             {statusLabel}
           </p>
+          {booking.status === 'cancelled' && refundText(booking) && (
+            <p className="text-[12px] font-semibold text-gray-500 max-w-[180px] sm:text-center">
+              {refundText(booking)}
+            </p>
+          )}
         </div>
       </div>
     </div>

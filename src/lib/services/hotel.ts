@@ -447,7 +447,8 @@ export const HotelServiceApi = {
     // returned null even though the row genuinely exists (confirmed via an
     // isolated script and a plain array query against the identical
     // filter); the array form doesn't have that problem.
-    const [houseRules, safetyDetails] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [houseRules, safetyDetails, hostRow, tripsHosted] = await Promise.all([
       supabaseAdmin
         .from('listing_house_rules')
         .select('check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours')
@@ -456,10 +457,43 @@ export const HotelServiceApi = {
         .from('listing_safety_details')
         .select('id, enabled, safety_features (feature_id, name, icon, description)')
         .eq('listing_id', listingId),
+      // Host card ("Hosted by ..."): name lives on users, photo/verified on host.
+      supabaseAdmin
+        .from('host')
+        .select('host_uuid, user_id, photo, is_verified')
+        .eq('host_uuid', data.host_uuid)
+        .limit(1),
+      // Trips hosted = confirmed bookings (status_id 2) that have checked out.
+      supabaseAdmin
+        .from('bookings')
+        .select('booking_id', { count: 'exact', head: true })
+        .eq('host_uuid', data.host_uuid)
+        .eq('status_id', 2)
+        .lte('end_date', today),
     ]);
+
+    if (hostRow.error) console.error('[getHotelDetail] host lookup failed:', hostRow.error.message);
+    if (tripsHosted.error) console.error('[getHotelDetail] trips count failed:', tripsHosted.error.message);
+    const hostData = hostRow.data?.[0] as
+      | { host_uuid: string; user_id: string; photo: string | null; is_verified: boolean | null }
+      | undefined;
+    const { data: hostUsers } = hostData
+      ? await supabaseAdmin.from('users').select('name, created_at').eq('user_id', hostData.user_id).limit(1)
+      : { data: null };
+    const hostUser = hostUsers?.[0] as { name: string | null; created_at: string | null } | undefined;
 
     return {
       ...data,
+      host: hostData
+        ? {
+            id: hostData.host_uuid,
+            name: hostUser?.name ?? null,
+            photo: hostData.photo ?? null,
+            is_verified: Boolean(hostData.is_verified),
+            joinDate: hostUser?.created_at ?? '',
+            tripsHosted: tripsHosted.count ?? 0,
+          }
+        : null,
       listing_house_rules: houseRules.data?.[0] ?? null,
       listing_safety_details: safetyDetails.data ?? [],
     };

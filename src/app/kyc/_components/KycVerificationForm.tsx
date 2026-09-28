@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CreditCard, Landmark, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { CreditCard, Landmark, CheckCircle2, XCircle, Clock, FileText, BookUser, Upload } from 'lucide-react';
 import { toast } from 'sonner';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
@@ -14,6 +14,15 @@ type BankResult =
   | { verified: true; accountHolderName: string | null; bankName: string | null }
   | { verified: false; reason: string | null }
   | null;
+
+// Any one of these verifies identity (KYC). Payouts additionally need a
+// verified PAN -- Razorpay Route requires one to open the host's account.
+type IdMethod = 'pan' | 'aadhaar' | 'passport';
+const ID_METHODS: Record<IdMethod, { label: string; icon: typeof CreditCard }> = {
+  pan: { label: 'PAN', icon: CreditCard },
+  aadhaar: { label: 'Aadhaar', icon: FileText },
+  passport: { label: 'Passport', icon: BookUser },
+};
 
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
 const ACCOUNT_RE = /^\d{9,18}$/;
@@ -51,11 +60,11 @@ function ResultBanner({ result }: { result: IdResult | BankResult }) {
 /**
  * ID + bank verification, shared by the standalone /kyc page and the
  * in-flow KYC modal. Two independent sections, each backed by a direct
- * SurePass call (see src/lib/surepass.ts) -- a PAN and a bank account, mirroring exactly what
- * src/lib/services/hostRouteOnboarding.ts checks for before auto-onboarding
- * a host to Razorpay Route: one verified id proof + one verified bank
- * account. Either section can be submitted on its own; neither blocks the
- * other.
+ * SurePass call (see src/lib/surepass.ts): an id proof (PAN, eAadhaar PDF or
+ * passport -- any one verifies identity) and a bank account. Razorpay Route
+ * onboarding (hostRouteOnboarding.ts) specifically needs a verified PAN +
+ * bank account, so Aadhaar/passport users are told PAN is still needed for
+ * payouts. Either section can be submitted on its own.
  */
 export function KycVerificationForm({
   userId,
@@ -71,7 +80,13 @@ export function KycVerificationForm({
   showSkip?: boolean;
 }) {
   const [fullName, setFullName] = useState(defaultName);
+  const [idMethod, setIdMethod] = useState<IdMethod>('pan');
   const [pan, setPan] = useState('');
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [yob, setYob] = useState('');
+  const [passportFileNo, setPassportFileNo] = useState('');
+  const [dob, setDob] = useState('');
+  const [verifiedMethod, setVerifiedMethod] = useState<IdMethod | null>(null);
   const [consent, setConsent] = useState(false);
   const [idSubmitting, setIdSubmitting] = useState(false);
   const [idResult, setIdResult] = useState<IdResult>(null);
@@ -85,7 +100,13 @@ export function KycVerificationForm({
     if (defaultName) setFullName((current) => current || defaultName);
   }, [defaultName]);
 
-  const isIdValid = isValidPanNumber(pan);
+  const thisYear = new Date().getFullYear();
+  const isIdValid =
+    idMethod === 'pan'
+      ? isValidPanNumber(pan)
+      : idMethod === 'aadhaar'
+        ? Boolean(aadhaarFile) && /^\d{4}$/.test(yob) && Number(yob) >= 1900 && Number(yob) <= thisYear
+        : /^[A-Z0-9]{8,15}$/.test(passportFileNo) && Boolean(dob);
   const hasName = fullName.trim().length > 1;
   const canSubmitId = hasName && isIdValid && consent && !idSubmitting;
 
@@ -107,13 +128,22 @@ export function KycVerificationForm({
     if (!canSubmitId) return;
 
     setIdSubmitting(true);
+    const label = ID_METHODS[idMethod].label;
     try {
-      const body = await api.verifyPan(pan.trim().toUpperCase(), fullName.trim());
+      const name = fullName.trim();
+      const body =
+        idMethod === 'pan'
+          ? await api.verifyPan(pan.trim().toUpperCase(), name)
+          : idMethod === 'aadhaar'
+            ? await api.verifyAadhaar({ file: aadhaarFile as File, yob, fullName: name })
+            : await api.verifyPassport({ fileNumber: passportFileNo, dob, fullName: name });
       const status = body?.status ?? 'pending';
       setIdResult({ status, reason: body?.reason ?? null });
-      if (status === 'verified') toast.success('Your PAN has been verified!');
-      else if (status === 'rejected') toast.error(body?.reason || 'PAN verification failed.');
-      else toast.success('PAN details received -- verification is in progress.');
+      if (status === 'verified') {
+        setVerifiedMethod(idMethod);
+        toast.success(`Your ${label} has been verified!`);
+      } else if (status === 'rejected') toast.error(body?.reason || `${label} verification failed.`);
+      else toast.success(`${label} details received -- verification is in progress.`);
       markKycSubmitted(userId);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Something went wrong');
@@ -169,7 +199,7 @@ export function KycVerificationForm({
       <form onSubmit={handleSubmitId} className="space-y-4">
         <div>
           <label htmlFor="fullName" className="block text-xs font-semibold text-gray-600 mb-1.5">
-            Full name (as on PAN and bank account)
+            Full name (as on your ID and bank account)
           </label>
           <input
             id="fullName"
@@ -183,23 +213,157 @@ export function KycVerificationForm({
         </div>
 
         <div>
-          <label htmlFor="pan" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
-            <CreditCard className="w-3.5 h-3.5" />
-            PAN number
-          </label>
-          <input
-            id="pan"
-            type="text"
-            value={pan}
-            onChange={(e) => setPan(formatPanInput(e.target.value))}
-            placeholder="ABCDE1234F"
-            maxLength={10}
-            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
-          />
-          {pan.length === 10 && !isIdValid && (
-            <p className="text-xs text-red-500 mt-1.5">That doesn&apos;t look like a valid PAN.</p>
+          <p className="block text-xs font-semibold text-gray-600 mb-1.5">Verify your identity with</p>
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="ID document">
+            {(Object.keys(ID_METHODS) as IdMethod[]).map((m) => {
+              const { label, icon: Icon } = ID_METHODS[m];
+              const on = idMethod === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => {
+                    setIdMethod(m);
+                    setIdResult(null);
+                  }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all',
+                    on
+                      ? 'border-figma-navy bg-figma-navy/5 text-figma-navy'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {idMethod !== 'pan' && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+              {ID_METHODS[idMethod].label} verifies your identity, but a PAN is still required to receive
+              payouts -- you can add it later in Settings → Payouts.
+            </p>
           )}
         </div>
+
+        {idMethod === 'pan' && (
+          <div>
+            <label htmlFor="pan" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+              <CreditCard className="w-3.5 h-3.5" />
+              PAN number
+            </label>
+            <input
+              id="pan"
+              type="text"
+              value={pan}
+              onChange={(e) => setPan(formatPanInput(e.target.value))}
+              placeholder="ABCDE1234F"
+              maxLength={10}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+            />
+            {pan.length === 10 && !isIdValid && (
+              <p className="text-xs text-red-500 mt-1.5">That doesn&apos;t look like a valid PAN.</p>
+            )}
+          </div>
+        )}
+
+        {idMethod === 'aadhaar' && (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="aadhaarFile" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                eAadhaar PDF
+              </label>
+              <label
+                htmlFor="aadhaarFile"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-dashed border-gray-300 text-sm cursor-pointer hover:border-figma-navy/40 hover:bg-gray-50 transition-all"
+              >
+                <Upload className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className={cn('truncate', aadhaarFile ? 'text-gray-900' : 'text-gray-400')}>
+                  {aadhaarFile ? aadhaarFile.name : 'Choose your eAadhaar PDF (max 5 MB)'}
+                </span>
+              </label>
+              <input
+                id="aadhaarFile"
+                type="file"
+                accept="application/pdf,.pdf"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f && f.size > 5 * 1024 * 1024) {
+                    toast.error('The PDF is too large (max 5 MB).');
+                    return;
+                  }
+                  setAadhaarFile(f);
+                }}
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Download it from{' '}
+                <a
+                  href="https://myaadhaar.uidai.gov.in/genricDownloadAadhaar"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-figma-navy underline"
+                >
+                  myaadhaar.uidai.gov.in
+                </a>
+                . Upload the original PDF -- a scan or photo won&apos;t work.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="yob" className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Year of birth
+              </label>
+              <input
+                id="yob"
+                type="text"
+                inputMode="numeric"
+                value={yob}
+                onChange={(e) => setYob(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="1990"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        {idMethod === 'passport' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="passportFileNo" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+                <BookUser className="w-3.5 h-3.5" />
+                Passport file number
+              </label>
+              <input
+                id="passportFileNo"
+                type="text"
+                value={passportFileNo}
+                onChange={(e) => setPassportFileNo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15))}
+                placeholder="DL1064145893512"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+              />
+            </div>
+            <div>
+              <label htmlFor="dob" className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Date of birth
+              </label>
+              <input
+                id="dob"
+                type="date"
+                value={dob}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDob(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+              />
+            </div>
+            <p className="col-span-2 text-[11px] text-gray-400">
+              The file number is on the last page of your passport (not the passport number).
+            </p>
+          </div>
+        )}
 
         <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
           <input
@@ -209,7 +373,7 @@ export function KycVerificationForm({
             className="mt-0.5 w-4 h-4 rounded border-gray-300 text-figma-navy focus:ring-figma-navy/30"
           />
           <span className="text-xs text-gray-500 leading-relaxed">
-            I consent to Hostiggo collecting my PAN details for
+            I consent to Hostiggo collecting my {ID_METHODS[idMethod].label} details for
             identity verification, in accordance with the{' '}
             <a href="/privacy" target="_blank" className="text-figma-navy underline">
               Privacy Policy
@@ -225,7 +389,7 @@ export function KycVerificationForm({
           disabled={!canSubmitId}
           className="w-full py-3 bg-figma-navy text-white text-sm font-semibold rounded-xl hover:bg-figma-navy/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
         >
-          {idSubmitting ? 'Verifying…' : 'Verify PAN'}
+          {idSubmitting ? 'Verifying…' : `Verify ${ID_METHODS[idMethod].label}`}
         </button>
       </form>
 
@@ -286,7 +450,8 @@ export function KycVerificationForm({
 
       {idVerified && !bankVerified ? (
         <p className="text-center text-xs font-medium text-gray-500">
-          Bank verification is required to finish -- your PAN is verified, now add your bank
+          Bank verification is required to finish -- your{' '}
+          {verifiedMethod ? ID_METHODS[verifiedMethod].label : 'ID'} is verified, now add your bank
           details above.
         </p>
       ) : (

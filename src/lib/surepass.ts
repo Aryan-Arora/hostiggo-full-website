@@ -5,8 +5,7 @@ import { supabaseAdmin } from "@/lib/supabase-admin";
 // Server-only SurePass config. NEVER prefix these with NEXT_PUBLIC_ -- the
 // API key must never reach the client bundle. Routes call SurePass directly
 // (see src/app/api/verify/*) using this key -- PAN, bank and passport are
-// all number-only lookups, no
-// document photo upload required.
+// number-only lookups; Aadhaar is an eAadhaar PDF upload (surepassPostForm).
 //
 // Production only -- the account's sandbox environment has been retired, so
 // every verify route calls kyc-api.surepass.app directly with a live token.
@@ -26,6 +25,16 @@ export async function surepassPost(path: string, body: unknown): Promise<Respons
   });
 }
 
+// Multipart variant for document uploads (eAadhaar PDF). No Content-Type
+// header -- fetch sets the multipart boundary itself.
+export async function surepassPostForm(path: string, form: FormData): Promise<Response> {
+  return fetch(`${SUREPASS_BASE_URL}${path}`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${SUREPASS_API_KEY}` },
+    body: form,
+  });
+}
+
 // First 2 + last 2 characters visible, everything else starred -- enough to
 // recognize the record without storing the full number. Pair with
 // sha256Hex() below when a record needs to be deduped.
@@ -39,7 +48,7 @@ export function sha256Hex(value: string): string {
   return createHash("sha256").update(value).digest("hex");
 }
 
-export type KycServiceType = "pan" | "passport" | "bank";
+export type KycServiceType = "pan" | "passport" | "aadhaar" | "bank";
 
 // Logs every verification attempt -- success or failure -- to kyc_requests
 // so a rejection is debuggable and there's a record for compliance. Returns

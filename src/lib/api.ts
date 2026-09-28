@@ -50,7 +50,8 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
   const res = await fetch(path, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      // FormData (file uploads) needs the browser to set its own multipart boundary.
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
@@ -290,6 +291,8 @@ export function mapBooking(item: any) {
       pets: false,
     },
     amount: item.amount != null ? Number(item.amount) : null,
+    refundAmount: item.refundAmount != null ? Number(item.refundAmount) : null,
+    refundStatus: (item.refundStatus ?? null) as string | null,
     priceWeekday: item.priceWeekday != null ? Number(item.priceWeekday) : null,
     priceWeekend: item.priceWeekend != null ? Number(item.priceWeekend) : null,
   };
@@ -510,6 +513,23 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ idNumber, fullName }),
     }),
+  // Alternatives to PAN for identity (KYC) only -- payouts still need a
+  // verified PAN. See src/app/api/verify/aadhaar and /passport.
+  verifyAadhaar: (payload: { file: File; yob: string; fullName: string }) => {
+    const form = new FormData();
+    form.append("file", payload.file);
+    form.append("yob", payload.yob);
+    form.append("fullName", payload.fullName);
+    return request<{ status: "verified" | "rejected" | "pending"; reason: string | null }>(
+      `/api/verify/aadhaar`,
+      { method: "POST", body: form },
+    );
+  },
+  verifyPassport: (payload: { fileNumber: string; dob: string; fullName: string }) =>
+    request<{ status: "verified" | "rejected" | "pending"; reason: string | null }>(
+      `/api/verify/passport`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
   // "Bank Verification" -- reverse penny-drop lookup keyed on the account
   // number + IFSC; `fullName` is checked against the account holder's name.
   // See src/app/api/verify/bank/route.ts.

@@ -32,7 +32,6 @@ export const WIZARD_STEPS = [
   { slug: 'discount', label: 'Discounts' },
   { slug: 'cancellation-policy', label: 'Cancellation policy' },
   { slug: 'house-rules', label: 'House rules' },
-  { slug: 'verification', label: 'Verification' },
 ] as const;
 
 export const WIZARD_TOTAL = WIZARD_STEPS.length;

@@ -2,36 +2,33 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 import { isSurepassConfigured, surepassPost, maskMiddle, logKycRequest } from "@/lib/surepass";
+import { namesMatch } from "@/lib/services/kycVerify";
 
 export const dynamic = "force-dynamic";
 
 const PASSPORT_VERIFY_ENDPOINT = "/api/v1/passport/passport/verify";
 
 // Looks up a passport record by file number + date of birth (not the
-// passport number itself), no document photo. The DOB is always read
-// server-side from the caller's own Supabase Auth user_metadata, never from
-// the request body -- otherwise a client could probe someone else's
-// passport record by guessing DOBs. Mirrors the confirmed contract already
-// deployed in the surepass-verify-id Edge Function.
+// passport number itself), no document photo -- an alternative to PAN for
+// identity (KYC) only; payouts still need a verified PAN. The name the user
+// typed must match the name on the passport, so knowing someone else's
+// file number and DOB isn't enough to verify as them.
 export async function POST(req: NextRequest) {
   try {
     const userId = await getAuthenticatedUserId(req);
 
     const body = await req.json().catch(() => ({}));
-    const fileNumber = String(body?.fileNumber ?? "").trim().toUpperCase();
-    if (!fileNumber) {
-      return NextResponse.json({ error: "fileNumber is required" }, { status: 400 });
+    const fileNumber = String(body?.fileNumber ?? "").trim().toUpperCase().replace(/\s+/g, "");
+    const dob = String(body?.dob ?? "").trim();
+    const fullName = String(body?.fullName ?? "").trim().slice(0, 100);
+    if (!/^[A-Z0-9]{8,15}$/.test(fileNumber)) {
+      return NextResponse.json({ error: "Enter your passport file number (e.g. DL1234567890123)." }, { status: 400 });
     }
-
-    const { data: userRecord, error: userError } = await supabaseAdmin.auth.admin.getUserById(userId);
-    const dob = userRecord?.user?.user_metadata?.date_of_birth;
-    if (userError || typeof dob !== "string" || !dob) {
-      return NextResponse.json({
-        data: {
-          status: "pending",
-          reason: "Add your date of birth to your profile before verifying a passport.",
-        },
-      });
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(dob) || Number.isNaN(Date.parse(dob))) {
+      return NextResponse.json({ error: "Enter your date of birth." }, { status: 400 });
+    }
+    if (fullName.length < 2) {
+      return NextResponse.json({ error: "Enter your full name as it appears on your passport." }, { status: 400 });
     }
 
     if (!isSurepassConfigured()) {
@@ -67,8 +64,14 @@ export async function POST(req: NextRequest) {
       reason = json?.message || "Could not find a passport record matching that file number and date of birth.";
     } else {
       data = (json.data ?? {}) as Record<string, unknown>;
-      status = "verified";
       providerReference = typeof data.client_id === "string" ? data.client_id : null;
+      const nameOnRecord = [data.given_name, data.surname].filter((v) => typeof v === "string" && v).join(" ");
+      if (nameOnRecord && namesMatch(fullName, nameOnRecord)) {
+        status = "verified";
+      } else {
+        status = "rejected";
+        reason = "The name you entered doesn't match the name on this passport. Enter it exactly as on your passport.";
+      }
     }
 
     const kycRequestId = await logKycRequest({
