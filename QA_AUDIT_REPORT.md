@@ -2,6 +2,7 @@
 
 **Repository:** `aryan-arora/hostiggo-full-website` · **Commit audited:** `c24f7f5` (branch `claude/modest-faraday-clx73f`) · **Date:** 2026-09-29
 **Stack:** Next.js 16.3.1 (App Router) · React 19 · Supabase · Razorpay · Google Maps
+**Follow-up deep dives:** [Homepage destination dropdown](docs/qa-audit/DESTINATION_DROPDOWN_REPORT.md) — reproduced, root-caused and fix-verified (Medium)
 
 ---
 
