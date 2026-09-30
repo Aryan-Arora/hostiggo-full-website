@@ -13,6 +13,7 @@ import {
   api,
   getStoredUserId,
   setStoredUserId,
+  setStoredSession,
   clearStoredAuth,
   type CurrentUser,
 } from '@/lib/api';
@@ -28,6 +29,15 @@ interface AuthState {
 interface AuthActions {
   /** Persist the user id and load the profile (call after OTP verify or OAuth callback). */
   signIn: (userId: string) => Promise<void>;
+  /**
+   * Dev-only: establishes a REAL Supabase Auth session for the demo host via
+   * /api/dev/demo-session, then calls signIn() for the local state. Unlike
+   * plain signIn(), this is what the "Continue as demo host (dev)" button
+   * should call -- without a real session, getBearerToken() (src/lib/api.ts)
+   * has no access token to attach to authenticated requests, and anything
+   * requiring real auth (KYC submission, listing creation, etc.) 401s.
+   */
+  signInAsDemoHost: (userId: string) => Promise<void>;
   signOut: () => Promise<void>;
   refresh: () => Promise<void>;
 }
@@ -67,12 +77,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [loadUser]);
 
-  // Google OAuth and email OTP both establish a real Supabase Auth session
-  // (phone OTP doesn't -- it's verified server-side and only ever gives us
-  // a userId, never a client-side session). This listener keeps our
-  // locally-stored userId in sync when one of those sessions ends outside
-  // our own signOut() call -- e.g. token refresh failure after being idle,
-  // or signing out in another tab.
+  // Google OAuth, email OTP and phone OTP all now establish a real Supabase
+  // Auth session client-side -- OTP/password verify happens server-side
+  // (POST /api/auth/otp, /api/auth/password), so OTPPageContent.tsx and
+  // signin/page.tsx explicitly call supabase.auth.setSession() with the
+  // tokens that route returns, right after verifying. Without that, this
+  // client never learns the session exists and autoRefreshToken has
+  // nothing to refresh -- the access token would silently hard-expire
+  // (~1hr) with no recovery short of signing in again, which was happening
+  // until that fix. This listener keeps our locally-stored userId in sync
+  // when one of those sessions ends outside our own signOut() call -- e.g.
+  // token refresh failure after being idle, or signing out in another tab.
   useEffect(() => {
     const {
       data: { subscription },
@@ -95,6 +110,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(false);
     },
     [loadUser],
+  );
+
+  const signInAsDemoHost = useCallback(
+    async (id: string) => {
+      const res = await fetch('/api/dev/demo-session', { method: 'POST' });
+      const payload = await res.json().catch(() => ({}));
+      if (!res.ok || payload.error) {
+        throw new Error(payload.error || `Failed to establish demo session: ${res.status}`);
+      }
+      const { access_token, refresh_token } = payload.data ?? {};
+      if (!access_token || !refresh_token) {
+        throw new Error('Demo session response missing tokens');
+      }
+      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) throw error;
+      // Mirrors the pattern in signin/page.tsx and OTPPageContent.tsx: also
+      // populate the AUTH_ACCESS_TOKEN_KEY fallback that getBearerToken()
+      // (src/lib/api.ts) reads when supabase.auth.getSession() hasn't
+      // resolved yet -- e.g. right after a fresh page load/navigation, while
+      // the supabase-js client is still hydrating the session it just
+      // persisted to localStorage. Without this, requests fired in that
+      // window (like the bookings page's mount-time fetch) have no token at
+      // all and 401 with "Missing or malformed Authorization header", even
+      // though the real session was set correctly moments before.
+      setStoredSession(access_token, refresh_token);
+      await signIn(id);
+    },
+    [signIn],
   );
 
   const signOut = useCallback(async () => {
@@ -121,6 +164,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         loading,
         isAuthenticated: Boolean(userId),
         signIn,
+        signInAsDemoHost,
         signOut,
         refresh,
       }}

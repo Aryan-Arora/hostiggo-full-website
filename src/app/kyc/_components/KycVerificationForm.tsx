@@ -1,0 +1,470 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+import { CreditCard, Landmark, CheckCircle2, XCircle, Clock, FileText, BookUser, Upload } from 'lucide-react';
+import { toast } from 'sonner';
+import { cn } from '@/lib/utils';
+import { api } from '@/lib/api';
+import { deferKyc, markKycSubmitted } from '@/lib/kyc';
+import { formatPanInput, isValidPanNumber } from '@/lib/pan';
+import BankDetailsNotice from '@/components/features/BankDetailsNotice';
+
+type IdResult = { status: 'verified' | 'rejected' | 'pending'; reason: string | null } | null;
+type BankResult =
+  | { verified: true; accountHolderName: string | null; bankName: string | null }
+  | { verified: false; reason: string | null }
+  | null;
+
+// Any one of these verifies identity (KYC). Payouts additionally need a
+// verified PAN -- Razorpay Route requires one to open the host's account.
+type IdMethod = 'pan' | 'aadhaar' | 'passport';
+const ID_METHODS: Record<IdMethod, { label: string; icon: typeof CreditCard }> = {
+  pan: { label: 'PAN', icon: CreditCard },
+  aadhaar: { label: 'Aadhaar', icon: FileText },
+  passport: { label: 'Passport', icon: BookUser },
+};
+
+const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+const ACCOUNT_RE = /^\d{9,18}$/;
+
+function ResultBanner({ result }: { result: IdResult | BankResult }) {
+  if (!result) return null;
+  const ok = 'verified' in result ? result.verified === true : result.status === 'verified';
+  const pending = 'status' in result && result.status === 'pending';
+  const reason =
+    'reason' in result ? result.reason : null;
+
+  const Icon = ok ? CheckCircle2 : pending ? Clock : XCircle;
+  const tone = ok
+    ? 'bg-green-50 border-green-200 text-green-800'
+    : pending
+      ? 'bg-figma-navy/5 border-figma-navy/15 text-gray-700'
+      : 'bg-red-50 border-red-200 text-red-700';
+
+  const label = ok
+    ? 'accountHolderName' in result && result.accountHolderName
+      ? `Verified -- ${result.accountHolderName}${'bankName' in result && result.bankName ? ` (${result.bankName})` : ''}`
+      : 'Verified'
+    : pending
+      ? 'Submitted -- verification in progress.'
+      : reason || 'Could not verify. Please check the details and try again.';
+
+  return (
+    <div className={cn('flex items-start gap-2 rounded-xl border px-3 py-2.5 text-xs font-medium', tone)}>
+      <Icon className="w-4 h-4 shrink-0 mt-0.5" />
+      <span>{label}</span>
+    </div>
+  );
+}
+
+/**
+ * ID + bank verification, shared by the standalone /kyc page and the
+ * in-flow KYC modal. Two independent sections, each backed by a direct
+ * SurePass call (see src/lib/surepass.ts): an id proof (PAN, eAadhaar PDF or
+ * passport -- any one verifies identity) and a bank account. Razorpay Route
+ * onboarding (hostRouteOnboarding.ts) specifically needs a verified PAN +
+ * bank account, so Aadhaar/passport users are told PAN is still needed for
+ * payouts. Either section can be submitted on its own.
+ */
+export function KycVerificationForm({
+  userId,
+  defaultName = '',
+  onCompleted,
+  onSkipped,
+  showSkip = true,
+}: {
+  userId: string;
+  defaultName?: string;
+  onCompleted: () => void;
+  onSkipped: () => void;
+  showSkip?: boolean;
+}) {
+  const [fullName, setFullName] = useState(defaultName);
+  const [idMethod, setIdMethod] = useState<IdMethod>('pan');
+  const [pan, setPan] = useState('');
+  const [aadhaarFile, setAadhaarFile] = useState<File | null>(null);
+  const [yob, setYob] = useState('');
+  const [passportFileNo, setPassportFileNo] = useState('');
+  const [dob, setDob] = useState('');
+  const [verifiedMethod, setVerifiedMethod] = useState<IdMethod | null>(null);
+  const [consent, setConsent] = useState(false);
+  const [idSubmitting, setIdSubmitting] = useState(false);
+  const [idResult, setIdResult] = useState<IdResult>(null);
+
+  const [accountNumber, setAccountNumber] = useState('');
+  const [ifsc, setIfsc] = useState('');
+  const [bankSubmitting, setBankSubmitting] = useState(false);
+  const [bankResult, setBankResult] = useState<BankResult>(null);
+
+  useEffect(() => {
+    if (defaultName) setFullName((current) => current || defaultName);
+  }, [defaultName]);
+
+  const thisYear = new Date().getFullYear();
+  const isIdValid =
+    idMethod === 'pan'
+      ? isValidPanNumber(pan)
+      : idMethod === 'aadhaar'
+        ? Boolean(aadhaarFile) && /^\d{4}$/.test(yob) && Number(yob) >= 1900 && Number(yob) <= thisYear
+        : /^[A-Z0-9]{8,15}$/.test(passportFileNo) && Boolean(dob);
+  const hasName = fullName.trim().length > 1;
+  const canSubmitId = hasName && isIdValid && consent && !idSubmitting;
+
+  // The bank check also compares the account holder against `fullName`.
+  const isBankValid = ACCOUNT_RE.test(accountNumber) && IFSC_RE.test(ifsc);
+  const canSubmitBank = hasName && isBankValid && !bankSubmitting;
+
+  // KYC is optional. Deferring is a permanent choice -- the listing flow
+  // won't prompt again. The host can come back and finish verification
+  // anytime from Host Settings -> Identity Verification, and the dashboard
+  // banner keeps nudging them until it's done.
+  const handleSkip = () => {
+    deferKyc(userId);
+    onSkipped();
+  };
+
+  const handleSubmitId = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmitId) return;
+
+    setIdSubmitting(true);
+    const label = ID_METHODS[idMethod].label;
+    try {
+      const name = fullName.trim();
+      const body =
+        idMethod === 'pan'
+          ? await api.verifyPan(pan.trim().toUpperCase(), name)
+          : idMethod === 'aadhaar'
+            ? await api.verifyAadhaar({ file: aadhaarFile as File, yob, fullName: name })
+            : await api.verifyPassport({ fileNumber: passportFileNo, dob, fullName: name });
+      const status = body?.status ?? 'pending';
+      setIdResult({ status, reason: body?.reason ?? null });
+      if (status === 'verified') {
+        setVerifiedMethod(idMethod);
+        toast.success(`Your ${label} has been verified!`);
+      } else if (status === 'rejected') toast.error(body?.reason || `${label} verification failed.`);
+      else toast.success(`${label} details received -- verification is in progress.`);
+      markKycSubmitted(userId);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setIdSubmitting(false);
+    }
+  };
+
+  const handleSubmitBank = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!canSubmitBank) return;
+
+    setBankSubmitting(true);
+    try {
+      const body = await api.verifyBank({
+        accountNumber,
+        ifsc: ifsc.trim().toUpperCase(),
+        fullName: fullName.trim(),
+      });
+      if (body?.verified) {
+        setBankResult({
+          verified: true,
+          accountHolderName: body.accountHolderName ?? null,
+          bankName: body.bankName ?? null,
+        });
+        toast.success('Your bank account has been verified!');
+      } else {
+        setBankResult({ verified: false, reason: body?.reason ?? null });
+        toast.error(body?.reason || 'Could not verify that bank account.');
+      }
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Something went wrong');
+    } finally {
+      setBankSubmitting(false);
+    }
+  };
+
+  // Bank verification is mandatory once id proof is verified -- a hard
+  // requirement from the business (payouts need both), not just a UI nudge.
+  // So once idVerified flips true, the quick "Done for now" exit disappears
+  // until bank is verified too; the host can still bail out entirely via
+  // the modal's X (top right), same as before id verification ever ran.
+  const idVerified = idResult?.status === 'verified';
+  const bankVerified = bankResult?.verified === true;
+  const somethingSubmitted = Boolean(idResult || bankResult);
+  const canFinish = !idVerified || bankVerified;
+
+  return (
+    <div className="space-y-6">
+      <BankDetailsNotice />
+
+      {/* ID verification */}
+      <form onSubmit={handleSubmitId} className="space-y-4">
+        <div>
+          <label htmlFor="fullName" className="block text-xs font-semibold text-gray-600 mb-1.5">
+            Full name (as on your ID and bank account)
+          </label>
+          <input
+            id="fullName"
+            type="text"
+            value={fullName}
+            onChange={(e) => setFullName(e.target.value)}
+            placeholder="e.g. Priya Sharma"
+            maxLength={100}
+            className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+          />
+        </div>
+
+        <div>
+          <p className="block text-xs font-semibold text-gray-600 mb-1.5">Verify your identity with</p>
+          <div className="grid grid-cols-3 gap-2" role="radiogroup" aria-label="ID document">
+            {(Object.keys(ID_METHODS) as IdMethod[]).map((m) => {
+              const { label, icon: Icon } = ID_METHODS[m];
+              const on = idMethod === m;
+              return (
+                <button
+                  key={m}
+                  type="button"
+                  role="radio"
+                  aria-checked={on}
+                  onClick={() => {
+                    setIdMethod(m);
+                    setIdResult(null);
+                  }}
+                  className={cn(
+                    'flex flex-col items-center gap-1 rounded-xl border px-2 py-2.5 text-xs font-semibold transition-all',
+                    on
+                      ? 'border-figma-navy bg-figma-navy/5 text-figma-navy'
+                      : 'border-gray-200 text-gray-600 hover:bg-gray-50',
+                  )}
+                >
+                  <Icon className="w-4 h-4" />
+                  {label}
+                </button>
+              );
+            })}
+          </div>
+          {idMethod !== 'pan' && (
+            <p className="text-[11px] text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mt-2">
+              {ID_METHODS[idMethod].label} verifies your identity, but a PAN is still required to receive
+              payouts -- you can add it later in Settings → Payouts.
+            </p>
+          )}
+        </div>
+
+        {idMethod === 'pan' && (
+          <div>
+            <label htmlFor="pan" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+              <CreditCard className="w-3.5 h-3.5" />
+              PAN number
+            </label>
+            <input
+              id="pan"
+              type="text"
+              value={pan}
+              onChange={(e) => setPan(formatPanInput(e.target.value))}
+              placeholder="ABCDE1234F"
+              maxLength={10}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm tracking-widest uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+            />
+            {pan.length === 10 && !isIdValid && (
+              <p className="text-xs text-red-500 mt-1.5">That doesn&apos;t look like a valid PAN.</p>
+            )}
+          </div>
+        )}
+
+        {idMethod === 'aadhaar' && (
+          <div className="space-y-3">
+            <div>
+              <label htmlFor="aadhaarFile" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+                <FileText className="w-3.5 h-3.5" />
+                eAadhaar PDF
+              </label>
+              <label
+                htmlFor="aadhaarFile"
+                className="flex items-center gap-3 w-full px-4 py-3 rounded-xl border border-dashed border-gray-300 text-sm cursor-pointer hover:border-figma-navy/40 hover:bg-gray-50 transition-all"
+              >
+                <Upload className="w-4 h-4 text-gray-400 shrink-0" />
+                <span className={cn('truncate', aadhaarFile ? 'text-gray-900' : 'text-gray-400')}>
+                  {aadhaarFile ? aadhaarFile.name : 'Choose your eAadhaar PDF (max 5 MB)'}
+                </span>
+              </label>
+              <input
+                id="aadhaarFile"
+                type="file"
+                accept="application/pdf,.pdf"
+                className="sr-only"
+                onChange={(e) => {
+                  const f = e.target.files?.[0] ?? null;
+                  if (f && f.size > 5 * 1024 * 1024) {
+                    toast.error('The PDF is too large (max 5 MB).');
+                    return;
+                  }
+                  setAadhaarFile(f);
+                }}
+              />
+              <p className="text-[11px] text-gray-400 mt-1.5">
+                Download it from{' '}
+                <a
+                  href="https://myaadhaar.uidai.gov.in/genricDownloadAadhaar"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-figma-navy underline"
+                >
+                  myaadhaar.uidai.gov.in
+                </a>
+                . Upload the original PDF -- a scan or photo won&apos;t work.
+              </p>
+            </div>
+            <div>
+              <label htmlFor="yob" className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Year of birth
+              </label>
+              <input
+                id="yob"
+                type="text"
+                inputMode="numeric"
+                value={yob}
+                onChange={(e) => setYob(e.target.value.replace(/\D/g, '').slice(0, 4))}
+                placeholder="1990"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+              />
+            </div>
+          </div>
+        )}
+
+        {idMethod === 'passport' && (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="passportFileNo" className="flex items-center gap-1.5 text-xs font-semibold text-gray-600 mb-1.5">
+                <BookUser className="w-3.5 h-3.5" />
+                Passport file number
+              </label>
+              <input
+                id="passportFileNo"
+                type="text"
+                value={passportFileNo}
+                onChange={(e) => setPassportFileNo(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 15))}
+                placeholder="DL1064145893512"
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+              />
+            </div>
+            <div>
+              <label htmlFor="dob" className="block text-xs font-semibold text-gray-600 mb-1.5">
+                Date of birth
+              </label>
+              <input
+                id="dob"
+                type="date"
+                value={dob}
+                max={new Date().toISOString().slice(0, 10)}
+                onChange={(e) => setDob(e.target.value)}
+                className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+              />
+            </div>
+            <p className="col-span-2 text-[11px] text-gray-400">
+              The file number is on the last page of your passport (not the passport number).
+            </p>
+          </div>
+        )}
+
+        <label className="flex items-start gap-2.5 pt-1 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={consent}
+            onChange={(e) => setConsent(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-gray-300 text-figma-navy focus:ring-figma-navy/30"
+          />
+          <span className="text-xs text-gray-500 leading-relaxed">
+            I consent to Hostiggo collecting my {ID_METHODS[idMethod].label} details for
+            identity verification, in accordance with the{' '}
+            <a href="/privacy" target="_blank" className="text-figma-navy underline">
+              Privacy Policy
+            </a>
+            .
+          </span>
+        </label>
+
+        <ResultBanner result={idResult} />
+
+        <button
+          type="submit"
+          disabled={!canSubmitId}
+          className="w-full py-3 bg-figma-navy text-white text-sm font-semibold rounded-xl hover:bg-figma-navy/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        >
+          {idSubmitting ? 'Verifying…' : `Verify ${ID_METHODS[idMethod].label}`}
+        </button>
+      </form>
+
+      <div className="h-px bg-gray-100" />
+
+      {/* Bank verification */}
+      <form onSubmit={handleSubmitBank} className="space-y-4">
+        <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-600">
+          <Landmark className="w-3.5 h-3.5" />
+          Bank account verification
+        </p>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label htmlFor="bankAccount" className="block text-xs font-semibold text-gray-600 mb-1.5">
+              Account number
+            </label>
+            <input
+              id="bankAccount"
+              type="text"
+              inputMode="numeric"
+              value={accountNumber}
+              onChange={(e) => setAccountNumber(e.target.value.replace(/\D/g, '').slice(0, 18))}
+              placeholder="219101000000000"
+              maxLength={18}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+            />
+          </div>
+          <div>
+            <label htmlFor="bankIfsc" className="block text-xs font-semibold text-gray-600 mb-1.5">
+              IFSC code
+            </label>
+            <input
+              id="bankIfsc"
+              type="text"
+              value={ifsc}
+              onChange={(e) => setIfsc(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 11))}
+              placeholder="HDFC0001234"
+              maxLength={11}
+              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm uppercase outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all"
+            />
+          </div>
+        </div>
+        <p className="text-[11px] text-gray-400">
+          We verify the account is real without moving any money -- no OTP needed.
+        </p>
+
+        <ResultBanner result={bankResult} />
+
+        <button
+          type="submit"
+          disabled={!canSubmitBank}
+          className="w-full py-3 bg-figma-navy text-white text-sm font-semibold rounded-xl hover:bg-figma-navy/90 disabled:opacity-40 disabled:cursor-not-allowed transition-all"
+        >
+          {bankSubmitting ? 'Verifying…' : 'Verify bank account'}
+        </button>
+      </form>
+
+      {idVerified && !bankVerified ? (
+        <p className="text-center text-xs font-medium text-gray-500">
+          Bank verification is required to finish -- your{' '}
+          {verifiedMethod ? ID_METHODS[verifiedMethod].label : 'ID'} is verified, now add your bank
+          details above.
+        </p>
+      ) : (
+        (showSkip || somethingSubmitted) && (
+          <button
+            type="button"
+            onClick={somethingSubmitted && canFinish ? onCompleted : handleSkip}
+            className="w-full text-center text-xs font-semibold text-gray-500 hover:text-gray-700 transition-colors"
+          >
+            {somethingSubmitted && canFinish ? 'Done' : "Skip for now — I'll verify later"}
+          </button>
+        )
+      )}
+    </div>
+  );
+}

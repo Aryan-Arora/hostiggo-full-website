@@ -85,10 +85,10 @@ async function shareProperty(url: string, title?: string) {
   }
 }
 
-// Site-wide kill switch for the real booking CTA -- flip back to false to
-// re-enable. The button stays visible (greyed out, non-clickable) so the
-// page layout doesn't shift.
-const BOOKING_DISABLED = true;
+// Site-wide kill switch for the real booking CTA. Bookings are on by default;
+// set NEXT_PUBLIC_BOOKINGS_DISABLED=true to grey the button out (it stays
+// visible and non-clickable so the page layout doesn't shift).
+const BOOKING_DISABLED = process.env.NEXT_PUBLIC_BOOKINGS_DISABLED === "true";
 
 // ── Amenity Icon Map ─────────────────────────────────────────────────
 const AMENITY_ICON_MAP: Record<string, React.ReactNode> = {
@@ -1064,6 +1064,15 @@ function BookingWidget({
         numChildren: 0,
         addonIds: selectedAddonIds,
       });
+      if (!order.paymentRequired) {
+        setStatus('confirmed');
+        toast.success('Booking confirmed!');
+        if (order.booking?.booking_id) {
+          router.push(`/booking-confirmation/${order.booking.booking_id}`);
+        }
+        return;
+      }
+
       // Step 2: guest actually pays via the Razorpay Checkout widget.
       let payment;
       try {

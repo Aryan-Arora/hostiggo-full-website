@@ -1,4 +1,5 @@
-import { supabase } from "../supabase";
+// Server-only (used by /api routes); anon has no privileges on bookings.
+import { supabaseAdmin as supabase } from "../supabase-admin";
 import { SCHEMA } from "../schema.constants";
 
 const DB_SCHEMA = SCHEMA.testingSchema;
@@ -23,9 +24,8 @@ export interface BookingWithGuestRow {
   guest: { name: string } | null;
 }
 
-// Narrow shape returned by the public `get_listing_booked_dates` RPC --
-// deliberately excludes amount/user_id/host_uuid/guest name so it's safe
-// to expose to anonymous visitors on the public property-page calendar.
+// Deliberately excludes amount/user_id/host_uuid/guest name so this shape is
+// safe to expose to anonymous visitors on the public property-page calendar.
 export interface BookedDateRangeRow {
   listing_id: number;
   start_date: string;
@@ -115,23 +115,23 @@ export const calendarServiceAPI = {
   },
 
   // Public, anon-safe path for the property-page availability calendar.
-  // Calls the `get_listing_booked_dates` SECURITY DEFINER Postgres function
-  // (hostiggo_testing_schema) which returns only listing_id/start_date/
-  // end_date/status_id -- no amount, user_id, host_uuid, or guest name --
-  // so it works under the authenticated-only RLS policies on `bookings`
-  // without re-exposing PII to the `anon` role. Use fetchBookingsForListing
-  // (above) only for authenticated, host-only contexts that need the full
-  // row (e.g. amount/guest name).
+  // This route runs server-side with the service-role client and selects only
+  // date/status fields, so it does not depend on a separately permissioned
+  // SECURITY DEFINER RPC and never exposes booking PII.
   async fetchPublicBookedDates(
     listingId: number,
     startDate: string,
     endDate: string,
   ): Promise<BookedDateRangeRow[]> {
-    const { data, error } = await supabase.rpc("get_listing_booked_dates", {
-      p_listing_id: listingId,
-      p_start: startDate,
-      p_end: endDate,
-    });
+    const { data, error } = await supabase
+      .schema(DB_SCHEMA)
+      .from("bookings")
+      .select("listing_id, start_date, end_date, status_id")
+      .eq("listing_id", listingId)
+      .eq("status_id", 2)
+      .lt("start_date", endDate)
+      .gt("end_date", startDate)
+      .order("start_date", { ascending: true });
 
     if (error) {
       console.error("[calendarService] fetchPublicBookedDates error:", error);

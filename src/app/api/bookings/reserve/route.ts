@@ -1,17 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
-import { validateAndPriceBooking } from "@/lib/services/admin-writes";
+import { createBookingWithoutPayment, validateAndPriceBooking } from "@/lib/services/admin-writes";
 import { createRazorpayOrder } from "@/lib/billing/razorpay";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
+import { PAYMENTS_ENABLED } from "@/lib/booking-config";
 
 export const dynamic = "force-dynamic";
 
-// No booking is ever inserted here -- this only validates availability,
-// computes the real server-side price, and opens a Razorpay order for the
-// guest to pay. The booking itself is only ever created by
-// finalizeBookingFromRazorpayOrder() once that payment is verified (see
-// /api/bookings/confirm-payment and /api/webhooks/razorpay). That also
-// means a guest who never completes payment leaves nothing behind to clean
-// up -- no pending row, no held calendar nights.
+// With payments enabled this only validates availability, computes the real
+// server-side price, and opens a Razorpay order. With payments disabled it
+// creates the confirmed booking directly after the same validation.
 export async function POST(req: NextRequest) {
   try {
     // The caller's identity comes from their verified Supabase session, not
@@ -72,7 +69,7 @@ export async function POST(req: NextRequest) {
     // validateAndPriceBooking() always recomputes the real charge
     // server-side. Only *which* addonIds were picked comes from the client;
     // their price is always looked up fresh from listing_addons.
-    const priced = await validateAndPriceBooking({
+    const bookingInput = {
       listingId: Number(listingId),
       userId: String(userId),
       startDate: String(startDate),
@@ -80,7 +77,14 @@ export async function POST(req: NextRequest) {
       numAdults: normalizedNumAdults,
       numChildren: normalizedNumChildren,
       addonIds: normalizedAddonIds,
-    });
+    };
+
+    if (!PAYMENTS_ENABLED) {
+      const booking = await createBookingWithoutPayment(bookingInput);
+      return NextResponse.json({ data: { paymentRequired: false, booking } });
+    }
+
+    const priced = await validateAndPriceBooking(bookingInput);
 
     // Everything finalizeBookingFromRazorpayOrder() will need to actually
     // create the booking once payment is verified travels here, in the

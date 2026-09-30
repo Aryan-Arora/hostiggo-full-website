@@ -50,8 +50,14 @@ function CancelInner() {
     if (!id || !userId) return;
     setCancelling(true);
     try {
-      await api.cancelBooking(id, userId, reasonLabel);
-      toast.success('Reservation cancelled.');
+      // Refund engine, not a plain status flip: a host cancellation refunds
+      // the guest in full and reverses the host's Route transfer.
+      const result = await api.cancelBookingWithRefund(id, userId, reasonLabel);
+      toast.success(
+        result?.refundStatus === 'processed'
+          ? `Reservation cancelled. The guest will be refunded ₹${Number(result.refundAmountRupees).toLocaleString('en-IN')}.`
+          : 'Reservation cancelled.',
+      );
       router.push('/host/bookings');
     } catch (err) {
       console.error('[cancel] failed:', err);

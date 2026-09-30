@@ -26,7 +26,8 @@ export function calculateHostPayout(input: HostPayoutInput): HostPayoutResult {
 
   const payoutBasePaise = propertyPricePaise + breakfastPricePaise + otherServicesPricePaise;
 
-  const commissionPaise = percentOf(payoutBasePaise, PAYOUT_RATES.hostiggoCommission);
+  const commissionRate = input.commissionRate ?? PAYOUT_RATES.hostiggoCommission;
+  const commissionPaise = percentOf(payoutBasePaise, commissionRate);
   const tcsPaise = percentOf(payoutBasePaise, PAYOUT_RATES.tcs);
   const tdsPaise = percentOf(payoutBasePaise, PAYOUT_RATES.tds);
 
@@ -35,7 +36,7 @@ export function calculateHostPayout(input: HostPayoutInput): HostPayoutResult {
   return {
     payoutBasePaise,
     commissionPaise,
-    commissionRate: PAYOUT_RATES.hostiggoCommission,
+    commissionRate,
     tcsPaise,
     tcsRate: PAYOUT_RATES.tcs,
     tdsPaise,

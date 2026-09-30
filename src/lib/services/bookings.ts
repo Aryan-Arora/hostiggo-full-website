@@ -1,5 +1,8 @@
-import { supabase } from "../supabase";
+// Server-only service (used by /api routes): the anon client has no table
+// privileges on bookings, so everything here runs as the service role. Every
+// caller scopes by the verified user id (see getAuthenticatedUserId).
 import { supabaseAdmin } from "../supabase-admin";
+const supabase = supabaseAdmin;
 
 // None of updateBookingStatus/updateBookingDates/updateBookingGuests ever
 // checked that the caller actually owns the booking they're modifying,
@@ -78,6 +81,8 @@ export const bookingsAPI = {
         booking_id,
         listing_id,
         amount,
+        refund_amount,
+        refund_status,
         listings (
           latitude, longitude,
           price_weekday, price_weekend,
@@ -98,6 +103,8 @@ export const bookingsAPI = {
         ...r,
         listing_id: extra?.listing_id ?? r.listing_id ?? null,
         amount: extra?.amount ?? null,
+        refundAmount: extra?.refund_amount ?? null,
+        refundStatus: extra?.refund_status ?? null,
         priceWeekday: listing?.price_weekday ?? null,
         priceWeekend: listing?.price_weekend ?? null,
         latitude: listing?.latitude ?? null,

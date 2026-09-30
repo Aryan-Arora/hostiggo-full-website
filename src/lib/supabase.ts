@@ -96,4 +96,8 @@ export const supabaseCacheable = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
   },
 });
 
-export { SUPABASE_URL, SUPABASE_ANON_KEY };
+// Narrowed to string by the throw above; re-typed so importers get `string`
+// rather than the raw `string | undefined` from process.env.
+const supabaseUrl: string = SUPABASE_URL;
+const supabaseAnonKey: string = SUPABASE_ANON_KEY;
+export { supabaseUrl as SUPABASE_URL, supabaseAnonKey as SUPABASE_ANON_KEY };

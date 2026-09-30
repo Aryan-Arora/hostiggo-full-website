@@ -54,6 +54,8 @@ export interface HostPayoutInput {
   propertyPrice: number;
   breakfastPrice?: number;
   otherServicesPrice?: number;
+  /** Overrides the default commission rate (fraction), e.g. from pricing_rules. */
+  commissionRate?: number;
 }
 
 export interface HostPayoutResult {

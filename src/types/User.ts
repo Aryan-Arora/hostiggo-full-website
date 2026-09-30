@@ -1,4 +1,4 @@
-export type IDType = 'aadhaar' | 'pan' | 'passport';
+export type IDType = 'pan' | 'passport';
 export type IDVerificationStatus = 'unverified' | 'pending' | 'verified';
 
 export interface IDDocument {

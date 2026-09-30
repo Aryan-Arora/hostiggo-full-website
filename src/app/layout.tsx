@@ -4,6 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
+import NotificationListener from '@/components/features/NotificationListener';
 // import { Analytics } from '@vercel/analytics/next';
 
 // Figma "Website Guest UI/UX" uses Poppins (Regular/Medium/SemiBold/Bold)
@@ -27,10 +28,13 @@ export default function RootLayout({
 }) {
   return (
     <html lang="en" className={poppins.variable} data-scroll-behavior="smooth">
-      <body className={poppins.className}>
+      {/* Extensions like Grammarly inject data-* attributes on <body> before
+          hydration; suppress that one-level attribute mismatch warning. */}
+      <body className={poppins.className} suppressHydrationWarning>
         <AuthProvider>
           <ListingFilterProvider>
             <Toaster position="top-center" richColors closeButton />
+            <NotificationListener />
             {children}
           </ListingFilterProvider>
         </AuthProvider>

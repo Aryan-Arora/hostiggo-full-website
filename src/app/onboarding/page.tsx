@@ -147,6 +147,7 @@ function OnboardingContent() {
                 src={photoUrl || DEFAULT_AVATAR}
                 alt="Profile"
                 sizes="96px"
+                loading="eager"
                 className="rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
               />
               <input

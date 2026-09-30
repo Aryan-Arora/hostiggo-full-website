@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { verifyRazorpayPayment } from "@/lib/billing/razorpay";
 import { finalizeBookingFromRazorpayOrder } from "@/lib/services/admin-writes";
+import { PAYMENTS_ENABLED } from "@/lib/booking-config";
 
 export const dynamic = "force-dynamic";
 
@@ -15,6 +16,10 @@ export const dynamic = "force-dynamic";
 // the tab right after paying and this callback never fires.
 export async function POST(req: NextRequest) {
   try {
+    if (!PAYMENTS_ENABLED) {
+      return NextResponse.json({ error: "Payments are currently disabled." }, { status: 503 });
+    }
+
     const body = await req.json();
     const razorpayOrderId = body?.razorpayOrderId;
     const razorpayPaymentId = body?.razorpayPaymentId;

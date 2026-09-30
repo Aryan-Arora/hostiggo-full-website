@@ -7,6 +7,23 @@ const DB_SCHEMA = SCHEMA.testingSchema;
 // All functions here run with the service-role key (RLS bypassed) and must only
 // be called from /app/api/* route handlers.
 
+/**
+ * Read-only host lookup: returns the caller's host_uuid, or null if they have
+ * never become a host. Use this (never ensureHostProfile) from anything that is
+ * a read, a KYC/verification step or a retry -- those must not be able to turn
+ * a plain guest into a host row as a side effect.
+ */
+export async function findHostUuid(userId: string): Promise<string | null> {
+  const { data, error } = await supabaseAdmin
+    .from("host")
+    .select("host_uuid")
+    .eq("user_id", userId)
+    .limit(1)
+    .maybeSingle();
+  if (error) throw error;
+  return data?.host_uuid ?? null;
+}
+
 // ── Host Profile ─────────────────────────────────────────────────────────────
 /**
  * Ensures a host profile exists for the given user.
@@ -41,6 +58,20 @@ export async function ensureHostProfile(userId: string): Promise<string> {
     return hosts[0].host_uuid;
   }
   
+  // Never create a host for an auth identity that has no real profile row --
+  // that is how orphan "ghost" hosts (host rows with no users row, no listing,
+  // no payout details) were accumulating. The users row is created by the
+  // on_auth_user_created trigger; if it is missing the account is not set up.
+  const { data: profile, error: profileError } = await supabaseAdmin
+    .from("users")
+    .select("user_id, is_active")
+    .eq("user_id", userId)
+    .maybeSingle();
+  if (profileError) throw profileError;
+  if (!profile || profile.is_active === false) {
+    throw new Error("Complete your profile before setting up hosting.");
+  }
+
   // Create a new host profile for this user
   console.log(`[ensureHostProfile] Creating new host profile for user ${userId}`);
   
@@ -333,15 +364,14 @@ export async function validateAndPriceBooking(input: BookingInput) {
 }
 
 /**
- * The actual booking write, run only after a Razorpay payment has been
- * verified (see finalizeBookingFromRazorpayOrder below) -- this is the tail
- * end of what used to be createBooking(): insert the CONFIRMED row, record
- * the add-ons, lose gracefully to a same-dates race, block the calendar.
+ * The actual booking write: insert the CONFIRMED row, record the add-ons,
+ * lose gracefully to a same-dates race, and block the calendar. Paid
+ * bookings provide Razorpay IDs; payment-disabled bookings leave them null.
  */
 async function insertConfirmedBooking(
   input: BookingInput,
   priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
-  razorpay: { orderId: string; paymentId: string },
+  razorpay: { orderId: string | null; paymentId: string | null },
 ) {
   const { listing, numAdults, numChildren, stayNights, resolvedAddons, amountRupees } = priced;
 
@@ -356,10 +386,6 @@ async function insertConfirmedBooking(
       num_children: numChildren,
       nom_guests: numAdults + numChildren,
       amount: amountRupees,
-      // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row) --
-      // there's nothing to insert until payment is verified (see
-      // finalizeBookingFromRazorpayOrder), so every row that gets created
-      // here is, by construction, already paid for.
       status_id: 2,
       host_uuid: listing.host_uuid,
       booked_at: new Date().toISOString(),
@@ -415,26 +441,24 @@ async function insertConfirmedBooking(
       .from("bookings")
       .update({ status_id: 3, cancellation_reason: "Dates were booked by another guest first" })
       .eq("booking_id", data.booking_id);
-    const { createRazorpayRefund } = await import("../billing/razorpay");
-    try {
-      await createRazorpayRefund({
-        razorpayPaymentId: razorpay.paymentId,
-        amountPaise: priced.amountPaise,
-        idempotencyKey: `refund:race-loss:${data.booking_id}`,
-        notes: { reason: "Dates were booked by another guest first", bookingId: String(data.booking_id) },
-      });
-    } catch (refundErr) {
-      // Surfacing this as a thrown error would tell the guest their payment
-      // is stuck with no refund in sight, which is worse than a booking
-      // that needs a manual refund follow-up -- log loudly for ops instead.
-      console.error(
-        `[insertConfirmedBooking] URGENT: race-loss refund failed for payment ${razorpay.paymentId}, booking ${data.booking_id} -- needs manual refund:`,
-        refundErr,
-      );
+    if (razorpay.paymentId) {
+      const { createRazorpayRefund } = await import("../billing/razorpay");
+      try {
+        await createRazorpayRefund({
+          razorpayPaymentId: razorpay.paymentId,
+          amountPaise: priced.amountPaise,
+          idempotencyKey: `refund:race-loss:${data.booking_id}`,
+          notes: { reason: "Dates were booked by another guest first", bookingId: String(data.booking_id) },
+        });
+      } catch (refundErr) {
+        console.error(
+          `[insertConfirmedBooking] URGENT: race-loss refund failed for payment ${razorpay.paymentId}, booking ${data.booking_id} -- needs manual refund:`,
+          refundErr,
+        );
+      }
+      throw new Error("These dates were just booked by someone else. Your payment has been refunded.");
     }
-    throw new Error(
-      "These dates were just booked by someone else. Your payment has been refunded.",
-    );
+    throw new Error("These dates were just booked by someone else. Please choose different dates.");
   }
 
   // Block all nights in the booked range so they can't be double-booked.
@@ -473,6 +497,13 @@ async function insertConfirmedBooking(
   }
 
   return data;
+}
+
+export async function createBookingWithoutPayment(input: BookingInput) {
+  const priced = await validateAndPriceBooking(input);
+  const booking = await insertConfirmedBooking(input, priced, { orderId: null, paymentId: null });
+  await notifyBookingConfirmed(booking, priced.invoice.grandTotalPaise, false).catch(() => {});
+  return booking;
 }
 
 /**
@@ -539,7 +570,348 @@ export async function finalizeBookingFromRazorpayOrder(params: {
     );
   }
 
-  return insertConfirmedBooking(input, priced, { orderId: params.orderId, paymentId: params.paymentId });
+  let booking;
+  try {
+    booking = await insertConfirmedBooking(input, priced, {
+      orderId: params.orderId,
+      paymentId: params.paymentId,
+    });
+  } catch (err: any) {
+    // Callback + webhook raced past the read-then-insert idempotency check above.
+    // bookings_razorpay_payment_id_uniq makes the loser fail here with a unique
+    // violation -- that is the SAME payment, so hand back the winner's row.
+    if (err?.code === "23505") {
+      const { data: winner } = await supabaseAdmin
+        .from("bookings")
+        .select("*")
+        .eq("razorpay_payment_id", params.paymentId)
+        .maybeSingle();
+      if (winner) return winner;
+    }
+    throw err;
+  }
+
+  await snapshotInvoiceOnBooking(booking, priced).catch((err) => {
+    console.error(
+      `[finalizeBookingFromRazorpayOrder] invoice snapshot failed for booking ${booking.booking_id}:`,
+      err,
+    );
+  });
+
+  // Split the host's net share off to their Razorpay Route Linked Account.
+  // The guest's payment and the booking are already final by this point --
+  // a Route failure (host never onboarded, Route not enabled on this
+  // account yet, transient API error) must never undo either, so this is
+  // fully isolated in its own try/catch and only ever adjusts
+  // bookings.transfer_status + a manual_settlement_flags row for ops to
+  // follow up on, the same pattern already used for a failed race-loss
+  // refund above.
+  await createHostTransferForBooking(booking, priced, params.paymentId).catch((err) => {
+    console.error(
+      `[finalizeBookingFromRazorpayOrder] transfer step failed for booking ${booking.booking_id}:`,
+      err,
+    );
+  });
+
+  await notifyBookingConfirmed(booking, priced.invoice.grandTotalPaise, true).catch(() => {});
+
+  return booking;
+}
+
+/**
+ * Freezes exactly what the guest was charged, and how it splits, onto the
+ * booking row (amount_paise, invoice, invoice_number, host_payout_paise, ...).
+ * Invoices used to be rebuilt from the listing's *current* prices, so a later
+ * price/rate change would rewrite history. Fail-soft: the payment and booking
+ * are already final -- a failure here must never undo either.
+ */
+async function snapshotInvoiceOnBooking(
+  booking: { booking_id: number },
+  priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
+) {
+  const { calculateHostPayout } = await import("../billing/payout");
+  const { getPricingRules } = await import("./pricingRules");
+  const { invoice } = priced;
+  const rules = await getPricingRules();
+  const payout = calculateHostPayout({
+    propertyPrice: invoice.propertyPricePaise / 100,
+    breakfastPrice: invoice.breakfastPricePaise / 100,
+    otherServicesPrice: invoice.otherServicesPricePaise / 100,
+    commissionRate: rules.commissionRate,
+  });
+  const gstPaise =
+    invoice.gstOnPropertyPaise +
+    invoice.gstOnHostiggoServiceFeePaise +
+    invoice.breakfastGstPaise +
+    invoice.otherServicesGstPaise;
+  const yymm = new Date(Date.now() + 330 * 60000).toISOString().slice(2, 7).replace("-", "");
+
+  const { error } = await supabaseAdmin
+    .from("bookings")
+    .update({
+      amount_paise: invoice.grandTotalPaise,
+      invoice,
+      invoice_number: `HG-${yymm}-${String(booking.booking_id).padStart(6, "0")}`,
+      host_payout_paise: payout.netHostPayoutPaise,
+      platform_fee_paise: invoice.hostiggoServiceFeePaise + payout.commissionPaise,
+      gst_collected_paise: gstPaise,
+      paid_at: new Date().toISOString(),
+    })
+    .eq("booking_id", booking.booking_id);
+  if (error) throw error;
+
+  await recordPaymentAndPayout(booking.booking_id, invoice, payout, gstPaise);
+}
+
+async function nextId(table: string, column: string): Promise<number> {
+  const { data } = await supabaseAdmin
+    .from(table)
+    .select(column)
+    .order(column, { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  return Number((data as any)?.[column] ?? 0) + 1;
+}
+
+/**
+ * Writes the payment ledger row and the host's payouts/payout_items rows for
+ * a paid booking, so payment and payout history exist as rows (the mobile
+ * app and the host dashboard both read them). Idempotent: skips whatever
+ * already exists for this booking. The payout starts 'processing' and is
+ * moved to 'credited'/'failed' by the transfer/settlement webhooks.
+ */
+async function recordPaymentAndPayout(
+  bookingId: number,
+  invoice: Awaited<ReturnType<typeof validateAndPriceBooking>>["invoice"],
+  payout: { commissionPaise: number; netHostPayoutPaise: number },
+  gstPaise: number,
+) {
+  const { data: booking } = await supabaseAdmin
+    .from("bookings")
+    .select("host_uuid")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+
+  const { data: existingPayment } = await supabaseAdmin
+    .from("payment")
+    .select("payment_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (!existingPayment) {
+    const { data: gateway } = await supabaseAdmin
+      .from("payment_gateways")
+      .select("payment_gatway_id")
+      .ilike("name", "razorpay")
+      .maybeSingle();
+    const { error } = await supabaseAdmin.from("payment").insert({
+      payment_id: await nextId("payment", "payment_id"),
+      booking_id: bookingId,
+      amount: invoice.grandTotalPaise / 100,
+      comission: (invoice.hostiggoServiceFeePaise + payout.commissionPaise) / 100,
+      host_payout: payout.netHostPayoutPaise / 100,
+      gst_amount: gstPaise / 100,
+      payment_gatway_id: gateway?.payment_gatway_id ?? null,
+    });
+    if (error) console.error(`[recordPaymentAndPayout] payment insert failed for ${bookingId}:`, error);
+  }
+
+  if (!booking?.host_uuid) return;
+  const { data: existingItem } = await supabaseAdmin
+    .from("payout_items")
+    .select("payout_item_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (existingItem) return;
+
+  const { data: payoutRow, error: payoutErr } = await supabaseAdmin
+    .from("payouts")
+    .insert({
+      host_id: booking.host_uuid,
+      total_amount: payout.netHostPayoutPaise / 100,
+      reference_id: `booking-${bookingId}`,
+    })
+    .select("payout_id")
+    .single();
+  if (payoutErr || !payoutRow) {
+    console.error(`[recordPaymentAndPayout] payouts insert failed for ${bookingId}:`, payoutErr);
+    return;
+  }
+  const { error: itemErr } = await supabaseAdmin.from("payout_items").insert({
+    payout_id: payoutRow.payout_id,
+    booking_id: bookingId,
+    host_amount: payout.netHostPayoutPaise / 100,
+    commission: payout.commissionPaise / 100,
+    gst: gstPaise / 100,
+  });
+  if (itemErr) console.error(`[recordPaymentAndPayout] payout_items insert failed for ${bookingId}:`, itemErr);
+}
+
+/** Moves a booking's payouts row to a new status (processing | credited | failed). */
+export async function setPayoutStatusForBooking(
+  bookingId: number,
+  status: "processing" | "credited" | "failed",
+  referenceId?: string | null,
+) {
+  const { data: item } = await supabaseAdmin
+    .from("payout_items")
+    .select("payout_id")
+    .eq("booking_id", bookingId)
+    .maybeSingle();
+  if (!item?.payout_id) return;
+  await supabaseAdmin
+    .from("payouts")
+    .update({ status, ...(referenceId ? { reference_id: referenceId } : {}) })
+    .eq("payout_id", item.payout_id);
+}
+
+async function notifyBookingConfirmed(
+  booking: {
+    booking_id: number;
+    user_id: string;
+    host_uuid: string;
+    listing_id: number;
+    start_date: string;
+    end_date: string;
+    num_adults?: number | null;
+    num_children?: number | null;
+  },
+  grandTotalPaise: number,
+  paymentReceived: boolean,
+) {
+  const { notify, notifyWhatsApp, hostUserId, resolveUserPhone } = await import("./notifications");
+  const { data: listing } = await supabaseAdmin
+    .from("listings")
+    .select("title")
+    .eq("listing_id", booking.listing_id)
+    .maybeSingle();
+  const title = listing?.title ?? "your stay";
+  const metadata = { bookingId: booking.booking_id, listingId: booking.listing_id };
+  const paymentText = paymentReceived
+    ? ` Paid ₹${(grandTotalPaise / 100).toLocaleString("en-IN")}.`
+    : " Payment is currently disabled.";
+  const guestCount = String((booking.num_adults ?? 0) + (booking.num_children ?? 0));
+  const formatBookingDate = (value: string) =>
+    new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  const checkIn = formatBookingDate(booking.start_date);
+  const checkOut = formatBookingDate(booking.end_date);
+  const { data: guest } = await supabaseAdmin
+    .from("users")
+    .select("name, phone")
+    .eq("user_id", booking.user_id)
+    .maybeSingle();
+  const guestPhone = await resolveUserPhone(booking.user_id, guest?.phone);
+  await notify({
+    userId: booking.user_id,
+    type: "bookings",
+    title: "Booking confirmed",
+    message: `Your booking at ${title} (${checkIn} to ${checkOut}) is confirmed.${paymentText}`,
+    metadata,
+  });
+  await notifyWhatsApp({
+    userId: booking.user_id,
+    to: guestPhone,
+    template: "booking_confirmation_guest",
+    type: "bookings",
+    variables: {
+      "1": guest?.name ?? "Guest",
+      "2": title,
+      "3": checkIn,
+      "4": checkOut,
+      "5": guestCount,
+      "6": String(booking.booking_id),
+    },
+  });
+  const hostUser = await hostUserId(booking.host_uuid);
+  if (hostUser) {
+    const { data: host } = await supabaseAdmin
+      .from("users")
+      .select("name, phone")
+      .eq("user_id", hostUser)
+      .maybeSingle();
+    const hostPhone = await resolveUserPhone(hostUser, host?.phone);
+    await notify({
+      userId: hostUser,
+      type: "bookings",
+      title: "New booking",
+      message: `${title} was booked for ${checkIn} to ${checkOut} by ${guest?.name ?? "a guest"}.`,
+      metadata,
+    });
+    await notifyWhatsApp({
+      userId: hostUser,
+      to: hostPhone,
+      template: "booking_received_host",
+      type: "bookings",
+      variables: {
+        "1": host?.name ?? "Host",
+        "2": title,
+        "3": guest?.name ?? "Guest",
+        "4": checkIn,
+        "5": checkOut,
+        "6": guestCount,
+        "7": String(booking.booking_id),
+      },
+    });
+  }
+}
+
+async function createHostTransferForBooking(
+  booking: { booking_id: number; host_uuid: string },
+  priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
+  paymentId: string,
+) {
+  const { data: payout, error: payoutError } = await supabaseAdmin
+    .from("host_payout_methods")
+    .select("razorpay_account_id, status")
+    .eq("host_uuid", booking.host_uuid)
+    .maybeSingle();
+  if (payoutError) throw payoutError;
+
+  // No Route account yet (host hasn't finished onboarding) -- nothing to
+  // transfer to. Leave transfer_status null so this booking is easy to find
+  // once the host does onboard, rather than flagging every booking made
+  // before a host's first Route setup as an error.
+  if (!payout?.razorpay_account_id) return;
+
+  const { calculateHostPayout } = await import("../billing/payout");
+  const { createTransferForPayment } = await import("../billing/razorpayRoute");
+
+  const { getPricingRules } = await import("./pricingRules");
+  const { invoice } = priced;
+  const hostPayout = calculateHostPayout({
+    propertyPrice: invoice.propertyPricePaise / 100,
+    breakfastPrice: invoice.breakfastPricePaise / 100,
+    otherServicesPrice: invoice.otherServicesPricePaise / 100,
+    commissionRate: (await getPricingRules()).commissionRate,
+  });
+
+  try {
+    const result = await createTransferForPayment(paymentId, {
+      linkedAccountId: payout.razorpay_account_id,
+      amountPaise: hostPayout.netHostPayoutPaise,
+      notes: { bookingId: String(booking.booking_id) },
+      idempotencyKey: `transfer:${booking.booking_id}`,
+    });
+    const transferId = result.items?.[0]?.id ?? null;
+    await supabaseAdmin
+      .from("bookings")
+      .update({ razorpay_transfer_id: transferId, transfer_status: "created" })
+      .eq("booking_id", booking.booking_id);
+  } catch (err) {
+    await supabaseAdmin
+      .from("bookings")
+      .update({ transfer_status: "failed" })
+      .eq("booking_id", booking.booking_id);
+    await setPayoutStatusForBooking(booking.booking_id, "failed").catch(() => {});
+    await supabaseAdmin.from("manual_settlement_flags").insert({
+      booking_id: booking.booking_id,
+      reason: `Route transfer failed: ${err instanceof Error ? err.message : "unknown error"}`,
+    });
+    throw err;
+  }
 }
 
 function eachDateInRange(startDate: string, endDate: string): string[] {
@@ -829,12 +1201,26 @@ export async function createListing(draft: ListingDraft) {
     if (propType) row.property_type_id = propType.id;
   }
 
-  const { data: listing, error } = await supabaseAdmin
-    .from("listings")
-    .insert(row)
-    .select("listing_id, title")
-    .single();
-  if (error) throw error;
+  // listings.listing_id is NOT NULL with no default in the schema, so it has
+  // to be supplied. Take max+1 and retry on a unique-violation in case two
+  // hosts create a listing at the same moment.
+  let listing: { listing_id: number; title: string } | null = null;
+  let lastError: any = null;
+  for (let attempt = 0; attempt < 5 && !listing; attempt++) {
+    const { data, error } = await supabaseAdmin
+      .from("listings")
+      .insert({ ...row, listing_id: (await nextId("listings", "listing_id")) + attempt })
+      .select("listing_id, title")
+      .single();
+    if (!error) {
+      listing = data;
+    } else if (error.code === "23505") {
+      lastError = error;
+    } else {
+      throw error;
+    }
+  }
+  if (!listing) throw lastError;
 
   const listingId = listing.listing_id;
   const warnings: string[] = [];

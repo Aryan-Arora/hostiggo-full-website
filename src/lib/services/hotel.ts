@@ -457,7 +457,8 @@ export const HotelServiceApi = {
     // returned null even though the row genuinely exists (confirmed via an
     // isolated script and a plain array query against the identical
     // filter); the array form doesn't have that problem.
-    const [houseRules, safetyDetails] = await Promise.all([
+    const today = new Date().toISOString().slice(0, 10);
+    const [houseRules, safetyDetails, hostRow, tripsHosted] = await Promise.all([
       supabaseAdmin
         .from('listing_house_rules')
         .select('check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours')
@@ -466,6 +467,19 @@ export const HotelServiceApi = {
         .from('listing_safety_details')
         .select('id, enabled, safety_features (feature_id, name, icon, description)')
         .eq('listing_id', listingId),
+      // Host card ("Hosted by ..."): name lives on users, photo/verified on host.
+      supabaseAdmin
+        .from('host')
+        .select('host_uuid, user_id, photo, is_verified')
+        .eq('host_uuid', data.host_uuid)
+        .limit(1),
+      // Trips hosted = confirmed bookings (status_id 2) that have checked out.
+      supabaseAdmin
+        .from('bookings')
+        .select('booking_id', { count: 'exact', head: true })
+        .eq('host_uuid', data.host_uuid)
+        .eq('status_id', 2)
+        .lte('end_date', today),
     ]);
 
     // Resolve the owner for the "Hosted by" section. The listings query above

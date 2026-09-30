@@ -6,6 +6,7 @@ import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { cn } from '@/lib/utils';
+import ProfileCompletionBanner from '@/components/features/ProfileCompletionBanner';
 import {
   Check,
   Clock,
@@ -13,6 +14,7 @@ import {
   Heart,
   HelpCircle,
   Home,
+  Inbox,
   IndianRupee,
   LogOut,
   Menu,
@@ -48,6 +50,11 @@ const MENU_GROUPS: MenuItem[][] = [
       icon: <MessageCircle className="w-4 h-4" />,
       label: "Chats",
       to: "/chat",
+    },
+    {
+      icon: <Inbox className="w-4 h-4" />,
+      label: "Inbox",
+      to: "/notifications",
     },
     {
       icon: <Heart className="w-4 h-4" />,
@@ -191,6 +198,7 @@ export default function Navbar() {
   }, []);
 
   return (
+    <>
     <nav className="bg-white sticky top-0 z-50 border-b border-[#EFEFEF] flex-shrink-0 transition-all">
       <div className="w-full px-4 sm:px-6 lg:px-10">
         <div className="flex items-center justify-between h-16 md:h-[105px]">
@@ -398,6 +406,14 @@ export default function Navbar() {
 
             {isAuthenticated ? (
               <>
+                <Link
+                  href="/notifications"
+                  aria-label="Inbox"
+                  title="Inbox"
+                  className="p-2 text-[#004772] hover:bg-[#004772]/5 rounded-full transition-colors"
+                >
+                  <Inbox className="w-5 h-5" />
+                </Link>
                 {/* Avatar + Dropdown */}
                 <div ref={profileRef} className="relative ml-2">
                   <button
@@ -533,6 +549,13 @@ export default function Navbar() {
                   <MessageCircle className="w-4 h-4 text-gray-500" /> Chats
                 </Link>
                 <Link
+                  href="/notifications"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <Inbox className="w-4 h-4 text-gray-500" /> Inbox
+                </Link>
+                <Link
                   href="/wishlist"
                   onClick={() => setMobileOpen(false)}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
@@ -599,5 +622,7 @@ export default function Navbar() {
         )}
       </div>
     </nav>
+    <ProfileCompletionBanner />
+    </>
   );
 }

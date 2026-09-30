@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { calendarServiceAPI } from "@/lib/services/calendar";
 import { upsertCalendarDay } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
+import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
+import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
 
@@ -19,6 +21,19 @@ export async function GET(req: NextRequest) {
     }
 
     const id = Number(listingId);
+
+    // Guest names and amounts are in this response -- only the listing's own host.
+    const userId = await getAuthenticatedUserId(req);
+    const { data: owner } = await supabaseAdmin
+      .from("listings")
+      .select("host:host_uuid(user_id)")
+      .eq("listing_id", id)
+      .maybeSingle();
+    const hostRow: any = Array.isArray((owner as any)?.host) ? (owner as any).host[0] : (owner as any)?.host;
+    if (!hostRow || hostRow.user_id !== userId) {
+      return NextResponse.json({ error: "Not your listing" }, { status: 403 });
+    }
+
     const [entries, bookings] = await Promise.all([
       calendarServiceAPI.fetchCalendarEntries(id, start, end),
       calendarServiceAPI.fetchBookingsForListing(id, start, end),
@@ -26,6 +41,9 @@ export async function GET(req: NextRequest) {
 
     return NextResponse.json({ data: { entries, bookings } });
   } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
+    }
     console.error("[/api/host/calendar GET] error:", err);
     return NextResponse.json(
       { error: errorMessage(err, "Request failed") },

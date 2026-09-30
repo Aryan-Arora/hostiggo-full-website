@@ -25,12 +25,32 @@ export const setStoredSession = (accessToken: string, refreshToken?: string | nu
   if (refreshToken) window.localStorage.setItem(AUTH_REFRESH_TOKEN_KEY, refreshToken);
 };
 
+export async function getBearerToken(): Promise<string | null> {
+  // The authoritative source: whatever Supabase's own client currently
+  // considers the live session, refreshed automatically in the background
+  // by autoRefreshToken. This works for every sign-in method (Google OAuth,
+  // email/phone OTP, password) with no per-flow wiring -- unlike the
+  // separately-tracked AUTH_ACCESS_TOKEN_KEY below, which some sign-in
+  // paths (notably the Google OAuth callback) never populate at all, and
+  // which none of them keep in sync across a background token refresh.
+  // getSession() is a local read (no network call unless a refresh is due),
+  // safe to call on every request.
+  try {
+    const { data } = await supabase.auth.getSession();
+    if (data?.session?.access_token) return data.session.access_token;
+  } catch {
+    // fall through to the stored fallback below
+  }
+  return getStoredAccessToken();
+}
+
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = getStoredAccessToken();
+  const token = await getBearerToken();
   const res = await fetch(path, {
     ...init,
     headers: {
-      "Content-Type": "application/json",
+      // FormData (file uploads) needs the browser to set its own multipart boundary.
+      ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
@@ -271,6 +291,8 @@ export function mapBooking(item: any) {
       pets: false,
     },
     amount: item.amount != null ? Number(item.amount) : null,
+    refundAmount: item.refundAmount != null ? Number(item.refundAmount) : null,
+    refundStatus: (item.refundStatus ?? null) as string | null,
     priceWeekday: item.priceWeekday != null ? Number(item.priceWeekday) : null,
     priceWeekend: item.priceWeekend != null ? Number(item.priceWeekend) : null,
   };
@@ -326,6 +348,7 @@ const isUuid = (value?: string) =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 
 export const api = {
+  notifications: () => request<any[]>("/api/notifications"),
   getUser: (userId: string) =>
     request<CurrentUser | null>(`/api/users?userId=${encodeURIComponent(userId)}`),
   hotels: () => request<any[]>("/api/hotels"),
@@ -383,13 +406,17 @@ export const api = {
     // real charge from the listing's own prices, see
     // validateAndPriceBooking() in src/lib/services/admin-writes.ts
   }) =>
-    request<{
-      razorpayOrderId: string;
-      razorpayKeyId: string;
-      amountPaise: number;
-      amountRupees: number;
-      currency: string;
-    }>(`/api/bookings/reserve`, {
+    request<
+      | {
+          paymentRequired: true;
+          razorpayOrderId: string;
+          razorpayKeyId: string;
+          amountPaise: number;
+          amountRupees: number;
+          currency: string;
+        }
+      | { paymentRequired: false; booking: any }
+    >(`/api/bookings/reserve`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
@@ -440,8 +467,18 @@ export const api = {
       status: "submitted" | "onboarding" | "active" | "rejected";
       created_at: string;
       updated_at: string;
+      bank_name: string | null;
+      bank_branch: string | null;
+      upi_id: string | null;
+      // What SurePass actually confirmed, read back from the database.
+      verification: {
+        bank: { verified: boolean; holderName: string | null; verifiedAt: string | null };
+        pan: { verified: boolean; maskedPan: string | null; name: string | null; verifiedAt: string | null };
+      };
     } | null>(`/api/host/payout-methods`),
-  savePayoutMethod: (payload: {
+  // PATCH: send only the fields that changed; each is updated independently.
+  // Bank and PAN changes are re-verified with SurePass server-side.
+  updatePayoutMethod: (payload: Partial<{
     accountHolderName: string;
     bankAccountNumber: string;
     bankIfsc: string;
@@ -450,8 +487,66 @@ export const api = {
     city: string;
     state: string;
     postalCode: string;
-  }) =>
-    request<{ status: string }>(`/api/host/payout-methods`, {
+  }>) =>
+    request<{ status: string; updated?: string[]; onboardingError?: string | null }>(`/api/host/payout-methods`, {
+      method: "PATCH",
+      body: JSON.stringify(payload),
+    }),
+  // Full payment + payout history for the host dashboard. See
+  // src/app/api/host/payment-history/route.ts.
+  hostPaymentHistory: () =>
+    request<import("@/app/api/host/payment-history/route").PaymentHistoryRow[]>(
+      `/api/host/payment-history`,
+    ),
+  // Live Razorpay Route onboarding state for the signed-in host. See
+  // src/app/api/host/onboarding-status/route.ts.
+  getOnboardingStatus: () =>
+    request<{
+      status: "none" | "submitted" | "onboarding" | "active" | "rejected";
+      activationStatus: string | null;
+      requirements: Array<{ field_reference?: string; reason_code?: string }>;
+    }>(`/api/host/onboarding-status`),
+  // Direct SurePass number-only lookups -- same family as verifyBank below,
+  // no document photo. See src/app/api/verify/pan/route.ts.
+  // `fullName` is checked server-side against the name on the PAN.
+  verifyPan: (idNumber: string, fullName: string) =>
+    request<{
+      status: "verified" | "rejected" | "pending";
+      reason: string | null;
+      providerReference: string | null;
+    }>(`/api/verify/pan`, {
+      method: "POST",
+      body: JSON.stringify({ idNumber, fullName }),
+    }),
+  // Alternatives to PAN for identity (KYC) only -- payouts still need a
+  // verified PAN. See src/app/api/verify/aadhaar and /passport.
+  verifyAadhaar: (payload: { file: File; yob: string; fullName: string }) => {
+    const form = new FormData();
+    form.append("file", payload.file);
+    form.append("yob", payload.yob);
+    form.append("fullName", payload.fullName);
+    return request<{ status: "verified" | "rejected" | "pending"; reason: string | null }>(
+      `/api/verify/aadhaar`,
+      { method: "POST", body: form },
+    );
+  },
+  verifyPassport: (payload: { fileNumber: string; dob: string; fullName: string }) =>
+    request<{ status: "verified" | "rejected" | "pending"; reason: string | null }>(
+      `/api/verify/passport`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  // "Bank Verification" -- reverse penny-drop lookup keyed on the account
+  // number + IFSC; `fullName` is checked against the account holder's name.
+  // See src/app/api/verify/bank/route.ts.
+  verifyBank: (payload: { accountNumber: string; ifsc: string; fullName: string }) =>
+    request<{
+      verified: boolean;
+      reason?: string | null;
+      accountHolderName?: string | null;
+      upiId?: string | null;
+      bankName?: string | null;
+      branch?: string | null;
+    }>(`/api/verify/bank`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),
