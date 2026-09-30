@@ -364,15 +364,14 @@ export async function validateAndPriceBooking(input: BookingInput) {
 }
 
 /**
- * The actual booking write, run only after a Razorpay payment has been
- * verified (see finalizeBookingFromRazorpayOrder below) -- this is the tail
- * end of what used to be createBooking(): insert the CONFIRMED row, record
- * the add-ons, lose gracefully to a same-dates race, block the calendar.
+ * The actual booking write: insert the CONFIRMED row, record the add-ons,
+ * lose gracefully to a same-dates race, and block the calendar. Paid
+ * bookings provide Razorpay IDs; payment-disabled bookings leave them null.
  */
 async function insertConfirmedBooking(
   input: BookingInput,
   priced: Awaited<ReturnType<typeof validateAndPriceBooking>>,
-  razorpay: { orderId: string; paymentId: string },
+  razorpay: { orderId: string | null; paymentId: string | null },
 ) {
   const { listing, numAdults, numChildren, stayNights, resolvedAddons, amountRupees } = priced;
 
@@ -387,10 +386,6 @@ async function insertConfirmedBooking(
       num_children: numChildren,
       nom_guests: numAdults + numChildren,
       amount: amountRupees,
-      // booking_status only defines 2=CONFIRMED, 3=CANCELLED (no pending row) --
-      // there's nothing to insert until payment is verified (see
-      // finalizeBookingFromRazorpayOrder), so every row that gets created
-      // here is, by construction, already paid for.
       status_id: 2,
       host_uuid: listing.host_uuid,
       booked_at: new Date().toISOString(),
@@ -446,26 +441,24 @@ async function insertConfirmedBooking(
       .from("bookings")
       .update({ status_id: 3, cancellation_reason: "Dates were booked by another guest first" })
       .eq("booking_id", data.booking_id);
-    const { createRazorpayRefund } = await import("../billing/razorpay");
-    try {
-      await createRazorpayRefund({
-        razorpayPaymentId: razorpay.paymentId,
-        amountPaise: priced.amountPaise,
-        idempotencyKey: `refund:race-loss:${data.booking_id}`,
-        notes: { reason: "Dates were booked by another guest first", bookingId: String(data.booking_id) },
-      });
-    } catch (refundErr) {
-      // Surfacing this as a thrown error would tell the guest their payment
-      // is stuck with no refund in sight, which is worse than a booking
-      // that needs a manual refund follow-up -- log loudly for ops instead.
-      console.error(
-        `[insertConfirmedBooking] URGENT: race-loss refund failed for payment ${razorpay.paymentId}, booking ${data.booking_id} -- needs manual refund:`,
-        refundErr,
-      );
+    if (razorpay.paymentId) {
+      const { createRazorpayRefund } = await import("../billing/razorpay");
+      try {
+        await createRazorpayRefund({
+          razorpayPaymentId: razorpay.paymentId,
+          amountPaise: priced.amountPaise,
+          idempotencyKey: `refund:race-loss:${data.booking_id}`,
+          notes: { reason: "Dates were booked by another guest first", bookingId: String(data.booking_id) },
+        });
+      } catch (refundErr) {
+        console.error(
+          `[insertConfirmedBooking] URGENT: race-loss refund failed for payment ${razorpay.paymentId}, booking ${data.booking_id} -- needs manual refund:`,
+          refundErr,
+        );
+      }
+      throw new Error("These dates were just booked by someone else. Your payment has been refunded.");
     }
-    throw new Error(
-      "These dates were just booked by someone else. Your payment has been refunded.",
-    );
+    throw new Error("These dates were just booked by someone else. Please choose different dates.");
   }
 
   // Block all nights in the booked range so they can't be double-booked.
@@ -504,6 +497,13 @@ async function insertConfirmedBooking(
   }
 
   return data;
+}
+
+export async function createBookingWithoutPayment(input: BookingInput) {
+  const priced = await validateAndPriceBooking(input);
+  const booking = await insertConfirmedBooking(input, priced, { orderId: null, paymentId: null });
+  await notifyBookingConfirmed(booking, priced.invoice.grandTotalPaise, false).catch(() => {});
+  return booking;
 }
 
 /**
@@ -613,7 +613,7 @@ export async function finalizeBookingFromRazorpayOrder(params: {
     );
   });
 
-  await notifyBookingConfirmed(booking, priced.invoice.grandTotalPaise).catch(() => {});
+  await notifyBookingConfirmed(booking, priced.invoice.grandTotalPaise, true).catch(() => {});
 
   return booking;
 }
@@ -765,10 +765,20 @@ export async function setPayoutStatusForBooking(
 }
 
 async function notifyBookingConfirmed(
-  booking: { booking_id: number; user_id: string; host_uuid: string; listing_id: number; start_date: string; end_date: string },
+  booking: {
+    booking_id: number;
+    user_id: string;
+    host_uuid: string;
+    listing_id: number;
+    start_date: string;
+    end_date: string;
+    num_adults?: number | null;
+    num_children?: number | null;
+  },
   grandTotalPaise: number,
+  paymentReceived: boolean,
 ) {
-  const { notify, hostUserId } = await import("./notifications");
+  const { notify, notifyWhatsApp, hostUserId, resolveUserPhone } = await import("./notifications");
   const { data: listing } = await supabaseAdmin
     .from("listings")
     .select("title")
@@ -776,21 +786,74 @@ async function notifyBookingConfirmed(
     .maybeSingle();
   const title = listing?.title ?? "your stay";
   const metadata = { bookingId: booking.booking_id, listingId: booking.listing_id };
+  const paymentText = paymentReceived
+    ? ` Paid ₹${(grandTotalPaise / 100).toLocaleString("en-IN")}.`
+    : " Payment is currently disabled.";
+  const guestCount = String((booking.num_adults ?? 0) + (booking.num_children ?? 0));
+  const formatBookingDate = (value: string) =>
+    new Date(`${value}T00:00:00`).toLocaleDateString("en-IN", {
+      day: "numeric",
+      month: "short",
+      year: "numeric",
+    });
+  const checkIn = formatBookingDate(booking.start_date);
+  const checkOut = formatBookingDate(booking.end_date);
+  const { data: guest } = await supabaseAdmin
+    .from("users")
+    .select("name, phone")
+    .eq("user_id", booking.user_id)
+    .maybeSingle();
+  const guestPhone = await resolveUserPhone(booking.user_id, guest?.phone);
   await notify({
     userId: booking.user_id,
     type: "bookings",
     title: "Booking confirmed",
-    message: `Your booking at ${title} (${booking.start_date} to ${booking.end_date}) is confirmed. Paid ₹${(grandTotalPaise / 100).toLocaleString("en-IN")}.`,
+    message: `Your booking at ${title} (${checkIn} to ${checkOut}) is confirmed.${paymentText}`,
     metadata,
+  });
+  await notifyWhatsApp({
+    userId: booking.user_id,
+    to: guestPhone,
+    template: "booking_confirmation_guest",
+    type: "bookings",
+    variables: {
+      "1": guest?.name ?? "Guest",
+      "2": title,
+      "3": checkIn,
+      "4": checkOut,
+      "5": guestCount,
+      "6": String(booking.booking_id),
+    },
   });
   const hostUser = await hostUserId(booking.host_uuid);
   if (hostUser) {
+    const { data: host } = await supabaseAdmin
+      .from("users")
+      .select("name, phone")
+      .eq("user_id", hostUser)
+      .maybeSingle();
+    const hostPhone = await resolveUserPhone(hostUser, host?.phone);
     await notify({
       userId: hostUser,
       type: "bookings",
       title: "New booking",
-      message: `${title} was booked for ${booking.start_date} to ${booking.end_date}.`,
+      message: `${title} was booked for ${checkIn} to ${checkOut} by ${guest?.name ?? "a guest"}.`,
       metadata,
+    });
+    await notifyWhatsApp({
+      userId: hostUser,
+      to: hostPhone,
+      template: "booking_received_host",
+      type: "bookings",
+      variables: {
+        "1": host?.name ?? "Host",
+        "2": title,
+        "3": guest?.name ?? "Guest",
+        "4": checkIn,
+        "5": checkOut,
+        "6": guestCount,
+        "7": String(booking.booking_id),
+      },
     });
   }
 }

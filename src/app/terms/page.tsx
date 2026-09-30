@@ -38,7 +38,7 @@ const sections = [
   {
     id: "payments-refunds",
     title: "6. Payments & Refunds",
-    body: `All payments for bookings and services must be processed exclusively through Hostiggo’s authorized payment gateway. Direct or offline payments outside the platform are strictly prohibited. Hostiggo charges a service or commission fee on confirmed bookings, which is non-refundable. Refunds, where applicable, are governed by the host’s selected cancellation policy and Hostiggo’s platform guidelines. Hostiggo does not mediate or assume responsibility for payment disputes between hosts and guests.`,
+    body: `All payments for bookings and services must be processed exclusively through Hostiggo’s authorized payment gateway. Direct or offline payments outside the platform are strictly prohibited. Hostiggo charges a service or commission fee on confirmed bookings, which is non-refundable. Refunds, where applicable, are governed by the host’s selected cancellation policy and Hostiggo’s platform guidelines. Hostiggo does not mediate or assume responsibility for payment disputes between hosts and guests. Any payout to a Host may be delayed due to bank processing times, payment processor procedures, verification requirements, weekends, public holidays, technical issues, or other circumstances outside Hostiggo’s reasonable control.`,
   },
   {
     id: "liability",

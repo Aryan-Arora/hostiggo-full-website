@@ -97,6 +97,7 @@ function DetailsInner() {
     const checkedIn = start ? startOfDay(start) <= today : false;
     const checkedOut = end ? startOfDay(end) < today : false;
     const cancelled = statusId === 3;
+    const isPastBooking = !!end && startOfDay(end) < today;
 
     const timeline = [
       {
@@ -147,6 +148,7 @@ function DetailsInner() {
       cover,
       statusLabel: STATUS_LABEL[statusId] || 'Booked',
       cancelled,
+      isPastBooking,
       timeline,
     };
   }, [booking]);
@@ -397,32 +399,33 @@ function DetailsInner() {
           </div>
         </div>
 
-        {/* Right: payment summary */}
-        <aside className="lg:col-span-4">
-          <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-card border border-gray-200">
-            <h3 className="text-lg font-bold text-figma-navy mb-6">Payment Summary</h3>
-            <div className="space-y-4 mb-6">
-              <div className="flex justify-between text-sm">
-                <span className="text-gray-500">
-                  {inr(view.perNight)} × {view.nights} {view.nights === 1 ? 'night' : 'nights'}
-                </span>
-                <span className="font-medium text-gray-800">{inr(view.amount)}</span>
+        {!view.isPastBooking && !view.cancelled && (
+          <aside className="lg:col-span-4">
+            <div className="sticky top-24 bg-white rounded-2xl p-6 shadow-card border border-gray-200">
+              <h3 className="text-lg font-bold text-figma-navy mb-6">Payment Summary</h3>
+              <div className="space-y-4 mb-6">
+                <div className="flex justify-between text-sm">
+                  <span className="text-gray-500">
+                    {inr(view.perNight)} × {view.nights} {view.nights === 1 ? 'night' : 'nights'}
+                  </span>
+                  <span className="font-medium text-gray-800">{inr(view.amount)}</span>
+                </div>
               </div>
+              <div className="flex justify-between items-center pt-4 border-t border-gray-200 mb-6">
+                <span className="font-bold text-gray-800">Total payout</span>
+                <span className="text-xl font-bold text-figma-navy">{inr(view.payoutAmount)}</span>
+              </div>
+              {!view.cancelled && (
+                <Link
+                  href={`/host/bookings/cancel?id=${view.id}`}
+                  className="block w-full text-center py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-all"
+                >
+                  Cancel Booking
+                </Link>
+              )}
             </div>
-            <div className="flex justify-between items-center pt-4 border-t border-gray-200 mb-6">
-              <span className="font-bold text-gray-800">Total payout</span>
-              <span className="text-xl font-bold text-figma-navy">{inr(view.payoutAmount)}</span>
-            </div>
-            {!view.cancelled && (
-              <Link
-                href={`/host/bookings/cancel?id=${view.id}`}
-                className="block w-full text-center py-3 rounded-xl border border-gray-200 text-gray-600 font-semibold hover:bg-gray-50 transition-all"
-              >
-                Cancel Booking
-              </Link>
-            )}
-          </div>
-        </aside>
+          </aside>
+        )}
       </div>
     </>
   );

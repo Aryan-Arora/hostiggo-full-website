@@ -41,6 +41,49 @@ export async function notify(input: NotifyInput): Promise<void> {
   }
 }
 
+export async function notifyWhatsApp(input: {
+  userId?: string | null;
+  to: string | null | undefined;
+  template: "booking_confirmation_guest" | "booking_received_host";
+  variables: Record<string, string>;
+  type?: "bookings" | "account" | "marketing";
+}): Promise<void> {
+  try {
+    // Check notification preferences if userId is provided
+    if (input.userId) {
+      const { data: prefs } = await supabaseAdmin
+        .from("notification_preferences")
+        .select("channels, categories")
+        .eq("user_id", input.userId)
+        .maybeSingle();
+      
+      // Skip if WhatsApp is disabled for this user
+      if (prefs?.channels?.whatsapp === false) {
+        console.info(`[notifications] WhatsApp disabled for user ${input.userId}`);
+        return;
+      }
+      
+      // Skip if category is disabled (default to bookings if not specified)
+      const category = input.type ?? "bookings";
+      if (prefs?.categories?.[category] === false) {
+        console.info(`[notifications] Category ${category} disabled for user ${input.userId}`);
+        return;
+      }
+    }
+
+    const { sendWhatsAppTemplate } = await import("./whatsapp");
+    await sendWhatsAppTemplate({ to: input.to ?? null, template: input.template, variables: input.variables });
+  } catch (err) {
+    console.error("[notifications] WhatsApp delivery failed:", err);
+  }
+}
+
+export async function resolveUserPhone(userId: string, profilePhone?: string | null): Promise<string | null> {
+  if (profilePhone) return profilePhone;
+  const { data } = await supabaseAdmin.auth.admin.getUserById(userId);
+  return data.user?.phone ?? null;
+}
+
 /** Resolves a host_uuid to that host's auth user id for notifying them. */
 export async function hostUserId(hostUuid: string): Promise<string | null> {
   const { data } = await supabaseAdmin

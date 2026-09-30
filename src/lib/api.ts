@@ -348,6 +348,7 @@ const isUuid = (value?: string) =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 
 export const api = {
+  notifications: () => request<any[]>("/api/notifications"),
   getUser: (userId: string) =>
     request<CurrentUser | null>(`/api/users?userId=${encodeURIComponent(userId)}`),
   hotels: () => request<any[]>("/api/hotels"),
@@ -405,13 +406,17 @@ export const api = {
     // real charge from the listing's own prices, see
     // validateAndPriceBooking() in src/lib/services/admin-writes.ts
   }) =>
-    request<{
-      razorpayOrderId: string;
-      razorpayKeyId: string;
-      amountPaise: number;
-      amountRupees: number;
-      currency: string;
-    }>(`/api/bookings/reserve`, {
+    request<
+      | {
+          paymentRequired: true;
+          razorpayOrderId: string;
+          razorpayKeyId: string;
+          amountPaise: number;
+          amountRupees: number;
+          currency: string;
+        }
+      | { paymentRequired: false; booking: any }
+    >(`/api/bookings/reserve`, {
       method: "POST",
       body: JSON.stringify(payload),
     }),

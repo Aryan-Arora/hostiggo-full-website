@@ -1064,6 +1064,15 @@ function BookingWidget({
         numChildren: 0,
         addonIds: selectedAddonIds,
       });
+      if (!order.paymentRequired) {
+        setStatus('confirmed');
+        toast.success('Booking confirmed!');
+        if (order.booking?.booking_id) {
+          router.push(`/booking-confirmation/${order.booking.booking_id}`);
+        }
+        return;
+      }
+
       // Step 2: guest actually pays via the Razorpay Checkout widget.
       let payment;
       try {

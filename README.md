@@ -29,6 +29,15 @@ Create `.env.local`:
 
 ```env
 NEXT_PUBLIC_GOOGLE_MAPS_API_KEY=your_api_key_here
+# Set to true to require Razorpay checkout for bookings. Defaults to false.
+NEXT_PUBLIC_PAYMENTS_ENABLED=false
+
+# Optional WhatsApp booking notifications
+TWILIO_ACCOUNT_SID=your_account_sid
+TWILIO_AUTH_TOKEN=your_auth_token
+TWILIO_WHATSAPP_FROM=whatsapp:+1555...
+TWILIO_TEMPLATE_BOOKING_CONFIRMATION_GUEST_EN=HX...
+TWILIO_TEMPLATE_BOOKING_RECEIVED_HOST_EN=HX...
 ```
 
 ### Development

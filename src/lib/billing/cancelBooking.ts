@@ -368,7 +368,7 @@ export async function cancelBookingWithRefund(params: {
     // In-app notifications (the `notifications` table the app reads).
     // Email/SMS/push still have no provider wired in.
     try {
-      const { notify, hostUserId } = await import("@/lib/services/notifications");
+      const { notify, notifyWhatsApp, hostUserId, resolveUserPhone } = await import("@/lib/services/notifications");
       const refundText =
         refundStatus === "processed"
           ? ` A refund of ₹${refundCalc.refundAmountRupees} has been initiated.`
@@ -376,6 +376,14 @@ export async function cancelBookingWithRefund(params: {
             ? " Your refund could not be processed automatically; our team will follow up."
             : "";
       const metadata = { bookingId, listingId: booking.listing_id };
+      
+      const { data: guest } = await supabaseAdmin
+        .from("users")
+        .select("name, phone")
+        .eq("user_id", booking.user_id)
+        .maybeSingle();
+      const guestPhone = await resolveUserPhone(booking.user_id, guest?.phone);
+      
       await notify({
         userId: booking.user_id,
         type: "bookings",
@@ -383,8 +391,16 @@ export async function cancelBookingWithRefund(params: {
         message: `Booking #${bookingId} was cancelled.${refundText}`,
         metadata,
       });
+      
       const hostUser = await hostUserId(booking.host_uuid);
       if (hostUser && hostUser !== booking.user_id) {
+        const { data: host } = await supabaseAdmin
+          .from("users")
+          .select("name, phone")
+          .eq("user_id", hostUser)
+          .maybeSingle();
+        const hostPhone = await resolveUserPhone(hostUser, host?.phone);
+        
         await notify({
           userId: hostUser,
           type: "bookings",
@@ -396,8 +412,6 @@ export async function cancelBookingWithRefund(params: {
     } catch (notifyErr) {
       console.error("[cancelBookingWithRefund] notification failed:", notifyErr);
     }
-    // TODO: send email/SMS/push to guest, notify host -- no email/SMS/push
-    // provider is wired into this codebase yet.
     // TODO: accounting-ledger entry -- no ledger table exists yet; the
     // booking row's refund_* columns are the audit trail for now.
 

@@ -1783,7 +1783,7 @@ function TabSwitcher({
 
         {/* Smooth Sliding Blue Pill */}
         <div
-          className="absolute top-0 bottom-0 rounded-full bg-gradient-to-t from-[#004772] to-[#0086D8] shadow-[0_2px_8px_rgba(0,71,114,0.25)] transition-all duration-300 ease-[cubic-bezier(0.16,1,0.3,1)]"
+          className="absolute top-0 bottom-0 rounded-full bg-gradient-to-t from-[#004772] to-[#0086D8] shadow-[0_2px_8px_rgba(0,71,114,0.25)] transition-all duration-300 ease-out"
           style={getIndicatorStyle()}
         />
       </div>

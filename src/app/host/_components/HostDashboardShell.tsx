@@ -198,12 +198,13 @@ export default function HostDashboardShell({
             <Plus className="w-5 h-5" />
             <span className="hidden sm:inline">Create Listing</span>
           </Link>
-          <button
+          <Link
+            href="/notifications"
             aria-label="Notifications"
             className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all"
           >
             <Bell className="w-5 h-5" />
-          </button>
+          </Link>
           <button
             aria-label="Help"
             className="hidden sm:inline-flex p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all"

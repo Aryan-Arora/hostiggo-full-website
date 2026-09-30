@@ -1,3 +1,9 @@
+-- Combined migration: Search count function + Notification infrastructure
+
+-- ============================================================================
+-- PART 1: Search listings by state count function
+-- ============================================================================
+
 -- Migration: true match count for the state/district search
 --
 -- Why this exists: search_listings_by_state (migration 002) ends with
@@ -57,3 +63,29 @@ $$;
 GRANT EXECUTE ON FUNCTION hostiggo_testing_schema.search_listings_by_state_count(
   TEXT, TEXT, DATE, DATE, INT, INT, INT, INT[], INT[], TEXT[]
 ) TO anon, authenticated;
+
+-- ============================================================================
+-- PART 2: Notification infrastructure indexes and grants
+-- ============================================================================
+
+-- Ensure message_log has all required columns
+alter table if exists hostiggo_testing_schema.message_log add column if not exists retry_count int default 0;
+alter table if exists hostiggo_testing_schema.message_log add column if not exists updated_at timestamptz default now();
+
+-- Indexes for message_log
+create index if not exists message_log_status_idx on hostiggo_testing_schema.message_log(status);
+create index if not exists message_log_created_at_idx on hostiggo_testing_schema.message_log(created_at desc);
+create index if not exists message_log_to_number_idx on hostiggo_testing_schema.message_log(to_number);
+create index if not exists message_log_template_idx on hostiggo_testing_schema.message_log(template_name);
+create index if not exists message_log_status_created_idx on hostiggo_testing_schema.message_log(status, created_at desc);
+
+-- Grants for message_log
+grant all on hostiggo_testing_schema.message_log to service_role;
+grant select on hostiggo_testing_schema.message_log to authenticated;
+
+-- Indexes for notification_preferences
+create index if not exists notification_preferences_user_id_idx on hostiggo_testing_schema.notification_preferences(user_id);
+
+-- Grants for notification_preferences
+grant all on hostiggo_testing_schema.notification_preferences to service_role;
+grant select, update on hostiggo_testing_schema.notification_preferences to authenticated;
