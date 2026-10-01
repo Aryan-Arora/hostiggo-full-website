@@ -4,7 +4,7 @@ import { optionalUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
-const VALID_METHODS = new Set<LoginMethod>(["email_otp", "phone_otp", "password", "google"]);
+const VALID_METHODS = new Set<LoginMethod>(["email_otp", "phone_otp", "google"]);
 
 // Email OTP verification (src/lib/api.ts's verifyOtp) and the Google OAuth
 // callback (src/app/auth/callback/page.tsx) both establish the Supabase

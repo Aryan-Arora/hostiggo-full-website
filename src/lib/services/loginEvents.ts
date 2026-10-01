@@ -2,7 +2,9 @@ import "server-only";
 import { NextRequest } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export type LoginMethod = "email_otp" | "phone_otp" | "password" | "google";
+// login_events rows from before password sign-in was removed may still say
+// "password"; Login Activity keeps a label for them.
+export type LoginMethod = "email_otp" | "phone_otp" | "google";
 
 // Called from every server-side sign-in success path (OTP verify, password
 // sign-in, and the Google callback's log-login call) -- best-effort only:

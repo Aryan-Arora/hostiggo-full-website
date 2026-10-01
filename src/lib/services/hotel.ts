@@ -503,7 +503,7 @@ export const HotelServiceApi = {
         host = {
           id: hostRow.host_uuid,
           name: userRow?.name ?? 'Host',
-          photo: hostRow.photo ?? userRow?.profile_pic_url ?? null,
+          photo: userRow?.profile_pic_url ?? hostRow.photo ?? null,
           is_verified: hostRow.is_verified ?? false,
           about: hostRow.about ?? null,
           tripsHosted: tripsHosted.count ?? 0,

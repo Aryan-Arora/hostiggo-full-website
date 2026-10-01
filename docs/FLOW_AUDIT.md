@@ -52,7 +52,7 @@ Hostiggo is an India‑first **homestay marketplace**. Guests discover and book 
 | ⚠️ | Implemented but **not verified end‑to‑end** (needs live keys / real devices) |
 | ❌ | Known gap, not built, or deliberately removed |
 
-**Verification run (2026‑10‑01):** `next build` ✅ · `tsc --noEmit` ✅ · ESLint 0 errors ✅ · Vitest **83/83** ✅ · production smoke test **all pass** (16 private endpoints return 401 without a token, malformed input returns 400, rate limit returns 429, unknown property returns HTTP 404, search sorted correctly, security headers present, sitemap generated).
+**Verification run (2026‑10‑01):** `next build` ✅ · `tsc --noEmit` ✅ · ESLint 0 errors ✅ · Vitest **78/78** ✅ · production smoke test **all pass** (16 private endpoints return 401 without a token, malformed input returns 400, rate limit returns 429, unknown property returns HTTP 404, search sorted correctly, security headers present, sitemap generated).
 
 **Not verifiable without live credentials/devices:** Razorpay checkout & refunds, Razorpay Route payouts, SMS/email OTP delivery, Google OAuth, WhatsApp delivery, SurePass KYC, AI‑lister import, iCal service, real phone widths in Safari/Chrome.
 
@@ -96,9 +96,9 @@ Hostiggo is an India‑first **homestay marketplace**. Guests discover and book 
 |---|---|---|
 | **Phone OTP** | Enter 10-digit Indian mobile (must match `^[6-9]\d{9}$`, sent as `+91…`) → `POST /api/auth/otp {action:"send", phone}` → 6-digit code → `POST /api/auth/otp {action:"verify", phone, token}` → returns `{user, session, profile}` | ✅ UI · ⚠️ SMS delivery |
 | **Email OTP** | Enter email → Supabase `signInWithOtp` (email) → `/otp?mode=email` → verify | ✅ UI · ⚠️ email delivery |
-| **Email + password** | Email screen → "Use a password instead" → `POST /api/auth/password {action:"signin", email, password}` | 🔧 (was promised but had no UI) |
-| **Forgot password** | Email screen → "Forgot password?" → email OTP with `next=reset-password` → `/account/password?first=1&reason=reset-password` | 🔧 |
 | **Google OAuth** | Supabase OAuth (PKCE), redirect to `/auth/callback`; the post-login destination is stashed in sessionStorage | ⚠️ |
+
+**No passwords.** Hostiggo is passwordless: there is no password sign-in, set/change password or forgot-password flow, and the app must not add one. Old `login_events` rows may still show method `password`.
 
 After any sign-in the client **must** install the session in the Supabase client (`supabase.auth.setSession({access_token, refresh_token})`). That session is what refreshes and what counts as "signed in".
 
@@ -125,8 +125,7 @@ Saved via `POST /api/users` (token must match `user_id`). Returning users with a
 | Control | Detail | Status |
 |---|---|---|
 | Post-login redirect | Only same-origin relative paths are honoured (`safeRedirect`); `https://…`, `//…`, `/\…` and control characters are rejected | 🔧 BUG‑006 |
-| Rate limits | OTP send: 10 per IP and 4 per target per 10 min. OTP verify: 10 per target per 10 min. Password: 20 per IP and 8 per account per 10 min. `check-email`: 10/min per IP. Feedback: 5 per 10 min per IP. Responses are 429 with `Retry-After` | 🔧 BUG‑014 |
-| Password rule | 8–72 characters, at least one letter **and** one number, not one repeated character | 🔧 UX‑07 |
+| Rate limits | OTP send: 10 per IP and 4 per target per 10 min. OTP verify: 10 per target per 10 min. Feedback: 5 per 10 min per IP. Responses are 429 with `Retry-After` | 🔧 BUG‑014 |
 | Login activity | Each sign-in recorded in `login_events` (method, IP, user agent); visible at `/account/login-activity` | ✅ |
 
 ---
@@ -313,10 +312,10 @@ Notifications go to both sides (`booking_cancelled_guest` / `booking_cancelled_h
 | Screen | Function | Status |
 |---|---|---|
 | `/account/profile` | Name (2–80), email, phone (Indian mobile), age (18–120), emergency contact (text containing a valid mobile, ≤100), photo upload (JPG/PNG/WEBP ≤8 MB). Inline field errors; only changed fields are sent | 🔧 BUG‑017 |
-| `/account/settings` | Notification toggles (messages, email, WhatsApp, marketing), mirrored into `notification_preferences` for the app. Privacy toggles (show profile to hosts, include in search, activity status). Links to personal info, login activity, **profile verification**, password & security, **report an issue**. Delete account (confirm dialog) | 🔧 BUG‑023 |
+| `/account/settings` | Notification toggles (messages, email, WhatsApp, marketing), mirrored into `notification_preferences` for the app. Privacy toggles (show profile to hosts, include in search, activity status). Links to personal info, login activity, **profile verification**, **report an issue**. Delete account (confirm dialog) | 🔧 BUG‑023 |
 | `/account/login-activity` | Last 20 sign-ins | ✅ |
 | `/account/verification` | Identity documents | ✅ |
-| `/account/password` | Set or change the password (the rule in §4.4); explains how to use it at sign-in | 🔧 BUG‑018 |
+| `/account/password` | **Removed**: Hostiggo is passwordless (OTP and Google only) | ❌ by design |
 | Language / currency | **Removed.** The platform is English + INR (payments settle in INR) | ❌ by design (BUG‑012) |
 
 ### 5.12 Support, help & legal
@@ -531,9 +530,6 @@ Error shape everywhere: `{ "error": string, "code"?: string }`. Success: `{ "dat
 | Endpoint | Methods | Auth | Notes |
 |---|---|---|---|
 | `/api/auth/otp` | POST | public (rate-limited) | `{action:"send"\|"verify", phone\|email, token}` |
-| `/api/auth/password` | POST | public (rate-limited) | `{action:"signin"\|"signup", email, password}` |
-| `/api/auth/check-email` | POST | public (rate-limited) | `{email}` → `{exists}` |
-| `/api/auth/change-password` | POST | user | `{newPassword}` |
 | `/api/auth/log-login` | POST | user | `{method}` |
 | `/api/auth/login-events` | GET | user | last 20 |
 | `/api/users` | GET, POST, PATCH | user | GET own profile; POST onboarding upsert; PATCH `update-profile` / `deactivate-account` |
@@ -605,7 +601,7 @@ Error shape everywhere: `{ "error": string, "code"?: string }`. Success: `{ "dat
 
 | Service | Used for | Env | Status |
 |---|---|---|---|
-| Supabase | DB, Auth (phone/email OTP, password, Google), Storage (`homestay photos`), Realtime | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | ✅ |
+| Supabase | DB, Auth (phone/email OTP, Google), Storage (`homestay photos`), Realtime | `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY` | ✅ |
 | Razorpay | Checkout, refunds, Route payouts, webhooks | `RAZORPAY_KEY_ID`, `RAZORPAY_KEY_SECRET`, `RAZORPAY_WEBHOOK_SECRET`, `RAZORPAY_ACCOUNT_NUMBER`, `NEXT_PUBLIC_PAYMENTS_ENABLED=true` | ⚠️ |
 | Twilio WhatsApp | Booking templates (guest and host), delivery status | `TWILIO_*`, template SIDs | ⚠️ (Meta 63112 "account disabled" was seen) |
 | Expo push | Device notifications for the app | `EXPO_ACCESS_TOKEN`; tokens in auth `user_metadata.expo_push_tokens` | ⚠️ |
@@ -658,8 +654,8 @@ Home, search, property and reviews pages render · in-app search on live data (4
 | Fake data | BUG‑004 (confirmation page), BUG‑005 (reviews), stock avatars, "promotional placeholder" box, "Hosting since {this year}", UX‑09 example label |
 | Search | Live search outage (proxy now opt-in), BUG‑008, 009, 010, 020, amenity label mismatches, filter-tag removal, UX‑03 grammar |
 | Dropdown report | E1 width, E2 Escape, E3 viewport fit, E4 location errors, E5 accessibility |
-| Forms | BUG‑017 (profile), BUG‑019 (wizard bounds and time pickers), BUG‑026 (Indian mobiles), UX‑07 (password rule), UX‑10 |
-| Auth UX | BUG‑007 (mobile clipping), BUG‑018 (password sign-in), BUG‑024 (URL), UX‑02 (single "Sign in or sign up"), UX‑04 (toast stacking), UX‑06 (CTA wording) |
+| Forms | BUG‑017 (profile), BUG‑019 (wizard bounds and time pickers), BUG‑026 (Indian mobiles), UX‑07 (superseded: no passwords), UX‑10 |
+| Auth UX | BUG‑007 (mobile clipping), BUG‑018 (superseded: password sign-in removed, passwordless only), BUG‑024 (URL), UX‑02 (single "Sign in or sign up"), UX‑04 (toast stacking), UX‑06 (CTA wording) |
 | Misc | BUG‑011 (KYC save), BUG‑021 (reviews overflow), BUG‑023 (settings rows), BUG‑027 (accessible names), BUG‑028 (in-app report), BUG‑029 (real 404), UX‑05, UX‑08, UX‑12, referral feedback enum, OBS‑03 headers, F121 sitemap and per-listing titles |
 
 ### Implemented but unverified ⚠️
@@ -684,7 +680,7 @@ Razorpay checkout, refund and Route transfers end-to-end · webhooks against rea
 ### 13.1 Must-have parity (MVP)
 
 **Guest:**
-- Sign-in with phone OTP, email OTP, password and Google
+- Sign-in with phone OTP, email OTP and Google (no passwords)
 - Onboarding
 - Home with the destination search (recents, suggestions, current location)
 - Search results with filters and sorting
@@ -695,7 +691,7 @@ Razorpay checkout, refund and Route transfers end-to-end · webhooks against rea
 - Wishlists with named lists
 - Chat with moderation messages
 - Notifications inbox and push
-- Account profile and settings, login activity, verification, password
+- Account profile and settings, login activity, verification
 - Support and report an issue
 - Help and legal (webviews acceptable)
 
@@ -724,7 +720,7 @@ Razorpay checkout, refund and Route transfers end-to-end · webhooks against rea
    - Compute "today" in IST.
    - Render refund deadlines with `cancellationTimeline()` (port or share `policyTimeline.ts`).
 6. **Money:** use the integer-paise maths from `src/lib/billing/*`. Display with `formatINR` rules (two decimals only when there are paise). Never compute charges client-side for anything beyond a preview.
-7. **Shared pure modules to reuse verbatim** (no I/O, already unit-tested): `billing/invoice.ts`, `billing/payout.ts`, `billing/refund.ts`, `billing/policyTimeline.ts`, `billing/reconstructInvoice.ts`, `billing/settlement.ts`, `format.ts`, `notificationRules.ts`, `chatModeration.ts` (client-side pre-check only; the server stays authoritative), `utils.passwordProblem`, `utils.safeRedirect` (for deep-link params).
+7. **Shared pure modules to reuse verbatim** (no I/O, already unit-tested): `billing/invoice.ts`, `billing/payout.ts`, `billing/refund.ts`, `billing/policyTimeline.ts`, `billing/reconstructInvoice.ts`, `billing/settlement.ts`, `format.ts`, `notificationRules.ts`, `chatModeration.ts` (client-side pre-check only; the server stays authoritative), `utils.safeRedirect` (for deep-link params).
 8. **Deep links** (universal links on `hostiggo.com`, plus a `hostiggo://` scheme):
 
    | Web path | App screen |
@@ -746,7 +742,7 @@ Razorpay checkout, refund and Route transfers end-to-end · webhooks against rea
 12. **Maps:** `react-native-maps` (Google provider). Request location only when the user taps "near me" and handle denial with a message (the same rules as dropdown fix E4).
 13. **States on every screen:** loading skeleton, empty, error with retry, signed-out gate. **Never sample or fake data.** Use initials avatars, never stock faces.
 14. **Accessibility:** every icon button has `accessibilityLabel`; minimum tap target 44×44; supports dynamic type; screen-reader order matches the visual order.
-15. **Validation mirrors the server:** Indian mobile `^[6-9]\d{9}$`, name 2–80, age 18–120, price ₹100–₹5,00,000, discounts 1–90%, guests 1–50, title ≤50 (wizard), description ≤500 (wizard), password rule. Always also display the server's error message.
+15. **Validation mirrors the server:** Indian mobile `^[6-9]\d{9}$`, name 2–80, age 18–120, price ₹100–₹5,00,000, discounts 1–90%, guests 1–50, title ≤50 (wizard), description ≤500 (wizard). Always also display the server's error message.
 16. **Offline:** cache last-seen trips, wishlist and inbox for read-only offline use. Queue nothing that moves money.
 
 ### 13.3 "Better than Airbnb" requirements for the app
@@ -768,7 +764,7 @@ Each item must pass on iOS and Android, on a small phone (360 × 640) and a larg
 - [ ] Phone OTP rejects `1234567890` and 5-digit numbers; double-tap sends one OTP
 - [ ] OTP verify installs the session; killing and relaunching the app stays signed in
 - [ ] Token expiry (wait more than 1 h) → API calls refresh silently; no sign-out mid-task
-- [ ] Password sign-in works; the forgot-password OTP leads to setting a new password
+- [ ] No password field, set-password or forgot-password screen exists anywhere
 - [ ] A 429 shows "Too many attempts" with no crash
 
 **Search**

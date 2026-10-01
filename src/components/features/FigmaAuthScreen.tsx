@@ -123,10 +123,6 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
   // Form input state
   const [mobileValue, setMobileValue] = useState("");
   const [emailValue, setEmailValue] = useState("");
-  // Email accounts that set a password (Account -> Password & Security) can
-  // use it instead of waiting for a code.
-  const [usePassword, setUsePassword] = useState(false);
-  const [passwordValue, setPasswordValue] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
@@ -363,30 +359,6 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
         toast.error("Please enter a valid email address", { id: "signin-email" });
         return;
       }
-      if (usePassword) {
-        if (!passwordValue) {
-          toast.error("Enter your password", { id: "signin-password" });
-          return;
-        }
-        sendingRef.current = true;
-        setSending(true);
-        try {
-          const data = await api.signInWithPassword(trimmed, passwordValue);
-          if (!data?.session || !data?.user?.id) throw new Error("Incorrect email or password.");
-          await establishSession(data.session, data.user.id);
-          toast.success("Signed in successfully!");
-          const hasProfile = Boolean(data.profile?.name);
-          router.push(redirect || (hasProfile ? "/" : "/onboarding?mode=email"));
-        } catch (error) {
-          toast.error(error instanceof Error ? error.message : "Incorrect email or password.", {
-            id: "signin-password",
-          });
-        } finally {
-          sendingRef.current = false;
-          setSending(false);
-        }
-        return;
-      }
       sendingRef.current = true;
       setSending(true);
       try {
@@ -455,14 +427,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
       if (userId && session) {
         await establishSession(session, userId);
         toast.success("Signed in successfully!");
-        const next = searchParams?.get("next");
-        if (next === "create-password" || next === "reset-password") {
-          router.push(
-            `/account/password?first=1&reason=${next}${redirect ? `&next=${encodeURIComponent(redirect)}` : ""}`,
-          );
-        } else {
-          router.push(redirect || `/onboarding?mode=${otpMode}`);
-        }
+        router.push(redirect || `/onboarding?mode=${otpMode}`);
       } else {
         toast.error("Could not verify OTP. Please try again.");
       }
@@ -708,71 +673,12 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                     </div>
                   </div>
 
-                  {activeMode === "email" && usePassword && (
-                    <div className="mt-3 flex h-[53px] items-center overflow-hidden rounded-[11px] bg-[#ebebeb] px-3">
-                      <input
-                        type="password"
-                        value={passwordValue}
-                        onChange={(event) => setPasswordValue(event.target.value)}
-                        autoComplete="current-password"
-                        aria-label="Password"
-                        placeholder="Password"
-                        className="min-w-0 flex-1 bg-transparent text-[16px] text-[#3a3a3a] outline-none placeholder:text-[#999] sm:text-[18px]"
-                      />
-                    </div>
-                  )}
-                  {activeMode === "email" && (
-                    <div className="mt-2 flex items-center justify-between gap-3 text-[13px]">
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setUsePassword((v) => !v);
-                          setPasswordValue("");
-                        }}
-                        className="font-medium text-[#004772] hover:underline cursor-pointer"
-                      >
-                        {usePassword ? "Email me a code instead" : "Use a password instead"}
-                      </button>
-                      {usePassword && (
-                        <button
-                          type="button"
-                          onClick={async () => {
-                            const email = emailValue.trim();
-                            if (!email.includes("@")) {
-                              toast.error("Enter your email first", { id: "signin-email" });
-                              return;
-                            }
-                            try {
-                              const normalized = normalizeEmail(email);
-                              await api.sendEmailOtp(normalized);
-                              window.localStorage.setItem(AUTH_EMAIL_KEY, normalized);
-                              router.push(
-                                `/otp?mode=email&next=reset-password${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`,
-                              );
-                            } catch {
-                              toast.error("We couldn't send a reset code right now. Please try again shortly.");
-                            }
-                          }}
-                          className="font-medium text-[#0396ef] hover:underline cursor-pointer"
-                        >
-                          Forgot password?
-                        </button>
-                      )}
-                    </div>
-                  )}
-
                   <button
                     type="submit"
                     disabled={sending}
                     className="mt-7 h-[57px] w-full rounded-[11px] bg-gradient-to-r from-[#004772] to-[#0086d8] text-[16px] font-semibold text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed sm:text-[18px] shadow-sm flex items-center justify-center cursor-pointer"
                   >
-                    {sending
-                      ? activeMode === "email" && usePassword
-                        ? "Signing in..."
-                        : "Sending..."
-                      : activeMode === "email" && usePassword
-                        ? "Sign in"
-                        : "Send OTP"}
+                    {sending ? "Sending..." : "Send OTP"}
                   </button>
                 </form>
               )}

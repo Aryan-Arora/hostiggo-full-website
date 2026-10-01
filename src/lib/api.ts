@@ -36,7 +36,7 @@ export async function getBearerToken(): Promise<string | null> {
   // The authoritative source: whatever Supabase's own client currently
   // considers the live session, refreshed automatically in the background
   // by autoRefreshToken. This works for every sign-in method (Google OAuth,
-  // email/phone OTP, password) with no per-flow wiring -- unlike the
+  // email/phone OTP) with no per-flow wiring -- unlike the
   // separately-tracked AUTH_ACCESS_TOKEN_KEY below, which some sign-in
   // paths (notably the Google OAuth callback) never populate at all, and
   // which none of them keep in sync across a background token refresh.
@@ -133,7 +133,7 @@ const buildReviews = (row: any): Review[] => {
 const buildHost = (row: any): Host => ({
   id: String(row?.host_uuid ?? row?.host?.id ?? ""),
   name: row?.host?.name ?? "Host",
-  avatar: row?.host?.photo ?? "",
+  avatar: row?.host?.photo ?? row?.host?.avatar ?? "",
   rating: Number(row?.host?.rating ?? 0),
   tripsHosted: Number(row?.host?.tripsHosted ?? 0),
   joinDate: row?.host?.joinDate ?? "",
@@ -790,30 +790,10 @@ export const api = {
       }),
     });
   },
-  checkEmailExists: (email: string) =>
-    request<{ exists: boolean }>("/api/auth/check-email", {
-      method: "POST",
-      body: JSON.stringify({ email: normalizeEmail(email) }),
-    }),
   loginEvents: (userId: string) =>
     request<
       { id: number; method: string; ip_address: string | null; user_agent: string | null; created_at: string }[]
     >(`/api/auth/login-events?userId=${encodeURIComponent(userId)}`),
-  changePassword: (newPassword: string) =>
-    request<{ ok: true }>("/api/auth/change-password", {
-      method: "POST",
-      body: JSON.stringify({ newPassword }),
-    }),
-  signInWithPassword: (email: string, password: string) =>
-    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
-      method: "POST",
-      body: JSON.stringify({ action: "signin", email: normalizeEmail(email), password }),
-    }),
-  signUpWithPassword: (email: string, password: string) =>
-    request<{ user: any; session: any; profile: CurrentUser | null }>("/api/auth/password", {
-      method: "POST",
-      body: JSON.stringify({ action: "signup", email: normalizeEmail(email), password }),
-    }),
   addWishlistItem: (userId: string, listingId: string, categoryId?: string) =>
     request<any>("/api/wishlist", {
       method: "POST",

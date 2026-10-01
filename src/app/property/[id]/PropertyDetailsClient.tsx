@@ -489,8 +489,14 @@ function ReviewCard({ review }: { review: Review }) {
 }
 
 // ── Write a review (signed-in guests) ────────────────────────────────
-function WriteReview({ listingId }: { listingId: string }) {
-  const { userId, isAuthenticated } = useAuth();
+function WriteReview({
+  listingId,
+  onSubmitted,
+}: {
+  listingId: string;
+  onSubmitted: (review: Review) => void;
+}) {
+  const { userId, user, isAuthenticated } = useAuth();
   const router = useRouter();
   const [rating, setRating] = useState(0);
   const [hover, setHover] = useState(0);
@@ -528,10 +534,17 @@ function WriteReview({ listingId }: { listingId: string }) {
         rating,
         comment: comment.trim() || undefined,
       });
+      onSubmitted({
+        id: `local-${Date.now()}`,
+        userName: user?.name || "Guest",
+        userAvatar: user?.profile_pic_url || "",
+        rating,
+        reviewText: comment.trim(),
+        reviewDate: new Date().toISOString(),
+      });
       toast.success("Thanks for your review!");
       setRating(0);
       setComment("");
-      setTimeout(() => router.refresh(), 700);
     } catch (err) {
       toast.error(
         err instanceof Error ? err.message : "Could not submit your review.",
@@ -617,10 +630,11 @@ function HostCard({ host }: { host: Host }) {
       </h2>
       <div className="flex items-start gap-4">
         <div className="relative flex-shrink-0">
-          <img
+          <UserAvatar
             src={host.avatar}
-            alt={host.name}
-            className="w-16 h-16 rounded-full object-cover border-2 border-white shadow-md"
+            name={host.name}
+            size={64}
+            className="rounded-full border-2 border-white shadow-md"
           />
           {host.isSuperhost && (
             <div className="absolute -bottom-1 -right-1 w-6 h-6 bg-rose-500 rounded-full flex items-center justify-center shadow">
@@ -1907,6 +1921,20 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
   const reviews = property.reviews ?? [];
   const previewReviews = reviews.slice(0, 3);
 
+  const handleReviewSubmitted = (review: Review) => {
+    setProperty((current) => {
+      if (!current) return current;
+      const nextReviews = [review, ...(current.reviews ?? [])];
+      const nextReviewCount = current.reviewCount + 1;
+      return {
+        ...current,
+        reviews: nextReviews,
+        reviewCount: nextReviewCount,
+        rating: nextReviews.reduce((sum, item) => sum + item.rating, 0) / nextReviews.length,
+      };
+    });
+  };
+
   const descIsLong = (property.description?.length ?? 0) > 200;
 
   return (
@@ -2329,7 +2357,7 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
           )}
 
           <div className="mt-8 max-w-2xl">
-            <WriteReview listingId={property.id} />
+            <WriteReview listingId={property.id} onSubmitted={handleReviewSubmitted} />
           </div>
         </div>
 
@@ -2394,10 +2422,11 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
             <div className="flex flex-col md:flex-row gap-8 items-start">
               {/* Left: Compact Host Card */}
               <div className="bg-white rounded-[24px] p-6 border border-gray-200 shadow-sm w-full md:w-[280px] flex flex-col items-center text-center flex-shrink-0">
-                <img
+                <UserAvatar
                   src={property.host.avatar}
-                  alt={property.host.name}
-                  className="w-20 h-20 rounded-full object-cover shadow-sm mb-3"
+                  name={property.host.name}
+                  size={80}
+                  className="rounded-full shadow-sm mb-3"
                 />
                 <h3 className="text-type-poppins-medium-18-128-03 text-gray-900">
                   {property.host.name}

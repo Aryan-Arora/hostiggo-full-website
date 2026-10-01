@@ -85,7 +85,9 @@ export async function POST(req: NextRequest) {
           ? String(body.emergency_contact).slice(0, 200)
           : null,
       }),
-      ...(body.profile_pic_url !== undefined && {
+      // Google sign-in can provide the initial avatar, but must never replace
+      // a photo the user has already uploaded from their account.
+      ...(body.profile_pic_url !== undefined && !existing?.profile_pic_url && {
         profile_pic_url: body.profile_pic_url ? String(body.profile_pic_url) : null,
       }),
       ...(body.is_verified !== undefined && { is_verified: body.is_verified === true }),

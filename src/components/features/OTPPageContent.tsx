@@ -30,13 +30,6 @@ export default function OTPPageContent() {
   const mode = (searchParams?.get('mode') as 'phone' | 'email') ?? 'phone';
   const value = searchParams?.get('value') ?? '83183 XXXXX';
   const redirect = safeRedirect(searchParams?.get('redirect'), '/');
-  // Set by the sign-in page's password flow: a new email has no account
-  // yet (create-password) or an existing user forgot their password
-  // (reset-password) -- either way, once the OTP proves they own this
-  // inbox, send them to set a password instead of the normal onboarding
-  // redirect, carrying the original `redirect` through as where to land
-  // after that.
-  const next = searchParams?.get('next');
 
   const clean = value.replace(/^\+91/, '');
   const maskedValue =
@@ -166,13 +159,7 @@ export default function OTPPageContent() {
         // the client-side session above ever fails to hydrate.
         setStoredSession(session.access_token, session.refresh_token);
         await signIn(userId);
-        if (next === 'create-password' || next === 'reset-password') {
-          router.push(
-            `/account/password?first=1&reason=${next}${redirect ? `&next=${encodeURIComponent(redirect)}` : ''}`,
-          );
-        } else {
-          router.push(redirect || `/onboarding?mode=${mode}`);
-        }
+        router.push(redirect || `/onboarding?mode=${mode}`);
       } else {
         // Supabase returned without throwing but didn't give us a real user
         // + session, this used to silently navigate to `redirect` anyway,

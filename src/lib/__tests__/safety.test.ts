@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { passwordProblem, safeRedirect } from "../utils";
+import { safeRedirect } from "../utils";
 import { detectContactSharing } from "../chatModeration";
 import { formatINR, formatTime12h, plural } from "../format";
 import { todayInIndia } from "../booking-config";
@@ -24,14 +24,6 @@ describe("safeRedirect -- only same-origin relative paths", () => {
     expect(safeRedirect(null)).toBe("/");
     expect(safeRedirect("", "")).toBe("");
   });
-});
-
-describe("passwordProblem", () => {
-  it("accepts a reasonable password", () => expect(passwordProblem("hostiggo2026")).toBeNull());
-  it("rejects short passwords", () => expect(passwordProblem("ab12")).toMatch(/8 characters/));
-  it("rejects all-numeric passwords (audit UX-07)", () => expect(passwordProblem("12345678")).toMatch(/letter/));
-  it("rejects letters-only passwords", () => expect(passwordProblem("abcdefgh")).toMatch(/number/));
-  it("rejects over-long passwords", () => expect(passwordProblem(`a1${"x".repeat(80)}`)).toMatch(/72/));
 });
 
 describe("detectContactSharing -- keeps bookings on-platform", () => {

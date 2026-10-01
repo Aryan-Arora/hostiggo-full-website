@@ -15,7 +15,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Loader2,
-  Key,
   Activity,
   ChevronRight,
   Mail,
@@ -780,12 +779,6 @@ export default function HostSettingsPage() {
 
           {tab === 'security' && (
             <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
-              <SettingsLinkRow
-                href="/account/password"
-                icon={Key}
-                title="Password & Security"
-                desc="Set or change the password used to sign in with your email."
-              />
               <SettingsLinkRow
                 href="/account/login-activity"
                 icon={Activity}

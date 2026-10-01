@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
       name: user.name || "Host",
       email: user.email,
       phone: user.phone,
-      avatar: host.photo || user.profile_pic_url || null,
+      avatar: user.profile_pic_url || host.photo || null,
       about: host.about || "",  // From host table
       isVerified: host.is_verified || false,
       stats: {

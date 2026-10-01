@@ -1,10 +1,12 @@
 'use client';
 
 import Link from 'next/link';
-import Image from 'next/image';
 import { Pencil, Star, Home, CalendarCheck, ShieldCheck, ChevronRight, type LucideIcon, Loader2 } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api';
+import { toast } from 'sonner';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import HostDashboardShell, { DashboardHeading } from '../_components/HostDashboardShell';
 
 const QUICK: { icon: LucideIcon; label: string; href: string }[] = [
@@ -17,7 +19,7 @@ type ProfileData = {
   name: string;
   email?: string;
   phone?: string;
-  avatar: string;
+  avatar?: string | null;
   about: string;
   isVerified: boolean;
   stats: {
@@ -31,7 +33,9 @@ export default function HostAccountPage() {
   const { userId } = useAuth();
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
+  const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const loadProfile = async () => {
     if (!userId) return;
@@ -68,6 +72,25 @@ export default function HostAccountPage() {
   useEffect(() => {
     loadProfile();
   }, [userId]);
+
+  const handlePhotoChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    event.target.value = '';
+    if (!file || !userId) return;
+
+    setUploadingPhoto(true);
+    try {
+      const url = await api.uploadProfilePhoto(file);
+      await api.updateProfile(userId, { profile_pic_url: url });
+      await loadProfile();
+      toast.success('Profile photo updated.');
+    } catch (err) {
+      console.error('[host/account] photo upload failed:', err);
+      toast.error(err instanceof Error ? err.message : 'Could not upload photo.');
+    } finally {
+      setUploadingPhoto(false);
+    }
+  };
 
   if (loading) {
     return (
@@ -107,15 +130,28 @@ export default function HostAccountPage() {
         <div className="lg:col-span-5 bg-white rounded-3xl p-8 shadow-card border border-gray-200">
           <div className="flex flex-col items-center text-center">
             <div className="relative w-32 h-32 mb-6">
-              <Image
-                fill
+              <UserAvatar
                 src={profile.avatar}
-                alt={profile.name}
-                sizes="128px"
+                name={profile.name}
+                size={128}
                 className="rounded-3xl object-cover ring-4 ring-gray-100 shadow"
               />
-              <button className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform" disabled title="Photo upload coming soon">
-                <Pencil className="w-4 h-4" />
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                onChange={handlePhotoChange}
+                className="hidden"
+              />
+              <button
+                type="button"
+                onClick={() => fileInputRef.current?.click()}
+                disabled={uploadingPhoto}
+                aria-label="Change profile photo"
+                title="Change photo"
+                className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-2 rounded-xl shadow-md hover:scale-110 transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
+              >
+                {uploadingPhoto ? <Loader2 className="w-4 h-4 animate-spin" /> : <Pencil className="w-4 h-4" />}
               </button>
             </div>
             <h2 className="text-xl font-bold text-gray-800">{profile.name}</h2>

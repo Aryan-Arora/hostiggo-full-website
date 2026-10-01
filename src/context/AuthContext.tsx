@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   // thing that counts as "signed in" -- a bare user id in localStorage (which
   // anyone can type into devtools) used to be enough for the UI to treat the
   // visitor as that user. Every sign-in flow (Google, email/phone OTP,
-  // password, dev demo host) establishes a Supabase session, so a stored id
+  // dev demo host) establishes a Supabase session, so a stored id
   // with no session behind it is stale and gets cleared.
   useEffect(() => {
     let mounted = true;
@@ -146,8 +146,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, [loadUser]);
 
   // Google OAuth, email OTP and phone OTP all now establish a real Supabase
-  // Auth session client-side -- OTP/password verify happens server-side
-  // (POST /api/auth/otp, /api/auth/password), so OTPPageContent.tsx and
+  // Auth session client-side -- OTP verify happens server-side
+  // (POST /api/auth/otp), so OTPPageContent.tsx and
   // signin/page.tsx explicitly call supabase.auth.setSession() with the
   // tokens that route returns, right after verifying. Without that, this
   // client never learns the session exists and autoRefreshToken has
