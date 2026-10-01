@@ -519,7 +519,8 @@ export const HotelServiceApi = {
         listing_media (media_url, is_cover),
         review (*),
         listing_amenities (
-          amenities (name)
+          amenity_id,
+          amenities (amenity_id, name, icon, category)
         ),
         listing_discounts (
           id, discount_type, percent, enabled
