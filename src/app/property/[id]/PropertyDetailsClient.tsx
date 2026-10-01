@@ -2148,12 +2148,14 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
               <div className="flex flex-col text-type-poppins-regular-15-128-03 text-gray-600 gap-1">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-gray-400" />{" "}
-                  {property.maxGuests} Guests
+                  {property.maxGuests} {property.maxGuests === 1 ? "Guest" : "Guests"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <BedDouble className="w-4 h-4 text-gray-400" />{" "}
-                  {property.bedType || "1 Bedroom"}
-                </span>
+                {property.bedrooms != null && property.bedrooms > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <BedDouble className="w-4 h-4 text-gray-400" />{" "}
+                    {property.bedrooms} {property.bedrooms === 1 ? "Bedroom" : "Bedrooms"}
+                  </span>
+                )}
               </div>
             </div>
           </div>

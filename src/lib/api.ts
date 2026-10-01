@@ -127,6 +127,29 @@ const guessAmenityIcon = (name: string): string =>
           ? "zap"
           : "check";
 
+// Capacity is the sum over the listing's listing_bedrooms rows (guests, beds,
+// bathrooms; bedrooms = row count). Listings without those rows (older ones,
+// and search RPC rows that don't embed them) fall back to listings.num_*.
+const buildCapacity = (row: any) => {
+  const rooms = Array.isArray(row?.listing_bedrooms) ? row.listing_bedrooms : [];
+  if (rooms.length > 0) {
+    const sum = (key: string) => rooms.reduce((total: number, r: any) => total + Number(r?.[key] ?? 0), 0);
+    return {
+      guests: sum("max_guests"),
+      beds: sum("beds"),
+      bedrooms: rooms.length,
+      bathrooms: sum("bathrooms"),
+    };
+  }
+  const num = (value: unknown) => (value != null ? Number(value) : undefined);
+  return {
+    guests: num(row?.num_guests ?? row?.max_guests ?? row?.nom_guests ?? row?.total_guests),
+    beds: num(row?.num_beds),
+    bedrooms: num(row?.num_bedrooms),
+    bathrooms: num(row?.num_bathrooms),
+  };
+};
+
 const buildReviews = (row: any): Review[] => {
   const reviews = row?.review ?? row?.reviews ?? [];
   if (!Array.isArray(reviews)) return [];
@@ -164,6 +187,7 @@ export function mapListingToProperty(input: any): Property {
   const images = mediaUrls(row);
   const amenities = amenityNames(row);
   const reviews = buildReviews(row);
+  const capacity = buildCapacity(row);
   // Prefer the live joined reviews over listings.avg_rating/review_count,
   // which are separately materialized columns that createReview never updates
   // and so go stale as soon as a new review is submitted.
@@ -185,7 +209,10 @@ export function mapListingToProperty(input: any): Property {
     amenityDetails: buildAmenityDetails(row, amenities),
     propertyType: row.property_type ?? row.propertyType ?? "Homestay",
     images: images.length > 0 ? images : [FALLBACK_IMAGE],
-    maxGuests: Number(row.max_guests ?? row.nom_guests ?? row.total_guests ?? 2),
+    maxGuests: capacity.guests || 2,
+    beds: capacity.beds,
+    bedrooms: capacity.bedrooms,
+    bathrooms: capacity.bathrooms,
     isFavorite: Boolean(row.isFavorite),
     isNew: Boolean(row.is_new),
     distanceFromCenter:
