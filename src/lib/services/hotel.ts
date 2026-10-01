@@ -522,6 +522,9 @@ export const HotelServiceApi = {
           amenity_id,
           amenities (amenity_id, name, icon, category)
         ),
+        listing_bedrooms (
+          bedroom_index, beds, bathrooms, max_guests
+        ),
         listing_discounts (
           id, discount_type, percent, enabled
         ),
