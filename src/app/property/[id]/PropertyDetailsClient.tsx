@@ -2150,10 +2150,10 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
                   <Users className="w-4 h-4 text-gray-400" />{" "}
                   {property.maxGuests} {property.maxGuests === 1 ? "Guest" : "Guests"}
                 </span>
-                {property.beds != null && property.beds > 0 && (
+                {property.bedrooms != null && property.bedrooms > 0 && (
                   <span className="flex items-center gap-1.5">
                     <BedDouble className="w-4 h-4 text-gray-400" />{" "}
-                    {property.beds} {property.beds === 1 ? "Bed" : "Beds"}
+                    {property.bedrooms} {property.bedrooms === 1 ? "Bedroom" : "Bedrooms"}
                   </span>
                 )}
               </div>
