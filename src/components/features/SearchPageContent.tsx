@@ -49,8 +49,12 @@ export default function SearchPageContent() {
   // Sync destination and view mode from URL (only on mount)
   useEffect(() => {
     const dest = searchParams?.get('destination');
-    if (dest && !location.query) {
-      setLocation({ query: dest });
+    // The URL is what was asked for, so it wins over whatever destination is
+    // still in the shared search state (e.g. text typed earlier and never
+    // searched). Previously a stale one made /search?destination=Shimla
+    // silently search something else.
+    if (dest && dest !== location.query) {
+      setLocation({ query: dest, state: searchParams?.get('state') || undefined });
     }
     const view = searchParams?.get('view');
     if (view === 'map' || view === 'list') {

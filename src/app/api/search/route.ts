@@ -25,6 +25,13 @@ export async function POST(req: NextRequest) {
     totalCount = result.totalCount;
     stateBounds = result.stateBounds;
 
+    // The next page starts after the last row the RPC returned, not the last
+    // row that survives the filters below -- otherwise a page that's filtered
+    // down to nothing would hand back no cursor and the client would restart
+    // from the first page.
+    const nextCursor: number | null = data.length > 0 ? data[data.length - 1].listing?.listing_id ?? null : null;
+    const rowsBeforeFilters = data.length;
+
     // Property type filter
     if (filters?.propertyTypes?.length && data?.length) {
       const wanted = new Set(filters.propertyTypes.map((t: string) => t.toLowerCase()));
@@ -79,10 +86,19 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // The RPC's total knows nothing about the filters applied above, so once
+    // any of them removed rows it overstates ("4 found" over 3 cards). When
+    // everything fit in one page the loaded rows are the full answer;
+    // otherwise the true total is unknown, so say so (null) and let the
+    // client count what it has loaded.
+    if (totalCount != null && data.length !== rowsBeforeFilters) {
+      totalCount = hasMore ? null : data.length;
+    }
+
     // Build response with cursor pagination info
-    const response: any = { 
+    const response: any = {
       data,
-      cursor: data.length > 0 ? data[data.length - 1].listing?.listing_id : null,
+      cursor: nextCursor,
       hasMore,
       totalCount,
     };
