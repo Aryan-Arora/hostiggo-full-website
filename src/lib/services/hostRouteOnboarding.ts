@@ -4,6 +4,8 @@ import {
   createStakeholder,
   createRouteProduct,
   submitRouteSettlementDetails,
+  updateLinkedAccount,
+  updateStakeholder,
 } from "@/lib/billing/razorpayRoute";
 
 /**
@@ -20,6 +22,12 @@ import {
  * retrying in practice (Razorpay penny-tests the bank account and will
  * reject a wrong number/IFSC after a delay, well after this function has
  * already returned).
+ *
+ * An upsert, not create-only: when a host changes their details the
+ * Razorpay ids are kept (status drops back to 'submitted'), and this
+ * PATCHes the existing Linked Account and Stakeholder before resubmitting
+ * the settlement bank details -- Razorpay won't open a second account for
+ * the same email.
  */
 export async function runRouteOnboarding(hostUuid: string, userId: string) {
   const { data: payout, error: payoutError } = await supabaseAdmin
@@ -73,18 +81,25 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
   let stakeholderId = payout.razorpay_stakeholder_id;
   let productId = payout.razorpay_product_id;
 
-  if (!accountId) {
-    const account = await createLinkedAccount({
-      email: userRow.email,
-      phone,
-      legalBusinessName: payout.account_holder_name,
-      contactName: payout.account_holder_name,
-      addressLine1: payout.address_line1,
-      city: payout.city,
-      state: payout.state,
-      postalCode: payout.postal_code,
-      referenceId: hostUuid,
-    });
+  const accountDetails = {
+    phone,
+    legalBusinessName: payout.account_holder_name,
+    contactName: payout.account_holder_name,
+    addressLine1: payout.address_line1,
+    city: payout.city,
+    state: payout.state,
+    postalCode: payout.postal_code,
+  };
+  const stakeholderDetails = {
+    name: payout.account_holder_name,
+    email: userRow.email,
+    panNumber: payout.pan_number,
+  };
+
+  if (accountId) {
+    await updateLinkedAccount(accountId, accountDetails);
+  } else {
+    const account = await createLinkedAccount({ ...accountDetails, email: userRow.email, referenceId: hostUuid });
     accountId = account.id;
     await supabaseAdmin
       .from("host_payout_methods")
@@ -92,12 +107,10 @@ export async function runRouteOnboarding(hostUuid: string, userId: string) {
       .eq("host_uuid", hostUuid);
   }
 
-  if (!stakeholderId) {
-    const stakeholder = await createStakeholder(accountId, {
-      name: payout.account_holder_name,
-      email: userRow.email,
-      panNumber: payout.pan_number,
-    });
+  if (stakeholderId) {
+    await updateStakeholder(accountId, stakeholderId, stakeholderDetails);
+  } else {
+    const stakeholder = await createStakeholder(accountId, stakeholderDetails);
     stakeholderId = stakeholder.id;
     await supabaseAdmin
       .from("host_payout_methods")
@@ -198,14 +211,9 @@ export async function saveVerifiedPayoutDetails(userId: string, fields: Verified
     setIfChanged("pan_number", fields.panNumber);
     if (Object.keys(changes).length === 0) return;
 
-    // Same as a Settings edit: new bank/PAN details start Route onboarding over.
-    const reset = {
-      status: "submitted",
-      razorpay_account_id: null,
-      razorpay_stakeholder_id: null,
-      razorpay_product_id: null,
-      updated_at: new Date().toISOString(),
-    };
+    // Same as a Settings edit: new bank/PAN details are pushed to the
+    // existing Razorpay linked account on the next onboarding run.
+    const reset = { status: "submitted", updated_at: new Date().toISOString() };
     if (existing) {
       const { error } = await supabaseAdmin
         .from("host_payout_methods")
@@ -269,8 +277,15 @@ export async function maybeAutoOnboardHostToRoute(userId: string): Promise<strin
       .select("razorpay_account_id, razorpay_stakeholder_id, status")
       .eq("host_uuid", hostUuid)
       .maybeSingle();
-    // No bank details on file yet, or already fully onboarded -- nothing to do.
-    if (!payout || (payout.razorpay_account_id && payout.razorpay_stakeholder_id && payout.status !== "rejected")) {
+    // No bank details on file yet, or already onboarded with nothing new to
+    // push -- nothing to do. A details change resets status to 'submitted',
+    // so it gets upserted to Razorpay here.
+    if (
+      !payout ||
+      (payout.razorpay_account_id &&
+        payout.razorpay_stakeholder_id &&
+        (payout.status === "active" || payout.status === "onboarding"))
+    ) {
       return null;
     }
 

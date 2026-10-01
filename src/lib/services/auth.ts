@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { supabase, SUPABASE_URL, SUPABASE_ANON_KEY } from "../supabase";
 
 // authApi runs inside /app/api/* route handlers. Calls that *establish* a
-// session (verifyOtp, signInWithPassword, signUp) must not run on the
+// session (verifyOtp) must not run on the
 // shared module-level `supabase` client: on the server that client is a
 // process-wide singleton, so the session it stores would leak into every
 // later request served by the same instance (another user's requests would
@@ -61,14 +61,6 @@ export const authApi = {
 
   updateUser: async (attributes: { phone?: string; email?: string }) => {
     return await supabase.auth.updateUser(attributes);
-  },
-
-  signUpWithPassword: async (email: string, password: string) => {
-    return await isolatedClient().auth.signUp({ email, password });
-  },
-
-  signInWithPassword: async (email: string, password: string) => {
-    return await isolatedClient().auth.signInWithPassword({ email, password });
   },
 
   signOut: async () => {

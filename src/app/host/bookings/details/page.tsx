@@ -3,6 +3,7 @@
 import { Suspense, useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { useSearchParams } from 'next/navigation';
 import {
   ChevronRight,
@@ -131,7 +132,7 @@ function DetailsInner() {
       guestName: guest.name?.trim() || 'Guest',
       guestFirst: (guest.name?.trim() || 'Guest').split(' ')[0],
       guestPhone: guest.phone || null,
-      guestPic: guest.profile_pic_url || `https://i.pravatar.cc/200?u=${booking.user_id || booking.booking_id}`,
+      guestPic: guest.profile_pic_url || null,
       guestVerified: Boolean(guest.is_verified),
       guestSince,
       start,
@@ -241,18 +242,11 @@ function DetailsInner() {
           <section className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
             <div className="flex flex-col md:flex-row gap-8 items-start">
               <div className="relative">
-                <Image
-                  width={128}
-                  height={128}
+                <UserAvatar
                   src={view.guestPic}
-                  alt={view.guestName}
-                  onError={(e) => {
-                    const fb = `https://ui-avatars.com/api/?name=${encodeURIComponent(
-                      view.guestName,
-                    )}&background=2563eb&color=fff&size=200`;
-                    if (e.currentTarget.src !== fb) e.currentTarget.src = fb;
-                  }}
-                  className="w-32 h-32 rounded-3xl object-cover shadow ring-4 ring-gray-100"
+                  name={view.guestName}
+                  size={128}
+                  className="rounded-3xl shadow ring-4 ring-gray-100"
                 />
                 {view.guestVerified && (
                   <div className="absolute -bottom-2 -right-2 bg-figma-navy text-white p-1.5 rounded-full border-4 border-white">

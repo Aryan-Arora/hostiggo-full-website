@@ -151,10 +151,12 @@ async function processEvent(event: string | undefined, payload: any): Promise<Ne
       if (hostUser) {
         await notify({
           userId: hostUser,
-          type: "account",
+          type: "booking_host",
+          category: "account",
+          templateId: "payout_sent_host",
           title: "Payout on its way",
           message: `Your earnings for booking #${b.booking_id} have been transferred and will be settled to your bank account.`,
-          metadata: { bookingId: b.booking_id, transferId: transfer.id },
+          metadata: { booking_id: b.booking_id, role: "host", transfer_id: transfer.id },
         });
       }
     }
@@ -188,10 +190,11 @@ async function processEvent(event: string | undefined, payload: any): Promise<Ne
       if (hostUser) {
         await notify({
           userId: hostUser,
-          type: "account",
+          type: "booking_host",
+          category: "account",
           title: "Payout credited",
           message: `Your earnings for booking #${b.booking_id} were credited to your bank account${settlement.utr ? ` (UTR ${settlement.utr})` : ""}.`,
-          metadata: { bookingId: b.booking_id, utr: settlement.utr ?? null },
+          metadata: { booking_id: b.booking_id, role: "host", utr: settlement.utr ?? null },
         });
       }
     }

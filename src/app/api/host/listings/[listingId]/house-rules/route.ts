@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import * as houseRulesService from '@/lib/services/house-rules';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
@@ -34,11 +35,10 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ lis
     }
 
     const body = await request.json();
-    const { check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours, userId } = body;
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, String(userId));
+    const { check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours } = body;
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     const updated = await houseRulesService.upsertHouseRules(listingId, {
       check_in_time,

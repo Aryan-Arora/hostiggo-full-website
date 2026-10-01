@@ -1,7 +1,11 @@
 'use client';
 
-import { useMemo, useState } from 'react';
+import { Suspense, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
+import { useSearchParams } from 'next/navigation';
+import { toast } from 'sonner';
+import { CheckCircle2, Loader2 } from 'lucide-react';
+import { api } from '@/lib/api';
 import {
   AlertTriangle,
   ChevronLeft,
@@ -14,6 +18,13 @@ import Footer from '@/components/layout/Footer';
 import { cn } from '@/lib/utils';
 
 const SUPPORT_EMAIL = 'support@hostiggo.com';
+
+// feedback.category enum values these map to.
+const CATEGORY_ENUM: Record<string, string> = {
+  technical: 'app_performance',
+  payment: 'payments_payouts',
+  grievance: 'others',
+};
 
 const CATEGORIES = [
   {
@@ -39,10 +50,65 @@ const CATEGORIES = [
 type CategoryId = (typeof CATEGORIES)[number]['id'];
 
 export default function ReportIssuePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-figma-cream" />}>
+      <ReportIssueContent />
+    </Suspense>
+  );
+}
+
+function ReportIssueContent() {
+  const searchParams = useSearchParams();
+  const bookingRef = searchParams?.get('booking');
   const [category, setCategory] = useState<CategoryId>('technical');
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [email, setEmail] = useState('');
+  const [sending, setSending] = useState(false);
+  const [sentRef, setSentRef] = useState<string | null>(null);
+
+  // Arriving from a booking page: it's about that booking.
+  useEffect(() => {
+    if (bookingRef && /^\d+$/.test(bookingRef)) {
+      setCategory('payment');
+      setSubject((s) => s || `Booking #${bookingRef}`);
+    }
+  }, [bookingRef]);
+
+  const handleSubmit = async () => {
+    const text = description.trim();
+    if (text.length < 10) {
+      toast.error('Please describe the issue in a little more detail.', { id: 'report' });
+      return;
+    }
+    if (email.trim() && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email.trim())) {
+      toast.error('Enter a valid email, or leave it blank.', { id: 'report' });
+      return;
+    }
+    setSending(true);
+    try {
+      const header = [
+        `[${selectedCategory.title}] ${subject.trim() || 'Issue report'}`,
+        bookingRef ? `Booking: #${bookingRef}` : null,
+        email.trim() ? `Reply to: ${email.trim()}` : null,
+      ]
+        .filter(Boolean)
+        .join('\n');
+      const created = await api.submitFeedback({
+        type: 'report_issue',
+        category: CATEGORY_ENUM[category] ?? 'others',
+        description: `${header}\n\n${text}`.slice(0, 5000),
+      });
+      setSentRef(created?.id ? `HG-R${created.id}` : 'received');
+    } catch (err) {
+      toast.error(
+        err instanceof Error ? err.message : "We couldn't send that. Please try again.",
+        { id: 'report' },
+      );
+    } finally {
+      setSending(false);
+    }
+  };
 
   const selectedCategory = CATEGORIES.find((c) => c.id === category)!;
 
@@ -82,9 +148,9 @@ export default function ReportIssuePage() {
             Report an Issue
           </h1>
           <p className="text-[15px] leading-7 text-figma-ink/80">
-            Pick what this is about, describe what happened, and we&apos;ll
-            open it as an email straight to our support inbox from your own
-            mail app — nothing is sent without you hitting send yourself.
+            Pick what this is about and describe what happened. It goes straight
+            to our support team -- urgent safety and payment issues are handled
+            first.
           </p>
         </header>
 
@@ -150,6 +216,7 @@ export default function ReportIssuePage() {
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
+                maxLength={4000}
                 rows={6}
                 placeholder="Include the booking ID, listing, or dates if relevant — the more detail, the faster we can help."
                 className="w-full rounded-xl border border-figma-border px-4 py-3 text-[15px] text-figma-ink outline-none focus:border-figma-navy resize-none"
@@ -169,22 +236,39 @@ export default function ReportIssuePage() {
               />
             </div>
 
-            <a
-              href={canSend ? mailtoHref : undefined}
-              aria-disabled={!canSend}
-              className={cn(
-                'inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-colors',
-                canSend
-                  ? 'bg-figma-navy text-white hover:bg-figma-navy/90'
-                  : 'bg-figma-border text-figma-ink/40 cursor-not-allowed pointer-events-none',
-              )}
-            >
-              <AlertTriangle className="w-4 h-4" />
-              Open email to {SUPPORT_EMAIL}
-            </a>
+            {sentRef ? (
+              <div role="status" className="flex items-start gap-3 rounded-2xl border border-emerald-300 bg-emerald-50 p-4">
+                <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-emerald-600" />
+                <div className="text-[14px] text-emerald-900">
+                  <p className="font-semibold">Thanks -- your report has been sent.</p>
+                  <p>
+                    {sentRef !== 'received' && <>Reference <strong>{sentRef}</strong>. </>}
+                    We usually reply within a few hours.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={!canSend || sending}
+                className={cn(
+                  'inline-flex items-center justify-center gap-2 px-6 py-3 rounded-xl text-sm font-semibold transition-colors',
+                  canSend && !sending
+                    ? 'bg-figma-navy text-white hover:bg-figma-navy/90'
+                    : 'bg-figma-border text-figma-ink/40 cursor-not-allowed',
+                )}
+              >
+                {sending ? <Loader2 className="w-4 h-4 animate-spin" /> : <AlertTriangle className="w-4 h-4" />}
+                {sending ? 'Sending…' : 'Send report'}
+              </button>
+            )}
             <p className="text-xs text-figma-ink/50">
-              This opens your default mail app with the message pre-filled —
-              you still need to hit send there.
+              Prefer email? Write to{' '}
+              <a href={mailtoHref} className="underline">
+                {SUPPORT_EMAIL}
+              </a>
+              .
             </p>
           </div>
         </section>

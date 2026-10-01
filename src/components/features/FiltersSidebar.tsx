@@ -7,7 +7,7 @@ import {
 } from '@/context/ListingFilterContext';
 import { cn } from '@/lib/utils';
 import type { SearchFilters } from '@/types';
-import { Star, ChevronDown, Plus, Minus, Check } from 'lucide-react';
+import { Star, ChevronDown, Check } from 'lucide-react';
 import dynamic from 'next/dynamic';
 
 const MapPreview = dynamic(() => import('@/components/features/MapPreview'), {
@@ -104,7 +104,7 @@ const PROPERTY_TYPES = [
   'Hotel',
   'Cabin',
   'Villa',
-  'Treehouse',
+  'Tree House',
   'Tiny Home',
   'Farm Stay',
 ];
@@ -112,8 +112,8 @@ const PROPERTY_TYPES = [
 const AMENITY_LIST = [
   'WiFi',
   'Kitchen',
-  'AC',
-  'Heating',
+  'Air Conditioning',
+  'Heater',
   'TV',
   'Washing Machine',
   'Free Parking',
@@ -124,19 +124,9 @@ const AMENITY_LIST = [
   'Smoke Alarm',
   'Fire Extinguisher',
   'First Aid Kit',
-  'Pets Allowed',
+  'Pet Friendly',
   'BBQ Grill',
   'Garden',
-];
-
-const BED_TYPES = [
-  'King bed',
-  'Queen bed',
-  'Double bed',
-  'Single bed',
-  'Sofa bed',
-  'Twin bed',
-  'Bunk bed',
 ];
 
 const POPULAR_FILTERS: {
@@ -146,14 +136,18 @@ const POPULAR_FILTERS: {
   key?: keyof SearchFilters;
   stayValue?: string;
 }[] = [
+  // Every chip here maps onto real listing data (stay type, cancellation
+  // policy, breakfast add-on, amenities) -- see /api/search. Chips with no
+  // data behind them (bed type, couple/family friendly) were removed rather
+  // than left highlighting without changing results.
+  { id: 'entire_place', label: 'Entire place', type: 'stayType', stayValue: 'Entire Property' },
   { id: 'private_room', label: 'Private room', type: 'stayType', stayValue: 'Private Room' },
   { id: 'shared_room', label: 'Shared room', type: 'stayType', stayValue: 'Shared Space' },
   { id: 'free_cancellation', label: 'Free cancellation', type: 'boolean', key: 'freeCancellation' },
-  { id: 'free_breakfast', label: 'Free breakfast', type: 'boolean', key: 'breakfast' },
-  { id: 'double_bed', label: 'Double bed', type: 'boolean', key: 'doubleBed' },
-  { id: 'couple_friendly', label: 'Couple friendly', type: 'boolean', key: 'coupleFriendly' },
-  { id: 'free_wifi', label: 'Free wifi', type: 'boolean', key: 'wifi' },
-  { id: 'family_friendly', label: 'Family friendly', type: 'boolean', key: 'familyFriendly' },
+  { id: 'breakfast', label: 'Breakfast available', type: 'boolean', key: 'breakfast' },
+  { id: 'free_wifi', label: 'WiFi', type: 'boolean', key: 'wifi' },
+  { id: 'parking', label: 'Parking', type: 'boolean', key: 'parking' },
+  { id: 'ac', label: 'AC', type: 'boolean', key: 'ac' },
 ];
 
 function PriceSlider({
@@ -244,6 +238,7 @@ function PriceSlider({
         {/* Min range input */}
         <input
           type="range"
+          aria-label="Minimum price per night"
           min={MIN}
           max={MAX}
           step={100}
@@ -258,6 +253,7 @@ function PriceSlider({
         {/* Max range input */}
         <input
           type="range"
+          aria-label="Maximum price per night"
           min={MIN}
           max={MAX}
           step={100}
@@ -303,21 +299,17 @@ export default function FiltersSidebar({
     toggleAmenity,
     togglePropertyType,
     toggleStayType,
-    toggleBedType,
     setBooleanFilter,
     clearFilters,
   } = useListingActions();
 
   const [showAllPropertyTypes, setShowAllPropertyTypes] = useState(false);
   const [showAllAmenities, setShowAllAmenities] = useState(false);
-  const [showAllBedTypes, setShowAllBedTypes] = useState(false);
   const [ratingOrder, setRatingOrder] = useState<'asc' | 'desc' | null>(null);
-  const [bedCounts, setBedCounts] = useState<Record<string, number>>({});
 
   const handleReset = () => {
     clearFilters();
     setRatingOrder(null);
-    setBedCounts({});
     if (onReset) onReset();
   };
 
@@ -328,10 +320,6 @@ export default function FiltersSidebar({
   const displayedAmenities = showAllAmenities
     ? AMENITY_LIST
     : AMENITY_LIST.slice(0, 8);
-
-  const displayedBedTypes = showAllBedTypes
-    ? BED_TYPES
-    : BED_TYPES.slice(0, 4);
 
   return (
     <aside className="w-[280px] lg:w-[320px] xl:w-[360px] flex-shrink-0 max-w-full">
@@ -503,107 +491,6 @@ export default function FiltersSidebar({
         )}
       </Section>
 
-      {/* Bed Type */}
-      <Section title="Bed type" noBorder>
-        <div className="space-y-1">
-          {displayedBedTypes.map((bed) => {
-            const isChecked = filters.bedTypes.includes(bed);
-            const count = bedCounts[bed] || 1;
-
-            return (
-              <div
-                key={bed}
-                className="flex items-center justify-between py-1.5 min-h-[36px]"
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    toggleBedType(bed);
-                    if (!isChecked && (!bedCounts[bed] || bedCounts[bed] < 1)) {
-                      setBedCounts((prev) => ({ ...prev, [bed]: 1 }));
-                    }
-                  }}
-                  className="flex items-center gap-2.5 cursor-pointer select-none group flex-1 text-left"
-                >
-                  <div
-                    className={cn(
-                      'w-4 h-4 rounded border transition-colors flex items-center justify-center flex-shrink-0',
-                      isChecked
-                        ? 'bg-blue-500 border-blue-500 text-white'
-                        : 'border-gray-300 bg-white group-hover:border-blue-400',
-                    )}
-                  >
-                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
-                  </div>
-                  <span
-                    className={cn(
-                      'text-[13px] transition-colors',
-                      isChecked
-                        ? 'text-gray-900 font-medium'
-                        : 'text-gray-600 group-hover:text-gray-900',
-                    )}
-                  >
-                    {bed}
-                  </span>
-                </button>
-
-                {isChecked && (
-                  <div className="flex items-center gap-1.5 ml-2">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (count <= 1) {
-                          toggleBedType(bed);
-                          setBedCounts((prev) => {
-                            const copy = { ...prev };
-                            delete copy[bed];
-                            return copy;
-                          });
-                        } else {
-                          setBedCounts((prev) => ({ ...prev, [bed]: count - 1 }));
-                        }
-                      }}
-                      className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-800 bg-white transition-colors"
-                      aria-label="Decrease count"
-                    >
-                      <Minus className="w-3 h-3" />
-                    </button>
-                    <span className="text-xs font-semibold text-gray-800 w-5 text-center">
-                      {count}
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setBedCounts((prev) => ({ ...prev, [bed]: count + 1 }));
-                      }}
-                      className="w-6 h-6 rounded-full border border-gray-200 flex items-center justify-center text-gray-500 hover:border-gray-400 hover:text-gray-800 bg-white transition-colors"
-                      aria-label="Increase count"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-
-        {BED_TYPES.length > 4 && (
-          <button
-            type="button"
-            onClick={() => setShowAllBedTypes((prev) => !prev)}
-            className="mt-2 flex items-center gap-1 text-[13px] font-medium text-blue-500 hover:text-blue-600 cursor-pointer"
-          >
-            <span>{showAllBedTypes ? 'View less' : 'View all'}</span>
-            <ChevronDown
-              className={cn(
-                'w-3.5 h-3.5 transition-transform',
-                showAllBedTypes && 'rotate-180',
-              )}
-            />
-          </button>
-        )}
-      </Section>
     </aside>
   );
 }

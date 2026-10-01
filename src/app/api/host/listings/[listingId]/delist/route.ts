@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { todayInIndia } from "@/lib/booking-config";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
@@ -50,7 +51,7 @@ async function authorize(req: NextRequest, ctx: Ctx) {
 }
 
 async function status(listingId: number) {
-  const today = new Date().toISOString().slice(0, 10);
+  const today = todayInIndia();
   const [{ data: listing, error: lErr }, { count, error: bErr }] = await Promise.all([
     supabaseAdmin
       .from("listings")

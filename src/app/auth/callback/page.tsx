@@ -6,6 +6,7 @@ import type { Session } from '@supabase/supabase-js';
 import { supabase } from '@/lib/supabase';
 import { useAuth } from '@/context/AuthContext';
 import { api, setStoredSession } from '@/lib/api';
+import { safeRedirect } from '@/lib/utils';
 
 const POST_AUTH_REDIRECT_KEY = 'hostiggo:post-auth-redirect';
 
@@ -30,14 +31,14 @@ function AuthCallbackContent() {
     let redirectIsExplicit = false;
     try {
       const stashed = window.sessionStorage.getItem(POST_AUTH_REDIRECT_KEY);
-      if (stashed) {
-        redirectTarget = stashed;
+      if (stashed && safeRedirect(stashed, '')) {
+        redirectTarget = safeRedirect(stashed);
         redirectIsExplicit = true;
       }
     } catch {
       /* storage disabled -- use default */
     }
-    const queryRedirect = searchParams?.get('redirect');
+    const queryRedirect = safeRedirect(searchParams?.get('redirect'), '');
     if (queryRedirect) {
       redirectTarget = queryRedirect;
       redirectIsExplicit = true;

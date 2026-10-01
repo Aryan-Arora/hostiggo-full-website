@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
+import { forbiddenResponse, requireUserId } from '@/lib/auth-server';
 
 export const dynamic = 'force-dynamic';
 
@@ -8,7 +9,7 @@ const ID_PROOF_TYPES = ['pan', 'aadhaar', 'passport'];
 // Live id-proof KYC status for a user, so the host dashboard banner and
 // Settings -> Identity Verification reflect the real verification state
 // instead of a client-only "I submitted once" localStorage flag. Follows
-// the same ?userId= convention as GET /api/users and /api/host/profile-info.
+// the caller's verified session (see requireUserId).
 //
 // Id proof is any one of PAN, Aadhaar (eAadhaar PDF) or passport, verified
 // through /api/verify/{pan,aadhaar,passport}. Payouts separately require a
@@ -22,10 +23,10 @@ const ID_PROOF_TYPES = ['pan', 'aadhaar', 'passport'];
 //                 its local flag rather than assume 'none'
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get('userId');
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const requested = req.nextUrl.searchParams.get('userId');
+    if (requested && requested !== userId) return forbiddenResponse();
 
     // A single verified id proof is enough, even if a later retry was rejected.
     const [verified, latest] = await Promise.all([

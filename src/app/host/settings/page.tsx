@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import Image from 'next/image';
 import Link from 'next/link';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { toast } from 'sonner';
 import {
   User,
@@ -14,7 +15,6 @@ import {
   ShieldCheck,
   CheckCircle2,
   Loader2,
-  Key,
   Activity,
   ChevronRight,
   Mail,
@@ -29,6 +29,7 @@ import BankDetailsNotice from '@/components/features/BankDetailsNotice';
 import KycModal from '@/components/features/KycModal';
 import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
+import { formatPanInput } from '@/lib/pan';
 
 const NAV: { id: string; label: string; icon: LucideIcon }[] = [
   { id: 'personal', label: 'Personal Info', icon: User },
@@ -94,6 +95,11 @@ export default function HostSettingsPage() {
   const { status: kycStatus, refresh: refreshKyc } = useKycStatus();
   const [kycModalOpen, setKycModalOpen] = useState(false);
   const [tab, setTab] = useState('personal');
+  // Deep link from the post-KYC payout prompt: /host/settings?tab=payouts.
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get('tab');
+    if (requested && NAV.some((n) => n.id === requested)) setTab(requested);
+  }, []);
   const [profile, setProfile] = useState<ProfileData | null>(null);
   const [loadingProfile, setLoadingProfile] = useState(true);
   const [name, setName] = useState('');
@@ -121,6 +127,10 @@ export default function HostSettingsPage() {
   const [savingPayoutMethod, setSavingPayoutMethod] = useState(false);
   // Why Razorpay payout setup didn't go through on the last attempt, if it didn't.
   const [payoutSetupError, setPayoutSetupError] = useState<string | null>(null);
+
+  // KYC done with a PAN: that verified PAN is what payouts use, so it's
+  // shown read-only. Aadhaar / passport KYC leaves it to be entered here.
+  const panLocked = Boolean(payoutMethod?.verification.pan.verified && payoutMethod.pan_number);
 
   const fillPayoutForm = (m: NonNullable<typeof payoutMethod>) =>
     setPayoutForm({
@@ -185,7 +195,7 @@ export default function HostSettingsPage() {
         [f.accountHolderName, 'account holder name'],
         [f.bankAccountNumber || m?.bank_account_number, 'bank account number'],
         [f.bankIfsc, 'IFSC code'],
-        [f.panNumber, 'PAN'],
+        [panLocked ? m?.pan_number : f.panNumber, 'PAN'],
         [f.addressLine1, 'address'],
         [f.city, 'city'],
         [f.state, 'state'],
@@ -206,7 +216,7 @@ export default function HostSettingsPage() {
         diff.accountHolderName = f.accountHolderName.trim();
       if (f.bankAccountNumber) diff.bankAccountNumber = f.bankAccountNumber;
       if (f.bankIfsc && f.bankIfsc !== m?.bank_ifsc) diff.bankIfsc = f.bankIfsc;
-      if (f.panNumber && f.panNumber !== m?.pan_number) diff.panNumber = f.panNumber;
+      if (!panLocked && f.panNumber && f.panNumber !== m?.pan_number) diff.panNumber = f.panNumber;
       if (f.addressLine1.trim() !== (m?.address_line1 ?? '') && (m || f.addressLine1.trim()))
         diff.addressLine1 = f.addressLine1.trim();
       if (f.city.trim() !== (m?.city ?? '') && (m || f.city.trim())) diff.city = f.city.trim();
@@ -359,24 +369,25 @@ export default function HostSettingsPage() {
               <div className="bg-white rounded-2xl p-6 shadow-card border border-gray-200">
                 <div className="flex flex-col sm:flex-row items-center gap-6">
                   <div className="relative">
-                    <Image
-                      width={128}
-                      height={128}
-                      src={profile?.avatar || 'https://i.pravatar.cc/200?img=45'}
-                      alt={profile?.name || 'Host'}
-                      className="w-32 h-32 rounded-3xl object-cover ring-4 ring-gray-100 shadow"
+                    <UserAvatar
+                      src={profile?.avatar}
+                      name={profile?.name || 'Host'}
+                      size={128}
+                      className="rounded-3xl ring-4 ring-gray-100 shadow"
                     />
-                    <button
-                      disabled
-                      title="Photo upload coming soon"
-                      className="absolute -bottom-2 -right-2 bg-figma-navy/70 text-white p-2 rounded-xl shadow-md cursor-not-allowed"
+                    {/* The host card uses the account photo -- change it there. */}
+                    <Link
+                      href="/account/profile"
+                      aria-label="Change profile photo"
+                      title="Change photo"
+                      className="absolute -bottom-2 -right-2 bg-figma-navy hover:bg-figma-navy/90 text-white p-2 rounded-xl shadow-md"
                     >
                       <Pencil className="w-4 h-4" />
-                    </button>
+                    </Link>
                   </div>
                   <div className="text-center sm:text-left">
                     <h2 className="text-xl font-bold text-gray-800">{profile?.name}</h2>
-                    <p className="text-sm text-gray-500 mb-4">Hosting since {new Date().getFullYear()}</p>
+                    <p className="text-sm text-gray-500 mb-4">{profile?.isVerified ? 'Verified host' : 'Host on Hostiggo'}</p>
                     <div className="flex items-center gap-6 justify-center sm:justify-start">
                       <div className="text-center">
                         <p className="text-lg font-bold text-gray-800">
@@ -548,7 +559,7 @@ export default function HostSettingsPage() {
                       onClick={() => setKycModalOpen(true)}
                       className="text-xs font-bold text-figma-navy hover:underline"
                     >
-                      Update PAN / bank verification
+                      Update bank verification
                     </button>
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-amber-50 border border-amber-200">
                       <Landmark className="w-4 h-4 text-amber-600 shrink-0" />
@@ -620,19 +631,34 @@ export default function HostSettingsPage() {
                         <label className="block text-xs font-bold text-gray-500 mb-1">
                           PAN <span className="text-red-500">*</span>
                         </label>
-                        <input
-                          type="text"
-                          value={payoutForm.panNumber}
-                          onChange={(e) =>
-                            setPayoutForm((f) => ({ ...f, panNumber: e.target.value.toUpperCase() }))
-                          }
-                          placeholder="ABCDE1234F"
-                          className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
-                        />
-                        <p className="text-[11px] text-gray-400 mt-1">
-                          Required to receive payouts, even if you verified your identity with Aadhaar or
-                          passport.
-                        </p>
+                        {panLocked ? (
+                          <>
+                            <p className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-700 flex items-center justify-between gap-2">
+                              {payoutMethod?.verification.pan.maskedPan ?? payoutMethod?.pan_number}
+                              <VerifiedBadge ok />
+                            </p>
+                            <p className="text-[11px] text-gray-400 mt-1">
+                              Verified during identity verification -- it can&apos;t be changed here.
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              type="text"
+                              value={payoutForm.panNumber}
+                              onChange={(e) =>
+                                setPayoutForm((f) => ({ ...f, panNumber: formatPanInput(e.target.value) }))
+                              }
+                              placeholder="ABCDE1234F"
+                              maxLength={10}
+                              className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm outline-none focus:border-figma-navy/40 focus:ring-2 focus:ring-figma-navy/10 transition-all uppercase"
+                            />
+                            <p className="text-[11px] text-gray-400 mt-1">
+                              Required to receive payouts, since you verified your identity with Aadhaar or
+                              passport. We&apos;ll verify it when you save.
+                            </p>
+                          </>
+                        )}
                       </div>
                       <div>
                         <label className="block text-xs font-bold text-gray-500 mb-1">Postal code <span className="text-red-500">*</span></label>
@@ -685,9 +711,9 @@ export default function HostSettingsPage() {
                     <div className="flex items-center gap-2 p-4 rounded-xl bg-figma-navy/5 border border-figma-navy/10">
                       <Landmark className="w-4 h-4 text-figma-navy shrink-0" />
                       <p className="text-xs text-gray-600">
-                        Changing your bank account or PAN re-verifies it before saving.
-                        Already-verified details don&apos;t need to be re-entered -- leave the account
-                        number or PAN blank to keep what&apos;s on file.
+                        Changing your bank account re-verifies it before saving. Already-verified
+                        details don&apos;t need to be re-entered -- leave the account number blank to
+                        keep what&apos;s on file.
                       </p>
                     </div>
 
@@ -754,12 +780,6 @@ export default function HostSettingsPage() {
           {tab === 'security' && (
             <div className="bg-white rounded-2xl shadow-card border border-gray-200 divide-y divide-gray-100 overflow-hidden">
               <SettingsLinkRow
-                href="/account/password"
-                icon={Key}
-                title="Password & Security"
-                desc="Set or change the password used to sign in with your email."
-              />
-              <SettingsLinkRow
                 href="/account/login-activity"
                 icon={Activity}
                 title="Login Activity"
@@ -821,6 +841,12 @@ export default function HostSettingsPage() {
           }}
           onSkipped={() => {
             setKycModalOpen(false);
+            refreshKyc();
+            loadPayoutMethod();
+          }}
+          onSetupPayouts={() => {
+            setKycModalOpen(false);
+            setTab('payouts');
             refreshKyc();
             loadPayoutMethod();
           }}

@@ -20,7 +20,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Payments are currently disabled." }, { status: 503 });
     }
 
-    const body = await req.json();
+    const body = await req.json().catch(() => null);
     const razorpayOrderId = body?.razorpayOrderId;
     const razorpayPaymentId = body?.razorpayPaymentId;
     const razorpaySignature = body?.razorpaySignature;
@@ -59,9 +59,16 @@ export async function POST(req: NextRequest) {
       err?.details,
       err?.hint,
     );
+    // The payment itself is verified at this point, so the guest must not be
+    // told "it failed" in a way that invites paying again: the webhook
+    // finalizes the same order independently.
     return NextResponse.json(
-      { error: err?.message || "Request failed", code: err?.code, details: err?.details },
-      { status: 500 },
+      {
+        error:
+          "Your payment was received, but we're still confirming the booking. Please don't pay again -- check My Trips in a few minutes.",
+        code: "CONFIRMATION_PENDING",
+      },
+      { status: 502 },
     );
   }
 }

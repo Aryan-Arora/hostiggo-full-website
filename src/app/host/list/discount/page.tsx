@@ -27,6 +27,17 @@ function Toggle({ on, onClick }: { on: boolean; onClick: () => void }) {
 }
 
 const DEFAULT_DISCOUNT_PERCENT = { newListing: 20, weekly: 10, monthly: 15 };
+// Same bounds as the server (/api/host/listings).
+const MIN_PERCENT = 1;
+const MAX_PERCENT = 90;
+const percentError = (p: number) =>
+  !Number.isInteger(p) || p < MIN_PERCENT || p > MAX_PERCENT
+    ? `Enter a whole number from ${MIN_PERCENT} to ${MAX_PERCENT}.`
+    : null;
+const clampInput = (raw: string) => {
+  const n = Math.floor(Number(raw.replace(/[^\d]/g, '')) || 0);
+  return Math.min(100, n);
+};
 
 export default function DiscountPage() {
   const { draft, update } = useListingDraft();
@@ -57,11 +68,15 @@ export default function DiscountPage() {
   const toggle = (k: keyof typeof discounts) =>
     setDiscounts((d) => ({ ...d, [k]: !d[k] }));
 
+  const weeklyError = discounts.weekly ? percentError(percents.weekly) : null;
+  const monthlyError = discounts.monthly ? percentError(percents.monthly) : null;
+
   return (
     <WizardShell
       step={11}
       title="Add discounts (optional)"
       subtitle="Discounts help your place get booking faster, optional but useful"
+      nextDisabled={!!weeklyError || !!monthlyError}
     >
       <div className="max-w-2xl mx-auto">
         <h3 className="text-[13px] font-semibold text-gray-800 mb-4">You can add these discounts</h3>
@@ -94,16 +109,18 @@ export default function DiscountPage() {
               <div className="flex items-center">
                 <div className="flex items-center gap-2 bg-gray-50/50 border border-gray-200 rounded-lg px-3 py-1.5 w-fit">
                   <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={percents.weekly}
-                    onChange={(e) => setPercents(p => ({ ...p, weekly: Number(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="Weekly discount percent"
+                    aria-invalid={!!weeklyError}
+                    value={percents.weekly || ''}
+                    onChange={(e) => setPercents(p => ({ ...p, weekly: clampInput(e.target.value) }))}
                     className="w-8 bg-transparent text-sm font-semibold text-gray-900 outline-none p-0 border-none focus:ring-0 text-center"
                   />
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
+              {weeklyError && <p className="text-[12px] font-medium text-red-600">{weeklyError}</p>}
             </div>
             <Toggle on={discounts.weekly} onClick={() => toggle('weekly')} />
           </div>
@@ -118,16 +135,18 @@ export default function DiscountPage() {
               <div className="flex items-center">
                 <div className="flex items-center gap-2 bg-gray-50/50 border border-gray-200 rounded-lg px-3 py-1.5 w-fit">
                   <input
-                    type="number"
-                    min={1}
-                    max={100}
-                    value={percents.monthly}
-                    onChange={(e) => setPercents(p => ({ ...p, monthly: Number(e.target.value) || 0 }))}
+                    type="text"
+                    inputMode="numeric"
+                    aria-label="Monthly discount percent"
+                    aria-invalid={!!monthlyError}
+                    value={percents.monthly || ''}
+                    onChange={(e) => setPercents(p => ({ ...p, monthly: clampInput(e.target.value) }))}
                     className="w-8 bg-transparent text-sm font-semibold text-gray-900 outline-none p-0 border-none focus:ring-0 text-center"
                   />
                   <span className="text-sm text-gray-500">%</span>
                 </div>
               </div>
+              {monthlyError && <p className="text-[12px] font-medium text-red-600">{monthlyError}</p>}
             </div>
             <Toggle on={discounts.monthly} onClick={() => toggle('monthly')} />
           </div>

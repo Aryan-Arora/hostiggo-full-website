@@ -24,7 +24,7 @@ export default function ActiveFilterTags({ filters, onRemove, onClearAll }: Acti
     tags.push({ label: "Free cancellation", onRemove: () => onRemove("freeCancellation") });
   }
   if (filters.breakfast) {
-    tags.push({ label: "Breakfast included", onRemove: () => onRemove("breakfast") });
+    tags.push({ label: "Breakfast available", onRemove: () => onRemove("breakfast") });
   }
   if (filters.parking) {
     tags.push({ label: "Parking", onRemove: () => onRemove("parking") });
@@ -47,10 +47,10 @@ export default function ActiveFilterTags({ filters, onRemove, onClearAll }: Acti
       onRemove: () => onRemove("amenities", am),
     });
   });
-  filters.bedTypes.forEach(bt => {
+  filters.stayTypes.forEach(st => {
     tags.push({
-      label: bt,
-      onRemove: () => onRemove("bedTypes", bt),
+      label: st === "Entire Property" ? "Entire place" : st === "Shared Space" ? "Shared room" : st,
+      onRemove: () => onRemove("stayTypes", st),
     });
   });
 

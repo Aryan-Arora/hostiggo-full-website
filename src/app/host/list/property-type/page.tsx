@@ -2,7 +2,6 @@
 
 import { useState } from 'react';
 import {
-  Search,
   Home,
   Building2,
   BedDouble,
@@ -47,20 +46,6 @@ export default function PropertyTypePage() {
       title="What kind of property are you listing?"
       nextDisabled={!selected}
     >
-      {/* Search (filtering coming soon) */}
-      <div className="max-w-md mb-8">
-        <div className="relative">
-          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
-          <input
-            type="text"
-            disabled
-            title="Search is coming soon"
-            placeholder="Search for property types… (coming soon)"
-            className="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none text-gray-400 placeholder:text-gray-400 cursor-not-allowed"
-          />
-        </div>
-      </div>
-
       {/* Popular */}
       <section className="mb-8">
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-4 px-1">

@@ -1,6 +1,22 @@
 /** @type {import('next').NextConfig} */
+// Baseline security headers for every response. No CSP yet: Google Maps,
+// Razorpay Checkout and Supabase need a carefully tuned policy, and a wrong
+// one breaks payments -- add it with a report-only rollout first.
+const SECURITY_HEADERS = [
+  { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
+  { key: 'X-Content-Type-Options', value: 'nosniff' },
+  { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
+  { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains; preload' },
+  // Geolocation is used by "near me" search; camera/mic are never needed.
+  { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(self), payment=(self)' },
+];
+
 const nextConfig = {
   reactStrictMode: true,
+  poweredByHeader: false,
+  async headers() {
+    return [{ source: '/:path*', headers: SECURITY_HEADERS }];
+  },
   images: {
     remotePatterns: [
       { protocol: 'https', hostname: 'images.unsplash.com' },
@@ -36,9 +52,14 @@ const nextConfig = {
   // query (?locationId=&limit=), not an arbitrary ID list. Proxying it as-is
   // would silently return empty results for every ids= lookup. Add /api/hotels
   // back here once the Go service supports that query shape too.
+  //
+  // Opt-in: only proxied when SEARCH_SERVICE_URL is set. Unset, the in-app
+  // routes serve search directly from Supabase (the same RPC). The external
+  // service was returning 500 for every request (Sept 2026), which silently
+  // took all search down -- the app must not depend on it by default.
   async rewrites() {
-    const searchServiceUrl =
-      process.env.SEARCH_SERVICE_URL || 'https://search-service-backend.vercel.app';
+    const searchServiceUrl = process.env.SEARCH_SERVICE_URL;
+    if (!searchServiceUrl) return [];
     return {
       beforeFiles: [
         { source: '/api/search', destination: `${searchServiceUrl}/api/search` },

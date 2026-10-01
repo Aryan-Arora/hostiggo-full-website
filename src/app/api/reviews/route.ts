@@ -1,14 +1,20 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createReview } from "@/lib/services/admin-writes";
+import { createReview, ReviewNotAllowedError } from "@/lib/services/admin-writes";
+import { forbiddenResponse, readJsonBody, requireUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { listingId, userId, rating, comment } = (await req.json()) ?? {};
-    if (!listingId || !userId || !rating) {
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
+    const { listingId, rating, comment } = body;
+    if (body.userId && body.userId !== userId) return forbiddenResponse();
+    if (!listingId || !rating) {
       return NextResponse.json(
-        { error: "listingId, userId and rating are required" },
+        { error: "listingId and rating are required" },
         { status: 400 },
       );
     }
@@ -30,12 +36,13 @@ export async function POST(req: NextRequest) {
     }
     const data = await createReview({
       listingId: Number(listingId),
-      userId: String(userId),
+      userId,
       rating: numericRating,
-      comment: comment ?? null,
+      comment: comment ? String(comment).trim() || null : null,
     });
     return NextResponse.json({ data });
   } catch (err: any) {
+    if (err instanceof ReviewNotAllowedError) return forbiddenResponse(err.message);
     console.error("[/api/reviews] error:", err?.message, err?.code);
     return NextResponse.json({ error: err?.message ?? "Request failed", code: err?.code }, { status: 500 });
   }

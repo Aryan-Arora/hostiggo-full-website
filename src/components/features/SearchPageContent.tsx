@@ -1,7 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { toISODate } from '@/lib/utils';
+import { parseISODay } from '@/lib/format';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import FiltersSidebar from '@/components/features/FiltersSidebar';
@@ -23,19 +25,24 @@ type ViewMode = 'list' | 'map' | 'split';
 
 export default function SearchPageContent() {
   const searchParams = useSearchParams();
-  const { properties, loading, pagination, filters, sort, location, counts } =
+  const { properties, loading, error, pagination, filters, sort, location, counts, dates, guests } =
     useListingState();
+  const router = useRouter();
+  const pathname = usePathname();
   const {
     setSort,
     setPriceRange,
     setRating,
     toggleAmenity,
     togglePropertyType,
-    toggleBedType,
+    toggleStayType,
     setBooleanFilter,
     fetchMore,
     clearFilters,
     setLocation,
+    setDates,
+    setGuests,
+    refresh,
   } = useListingActions();
 
   const [mobileSidebar, setMobileSidebar] = useState(false);
@@ -46,30 +53,83 @@ export default function SearchPageContent() {
   const [activeMapId, setActiveMapId] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
 
-  // Sync destination and view mode from URL (only on mount)
+  // The URL is the source of truth for a search: destination, dates, guests,
+  // sort and view all round-trip through it, so a refresh or a shared link
+  // restores exactly the same results. Read once on mount...
+  const hydratedRef = useRef(false);
   useEffect(() => {
     const dest = searchParams?.get('destination');
-    if (dest && !location.query) {
-      setLocation({ query: dest });
-    }
+    if (dest && dest !== location.query) setLocation({ query: dest });
     const view = searchParams?.get('view');
-    if (view === 'map' || view === 'list') {
-      setViewMode(view);
+    if (view === 'map' || view === 'list') setViewMode(view);
+
+    const isDay = (v: string | null | undefined) => !!v && /^\d{4}-\d{2}-\d{2}$/.test(v);
+    const ci = searchParams?.get('checkIn');
+    const co = searchParams?.get('checkOut');
+    if (isDay(ci) && isDay(co) && co! > ci!) {
+      setDates({ checkIn: parseISODay(ci!), checkOut: parseISODay(co!) });
     }
-  }, []); // Empty dependency - run only once on mount
+    const adults = Number(searchParams?.get('adults'));
+    const children = Number(searchParams?.get('children'));
+    if (Number.isInteger(adults) && adults >= 1 && adults <= 30) {
+      setGuests({
+        ...guests,
+        adults,
+        children: Number.isInteger(children) && children >= 0 && children <= 20 ? children : 0,
+      });
+    }
+    const urlSort = searchParams?.get('sort');
+    if (urlSort) setSort(urlSort as SortOption);
+    hydratedRef.current = true;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // ...and written back whenever the search changes (replace, not push, so
+  // Back leaves the results page instead of stepping through every tweak).
+  // Skip the mount run: it happens in the same commit as the hydration effect
+  // above, before those state updates apply, and would wipe the URL.
+  const firstWriteRef = useRef(true);
+  useEffect(() => {
+    if (!hydratedRef.current) return;
+    if (firstWriteRef.current) {
+      firstWriteRef.current = false;
+      return;
+    }
+    const params = new URLSearchParams();
+    if (location.query) params.set('destination', location.query);
+    const area = searchParams?.get('area');
+    if (area) params.set('area', area);
+    const ci = toISODate(dates.checkIn);
+    const co = toISODate(dates.checkOut);
+    if (ci && co) {
+      params.set('checkIn', ci);
+      params.set('checkOut', co);
+    }
+    if (guests.adults !== 1 || guests.children > 0) {
+      params.set('adults', String(guests.adults));
+      if (guests.children > 0) params.set('children', String(guests.children));
+    }
+    if (sort && sort !== 'recommended') params.set('sort', sort);
+    if (viewMode === 'map') params.set('view', 'map');
+    const next = params.toString();
+    if (next !== (searchParams?.toString() ?? '')) {
+      router.replace(`${pathname}${next ? `?${next}` : ''}`, { scroll: false });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [location.query, dates, guests, sort, viewMode]);
 
   const handleRemoveFilter = (key: keyof SearchFilters, value?: string) => {
     if (key === 'propertyTypes' && value) {
       togglePropertyType(value);
     } else if (key === 'amenities' && value) {
       toggleAmenity(value);
-    } else if (key === 'bedTypes' && value) {
-      toggleBedType(value);
-    } else if (key === 'priceMin') {
-      setPriceRange([0, 15000]);
+    } else if (key === 'stayTypes' && value) {
+      toggleStayType(value);
+    } else if (key === 'priceMin' || key === 'priceMax') {
+      setPriceRange([0, 100000]);
     } else if (key === 'guestRating') {
-      setRating(0);
-    } else if (typeof filters[key] === 'boolean' && key.startsWith('has')) {
+      setRating(null);
+    } else if (typeof filters[key] === 'boolean') {
       setBooleanFilter(key, false);
     }
   };
@@ -168,6 +228,8 @@ export default function SearchPageContent() {
                   onClearAll={clearFilters}
                 />
                 <ListResults
+                  error={error}
+                  onRetry={refresh}
                   paginated={properties}
                   hasMore={pagination.hasMore}
                   loading={loading}
@@ -233,7 +295,7 @@ function ResultsHeader({
         {dest}
       </h1>
       <p className="text-[22px] text-gray-800 leading-snug mb-5">
-        {count.toLocaleString('en-IN')} homestays found
+        {count.toLocaleString('en-IN')} {count === 1 ? 'homestay' : 'homestays'} found
       </p>
       <div className="flex flex-wrap items-center gap-3">
         <SortDropdown value={sort} onChange={setSort} />
@@ -256,6 +318,8 @@ function ResultsHeader({
 }
 
 interface ListResultsProps {
+  error: string | null;
+  onRetry: () => void;
   paginated: Property[];
   hasMore: boolean;
   onLoadMore: () => void;
@@ -266,6 +330,8 @@ interface ListResultsProps {
 }
 
 function ListResults({
+  error,
+  onRetry,
   paginated,
   hasMore,
   onLoadMore,
@@ -277,6 +343,28 @@ function ListResults({
   const sentinelRef = useInfiniteScroll(onLoadMore, hasMore, loading, {
     threshold: 0.5,
   });
+
+  // A failed search is not "no results" -- say what happened and offer a retry.
+  if (error && !loading && paginated.length === 0) {
+    return (
+      <div
+        role="alert"
+        className="bg-white rounded-2xl p-12 text-center"
+        style={{ boxShadow: '0 1px 8px rgba(0,0,0,0.07)' }}
+      >
+        <div className="text-5xl mb-4">⚠️</div>
+        <h3 className="text-lg font-bold text-gray-700 mb-2">We couldn&apos;t load stays right now</h3>
+        <p className="text-sm text-gray-500 mb-5">Please check your connection and try again.</p>
+        <button
+          type="button"
+          onClick={onRetry}
+          className="px-6 py-2.5 rounded-full bg-[#004772] text-white text-sm font-semibold hover:bg-[#003a5c]"
+        >
+          Try again
+        </button>
+      </div>
+    );
+  }
 
   // Show skeleton loaders during initial load
   if (loading && paginated.length === 0) {

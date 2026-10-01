@@ -44,10 +44,10 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
-      toast("Sign in to save properties to your wishlist.");
-      router.push(
-        `/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`,
-      );
+      toast("Sign in to save properties to your wishlist.", { id: "wishlist-signin" });
+      // Come back to where they were (e.g. the search results), not the listing.
+      const here = `${window.location.pathname}${window.location.search}`;
+      router.push(`/signin?redirect=${encodeURIComponent(here)}`);
       return;
     }
     setPickerOpen((v) => !v);
@@ -100,7 +100,10 @@ export default function PropertyCardList({ property }: PropertyCardListProps) {
         {/* Heart button */}
         <div className="absolute top-3 right-3 z-10" onClick={(e) => e.stopPropagation()}>
           <button
+            type="button"
             onClick={handleToggleLike}
+            aria-label={liked ? `Manage wishlists for ${property.propertyName}` : `Save ${property.propertyName} to wishlist`}
+            aria-pressed={liked}
             className={cn(
               "w-8 h-8 rounded-full flex items-center justify-center transition-all bg-white/90 backdrop-blur-sm shadow-sm",
               liked

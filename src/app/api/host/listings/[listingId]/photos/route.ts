@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import { supabaseAdmin } from '@/lib/supabase-admin';
 import { assertListingOwnedBy, uploadListingPhoto } from '@/lib/services/admin-writes';
 import { errorMessage } from '@/lib/api-error';
@@ -39,12 +40,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ listingI
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) return NextResponse.json({ error: 'Invalid listing ID' }, { status: 400 });
 
-    const form = await req.formData();
+    const form = await req.formData().catch(() => null);
+    if (!form) return NextResponse.json({ error: 'Expected a multipart upload.' }, { status: 400 });
     const file = form.get('file');
-    const userId = form.get('userId');
-    if (!userId || typeof userId !== 'string') {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
     if (!(file instanceof File)) {
       return NextResponse.json({ error: 'file is required' }, { status: 400 });
     }
@@ -54,7 +52,9 @@ export async function POST(req: NextRequest, props: { params: Promise<{ listingI
     if (!ALLOWED_TYPES.has(file.type)) {
       return NextResponse.json({ error: 'Only JPG, PNG and WEBP images are allowed' }, { status: 400 });
     }
-    await assertListingOwnedBy(listingId, userId);
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     const url = await uploadListingPhoto({
       data: await file.arrayBuffer(),
@@ -88,12 +88,13 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ listing
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) return NextResponse.json({ error: 'Invalid listing ID' }, { status: 400 });
 
-    const { userId, photoId, action } = await req.json();
-    if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    const { photoId, action } = await req.json();
     if (action !== 'make-cover' || !photoId) {
       return NextResponse.json({ error: 'photoId and action=make-cover are required' }, { status: 400 });
     }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     const { error: clearErr } = await supabaseAdmin
       .from('listing_media')
@@ -121,10 +122,11 @@ export async function DELETE(req: NextRequest, props: { params: Promise<{ listin
     const listingId = parseInt(params.listingId, 10);
     if (isNaN(listingId)) return NextResponse.json({ error: 'Invalid listing ID' }, { status: 400 });
 
-    const { userId, photoId } = await req.json();
-    if (!userId) return NextResponse.json({ error: 'userId is required' }, { status: 400 });
+    const { photoId } = await req.json();
     if (!photoId) return NextResponse.json({ error: 'photoId is required' }, { status: 400 });
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     const { data: deleted, error } = await supabaseAdmin
       .from('listing_media')

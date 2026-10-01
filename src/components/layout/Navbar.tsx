@@ -5,8 +5,10 @@ import Link from 'next/link';
 import Image from 'next/image';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/context/NotificationContext';
 import { cn } from '@/lib/utils';
 import ProfileCompletionBanner from '@/components/features/ProfileCompletionBanner';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import {
   Check,
   Clock,
@@ -25,13 +27,6 @@ import {
   X,
 } from "lucide-react";
 
-// Signed-in user display fallback -- must match the placeholder used in
-// account/profile/page.tsx so an unset profile photo looks the same
-// everywhere instead of showing a different random face per page.
-const USER = {
-  name: "Account",
-  avatar: "https://i.pravatar.cc/200?img=45",
-};
 
 interface MenuItem {
   icon: React.ReactNode;
@@ -79,9 +74,9 @@ const MENU_GROUPS: MenuItem[][] = [
       to: "/account/settings",
     },
     {
-      icon: <Star className="w-4 h-4" />,
-      label: "My reviews",
-      to: "/host/reviews",
+      icon: <Home className="w-4 h-4" />,
+      label: "Hosting",
+      to: "/host/listings",
     },
     {
       icon: <HelpCircle className="w-4 h-4" />,
@@ -91,68 +86,13 @@ const MENU_GROUPS: MenuItem[][] = [
   ],
 ];
 
-interface CurrencyOption {
-  code: string;
-  name: string;
-  symbol: string;
-}
-
-const CURRENCIES: CurrencyOption[] = [
-  { code: "INR", name: "Indian Rupee", symbol: "₹" },
-  { code: "USD", name: "United States Dollar", symbol: "$" },
-  { code: "EUR", name: "Euro", symbol: "€" },
-  { code: "GBP", name: "British Pound", symbol: "£" },
-  { code: "JPY", name: "Japanese Yen", symbol: "¥" },
-  { code: "AUD", name: "Australian Dollar", symbol: "A$" },
-  { code: "CAD", name: "Canadian Dollar", symbol: "C$" },
-  { code: "SGD", name: "Singapore Dollar", symbol: "S$" },
-  { code: "AED", name: "United Arab Emirates Dirham", symbol: "د.إ" },
-  { code: "CHF", name: "Swiss Franc", symbol: "CHF" },
-  { code: "CNY", name: "Chinese Yuan", symbol: "¥" },
-  { code: "THB", name: "Thai Baht", symbol: "฿" },
-  { code: "KRW", name: "South Korean Won", symbol: "₩" },
-  { code: "NZD", name: "New Zealand Dollar", symbol: "NZ$" },
-  { code: "BRL", name: "Brazilian Real", symbol: "R$" },
-  { code: "SAR", name: "Saudi Riyal", symbol: "﷼" },
-  { code: "TRY", name: "Turkish Lira", symbol: "₺" },
-];
-
-interface LanguageOption {
-  code: string;
-  name: string;
-  nativeName?: string;
-}
-
-const LANGUAGES: LanguageOption[] = [
-  { code: "en", name: "English", nativeName: "English (US)" },
-  { code: "hi", name: "Hindi", nativeName: "हिन्दी" },
-  { code: "es", name: "Spanish", nativeName: "Español" },
-  { code: "fr", name: "French", nativeName: "Français" },
-  { code: "de", name: "German", nativeName: "Deutsch" },
-  { code: "ja", name: "Japanese", nativeName: "日本語" },
-  { code: "it", name: "Italian", nativeName: "Italiano" },
-  { code: "pt", name: "Portuguese", nativeName: "Português" },
-  { code: "ru", name: "Russian", nativeName: "Русский" },
-  { code: "zh", name: "Chinese", nativeName: "简体中文" },
-  { code: "ar", name: "Arabic", nativeName: "العربية" },
-  { code: "bn", name: "Bengali", nativeName: "বাংলা" },
-  { code: "ta", name: "Tamil", nativeName: "தமிழ்" },
-  { code: "te", name: "Telugu", nativeName: "తెలుగు" },
-  { code: "ko", name: "Korean", nativeName: "한국어" },
-  { code: "nl", name: "Dutch", nativeName: "Nederlands" },
-  { code: "tr", name: "Turkish", nativeName: "Türkçe" },
-];
-
 export default function Navbar() {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
-  const [activeDropdown, setActiveDropdown] = useState<'currency' | 'language' | null>(null);
-  const [selectedCurrency, setSelectedCurrency] = useState("INR");
-  const [selectedLanguage, setSelectedLanguage] = useState("English");
   const profileRef = useRef<HTMLDivElement>(null);
-  const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { isAuthenticated, user, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
 
   const handleSignOut = () => {
     setProfileOpen(false);
@@ -172,29 +112,6 @@ export default function Navbar() {
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
-  }, []);
-
-  // Close currency/language dropdown on outside click or Escape
-  useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (
-        dropdownRef.current &&
-        !dropdownRef.current.contains(e.target as Node)
-      ) {
-        setActiveDropdown(null);
-      }
-    };
-    const keyHandler = (e: KeyboardEvent) => {
-      if (e.key === "Escape") {
-        setActiveDropdown(null);
-      }
-    };
-    document.addEventListener("mousedown", handler);
-    document.addEventListener("keydown", keyHandler);
-    return () => {
-      document.removeEventListener("mousedown", handler);
-      document.removeEventListener("keydown", keyHandler);
-    };
   }, []);
 
   return (
@@ -230,170 +147,7 @@ export default function Navbar() {
 
           {/* Desktop nav */}
           <div className="hidden md:flex items-center gap-1">
-            {/* Currency & Language Selectors */}
-            <div ref={dropdownRef} className="flex items-center gap-1">
-              {/* Currency Dropdown Trigger & Panel */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    setActiveDropdown((prev) => (prev === "currency" ? null : "currency"));
-                  }}
-                  className={cn(
-                    "flex items-center gap-1 text-figma-ink hover:text-black hover:bg-gray-50 px-3 py-1.5 text-[14px] font-medium rounded-lg transition-colors cursor-pointer",
-                    activeDropdown === "currency" && "bg-gray-100 text-black"
-                  )}
-                  aria-label="Select currency"
-                  aria-expanded={activeDropdown === "currency"}
-                >
-                  {selectedCurrency === "INR" ? (
-                    <IndianRupee className="w-3.5 h-3.5" strokeWidth={2} />
-                  ) : (
-                    <span className="text-[13px] font-semibold">
-                      {CURRENCIES.find((c) => c.code === selectedCurrency)?.symbol || ""}
-                    </span>
-                  )}
-                  <span>{selectedCurrency}.</span>
-                </button>
 
-                {activeDropdown === "currency" && (
-                  <div
-                    className="absolute top-[calc(100%+8px)] left-0 w-[323px] h-[535px] rounded-[6px] shadow-[0_4px_21.7px_6px_rgba(0,0,0,0.25)] bg-white z-50 overflow-y-auto divide-y divide-gray-100 py-1"
-                    style={{ animation: "fadeInDown 0.18s ease both" }}
-                  >
-                    {CURRENCIES.map((curr) => {
-                      const isSelected = selectedCurrency === curr.code;
-                      return (
-                        <button
-                          key={curr.code}
-                          type="button"
-                          onClick={() => {
-                            setSelectedCurrency(curr.code);
-                            setActiveDropdown(null);
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50 cursor-pointer",
-                            isSelected && "bg-blue-50/40"
-                          )}
-                        >
-                          <div className="flex flex-col pr-2">
-                            <span
-                              className={cn(
-                                "text-[14px] leading-tight",
-                                isSelected
-                                  ? "font-semibold text-figma-navy"
-                                  : "font-medium text-[#222222]"
-                              )}
-                            >
-                              {curr.name}
-                            </span>
-                            <span className="text-[12px] text-gray-500 mt-0.5">
-                              {curr.code} &middot; {curr.symbol}
-                            </span>
-                          </div>
-                          {isSelected && (
-                            <Check
-                              className="w-4 h-4 text-figma-navy shrink-0 ml-auto"
-                              strokeWidth={2.5}
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-
-              <span className="h-4 w-px bg-gray-200 mx-0.5" />
-
-              {/* Language Dropdown Trigger & Panel */}
-              <div className="relative">
-                <button
-                  type="button"
-                  onClick={() => {
-                    setProfileOpen(false);
-                    setActiveDropdown((prev) => (prev === "language" ? null : "language"));
-                  }}
-                  className={cn(
-                    "flex items-center gap-1.5 text-figma-ink hover:text-black hover:bg-gray-50 px-3 py-1.5 text-[14px] font-medium rounded-lg transition-colors cursor-pointer",
-                    activeDropdown === "language" && "bg-gray-100 text-black"
-                  )}
-                  aria-label="Select language"
-                  aria-expanded={activeDropdown === "language"}
-                >
-                  <Globe className="w-3.5 h-3.5" strokeWidth={1.8} />
-                  <span>{selectedLanguage}</span>
-                </button>
-
-                {activeDropdown === "language" && (
-                  <div
-                    className="absolute top-[calc(100%+8px)] left-0 w-[323px] h-[535px] rounded-[6px] shadow-[0_4px_21.7px_6px_rgba(0,0,0,0.25)] bg-white z-50 overflow-y-auto divide-y divide-gray-100 py-1"
-                    style={{ animation: "fadeInDown 0.18s ease both" }}
-                  >
-                    {LANGUAGES.map((lang) => {
-                      const isSelected = selectedLanguage === lang.name;
-                      return (
-                        <button
-                          key={lang.code}
-                          type="button"
-                          onClick={() => {
-                            setSelectedLanguage(lang.name);
-                            setActiveDropdown(null);
-                          }}
-                          className={cn(
-                            "w-full flex items-center justify-between px-4 py-3 text-left transition-colors hover:bg-gray-50 cursor-pointer",
-                            isSelected && "bg-blue-50/40"
-                          )}
-                        >
-                          <div className="flex flex-col pr-2">
-                            <span
-                              className={cn(
-                                "text-[14px] leading-tight",
-                                isSelected
-                                  ? "font-semibold text-figma-navy"
-                                  : "font-medium text-[#222222]"
-                              )}
-                            >
-                              {lang.name}
-                            </span>
-                            {lang.nativeName && lang.nativeName !== lang.name && (
-                              <span className="text-[12px] text-gray-500 mt-0.5">
-                                {lang.nativeName}
-                              </span>
-                            )}
-                          </div>
-                          {isSelected && (
-                            <Check
-                              className="w-4 h-4 text-figma-navy shrink-0 ml-auto"
-                              strokeWidth={2.5}
-                            />
-                          )}
-                        </button>
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
-            </div>
-
-            <span className="h-4 w-px bg-gray-200 mx-0.5" />
-
-            {/* Sign In text link -- guests only. Was rendered unconditionally,
-                so a signed-in user saw a "Sign In" button next to their own
-                avatar. */}
-            {!isAuthenticated && (
-              <>
-                <button
-                  type="button"
-                  className="text-[#004772] hover:text-[#002f4c] px-3.5 py-2 rounded-lg transition-colors text-[15px] font-medium font-['Poppins'] cursor-pointer ml-1"
-                  onClick={() => router.push("/signin")}
-                >
-                  Sign In
-                </button>
-                <span className="h-5 w-px bg-gray-200 mx-1" />
-              </>
-            )}
 
             {/* List your property button matching Figma Rectangle 22987 */}
             <button
@@ -408,25 +162,28 @@ export default function Navbar() {
               <>
                 <Link
                   href="/notifications"
-                  aria-label="Inbox"
+                  aria-label={unreadCount ? `Inbox, ${unreadCount} unread` : "Inbox"}
                   title="Inbox"
-                  className="p-2 text-[#004772] hover:bg-[#004772]/5 rounded-full transition-colors"
+                  className="relative p-2 text-[#004772] hover:bg-[#004772]/5 rounded-full transition-colors"
                 >
                   <Inbox className="w-5 h-5" />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-[18px] text-center">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
                 </Link>
                 {/* Avatar + Dropdown */}
                 <div ref={profileRef} className="relative ml-2">
                   <button
+                    type="button"
+                    aria-label="Account menu"
+                    aria-haspopup="menu"
+                    aria-expanded={profileOpen}
                     onClick={() => setProfileOpen((v) => !v)}
                     className="w-11 h-11 rounded-full overflow-hidden border-2 border-gray-200 hover:border-[#004772] transition-all cursor-pointer shadow-xs"
                   >
-                    <Image
-                      width={44}
-                      height={44}
-                      src={user?.profile_pic_url || USER.avatar}
-                      alt={user?.name || USER.name}
-                      className="w-full h-full object-cover"
-                    />
+                    <UserAvatar src={user?.profile_pic_url} name={user?.name || 'Account'} size={40} className="h-full w-full" />
                   </button>
 
                   {/* Dropdown */}
@@ -482,8 +239,6 @@ export default function Navbar() {
                         ))}
                       </div>
 
-                      {/* Promotional Placeholder Box */}
-                      <div className="w-full h-[80px] bg-gray-300 rounded-md my-2" />
 
                       {/* Sign out */}
                       <button
@@ -504,7 +259,7 @@ export default function Navbar() {
                   className="bg-[#004772] hover:bg-[#003859] active:bg-[#002f4c] text-white px-4 py-2.5 rounded-full text-[14px] font-medium transition-colors shadow-xs cursor-pointer font-['Poppins']"
                   onClick={() => router.push("/signin")}
                 >
-                  New user
+                  Sign in or sign up
                 </button>
               </div>
             )}
@@ -512,6 +267,9 @@ export default function Navbar() {
 
           {/* Mobile toggle */}
           <button
+            type="button"
+            aria-label={mobileOpen ? 'Close menu' : 'Open menu'}
+            aria-expanded={mobileOpen}
             className="md:hidden p-2 rounded-lg text-gray-600 hover:bg-gray-50 transition-colors"
             onClick={() => setMobileOpen(!mobileOpen)}
           >
@@ -526,19 +284,6 @@ export default function Navbar() {
         {/* Mobile menu */}
         {mobileOpen && (
           <div className="md:hidden border-t border-gray-100 py-3 space-y-1 pb-4">
-            <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
-              {selectedCurrency === "INR" ? (
-                <IndianRupee className="w-4 h-4 text-gray-500" />
-              ) : (
-                <span className="text-[13px] font-semibold text-gray-500">
-                  {CURRENCIES.find((c) => c.code === selectedCurrency)?.symbol || ""}
-                </span>
-              )}
-              {selectedCurrency}
-            </div>
-            <div className="w-full px-4 py-2.5 text-sm text-gray-500 flex items-center gap-2.5 font-medium">
-              <Globe className="w-4 h-4 text-gray-500" /> {selectedLanguage}
-            </div>
             {isAuthenticated ? (
               <>
                 <Link
@@ -563,11 +308,32 @@ export default function Navbar() {
                   <Heart className="w-4 h-4 text-gray-500" /> Wishlists
                 </Link>
                 <Link
+                  href="/my-memories"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <Clock className="w-4 h-4 text-gray-500" /> Memories
+                </Link>
+                <Link
                   href="/account/profile"
                   onClick={() => setMobileOpen(false)}
                   className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
                 >
                   <User className="w-4 h-4 text-gray-500" /> Profile
+                </Link>
+                <Link
+                  href="/account/settings"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <Settings className="w-4 h-4 text-gray-500" /> Account settings
+                </Link>
+                <Link
+                  href="/support"
+                  onClick={() => setMobileOpen(false)}
+                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl flex items-center gap-2.5 font-medium"
+                >
+                  <HelpCircle className="w-4 h-4 text-gray-500" /> Customer support
                 </Link>
                 <Link
                   href="/host/listings"
@@ -587,15 +353,6 @@ export default function Navbar() {
               </>
             ) : (
               <>
-                <button
-                  onClick={() => {
-                    setMobileOpen(false);
-                    router.push("/signin");
-                  }}
-                  className="w-full text-left px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 rounded-xl font-medium"
-                >
-                  Sign in
-                </button>
                 <div className="px-4 pt-2 flex gap-2">
                   <button
                     onClick={() => {
@@ -604,7 +361,7 @@ export default function Navbar() {
                     }}
                     className="flex-1 bg-figma-navy text-white py-2 rounded-xl text-sm font-semibold"
                   >
-                    New user
+                    Sign in or sign up
                   </button>
                   <button
                     onClick={() => {
@@ -613,7 +370,7 @@ export default function Navbar() {
                     }}
                     className="flex-1 border border-figma-navy text-figma-navy py-2 rounded-xl text-sm font-semibold"
                   >
-                    List property
+                    List your property
                   </button>
                 </div>
               </>

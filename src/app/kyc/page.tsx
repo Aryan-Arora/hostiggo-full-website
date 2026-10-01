@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import { ShieldCheck } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { KycVerificationForm } from './_components/KycVerificationForm';
+import { safeRedirect } from '@/lib/utils';
 
 const authBg = '/auth-bg.jpg';
 
@@ -13,7 +14,7 @@ function KycContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { userId, user, loading: authLoading } = useAuth();
-  const redirect = searchParams?.get('redirect') || '/';
+  const redirect = safeRedirect(searchParams?.get('redirect'), '/');
 
   // Not signed in -- nothing to do here, move on. A prior submission never
   // bounces the visitor straight back to `redirect`: PAN and bank
@@ -47,7 +48,7 @@ function KycContent() {
         <h1 className="text-xl font-bold text-gray-900 mb-1.5">Verify your identity</h1>
         <p className="text-sm text-gray-500 mb-6 leading-relaxed">
           Verified hosts earn more guest trust and bookings. It&apos;s optional and takes a
-          minute -- verify your PAN and your bank account. No documents to upload.
+          minute -- verify your ID (Aadhaar, PAN or passport), then your bank account.
           You can also do this later from Settings.
         </p>
 

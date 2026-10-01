@@ -14,6 +14,7 @@ import { ArrowLeft, ChevronDown, Mail } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { safeRedirect } from "@/lib/utils";
 
 export type AuthMode = "email" | "mobile" | "otp-sent" | "otp-verify";
 
@@ -88,7 +89,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryMode = searchParams?.get("mode");
-  const redirect = searchParams?.get("redirect") || "";
+  const redirect = safeRedirect(searchParams?.get("redirect"), "");
   const errorParam = searchParams?.get("error");
   const paramValue = searchParams?.get("value") || "";
 
@@ -125,6 +126,22 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
   const [countryOpen, setCountryOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
+
+  // Every sign-in path installs the session in the Supabase client (not just
+  // our token copy) -- that session is what keeps the user signed in across
+  // reloads and gets refreshed in the background.
+  const establishSession = async (
+    session: { access_token: string; refresh_token: string },
+    userId: string,
+  ) => {
+    const { error } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (error) throw new Error("Couldn't start your session. Please try again.");
+    setStoredSession(session.access_token, session.refresh_token);
+    await signIn(userId);
+  };
 
   // OTP State
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
@@ -305,8 +322,10 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
 
     if (activeMode === "mobile") {
       const trimmed = mobileValue.trim();
-      if (trimmed.length < 10) {
-        toast.error("Please enter a valid 10-digit mobile number");
+      // Indian mobile numbers are 10 digits starting 6-9; anything else
+      // can't receive an OTP and just burns an SMS request.
+      if (!/^[6-9]\d{9}$/.test(trimmed)) {
+        toast.error("Please enter a valid 10-digit Indian mobile number", { id: "signin-phone" });
         return;
       }
       sendingRef.current = true;
@@ -336,8 +355,8 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
       }
     } else if (activeMode === "email") {
       const trimmed = emailValue.trim();
-      if (!trimmed.includes("@")) {
-        toast.error("Please enter a valid email address");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)) {
+        toast.error("Please enter a valid email address", { id: "signin-email" });
         return;
       }
       sendingRef.current = true;
@@ -406,17 +425,9 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
       const session = data?.session;
 
       if (userId && session) {
-        setStoredSession(session.access_token, session.refresh_token);
-        await signIn(userId);
+        await establishSession(session, userId);
         toast.success("Signed in successfully!");
-        const next = searchParams?.get("next");
-        if (next === "create-password" || next === "reset-password") {
-          router.push(
-            `/account/password?first=1&reason=${next}${redirect ? `&next=${encodeURIComponent(redirect)}` : ""}`,
-          );
-        } else {
-          router.push(redirect || `/onboarding?mode=${otpMode}`);
-        }
+        router.push(redirect || `/onboarding?mode=${otpMode}`);
       } else {
         toast.error("Could not verify OTP. Please try again.");
       }
@@ -465,7 +476,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/signin/")) {
       router.push(`/signin/${nextMode}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`);
     } else {
-      router.push(`/signin?mode=${nextMode}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`);
+      router.push(`/signin?mode=${nextMode}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`);
     }
   };
 
@@ -508,8 +519,8 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
             </svg>
           </button>
 
-          <section className="relative grid w-full overflow-hidden rounded-[28px] sm:rounded-[35px] bg-white shadow-[0_12px_60px_rgba(0,0,0,0.38)] lg:min-h-[630px] lg:grid-cols-[1fr_495px]">
-            <div className="h-full p-2.5 sm:p-3 lg:p-3.5 lg:pr-0 lg:-mr-12">
+          <section className="relative grid w-full grid-cols-1 overflow-hidden rounded-[28px] sm:rounded-[35px] bg-white shadow-[0_12px_60px_rgba(0,0,0,0.38)] lg:min-h-[630px] lg:grid-cols-[minmax(0,1fr)_495px]">
+            <div className="h-full min-w-0 p-2.5 sm:p-3 lg:p-3.5 lg:pr-0 lg:-mr-12">
               <BrandPanel asset={asset} />
             </div>
             <div
@@ -517,7 +528,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                 background:
                   "radial-gradient(ellipse 115% 90% at 16% 12%, #D8F4FF 0%, #E9FEFF 42%, #FFFFFF 80%)",
               }}
-              className="relative z-10 flex min-h-[470px] flex-col rounded-b-[28px] shadow-[-16px_0_35px_rgba(0,0,0,0.10),-4px_0_12px_rgba(0,0,0,0.05)] px-7 pb-6 pt-9 sm:px-10 sm:pt-11 lg:min-h-[630px] lg:rounded-b-none lg:rounded-l-[32px] lg:px-9 lg:pt-[54px]"
+              className="relative z-10 flex min-h-[470px] min-w-0 flex-col rounded-b-[28px] shadow-[-16px_0_35px_rgba(0,0,0,0.10),-4px_0_12px_rgba(0,0,0,0.05)] px-5 pb-6 pt-9 min-[400px]:px-7 sm:px-10 sm:pt-11 lg:min-h-[630px] lg:rounded-b-none lg:rounded-l-[32px] lg:px-9 lg:pt-[54px]"
             >
               {/* Back button on OTP */}
               {isOtp && (
@@ -559,7 +570,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
               {isOtp ? (
                 <form onSubmit={submitOtp} className="mt-5">
                   <div
-                    className="flex gap-2 sm:gap-2.5 justify-center my-3"
+                    className="flex gap-1.5 min-[400px]:gap-2 sm:gap-2.5 justify-center my-3"
                     onPaste={handlePaste}
                   >
                     {otp.map((digit, index) => (
@@ -577,7 +588,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                         inputMode="numeric"
                         autoComplete={index === 0 ? "one-time-code" : "off"}
                         aria-label={`OTP digit ${index + 1}`}
-                        className={`h-[48px] w-[48px] sm:h-[56px] sm:w-[56px] rounded-full border text-center text-[22px] font-bold outline-none transition-all caret-transparent ${
+                        className={`aspect-square min-w-0 flex-1 max-w-[48px] sm:max-w-[56px] rounded-full border text-center text-[22px] font-bold outline-none transition-all caret-transparent ${
                           digit
                             ? "border-[#0396ef] bg-white text-[#004772] shadow-sm"
                             : "border-transparent bg-[#ededed] text-gray-900 focus:border-[#0396ef] focus:bg-white"
