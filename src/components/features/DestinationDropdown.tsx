@@ -69,7 +69,9 @@ export default function DestinationDropdown({
   const committedRef = useRef(false);
   const onQueryChangeRef = useRef(onQueryChange);
   const initialValueRef = useRef(value);
-  onQueryChangeRef.current = onQueryChange;
+  useEffect(() => {
+    onQueryChangeRef.current = onQueryChange;
+  }, [onQueryChange]);
   useEffect(
     () => () => {
       if (!committedRef.current && queryRef.current !== initialValueRef.current) {
