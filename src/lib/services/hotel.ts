@@ -1,4 +1,5 @@
 import { supabase, supabaseCacheable } from '../supabase';
+import { todayInIndia } from "@/lib/booking-config";
 import { supabaseAdmin } from '../supabase-admin';
 import { resolveDestinationAlias } from '../destinationAliases';
 import {
@@ -531,15 +532,15 @@ export const HotelServiceApi = {
       )
       .eq('listing_id', listingId)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
 
-    if (error || !data) {
-      console.error(
-        `[getHotelDetail] Query failed for id=${id}:`,
-        error?.message,
-      );
-      return null;
+    // No row = the listing doesn't exist or isn't live (a real "not found").
+    // Any other failure is an outage and must not masquerade as a 404.
+    if (error) {
+      console.error(`[getHotelDetail] Query failed for id=${id}:`, error.message);
+      throw error;
     }
+    if (!data) return null;
 
     // listing_house_rules and listing_safety_details have RLS policies that
     // block the anon client's SELECT entirely (confirmed live, rows exist
@@ -551,8 +552,8 @@ export const HotelServiceApi = {
     // returned null even though the row genuinely exists (confirmed via an
     // isolated script and a plain array query against the identical
     // filter); the array form doesn't have that problem.
-    const today = new Date().toISOString().slice(0, 10);
-    const [houseRules, safetyDetails, hostRow, tripsHosted] = await Promise.all([
+    const today = todayInIndia();
+    const [houseRules, safetyDetails, , tripsHosted] = await Promise.all([
       supabaseAdmin
         .from('listing_house_rules')
         .select('check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours')
@@ -596,15 +597,37 @@ export const HotelServiceApi = {
         host = {
           id: hostRow.host_uuid,
           name: userRow?.name ?? 'Host',
-          photo: hostRow.photo ?? userRow?.profile_pic_url ?? null,
+          photo: userRow?.profile_pic_url ?? hostRow.photo ?? null,
           is_verified: hostRow.is_verified ?? false,
           about: hostRow.about ?? null,
+          tripsHosted: tripsHosted.count ?? 0,
         };
       }
     }
 
+    // Reviews carry only user_id -- attach each reviewer's first name and
+    // photo (never their full name or any contact detail), newest first.
+    const rawReviews = (((data as any).review ?? []) as any[]).slice();
+    const reviewerIds = [...new Set(rawReviews.map((r) => r.user_id).filter(Boolean))];
+    const { data: reviewers } = reviewerIds.length
+      ? await supabaseAdmin.from('users').select('user_id, name, profile_pic_url').in('user_id', reviewerIds)
+      : { data: [] as any[] };
+    const reviewerById = new Map((reviewers ?? []).map((u: any) => [u.user_id, u]));
+    const review = rawReviews
+      .map((r) => {
+        const u = reviewerById.get(r.user_id);
+        return {
+          ...r,
+          user_name: String(u?.name ?? '').trim().split(/\s+/)[0] || 'Guest',
+          user_avatar: u?.profile_pic_url ?? null,
+          reviewed_at: r.reviewd_at ?? null,
+        };
+      })
+      .sort((a, b) => String(b.reviewed_at ?? '').localeCompare(String(a.reviewed_at ?? '')));
+
     return {
       ...data,
+      review,
       host,
       listing_house_rules: houseRules.data?.[0] ?? null,
       listing_safety_details: safetyDetails.data ?? [],

@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mirrorRemoteImageToListingBucket } from "@/lib/services/admin-writes";
 
+import { requireUserId } from "@/lib/auth-server";
+
 export const dynamic = "force-dynamic";
 
 const CONCURRENCY = 4;
@@ -15,6 +17,9 @@ const MAX_PHOTOS = 40;
  */
 export async function POST(req: NextRequest) {
   try {
+    // Calls a paid upstream service / writes to storage -- hosts only.
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
     const body = await req.json().catch(() => ({}));
     const urls: unknown = body?.urls;
     if (!Array.isArray(urls) || urls.length === 0) {

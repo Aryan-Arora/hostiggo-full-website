@@ -229,6 +229,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
             totalGuests: guests.adults + guests.children,
             amenities: resolveAmenityIds(filters.amenities, amenityCatalogue),
             state: location.state,
+            sort,
           },
         );
 
@@ -264,7 +265,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
         if (mountedRef.current && !isStale()) setLoading(false);
       }
     },
-    [filters, location.query, location.state, dates, guests, amenityCatalogue],
+    [filters, location.query, location.state, dates, guests, amenityCatalogue, sort],
   );
 
   const refresh = useCallback(async () => {
@@ -359,6 +360,7 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
   const prevFiltersRef = useRef(JSON.stringify(filters));
   const prevDatesRef = useRef(JSON.stringify(dates));
   const prevGuestsRef = useRef(JSON.stringify(guests));
+  const prevSortRef = useRef(sort);
 
   // Trigger initial fetch and fetch on filter/location/date/guest change
   useEffect(() => {
@@ -369,11 +371,13 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     const filtersChanged = prevFiltersRef.current !== JSON.stringify(filters);
     const datesChanged = prevDatesRef.current !== datesKey;
     const guestsChanged = prevGuestsRef.current !== guestsKey;
+    const sortChanged = prevSortRef.current !== sort;
 
     prevLocationRef.current = locationKey;
     prevFiltersRef.current = JSON.stringify(filters);
     prevDatesRef.current = datesKey;
     prevGuestsRef.current = guestsKey;
+    prevSortRef.current = sort;
 
     // Skip initial empty render
     if (!initializedRef.current && !location.query) {
@@ -395,10 +399,10 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     }
 
     // Fetch results (always from beginning for new location/filters/dates/guests)
-    if (locationChanged || filtersChanged || datesChanged || guestsChanged) {
+    if (locationChanged || filtersChanged || datesChanged || guestsChanged || sortChanged) {
       fetchResults(null, true);
     }
-  }, [location.query, location.state, filters, dates, guests]); // fetchResults intentionally omitted
+  }, [location.query, location.state, filters, dates, guests, sort]); // fetchResults intentionally omitted
 
   useEffect(() => {
     mountedRef.current = true;
@@ -407,29 +411,10 @@ export function ListingFilterProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  // Sort is applied client-side over the already-loaded results so changing
-  // the sort reorders instantly (the API doesn't sort).
-  const sortedProperties = useMemo(() => {
-    const list = [...properties];
-    switch (sort) {
-      case 'price_asc':
-        return list.sort((a, b) => a.price - b.price);
-      case 'price_desc':
-        return list.sort((a, b) => b.price - a.price);
-      case 'top_rated':
-        return list.sort((a, b) => b.rating - a.rating);
-      case 'most_popular':
-        return list.sort((a, b) => b.reviewCount - a.reviewCount);
-      case 'newest':
-        return list.sort((a, b) => Number(b.isNew) - Number(a.isNew));
-      case 'best_value':
-        return list.sort(
-          (a, b) => b.rating / (b.price || 1) - a.rating / (a.price || 1),
-        );
-      default:
-        return list;
-    }
-  }, [properties, sort]);
+  // Sorting is done by /api/search across ALL matches before paging --
+  // sorting only the loaded page put the wrong stays first on multi-page
+  // results. `properties` already arrives in the chosen order.
+  const sortedProperties = properties;
 
   const state: ListingState = {
     properties: sortedProperties,

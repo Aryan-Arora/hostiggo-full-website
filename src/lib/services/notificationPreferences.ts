@@ -1,7 +1,14 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
-export type NotificationChannel = "in_app" | "whatsapp" | "email" | "sms";
+/**
+ * One notification_preferences row per user, shared with the mobile app
+ * (hostiggo-frontend/src/data/infra/supabase/notificationApi.ts). Keep the
+ * channel set and defaults identical on both sides -- `push` is only acted on
+ * by the app, `whatsapp` / `sms` only by the website, but each side must
+ * preserve the other's keys when it saves.
+ */
+export type NotificationChannel = "in_app" | "push" | "email" | "whatsapp" | "sms";
 export type NotificationCategory = "bookings" | "account" | "marketing";
 
 export interface UserNotificationPreferences {
@@ -9,11 +16,12 @@ export interface UserNotificationPreferences {
   categories: Record<NotificationCategory, boolean>;
 }
 
-const DEFAULT_PREFERENCES: UserNotificationPreferences = {
+export const DEFAULT_PREFERENCES: UserNotificationPreferences = {
   channels: {
     in_app: true,
+    push: true,
+    email: true,
     whatsapp: true,
-    email: false,
     sms: false,
   },
   categories: {
@@ -38,12 +46,26 @@ export async function getNotificationPreferences(
   }
 
   if (!data) {
+    // Create default preferences for user
+    const { error: insertError } = await supabaseAdmin
+      .from("notification_preferences")
+      .insert({
+        user_id: userId,
+        channels: DEFAULT_PREFERENCES.channels,
+        categories: DEFAULT_PREFERENCES.categories,
+      });
+    
+    if (insertError) {
+      console.error("[notificationPreferences] Insert error:", insertError);
+    }
+    
     return DEFAULT_PREFERENCES;
   }
 
+  // Merge with defaults to ensure all channels exist
   return {
-    channels: data.channels ?? DEFAULT_PREFERENCES.channels,
-    categories: data.categories ?? DEFAULT_PREFERENCES.categories,
+    channels: { ...DEFAULT_PREFERENCES.channels, ...(data.channels ?? {}) },
+    categories: { ...DEFAULT_PREFERENCES.categories, ...(data.categories ?? {}) },
   };
 }
 

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { uploadListingPhoto } from "@/lib/services/admin-writes";
+import { requireUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -8,7 +9,11 @@ const ALLOWED_EXTENSIONS = new Set(["jpg", "jpeg", "png", "webp"]);
 
 export async function POST(req: NextRequest) {
   try {
-    const form = await req.formData();
+    // Anonymous uploads would make the storage bucket a free file host.
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const form = await req.formData().catch(() => null);
+    if (!form) return NextResponse.json({ error: "Expected a multipart upload." }, { status: 400 });
     const file = form.get("file");
     if (!(file instanceof File)) {
       return NextResponse.json({ error: "file is required" }, { status: 400 });
@@ -23,14 +28,17 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const url = await uploadListingPhoto({
-      data: await file.arrayBuffer(),
-      name: file.name,
-      type: file.type,
-    });
+    const url = await uploadListingPhoto(
+      {
+        data: await file.arrayBuffer(),
+        name: file.name,
+        type: file.type,
+      },
+      `listings/uploads/${userId}`,
+    );
     return NextResponse.json({ data: { url } });
   } catch (err: any) {
     console.error("[/api/host/upload] error:", err?.message);
-    return NextResponse.json({ error: err?.message ?? "Upload failed" }, { status: 500 });
+    return NextResponse.json({ error: "Upload failed. Please try again." }, { status: 500 });
   }
 }

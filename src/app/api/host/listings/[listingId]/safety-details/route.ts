@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import * as safetyDetailsService from '@/lib/services/safety-details';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
@@ -40,12 +41,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ list
     }
 
     const body = await request.json();
-    const { feature_id, userId } = body;
+    const { feature_id } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     if (!feature_id) {
       return NextResponse.json(

@@ -15,9 +15,9 @@ const heroBg = "/hero-bg.jpg?v=4";
 
 const HERO_TAGS = [
   { id: "budget", label: "₹1000 - ₹ 3000" },
-  { id: "breakfast", label: "Free breakfast" },
+  { id: "breakfast", label: "Breakfast" },
   { id: "cancellation", label: "Free cancellation" },
-  { id: "family", label: "Family comfort" },
+  { id: "entire", label: "Entire place" },
   { id: "5star", label: "5 ★" },
   { id: "above3", label: "Above 3 ★" },
   { id: "lowest", label: "Lowest price" },
@@ -25,7 +25,7 @@ const HERO_TAGS = [
 
 export default function HeroSection() {
   const { filters, sort } = useListingState();
-  const { setPriceRange, setRating, setBooleanFilter, setSort } =
+  const { setPriceRange, setRating, setBooleanFilter, setSort, toggleStayType } =
     useListingActions();
 
   const isChecked = (id: string): boolean => {
@@ -36,8 +36,8 @@ export default function HeroSection() {
         return filters.breakfast;
       case "cancellation":
         return filters.freeCancellation;
-      case "family":
-        return filters.familyFriendly;
+      case "entire":
+        return filters.stayTypes.includes("Entire Property");
       case "5star":
         return filters.guestRating === 5;
       case "above3":
@@ -61,8 +61,8 @@ export default function HeroSection() {
       case "cancellation":
         setBooleanFilter("freeCancellation" as keyof SearchFilters, !active);
         break;
-      case "family":
-        setBooleanFilter("familyFriendly" as keyof SearchFilters, !active);
+      case "entire":
+        toggleStayType("Entire Property");
         break;
       case "5star":
         setRating(active ? null : 5);

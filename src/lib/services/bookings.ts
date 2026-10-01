@@ -184,8 +184,16 @@ export const bookingsAPI = {
           num_guests,
           check_in_time,
           check_out_time,
+          address_line1,
+          address_line2,
+          landmark,
+          latitude,
+          longitude,
+          cancellation_policy,
+          strict_partial_refund_percent,
           locations (state, district),
-          listing_media (media_url, is_cover)
+          listing_media (media_url, is_cover),
+          listing_amenities ( amenities ( name ) )
         )
       `,
       )
@@ -197,16 +205,15 @@ export const bookingsAPI = {
 
     // This payload includes the guest's name and phone -- only the booking's
     // guest or the host of the booked listing may see it.
-    if (booking.user_id !== requestingUserId) {
-      const { data: hostRow, error: hostErr } = await supabase
-        .from("host")
-        .select("user_id")
-        .eq("host_uuid", booking.host_uuid ?? "")
-        .maybeSingle();
-      if (hostErr) throw hostErr;
-      if (hostRow?.user_id !== requestingUserId) {
-        throw new Error("You don't have permission to view this booking.");
-      }
+    const { data: hostRow, error: hostErr } = await supabase
+      .from("host")
+      .select("user_id, photo, about, is_verified, verified_at")
+      .eq("host_uuid", booking.host_uuid ?? "")
+      .maybeSingle();
+    if (hostErr) throw hostErr;
+    const viewerIsGuest = booking.user_id === requestingUserId;
+    if (!viewerIsGuest && hostRow?.user_id !== requestingUserId) {
+      throw new Error("You don't have permission to view this booking.");
     }
 
     let guest = null;
@@ -234,7 +241,39 @@ export const bookingsAPI = {
       .select("name, price, type")
       .eq("booking_id", Number(bookingId));
 
-    return { ...booking, guest, addons: addons ?? [] };
+    // Host card for the guest. The host's phone is only released once the
+    // booking is confirmed (paid) -- until then all contact goes through
+    // Hostiggo chat, where contact details are moderated.
+    let host = null;
+    if (hostRow?.user_id) {
+      const { data: hostUser } = await supabaseAdmin
+        .from("users")
+        .select("name, phone, profile_pic_url, created_at")
+        .eq("user_id", hostRow.user_id)
+        .maybeSingle();
+      host = {
+        userId: hostRow.user_id,
+        name: hostUser?.name ?? "Your host",
+        photo: hostRow.photo || hostUser?.profile_pic_url || null,
+        about: hostRow.about ?? null,
+        isVerified: hostRow.is_verified === true,
+        joinedAt: hostUser?.created_at ?? null,
+        phone: viewerIsGuest && booking.status_id === 2 ? hostUser?.phone ?? null : null,
+      };
+    }
+
+    const listingId = (booking as any).property?.listing_id;
+    let houseRules = null;
+    if (listingId) {
+      const { data: rules } = await supabaseAdmin
+        .from("listing_house_rules")
+        .select("check_in_time, check_out_time, smoking_allowed, pets_allowed, parties_allowed, quiet_hours")
+        .eq("listing_id", listingId)
+        .limit(1);
+      houseRules = rules?.[0] ?? null;
+    }
+
+    return { ...booking, guest, host, houseRules, addons: addons ?? [] };
   },
 
   async updateBookingStatus(

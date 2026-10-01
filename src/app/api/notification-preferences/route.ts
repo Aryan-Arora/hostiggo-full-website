@@ -1,52 +1,52 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createClient } from "@supabase/supabase-js";
-import { getNotificationPreferences, updateNotificationPreferences } from "@/lib/services/notificationPreferences";
+import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
+import {
+  getNotificationPreferences,
+  updateNotificationPreferences,
+  type UserNotificationPreferences,
+} from "@/lib/services/notificationPreferences";
 
-export async function GET(request: NextRequest) {
+export const dynamic = "force-dynamic";
+
+// Same notification_preferences row the mobile app reads/writes, so a toggle on
+// either side applies to both.
+
+export async function GET(req: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = await getAuthenticatedUserId(req);
+    const prefs = await getNotificationPreferences(userId);
+    return NextResponse.json({ data: prefs });
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
     }
-
-    const prefs = await getNotificationPreferences(user.id);
-    return NextResponse.json(prefs);
-  } catch (err: any) {
     console.error("[notification-preferences] GET error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Could not load notification preferences." }, { status: 500 });
   }
 }
 
-export async function POST(request: NextRequest) {
+const pickBooleans = (value: unknown): Record<string, boolean> => {
+  const out: Record<string, boolean> = {};
+  if (value && typeof value === "object") {
+    for (const [k, v] of Object.entries(value)) if (typeof v === "boolean") out[k] = v;
+  }
+  return out;
+};
+
+export async function POST(req: NextRequest) {
   try {
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const {
-      data: { user },
-      error: authError,
-    } = await supabase.auth.getUser();
-
-    if (authError || !user) {
-      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    const userId = await getAuthenticatedUserId(req);
+    const body = await req.json().catch(() => ({}));
+    const updated = await updateNotificationPreferences(userId, {
+      channels: pickBooleans(body?.channels),
+      categories: pickBooleans(body?.categories),
+    } as Partial<UserNotificationPreferences>);
+    return NextResponse.json({ data: updated });
+  } catch (err) {
+    if (err instanceof UnauthorizedError) {
+      return NextResponse.json({ error: err.message }, { status: 401 });
     }
-
-    const body = await request.json();
-    const updated = await updateNotificationPreferences(user.id, body);
-    return NextResponse.json(updated);
-  } catch (err: any) {
     console.error("[notification-preferences] POST error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+    return NextResponse.json({ error: "Could not save notification preferences." }, { status: 500 });
   }
 }

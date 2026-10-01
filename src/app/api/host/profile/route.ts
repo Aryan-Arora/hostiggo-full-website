@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { forbiddenResponse, readJsonBody, requireUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -9,12 +10,11 @@ export const dynamic = "force-dynamic";
  */
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
+    if (body.userId && body.userId !== userId) return forbiddenResponse();
 
     // Check if host profile already exists
     const { data: existingHost, error: checkError } = await supabaseAdmin
@@ -69,11 +69,14 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, about } = body;
-
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
+    if (body.userId && body.userId !== userId) return forbiddenResponse();
+    const about = typeof body.about === "string" ? body.about : "";
+    if (about.length > 2000) {
+      return NextResponse.json({ error: "About must be 2000 characters or fewer." }, { status: 400 });
     }
 
     // Update the host's about section

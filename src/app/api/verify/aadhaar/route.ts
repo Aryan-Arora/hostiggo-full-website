@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
-import { isSurepassConfigured, surepassPostForm, logKycRequest } from "@/lib/surepass";
+import { isSurepassConfigured, surepassPostForm, logKycRequest, sha256Hex } from "@/lib/surepass";
 import { namesMatch } from "@/lib/services/kycVerify";
 
 export const dynamic = "force-dynamic";
@@ -84,15 +84,21 @@ export async function POST(req: NextRequest) {
       errorMessage: reason,
     });
     const now = new Date().toISOString();
-    await supabaseAdmin.from("aadhaar_kyc").insert({
+    // full_name, aadhaar_last4 and aadhaar_hash are NOT NULL -- a rejected
+    // upload may have no record name / number, so fall back rather than
+    // failing the insert. The full number is never available (eAadhaar
+    // masks it), so the hash is of the masked number SurePass returned.
+    const { error: aadhaarRowError } = await supabaseAdmin.from("aadhaar_kyc").insert({
       user_id: userId,
-      full_name: nameOnRecord,
-      aadhaar_last4: last4,
+      full_name: nameOnRecord ?? fullName,
+      aadhaar_last4: last4 ?? "",
+      aadhaar_hash: sha256Hex(maskedNumber ?? ""),
       status,
       reason,
       submitted_at: now,
       updated_at: now,
     });
+    if (aadhaarRowError) console.error("[api/verify/aadhaar] aadhaar_kyc insert failed:", aadhaarRowError);
 
     return NextResponse.json({ data: { status, reason } });
   } catch (err) {

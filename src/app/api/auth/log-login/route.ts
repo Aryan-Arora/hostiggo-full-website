@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
 import { recordLoginEvent, type LoginMethod } from "@/lib/services/loginEvents";
+import { optionalUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
-const VALID_METHODS = new Set<LoginMethod>(["email_otp", "phone_otp", "password", "google"]);
+const VALID_METHODS = new Set<LoginMethod>(["email_otp", "phone_otp", "google"]);
 
 // Email OTP verification (src/lib/api.ts's verifyOtp) and the Google OAuth
 // callback (src/app/auth/callback/page.tsx) both establish the Supabase
@@ -13,10 +14,12 @@ const VALID_METHODS = new Set<LoginMethod>(["email_otp", "phone_otp", "password"
 // It intentionally does not touch session/auth state itself.
 export async function POST(req: NextRequest) {
   try {
-    const { userId, method } = await req.json();
-    if (!userId || typeof userId !== "string") {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    // The event is recorded against the verified session, never a
+    // client-claimed id -- otherwise anyone could plant fake sign-in rows
+    // in another user's "Login activity".
+    const userId = await optionalUserId(req);
+    if (!userId) return NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+    const { method } = await req.json();
     if (!VALID_METHODS.has(method)) {
       return NextResponse.json({ error: "Invalid method" }, { status: 400 });
     }

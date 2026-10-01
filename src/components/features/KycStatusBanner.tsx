@@ -1,6 +1,7 @@
 'use client';
 
 import { useState } from 'react';
+import { useRouter } from 'next/navigation';
 import { Clock, ShieldAlert, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
@@ -45,6 +46,7 @@ const TONES: Record<Tone, { wrap: string; icon: string; title: string; body: str
  * status is still loading, or if it can't be resolved at all.
  */
 export default function KycStatusBanner() {
+  const router = useRouter();
   const { userId, user } = useAuth();
   const { status, reason, loading, refresh } = useKycStatus();
   const [dismissed, setDismissed] = useState(false);
@@ -131,6 +133,11 @@ export default function KycStatusBanner() {
             refresh();
           }}
           onSkipped={() => setModalOpen(false)}
+          onSetupPayouts={() => {
+            setModalOpen(false);
+            refresh();
+            router.push('/host/settings?tab=payouts');
+          }}
         />
       )}
     </div>

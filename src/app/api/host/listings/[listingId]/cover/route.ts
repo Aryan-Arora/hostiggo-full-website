@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
-import { setCoverPhoto } from "@/lib/services/admin-writes";
+import { assertListingOwnedBy, setCoverPhoto } from "@/lib/services/admin-writes";
+import { requireUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -16,6 +17,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ listing
     if (isNaN(listingId)) {
       return NextResponse.json({ error: "Invalid listing ID" }, { status: 400 });
     }
+
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    await assertListingOwnedBy(listingId, userId);
 
     const body = await req.json().catch(() => ({}));
     // media_id is a UUID string, so keep it as text (never coerce to a number).

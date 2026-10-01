@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { ensureHostProfile, findHostUuid } from "@/lib/services/admin-writes";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
-import { sha256Hex } from "@/lib/surepass";
+import { maskMiddle, sha256Hex } from "@/lib/surepass";
 import { samePerson, verifyBankAccount, verifyPanNumber } from "@/lib/services/kycVerify";
 
 export const dynamic = "force-dynamic";
@@ -205,7 +205,21 @@ export async function PATCH(req: NextRequest) {
     if (pan && !PAN_RE.test(pan)) {
       return NextResponse.json({ error: "Enter a valid PAN (e.g. ABCDE1234F)." }, { status: 400 });
     }
-    const panChanged = Boolean(pan) && pan !== existing?.pan_number;
+    // A host who did KYC with their PAN can't change it here -- payouts use
+    // that verified PAN. Only hosts who verified with Aadhaar / passport (no
+    // verified PAN yet) enter one. A PAN matching the verified one (same
+    // mask) is just filled in, without another SurePass lookup.
+    const panOnFile = pan ? await latestVerifiedPan(userId) : null;
+    if (pan && panOnFile?.maskedPan) {
+      if (maskMiddle(pan) !== panOnFile.maskedPan) {
+        return NextResponse.json(
+          { error: "Your PAN is already verified and can't be changed here." },
+          { status: 400 },
+        );
+      }
+      if (pan !== existing?.pan_number) changes.pan_number = pan;
+    }
+    const panChanged = Boolean(pan) && !panOnFile?.maskedPan && pan !== existing?.pan_number;
 
     // Address fields: all optional, each updated independently.
     const postalCode = provided("postalCode") ? text("postalCode") : null;
@@ -330,16 +344,10 @@ export async function PATCH(req: NextRequest) {
       const onboardingError = await maybeAutoOnboardHostToRoute(userId);
       return NextResponse.json({ data: { status: "unchanged", onboardingError } });
     }
-    // Any real change starts Route onboarding over -- the linked account,
-    // stakeholder and product config on Razorpay's side were created from
-    // the old details and would otherwise be reused stale.
-    const reset = {
-      status: "submitted",
-      razorpay_account_id: null,
-      razorpay_stakeholder_id: null,
-      razorpay_product_id: null,
-      updated_at: new Date().toISOString(),
-    };
+    // Any real change has to reach Razorpay: dropping back to 'submitted'
+    // makes the onboarding run below upsert the new details onto the
+    // existing linked account, stakeholder and settlement config.
+    const reset = { status: "submitted", updated_at: new Date().toISOString() };
     if (existing) {
       const { error } = await supabaseAdmin
         .from("host_payout_methods")

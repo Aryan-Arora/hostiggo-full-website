@@ -30,10 +30,10 @@ export default function PropertyCard({ property }: PropertyCardProps) {
   const handleToggleLike = (e: React.MouseEvent) => {
     e.stopPropagation();
     if (!isAuthenticated || !userId) {
-      toast("Sign in to save properties to your wishlist.");
-      router.push(
-        `/signin?redirect=${encodeURIComponent(`/property/${property.id}`)}`,
-      );
+      toast("Sign in to save properties to your wishlist.", { id: "wishlist-signin" });
+      // Come back to where they were (e.g. the search results), not the listing.
+      const here = `${window.location.pathname}${window.location.search}`;
+      router.push(`/signin?redirect=${encodeURIComponent(here)}`);
       return;
     }
     setPickerOpen((v) => !v);

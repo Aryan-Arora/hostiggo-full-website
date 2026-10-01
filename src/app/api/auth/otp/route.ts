@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
 import { authApi } from "@/lib/services/auth";
 import { ensureProfile } from "@/lib/services/ensureProfile";
 import { recordLoginEvent } from "@/lib/services/loginEvents";
@@ -7,7 +8,19 @@ export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const { action, phone, email, token, type } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
+    const { action, phone, email, token, type } = body;
+    // Throttle code sends (SMS costs money) and guesses (6 digits is brute-forceable).
+    const target = String(phone ?? email ?? "").toLowerCase();
+    const limited =
+      action === "send"
+        ? rateLimit(`otp-send-ip:${clientIp(req)}`, 10, 10 * 60_000) ??
+          rateLimit(`otp-send:${target}`, 4, 10 * 60_000)
+        : rateLimit(`otp-verify:${target}`, 10, 10 * 60_000);
+    if (limited) return limited;
 
     // Send OTP action
     if (action === "send") {

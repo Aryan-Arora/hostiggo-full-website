@@ -11,16 +11,10 @@ import {
   useListingState,
   useListingActions,
 } from '@/context/ListingFilterContext';
-import { cn } from '@/lib/utils';
+import { cn, toISODate } from '@/lib/utils';
+import { plural } from '@/lib/format';
 
 type Panel = 'destination' | 'date' | 'guests' | null;
-
-// `state` is only known for a place picked from the destination list.
-function searchUrl(query: string, state?: string) {
-  const params = new URLSearchParams({ destination: query });
-  if (state) params.set('state', state);
-  return `/search?${params.toString()}`;
-}
 
 function fmtDate(d: Date | null) {
   if (!d) return null;
@@ -29,6 +23,31 @@ function fmtDate(d: Date | null) {
     month: 'short',
     year: 'numeric',
   });
+}
+
+/**
+ * destination + dates + guests, so a refreshed or shared results URL keeps them.
+ * `state` is only known for a place picked from the destination list.
+ */
+function searchQueryString(
+  destination: string,
+  dates: { checkIn: Date | null; checkOut: Date | null },
+  guests: { adults: number; children: number },
+  state?: string,
+) {
+  const params = new URLSearchParams({ destination: destination.trim() });
+  if (state) params.set('state', state);
+  const ci = toISODate(dates.checkIn);
+  const co = toISODate(dates.checkOut);
+  if (ci && co) {
+    params.set('checkIn', ci);
+    params.set('checkOut', co);
+  }
+  if (guests.adults !== 1 || guests.children > 0) {
+    params.set('adults', String(guests.adults));
+    if (guests.children > 0) params.set('children', String(guests.children));
+  }
+  return params.toString();
 }
 
 /** Compact search bar used on the SearchResultsPage */
@@ -47,8 +66,16 @@ export function CompactSearchBar() {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
         setActivePanel(null);
     };
+    // Escape closes whichever panel is open (destination, dates, guests).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActivePanel(null);
+    };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKey);
+    };
   }, []);
 
   const toggle = (p: Panel) => setActivePanel((cur) => (cur === p ? null : p));
@@ -64,7 +91,9 @@ export function CompactSearchBar() {
       setLocation({ query });
       draftRef.current = null;
     }
-    router.push(searchUrl(query, draft != null ? undefined : location.state));
+    router.push(
+      `/search?${searchQueryString(query, dates, guests, draft != null ? undefined : location.state)}`,
+    );
     setActivePanel(null);
   };
 
@@ -251,10 +280,10 @@ export function CompactSearchBar() {
           />
           <div className="flex-1 truncate">
             <p className="text-[13px] font-bold text-gray-800">
-              {guests.adults} Adults • {guests.rooms} Room
+              {plural(guests.adults, "Adult")} • {plural(guests.rooms, "Room")}
             </p>
             <p className="text-[11px] text-gray-400">
-              {guests.children} Children
+              {plural(guests.children, "Child", "Children")}
             </p>
           </div>
           <ChevronDown
@@ -306,8 +335,16 @@ export default function SearchForm() {
       if (wrapRef.current && !wrapRef.current.contains(e.target as Node))
         setActivePanel(null);
     };
+    // Escape closes whichever panel is open (destination, dates, guests).
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setActivePanel(null);
+    };
     document.addEventListener('mousedown', handler);
-    return () => document.removeEventListener('mousedown', handler);
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.removeEventListener('mousedown', handler);
+      document.removeEventListener('keydown', onKey);
+    };
   }, []);
 
   const toggle = (p: Panel) => setActivePanel((cur) => (cur === p ? null : p));
@@ -323,7 +360,9 @@ export default function SearchForm() {
       setLocation({ query });
       draftRef.current = null;
     }
-    router.push(searchUrl(query, draft != null ? undefined : location.state));
+    router.push(
+      `/search?${searchQueryString(query, dates, guests, draft != null ? undefined : location.state)}`,
+    );
     setActivePanel(null);
   };
 
@@ -335,7 +374,10 @@ export default function SearchForm() {
       {/* Destination */}
       <div className="relative">
         <button
+          type="button"
           onClick={() => toggle('destination')}
+          aria-haspopup="dialog"
+          aria-expanded={activePanel === 'destination'}
           className={cn(
             'w-full h-[52px] flex items-center gap-3 px-5 rounded-full border transition-all text-left bg-white',
             activePanel === 'destination'
@@ -360,8 +402,9 @@ export default function SearchForm() {
           </div>
         </button>
         {activePanel === 'destination' && (
-          <div className="absolute top-[calc(100%+8px)] left-0 w-full flex justify-end z-[1100]">
+          <div className="absolute top-[calc(100%+8px)] left-0 w-full z-[1100]">
             <DestinationDropdown
+              fullWidth
               value={location.query}
               onQueryChange={(v) => {
                 draftRef.current = null;
@@ -492,12 +535,12 @@ export default function SearchForm() {
             strokeWidth={1.5}
           />
           <div className="min-w-0 flex-1 flex items-center gap-1.5 text-[16px] font-medium text-gray-800">
-            <span>{guests.adults} Adults</span>
+            <span>{plural(guests.adults, "Adult")}</span>
             <span className="text-gray-400">•</span>
-            <span>{guests.rooms} Room</span>
+            <span>{plural(guests.rooms, "Room")}</span>
             <span className="text-gray-400">•</span>
             <span className="text-gray-400 font-normal">
-              {guests.children} Children
+              {plural(guests.children, "Child", "Children")}
             </span>
           </div>
           <ChevronDown

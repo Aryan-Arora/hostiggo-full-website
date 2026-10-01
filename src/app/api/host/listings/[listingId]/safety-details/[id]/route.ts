@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import * as safetyDetailsService from '@/lib/services/safety-details';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
@@ -16,12 +17,11 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { enabled, userId } = body;
+    const { enabled } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     if (typeof enabled !== 'boolean') {
       return NextResponse.json(
@@ -53,11 +53,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid detail ID' }, { status: 400 });
     }
 
-    const userId = request.nextUrl.searchParams.get('userId');
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, userId);
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     await safetyDetailsService.removeSafetyDetailFromListing(detailId, listingId);
     return NextResponse.json({ success: true });

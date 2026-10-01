@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { forbiddenResponse, requireUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-    if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    // The host's own dashboard profile (includes email + phone).
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const requested = req.nextUrl.searchParams.get("userId");
+    if (requested && requested !== userId) return forbiddenResponse();
 
     // Fetch user from users table
     const { data: user, error: userError } = await supabaseAdmin
@@ -19,7 +23,7 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "User not found" }, { status: 404 });
     }
 
-    // Fetch host profile - SELECT EVERYTHING to debug
+    // Fetch host profile
     const { data: hostData, error: hostError } = await supabaseAdmin
       .from("host")
       .select("*")
@@ -68,7 +72,7 @@ export async function GET(req: NextRequest) {
       name: user.name || "Host",
       email: user.email,
       phone: user.phone,
-      avatar: user.profile_pic_url || "https://i.pravatar.cc/200?img=45",
+      avatar: user.profile_pic_url || host.photo || null,
       about: host.about || "",  // From host table
       isVerified: host.is_verified || false,
       stats: {

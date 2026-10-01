@@ -2,7 +2,12 @@ import { NextRequest, NextResponse } from "next/server";
 import { createBookingWithoutPayment, validateAndPriceBooking } from "@/lib/services/admin-writes";
 import { createRazorpayOrder } from "@/lib/billing/razorpay";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
-import { PAYMENTS_ENABLED } from "@/lib/booking-config";
+import {
+  BOOKINGS_DISABLED,
+  PAYMENTS_ENABLED,
+  UNPAID_BOOKINGS_ALLOWED,
+  todayInIndia,
+} from "@/lib/booking-config";
 
 export const dynamic = "force-dynamic";
 
@@ -19,7 +24,17 @@ export async function POST(req: NextRequest) {
     // that never checked it.
     const userId = await getAuthenticatedUserId(req);
 
-    const body = await req.json();
+    if (BOOKINGS_DISABLED || (!PAYMENTS_ENABLED && !UNPAID_BOOKINGS_ALLOWED)) {
+      return NextResponse.json(
+        { error: "Bookings are paused for a short while. Please try again later.", code: "BOOKINGS_PAUSED" },
+        { status: 503 },
+      );
+    }
+
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
     const { listingId, startDate, endDate, numAdults, numChildren, addonIds } = body ?? {};
     if (!listingId || !startDate || !endDate) {
       return NextResponse.json(
@@ -37,7 +52,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       );
     }
-    const today = new Date().toISOString().slice(0, 10);
+    const today = todayInIndia();
     if (String(endDate) <= String(startDate)) {
       return NextResponse.json(
         { error: "endDate must be after startDate" },
@@ -79,7 +94,7 @@ export async function POST(req: NextRequest) {
       addonIds: normalizedAddonIds,
     };
 
-    if (!PAYMENTS_ENABLED) {
+    if (UNPAID_BOOKINGS_ALLOWED) {
       const booking = await createBookingWithoutPayment(bookingInput);
       return NextResponse.json({ data: { paymentRequired: false, booking } });
     }
@@ -119,7 +134,9 @@ export async function POST(req: NextRequest) {
     }
     console.error("[/api/bookings/reserve] error:", err?.message, err?.code, err?.details, err?.hint);
     return NextResponse.json(
-      { error: err?.message || "Request failed", code: err?.code, details: err?.details },
+      // Validation errors from validateAndPriceBooking are written for guests;
+      // raw database codes/details are not, so they stay in the server log.
+      { error: err?.code ? "We couldn't reserve these dates. Please try again." : err?.message || "Request failed" },
       { status: 500 },
     );
   }

@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserId } from "@/lib/auth-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 
@@ -11,15 +12,17 @@ export const dynamic = "force-dynamic";
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId, isActive, userId } = body;
+    const { listingId, isActive } = body;
 
-    if (!listingId || isActive === undefined || !userId) {
+    if (!listingId || isActive === undefined) {
       return NextResponse.json(
-        { error: "listingId, isActive and userId are required" },
+        { error: "listingId and isActive are required" },
         { status: 400 },
       );
     }
-    await assertListingOwnedBy(Number(listingId), String(userId));
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(Number(listingId), authedUserId);
 
     // A listing that has been delisted (see ../[listingId]/delist) must not
     // be switched back on from the pause toggle.

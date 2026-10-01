@@ -10,13 +10,10 @@ import {
   Mail,
   Activity,
   ShieldCheck,
-  Key,
   MessageSquare,
   Megaphone,
   Bell,
   Radar,
-  Globe,
-  DollarSign,
   AlertTriangle,
   ChevronRight,
   Trash2,
@@ -58,8 +55,7 @@ const ACCOUNT_ITEMS: NavItem[] = [
   { id: 'personal-info', label: 'Personal information', icon: User, href: '/account/profile' },
   { id: 'email-phone', label: 'Email & Phone no', icon: Mail, href: '/account/profile' },
   { id: 'login-activity', label: 'Login activity', icon: Activity, href: '/account/login-activity' },
-  { id: 'profile-verification', label: 'Profile verification', icon: ShieldCheck },
-  { id: 'password-security', label: 'Password & Security', icon: Key, href: '/account/password' },
+  { id: 'profile-verification', label: 'Profile verification', icon: ShieldCheck, href: '/account/verification' },
 ];
 
 const NOTIFICATION_TOGGLES: ToggleItem[] = [
@@ -70,12 +66,6 @@ const NOTIFICATION_TOGGLES: ToggleItem[] = [
     icon: MessageSquare,
   },
   {
-    key: 'promo_notifications',
-    label: 'Promotional emails',
-    desc: 'Deals, discounts, and Hostiggo news',
-    icon: Megaphone,
-  },
-  {
     key: 'email_notifications',
     label: 'Email notifications',
     desc: 'Booking confirmations, receipts, and reminders',
@@ -83,11 +73,24 @@ const NOTIFICATION_TOGGLES: ToggleItem[] = [
   },
   {
     key: 'sms_alerts',
-    label: 'SMS alerts',
-    desc: 'Time-sensitive trip updates',
+    label: 'WhatsApp notifications',
+    desc: 'Booking updates via WhatsApp',
     icon: Bell,
   },
+  {
+    key: 'promo_notifications',
+    label: 'Marketing',
+    desc: 'Deals, discounts, and Hostiggo news',
+    icon: Megaphone,
+  },
 ];
+
+/** Toggles mirrored into notification_preferences, the row the mobile app also edits. */
+const SHARED_NOTIFICATION_PREFS: Partial<Record<PrefKey, { group: 'channels' | 'categories'; key: string }>> = {
+  email_notifications: { group: 'channels', key: 'email' },
+  sms_alerts: { group: 'channels', key: 'whatsapp' },
+  promo_notifications: { group: 'categories', key: 'marketing' },
+};
 
 const PRIVACY_TOGGLES: ToggleItem[] = [
   {
@@ -111,13 +114,10 @@ const PRIVACY_TOGGLES: ToggleItem[] = [
 ];
 
 const PRIVACY_NAV_ITEMS: NavItem[] = [
-  { id: 'reported-issues', label: 'Reported issues', icon: AlertTriangle },
+  { id: 'report-issue', label: 'Report an issue', icon: AlertTriangle, href: '/report-issue' },
 ];
-
-const APP_PREF_ITEMS: NavItem[] = [
-  { id: 'language', label: 'Language', icon: Globe },
-  { id: 'currency', label: 'Currency', icon: DollarSign },
-];
+// Language/currency rows were removed: Hostiggo is English + INR only (payments
+// settle in INR), so there is no setting to change.
 
 function NavPill({ item }: { item: NavItem }) {
   const Icon = item.icon;
@@ -143,15 +143,7 @@ function NavPill({ item }: { item: NavItem }) {
     );
   }
 
-  return (
-    <button
-      type="button"
-      onClick={() => toast.info(`${item.label} settings coming soon`)}
-      className={pillClasses}
-    >
-      {content}
-    </button>
-  );
+  return <div className={pillClasses}>{content}</div>;
 }
 
 function Toggle({ on, onToggle, saving }: { on: boolean; onToggle: () => void; saving: boolean }) {
@@ -216,6 +208,11 @@ export default function GuestSettingsPage() {
   const [prefs, setPrefs] = useState<Partial<Record<PrefKey, boolean>>>({});
   const [savingKey, setSavingKey] = useState<PrefKey | null>(null);
 
+  // notification_preferences (shared with the app) is the source of truth for
+  // the notification toggles -- it's what the server's notify()/notifyWhatsApp()
+  // check. The users columns are only a fallback until it loads.
+  const [sharedPrefs, setSharedPrefs] = useState<Partial<Record<PrefKey, boolean>>>({});
+
   useEffect(() => {
     if (!user) return;
     setPrefs({
@@ -226,8 +223,23 @@ export default function GuestSettingsPage() {
       show_profile_to_hosts: user.show_profile_to_hosts ?? true,
       include_in_search: user.include_in_search ?? true,
       activity_status: user.activity_status ?? true,
+      ...sharedPrefs,
     });
-  }, [user]);
+  }, [user, sharedPrefs]);
+
+  useEffect(() => {
+    if (!userId) return;
+    api
+      .notificationPreferences()
+      .then((np) =>
+        setSharedPrefs({
+          email_notifications: np.channels.email,
+          sms_alerts: np.channels.whatsapp,
+          promo_notifications: np.categories.marketing,
+        }),
+      )
+      .catch((err) => console.warn('[account/settings] notification preferences load failed:', err));
+  }, [userId]);
 
   const handleToggle = async (key: PrefKey) => {
     if (!userId || savingKey) return;
@@ -235,7 +247,12 @@ export default function GuestSettingsPage() {
     setPrefs((p) => ({ ...p, [key]: next }));
     setSavingKey(key);
     try {
-      await api.updateProfile(userId, { [key]: next });
+      const shared = SHARED_NOTIFICATION_PREFS[key];
+      await Promise.all([
+        api.updateProfile(userId, { [key]: next }),
+        shared ? api.updateNotificationPreferences({ [shared.group]: { [shared.key]: next } }) : null,
+      ]);
+      if (shared) setSharedPrefs((p) => ({ ...p, [key]: next }));
       await refresh();
     } catch (err) {
       console.error('[account/settings] toggle failed:', err);
@@ -333,15 +350,6 @@ export default function GuestSettingsPage() {
                       saving={savingKey === item.key}
                       onToggle={() => handleToggle(item.key)}
                     />
-                  ))}
-                </div>
-              </section>
-
-              <section>
-                <h2 className="text-gray-500 font-medium text-[15px] mb-4">App preferences</h2>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {APP_PREF_ITEMS.map((item) => (
-                    <NavPill key={item.id} item={item} />
                   ))}
                 </div>
               </section>

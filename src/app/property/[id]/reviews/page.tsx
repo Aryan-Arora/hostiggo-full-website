@@ -1,60 +1,36 @@
 "use client";
 
-import { ChevronRight, Heart, Share2, Star } from "lucide-react";
+import { ArrowLeft, Share2, Star } from "lucide-react";
+import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 
 import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
+import { UserAvatar } from "@/components/ui/user-avatar";
 import { api, mapListingToProperty } from "@/lib/api";
+import { formatINR, reviewMonth } from "@/lib/format";
 import { cn } from "@/lib/utils";
 import type { Property, Review } from "@/types";
 
-const SAMPLE_REVIEWS = [
-  {
-    id: "1",
-    userName: "Bappi Lehri",
-    userAvatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    rating: 5,
-    reviewDate: "3 weeks ago",
-    reviewText:
-      "We had a wonderful stay at this homestay. The room was clean, spacious, and exactly as shown in the photos. The host was very helpful and welcoming throughout our trip.",
-  },
-  {
-    id: "2",
-    userName: "Bappi Lehri",
-    userAvatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    rating: 5,
-    reviewDate: "3 weeks ago",
-    reviewText:
-      "We had a wonderful stay at this homestay. The room was clean, spacious, and exactly as shown in the photos. The host was very helpful and welcoming throughout our trip.",
-  },
-  {
-    id: "3",
-    userName: "Bappi Lehri",
-    userAvatar:
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-    rating: 5,
-    reviewDate: "3 weeks ago",
-    reviewText:
-      "We had a wonderful stay at this homestay. The room was clean, spacious, and exactly as shown in the photos. The host was very helpful and welcoming throughout our trip.",
-  },
-];
+type SortKey = "newest" | "highest" | "lowest";
+const PAGE_SIZE = 8;
 
-function RatingBar({ value, width }: { value: number; width: number }) {
+
+function Stars({ value, className }: { value: number; className?: string }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-4 text-right text-[12px] font-medium text-[#1a1a1a] opacity-80">
-        {value}
-      </span>
-      <div className="h-2.5 w-[180px] rounded-full bg-[#d9d9d9] overflow-hidden">
-        <div
-          className="h-full rounded-full bg-[#1B8FD9]"
-          style={{ width: `${width}%` }}
+    <div className="flex items-center gap-0.5" aria-label={`${value} out of 5 stars`}>
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star
+          key={i}
+          aria-hidden
+          className={cn(
+            className ?? "h-3.5 w-3.5",
+            i < Math.round(value) ? "fill-[#1a1a1a] text-[#1a1a1a]" : "fill-[#d1d5db] text-[#d1d5db]",
+          )}
         />
-      </div>
+      ))}
     </div>
   );
 }
@@ -62,54 +38,39 @@ function RatingBar({ value, width }: { value: number; width: number }) {
 function ReviewCard({ review }: { review: Review }) {
   const [expanded, setExpanded] = useState(false);
   const text = review.reviewText || "";
-  const isLong = text.length > 120;
+  const isLong = text.length > 220;
 
   return (
-    <article className="w-full max-w-[360px] rounded-[22px] border border-[#d8d8d8] bg-white p-5 shadow-[0_2px_8px_rgba(0,0,0,0.03)] transition-all duration-200 hover:-translate-y-1 hover:shadow-[0_10px_28px_rgba(0,0,0,0.08)]">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <img
-            src={review.userAvatar}
-            alt={review.userName}
-            className="h-10 w-10 rounded-full object-cover"
-          />
-          <div>
-            <p className="text-[16px] font-medium leading-none text-[#1a1a1a]">
-              {review.userName}
-            </p>
-            <div className="mt-2 flex items-center gap-1">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Star
-                  key={index}
-                  className={cn(
-                    "h-3.5 w-3.5",
-                    index < review.rating
-                      ? "fill-[#1a1a1a] text-[#1a1a1a]"
-                      : "fill-[#d1d5db] text-[#d1d5db]",
-                  )}
-                />
-              ))}
-            </div>
+    <article className="min-w-0 rounded-[22px] border border-[#e1e1e1] bg-white p-5">
+      <div className="flex items-center gap-3">
+        <UserAvatar src={review.userAvatar} name={review.userName} size={42} />
+        <div className="min-w-0">
+          <p className="truncate text-[15px] font-semibold text-[#1a1a1a]">{review.userName}</p>
+          <div className="mt-1 flex items-center gap-2">
+            <Stars value={review.rating} />
+            {review.reviewDate && (
+              <span className="text-[12px] text-[#7a7a7a]">{reviewMonth(review.reviewDate)}</span>
+            )}
           </div>
         </div>
-
-        <span className="text-[12px] font-normal text-[#7a7a7a]">
-          {review.reviewDate}
-        </span>
       </div>
-
-      <p className="mt-5 text-[15px] leading-[1.8] text-[#1a1a1a]/80">
-        {isLong && !expanded ? `${text.slice(0, 120)}...` : text}
-      </p>
-
-      {isLong && (
-        <button
-          type="button"
-          onClick={() => setExpanded((value) => !value)}
-          className="mt-3 text-[14px] font-medium text-[#0d7bb7] transition-colors hover:text-[#095c90]"
-        >
-          {expanded ? "Read less" : "Read more"}
-        </button>
+      {text ? (
+        <>
+          <p className="mt-4 whitespace-pre-line break-words text-[15px] leading-[1.7] text-[#1a1a1a]/85">
+            {isLong && !expanded ? `${text.slice(0, 220).trimEnd()}…` : text}
+          </p>
+          {isLong && (
+            <button
+              type="button"
+              onClick={() => setExpanded((v) => !v)}
+              className="mt-2 text-[14px] font-semibold text-[#0d7bb7] hover:underline"
+            >
+              {expanded ? "Show less" : "Read more"}
+            </button>
+          )}
+        </>
+      ) : (
+        <p className="mt-4 text-[14px] italic text-[#1a1a1a]/50">Rated without a written review.</p>
       )}
     </article>
   );
@@ -117,200 +78,253 @@ function ReviewCard({ review }: { review: Review }) {
 
 export default function PropertyReviewsPage() {
   const params = useParams<{ id?: string }>();
+  const listingId = params?.id ? String(params.id) : "";
   const [property, setProperty] = useState<Property | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [liked, setLiked] = useState(false);
+  const [status, setStatus] = useState<"loading" | "ready" | "not-found" | "error">("loading");
+  const [attempt, setAttempt] = useState(0);
+  const [sort, setSort] = useState<SortKey>("newest");
+  const [starFilter, setStarFilter] = useState<number | null>(null);
+  const [visible, setVisible] = useState(PAGE_SIZE);
 
   useEffect(() => {
-    const listingId = params?.id;
-
     if (!listingId) {
-      setProperty(null);
-      setLoading(false);
+      setStatus("not-found");
       return;
     }
-
-    const id = String(listingId);
-    let isMounted = true;
-
-    async function load() {
-      try {
-        const row = await api.propertyDetail(id);
-        if (!isMounted) return;
-        setProperty(row ? mapListingToProperty(row) : null);
-      } catch (error) {
-        console.error("[reviews page] failed to load property:", error);
-        if (isMounted) setProperty(null);
-      } finally {
-        if (isMounted) setLoading(false);
-      }
-    }
-
-    load();
-
+    let mounted = true;
+    setStatus("loading");
+    api
+      .propertyDetail(listingId)
+      .then((row) => {
+        if (!mounted) return;
+        if (!row) {
+          setStatus("not-found");
+          return;
+        }
+        setProperty(mapListingToProperty(row));
+        setStatus("ready");
+      })
+      .catch((err) => {
+        if (!mounted) return;
+        const message = err instanceof Error ? err.message : "";
+        setStatus(/not found|404/i.test(message) ? "not-found" : "error");
+      });
     return () => {
-      isMounted = false;
+      mounted = false;
     };
-  }, [params?.id]);
+  }, [listingId, attempt]);
 
-  const rating = property?.rating ?? 4.9;
-  const reviewCount = property?.reviewCount ?? 417;
+  const reviews = useMemo(() => property?.reviews ?? [], [property]);
+  const count = reviews.length;
+  const average = count ? reviews.reduce((s, r) => s + r.rating, 0) / count : 0;
 
-  const reviewCards = useMemo(() => {
-    const source =
-      property?.reviews && property.reviews.length > 0
-        ? property.reviews
-        : SAMPLE_REVIEWS;
-
-    return source.slice(0, 3).map((review) => ({
-      ...review,
-      userName: review.userName || "Guest",
-      userAvatar:
-        review.userAvatar ||
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?auto=format&fit=crop&w=200&q=80",
-      reviewText: review.reviewText || "Great stay.",
-      reviewDate: review.reviewDate || "Recently",
-    })) as Review[];
-  }, [property]);
-
-  const servicePrice = property?.price ?? 2349;
-
-  const ratingBreakdown = useMemo(
-    () => [
-      { value: 5, width: 72 },
-      { value: 4, width: 65 },
-      { value: 3, width: 15 },
-      { value: 2, width: 10 },
-      { value: 1, width: 5 },
-    ],
-    [],
+  const breakdown = useMemo(
+    () =>
+      [5, 4, 3, 2, 1].map((star) => {
+        const n = reviews.filter((r) => Math.round(r.rating) === star).length;
+        return { star, n, pct: count ? Math.round((n / count) * 100) : 0 };
+      }),
+    [reviews, count],
   );
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#f4f3ef]">
-        <Navbar />
-        <div className="mx-auto flex max-w-[1200px] items-center justify-center px-4 py-20">
-          <div className="h-10 w-40 animate-pulse rounded-full bg-[#d9d9d9]" />
-        </div>
-        <Footer />
-      </div>
-    );
-  }
+  const shown = useMemo(() => {
+    const list = starFilter ? reviews.filter((r) => Math.round(r.rating) === starFilter) : reviews.slice();
+    list.sort((a, b) => {
+      if (sort === "highest") return b.rating - a.rating || b.reviewDate.localeCompare(a.reviewDate);
+      if (sort === "lowest") return a.rating - b.rating || b.reviewDate.localeCompare(a.reviewDate);
+      return b.reviewDate.localeCompare(a.reviewDate);
+    });
+    return list;
+  }, [reviews, sort, starFilter]);
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: property?.propertyName ?? "Hostiggo", url });
+      else {
+        await navigator.clipboard.writeText(url);
+        toast.success("Link copied");
+      }
+    } catch {
+      /* dismissed */
+    }
+  };
 
   return (
-    <div className="min-h-screen bg-[#f4f3ef] text-[#1a1a1a]">
+    <div className="min-h-screen overflow-x-hidden bg-[#f4f3ef] text-[#1a1a1a]">
       <Navbar />
 
-      <div className="mx-auto max-w-[1280px] px-4 sm:px-6">
-        <header className="mt-4 rounded-[18px] border-b border-[#d9d9d9] bg-white px-4 py-4 shadow-[0_0_0_1px_rgba(0,0,0,0.02)] sm:px-6">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex items-center gap-4">
-              <button
-                type="button"
-                className="rounded-[24px] bg-[#0d7bb7] px-6 py-3 text-[18px] font-semibold text-white shadow-[0_10px_20px_rgba(13,123,183,0.2)] transition-transform hover:-translate-y-0.5 hover:bg-[#0a6ea5]"
-              >
-                Reserve
-              </button>
-
-              <div className="flex items-center gap-2 text-[18px] font-medium text-[#1a1a1a]">
-                <span className="font-medium text-[#1a1a1a]">
-                  ₹{servicePrice.toLocaleString("en-IN")}
-                </span>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 self-end sm:self-center">
-              <div className="hidden items-center gap-2 text-[15px] text-[#1a1a1a]/70 sm:flex">
-                <span className="font-medium">for 15 nights</span>
-                <span className="text-[#9a9a9a]">•</span>
-                <span className="font-medium">2 Adults</span>
-              </div>
-
-              <button
-                type="button"
-                aria-label="Share"
-                className="flex h-11 w-11 items-center justify-center rounded-full border border-[#d5d5d5] bg-white text-[#1a1a1a] transition-all hover:border-[#0d7bb7] hover:text-[#0d7bb7]"
-              >
-                <Share2 className="h-4 w-4" />
-              </button>
-
-              <button
-                type="button"
-                aria-label="Save"
-                onClick={() => setLiked((value) => !value)}
-                className={cn(
-                  "flex h-11 w-11 items-center justify-center rounded-full border bg-white transition-all hover:border-[#0d7bb7]",
-                  liked
-                    ? "border-[#f87171] text-[#ef4444]"
-                    : "border-[#d5d5d5] text-[#1a1a1a] hover:text-[#0d7bb7]",
-                )}
-              >
-                <Heart className={cn("h-4 w-4", liked && "fill-current")} />
-              </button>
-            </div>
+      <div className="mx-auto w-full max-w-[1100px] px-4 sm:px-6">
+        {status === "loading" && (
+          <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-label="Loading reviews">
+            <div className="h-10 w-40 animate-pulse rounded-full bg-[#d9d9d9]" />
           </div>
-        </header>
+        )}
 
-        <main className="mx-auto max-w-[980px] pb-16 pt-10 sm:pt-16">
-          <h1 className="text-[26px] font-semibold tracking-[-0.04em] text-[#1a1a1a] sm:text-[36px]">
-            Ratings &amp; reviews
-          </h1>
+        {(status === "not-found" || status === "error") && (
+          <div className="mx-auto mt-12 max-w-[480px] rounded-[24px] border border-[#e1e1e1] bg-white p-8 text-center">
+            <h1 className="text-[22px] font-semibold">
+              {status === "not-found" ? "This stay isn't available" : "We couldn't load reviews"}
+            </h1>
+            <p className="mt-2 text-[14px] text-[#1a1a1a]/65">
+              {status === "not-found"
+                ? "It may have been removed by the host."
+                : "Please check your connection and try again."}
+            </p>
+            {status === "error" ? (
+              <button
+                type="button"
+                onClick={() => setAttempt((n) => n + 1)}
+                className="mt-6 inline-flex h-11 items-center rounded-full bg-[#004772] px-7 text-[14px] font-semibold text-white"
+              >
+                Try again
+              </button>
+            ) : (
+              <Link
+                href="/search"
+                className="mt-6 inline-flex h-11 items-center rounded-full bg-[#004772] px-7 text-[14px] font-semibold text-white"
+              >
+                Explore stays
+              </Link>
+            )}
+          </div>
+        )}
 
-          <div className="mt-14 flex flex-col items-center">
-            <div className="flex items-center gap-3 text-[32px] font-semibold tracking-[-0.04em] text-[#1a1a1a] sm:text-[52px]">
-              <span>{rating.toFixed(1)}</span>
-              <span className="text-[14px] font-medium text-[#1a1a1a]/70 sm:text-[18px]">
-                ({reviewCount})
-              </span>
-            </div>
-
-            <div className="mt-4 flex items-center gap-1 text-[#1a1a1a]">
-              {Array.from({ length: 5 }).map((_, index) => (
-                <Star
-                  key={index}
-                  className={cn(
-                    "h-5 w-5 sm:h-6 sm:w-6",
-                    index < Math.round(rating)
-                      ? "fill-[#1a1a1a] text-[#1a1a1a]"
-                      : "fill-[#d1d5db] text-[#d1d5db]",
+        {status === "ready" && property && (
+          <>
+            <header className="sticky top-[72px] z-20 mt-4 flex flex-wrap items-center justify-between gap-3 rounded-[18px] border border-[#e1e1e1] bg-white/95 px-4 py-3 backdrop-blur sm:px-6">
+              <div className="flex min-w-0 items-center gap-3">
+                <Link
+                  href={`/property/${listingId}`}
+                  aria-label="Back to listing"
+                  className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full border border-[#d5d5d5] hover:bg-gray-50"
+                >
+                  <ArrowLeft className="h-4 w-4" />
+                </Link>
+                <div className="min-w-0">
+                  <p className="truncate text-[15px] font-semibold">{property.propertyName}</p>
+                  {property.price > 0 && (
+                    <p className="text-[13px] text-[#1a1a1a]/65">
+                      From <span className="font-semibold text-[#1a1a1a]">{formatINR(property.price)}</span> / night
+                    </p>
                   )}
-                />
-              ))}
-            </div>
-
-            <div className="mt-8 space-y-2">
-              {ratingBreakdown.map(({ value, width }) => (
-                <RatingBar key={value} value={value} width={width} />
-              ))}
-            </div>
-          </div>
-
-          <div className="mt-16 flex flex-col gap-5 md:flex-row md:items-stretch md:justify-between">
-            {reviewCards.map((review, index) => (
-              <div key={`${review.id}-${index}`} className="flex-1">
-                <ReviewCard review={review} />
+                </div>
               </div>
-            ))}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  aria-label="Share"
+                  onClick={handleShare}
+                  className="flex h-10 w-10 items-center justify-center rounded-full border border-[#d5d5d5] bg-white hover:border-[#0d7bb7] hover:text-[#0d7bb7]"
+                >
+                  <Share2 className="h-4 w-4" />
+                </button>
+                <Link
+                  href={`/property/${listingId}#availability`}
+                  className="inline-flex h-10 items-center rounded-full bg-[#0d7bb7] px-5 text-[14px] font-semibold text-white hover:bg-[#0a6ea5]"
+                >
+                  Check availability
+                </Link>
+              </div>
+            </header>
 
-            <button
-              type="button"
-              aria-label="Next review"
-              className="mt-2 flex h-12 w-12 shrink-0 items-center justify-center self-center rounded-full border border-[#d5d5d5] bg-white text-[#1a1a1a] shadow-sm transition-all hover:border-[#0d7bb7] hover:text-[#0d7bb7] md:mt-0 md:self-end"
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </div>
+            <main className="pb-16 pt-8 sm:pt-12">
+              <h1 className="text-[26px] font-semibold sm:text-[34px]">Ratings &amp; reviews</h1>
 
-          <div className="mt-8">
-            <button
-              type="button"
-              className="rounded-[12px] border border-[#0d7bb7] bg-white px-5 py-3 text-[16px] font-medium text-[#0d7bb7] transition-all hover:-translate-y-0.5 hover:bg-[#0d7bb7] hover:text-white"
-            >
-              View all reviews
-            </button>
-          </div>
-        </main>
+              {count === 0 ? (
+                <div className="mt-8 rounded-[22px] border border-[#e1e1e1] bg-white p-8 text-center">
+                  <Star className="mx-auto h-8 w-8 text-[#c9c9c9]" aria-hidden />
+                  <p className="mt-3 text-[17px] font-semibold">No reviews yet</p>
+                  <p className="mx-auto mt-1 max-w-[420px] text-[14px] text-[#1a1a1a]/65">
+                    Only guests who have completed a stay can review, so every review here is from a real booking. Be
+                    the first to stay and share your experience.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  <section className="mt-8 grid grid-cols-1 gap-8 rounded-[22px] border border-[#e1e1e1] bg-white p-6 sm:grid-cols-[220px_minmax(0,1fr)] sm:p-8">
+                    <div className="flex flex-col items-center justify-center sm:items-start">
+                      <p className="text-[48px] font-semibold leading-none">{average.toFixed(1)}</p>
+                      <Stars value={average} className="mt-3 h-5 w-5" />
+                      <p className="mt-2 text-[14px] text-[#1a1a1a]/65">
+                        {count} {count === 1 ? "review" : "reviews"} · verified stays only
+                      </p>
+                    </div>
+                    <div className="space-y-2">
+                      {breakdown.map(({ star, n, pct }) => (
+                        <button
+                          key={star}
+                          type="button"
+                          onClick={() => {
+                            setStarFilter((cur) => (cur === star ? null : star));
+                            setVisible(PAGE_SIZE);
+                          }}
+                          disabled={n === 0}
+                          aria-pressed={starFilter === star}
+                          className={cn(
+                            "flex w-full items-center gap-3 rounded-lg px-2 py-1 text-left transition-colors disabled:cursor-default",
+                            starFilter === star ? "bg-[#0d7bb7]/10" : "hover:bg-gray-50",
+                          )}
+                        >
+                          <span className="w-10 text-[13px] font-medium">{star} star</span>
+                          <span className="h-2.5 min-w-0 flex-1 overflow-hidden rounded-full bg-[#e5e5e5]">
+                            <span className="block h-full rounded-full bg-[#1B8FD9]" style={{ width: `${pct}%` }} />
+                          </span>
+                          <span className="w-8 text-right text-[13px] text-[#1a1a1a]/65">{n}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </section>
+
+                  <div className="mt-8 flex flex-wrap items-center justify-between gap-3">
+                    <p className="text-[14px] text-[#1a1a1a]/70">
+                      {starFilter ? `${shown.length} ${starFilter}-star ${shown.length === 1 ? "review" : "reviews"}` : `All ${count} reviews`}
+                      {starFilter && (
+                        <button
+                          type="button"
+                          onClick={() => setStarFilter(null)}
+                          className="ml-2 font-semibold text-[#0d7bb7] hover:underline"
+                        >
+                          Clear filter
+                        </button>
+                      )}
+                    </p>
+                    <label className="flex items-center gap-2 text-[14px]">
+                      <span className="text-[#1a1a1a]/70">Sort by</span>
+                      <select
+                        value={sort}
+                        onChange={(e) => setSort(e.target.value as SortKey)}
+                        className="h-9 rounded-full border border-[#d5d5d5] bg-white px-3 text-[14px] outline-none focus:border-[#0d7bb7]"
+                      >
+                        <option value="newest">Most recent</option>
+                        <option value="highest">Highest rated</option>
+                        <option value="lowest">Lowest rated</option>
+                      </select>
+                    </label>
+                  </div>
+
+                  <div className="mt-5 grid grid-cols-1 gap-4 md:grid-cols-2">
+                    {shown.slice(0, visible).map((review) => (
+                      <ReviewCard key={review.id} review={review} />
+                    ))}
+                  </div>
+
+                  {visible < shown.length && (
+                    <div className="mt-8 text-center">
+                      <button
+                        type="button"
+                        onClick={() => setVisible((v) => v + PAGE_SIZE)}
+                        className="rounded-full border border-[#0d7bb7] bg-white px-6 py-2.5 text-[15px] font-medium text-[#0d7bb7] hover:bg-[#0d7bb7] hover:text-white"
+                      >
+                        Show more reviews ({shown.length - visible} more)
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </main>
+          </>
+        )}
       </div>
 
       <Footer />

@@ -1,6 +1,6 @@
 import "server-only";
 import { supabaseAdmin } from "@/lib/supabase-admin";
-import { sendWhatsAppTemplate } from "./whatsapp";
+import { sendWhatsAppTemplate, type WhatsAppTemplate } from "./whatsapp";
 
 /**
  * Retry failed WhatsApp messages that have transient errors.
@@ -91,35 +91,33 @@ export async function retryFailedWhatsAppMessages(options?: {
     }
 
     try {
-      // Retry sending the message
+      // Re-send against the SAME log row (sendWhatsAppTemplate sets its status/sid),
+      // so a retry doesn't spawn a new row that later gets retried itself.
       await sendWhatsAppTemplate({
         to: msg.to_number,
-        template: msg.template_name as "booking_confirmation_guest" | "booking_received_host",
+        template: msg.template_name as WhatsAppTemplate,
         variables: msg.context?.variables ?? {},
+        messageLogId: msg.id,
       });
 
       succeeded++;
-      
-      // Update retry count
       await supabaseAdmin
         .from("message_log")
-        .update({ 
-          retry_count: (msg.retry_count ?? 0) + 1,
-          status: "queued", // Will be updated by webhook
-          error: null
-        })
+        .update({ retry_count: (msg.retry_count ?? 0) + 1 })
         .eq("id", msg.id);
         
     } catch (err: any) {
       failed++;
       const retryCount = (msg.retry_count ?? 0) + 1;
       
+      // Stays "failed" so the next run picks it up again (until retry_count hits maxRetries);
+      // "pending" was never re-queried, which silently dropped the message.
       await supabaseAdmin
         .from("message_log")
-        .update({ 
+        .update({
           retry_count: retryCount,
-          status: retryCount >= maxRetries ? "failed" : "pending",
-          error: `${msg.error}; Retry ${retryCount} failed: ${err.message}`
+          status: "failed",
+          error: `Retry ${retryCount} failed: ${err.message}`,
         })
         .eq("id", msg.id);
     }

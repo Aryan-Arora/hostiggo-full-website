@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import * as discountService from '@/lib/services/discounts';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
@@ -16,12 +17,11 @@ export async function PATCH(
     }
 
     const body = await request.json();
-    const { percent, enabled, userId } = body;
+    const { percent, enabled } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     const discount = await discountService.updateDiscount(
       discountId,
@@ -52,11 +52,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid discount ID' }, { status: 400 });
     }
 
-    const userId = request.nextUrl.searchParams.get('userId');
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, userId);
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     await discountService.deleteDiscount(discountId, listingId);
     return NextResponse.json({ success: true });

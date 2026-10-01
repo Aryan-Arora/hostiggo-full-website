@@ -127,6 +127,35 @@ export async function createLinkedAccount(
   });
 }
 
+export type UpdateLinkedAccountParams = Omit<CreateLinkedAccountParams, "email" | "referenceId">;
+
+// The "update" half of the upsert in runRouteOnboarding: once a host has a
+// Linked Account, changed details are PATCHed onto it rather than creating
+// a second one (Razorpay rejects a new account for an email that already
+// has one). email and reference_id are fixed at creation.
+export async function updateLinkedAccount(
+  accountId: string,
+  params: UpdateLinkedAccountParams,
+): Promise<LinkedAccountResult> {
+  return routeRequest<LinkedAccountResult>(`/v2/accounts/${accountId}`, "PATCH", {
+    phone: params.phone,
+    legal_business_name: params.legalBusinessName,
+    contact_name: params.contactName,
+    profile: {
+      addresses: {
+        registered: {
+          street1: params.addressLine1,
+          street2: params.addressLine1,
+          city: params.city,
+          state: params.state,
+          postal_code: params.postalCode,
+          country: "IN",
+        },
+      },
+    },
+  });
+}
+
 export type CreateStakeholderParams = {
   name: string;
   email: string;
@@ -145,6 +174,18 @@ export async function createStakeholder(
   // "The pan field is invalid" -- a real host's individual PAN already has
   // this by construction, so no extra validation needed on our side.
   return routeRequest<{ id: string }>(`/v2/accounts/${accountId}/stakeholders`, "POST", {
+    name: params.name,
+    email: params.email,
+    kyc: { pan: params.panNumber },
+  });
+}
+
+export async function updateStakeholder(
+  accountId: string,
+  stakeholderId: string,
+  params: CreateStakeholderParams,
+): Promise<{ id: string }> {
+  return routeRequest<{ id: string }>(`/v2/accounts/${accountId}/stakeholders/${stakeholderId}`, "PATCH", {
     name: params.name,
     email: params.email,
     kyc: { pan: params.panNumber },

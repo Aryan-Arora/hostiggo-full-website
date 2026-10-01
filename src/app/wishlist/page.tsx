@@ -739,7 +739,8 @@ export default function WishlistPage() {
           </h1>
         </div>
 
-        {/* Controls row */}
+        {/* Controls row -- only meaningful with an account */}
+        {userId && (
         <div className="flex items-center gap-3 mb-8">
           {/* Group dropdown */}
           <GroupDropdown
@@ -785,6 +786,7 @@ export default function WishlistPage() {
             )}
           </div>
         </div>
+        )}
 
         {/* Cards section */}
         {!isLoading && !userId ? (

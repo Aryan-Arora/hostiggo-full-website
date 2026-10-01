@@ -15,6 +15,7 @@ import {
   setStoredUserId,
   setStoredSession,
   clearStoredAuth,
+  getBearerToken,
   type CurrentUser,
 } from '@/lib/api';
 import { supabase } from '@/lib/supabase';
@@ -44,6 +45,58 @@ interface AuthActions {
 
 const AuthContext = createContext<(AuthState & AuthActions) | undefined>(undefined);
 
+// Every same-origin /api/* call carries the caller's Bearer token, whether it
+// goes through api.ts's request() or a component's own fetch(). Routes derive
+// identity from that token (src/lib/auth-server.ts), so a call site that
+// forgot the header would otherwise just 401. A 401 gets one silent session
+// refresh + retry, so an access token that expired while the tab sat idle
+// doesn't surface as "Please sign in again" mid-task.
+let apiFetchInstalled = false;
+const PROXIED_API_PATHS = ['/api/search', '/api/locations'];
+function installApiFetch() {
+  if (apiFetchInstalled || typeof window === 'undefined') return;
+  apiFetchInstalled = true;
+  const nativeFetch = window.fetch.bind(window);
+
+  const isOwnApi = (input: RequestInfo | URL) => {
+    const raw = typeof input === 'string' ? input : input instanceof URL ? input.href : input.url;
+    try {
+      const url = new URL(raw, window.location.origin);
+      // /api/search and /api/locations are rewritten to the external search
+      // service (next.config.js) -- public data, and the session token must
+      // never be forwarded off-platform.
+      if (PROXIED_API_PATHS.some((p) => url.pathname === p || url.pathname.startsWith(`${p}/`))) {
+        return false;
+      }
+      return url.origin === window.location.origin && url.pathname.startsWith('/api/');
+    } catch {
+      return false;
+    }
+  };
+
+  const withToken = (init: RequestInit | undefined, token: string | null): RequestInit => {
+    const headers = new Headers(init?.headers);
+    if (token && !headers.has('Authorization')) headers.set('Authorization', `Bearer ${token}`);
+    return { ...init, headers };
+  };
+
+  window.fetch = async (input: RequestInfo | URL, init?: RequestInit) => {
+    if (!isOwnApi(input) || input instanceof Request) return nativeFetch(input, init);
+    const explicitAuth = new Headers(init?.headers).has('Authorization');
+    const token = explicitAuth ? null : await getBearerToken();
+    const res = await nativeFetch(input, withToken(init, token));
+    if (res.status !== 401 || !token || explicitAuth) return res;
+    // A FormData/stream body can only be sent once; JSON strings are safe to resend.
+    if (init?.body && typeof init.body !== 'string') return res;
+    const { data } = await supabase.auth.refreshSession().catch(() => ({ data: null }));
+    const fresh = data?.session?.access_token;
+    if (!fresh || fresh === token) return res;
+    setStoredSession(fresh, data?.session?.refresh_token);
+    return nativeFetch(input, withToken(init, fresh));
+  };
+}
+installApiFetch();
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const router = useRouter();
   const [user, setUser] = useState<CurrentUser | null>(null);
@@ -60,26 +113,41 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  // Resolve the stored session on mount.
+  // Resolve the session on mount. The real Supabase session is the only
+  // thing that counts as "signed in" -- a bare user id in localStorage (which
+  // anyone can type into devtools) used to be enough for the UI to treat the
+  // visitor as that user. Every sign-in flow (Google, email/phone OTP,
+  // dev demo host) establishes a Supabase session, so a stored id
+  // with no session behind it is stale and gets cleared.
   useEffect(() => {
     let mounted = true;
-    const stored = getStoredUserId();
-    if (!stored) {
-      setLoading(false);
-    } else {
-      setUserId(stored);
-      loadUser(stored).finally(() => {
-        if (mounted) setLoading(false);
-      });
-    }
+    (async () => {
+      let sessionUserId: string | null = null;
+      try {
+        const { data } = await supabase.auth.getSession();
+        sessionUserId = data?.session?.user?.id ?? null;
+      } catch {
+        sessionUserId = null;
+      }
+      if (!mounted) return;
+      if (!sessionUserId) {
+        if (getStoredUserId()) clearStoredAuth();
+        setLoading(false);
+        return;
+      }
+      if (getStoredUserId() !== sessionUserId) setStoredUserId(sessionUserId);
+      setUserId(sessionUserId);
+      await loadUser(sessionUserId);
+      if (mounted) setLoading(false);
+    })();
     return () => {
       mounted = false;
     };
   }, [loadUser]);
 
   // Google OAuth, email OTP and phone OTP all now establish a real Supabase
-  // Auth session client-side -- OTP/password verify happens server-side
-  // (POST /api/auth/otp, /api/auth/password), so OTPPageContent.tsx and
+  // Auth session client-side -- OTP verify happens server-side
+  // (POST /api/auth/otp), so OTPPageContent.tsx and
   // signin/page.tsx explicitly call supabase.auth.setSession() with the
   // tokens that route returns, right after verifying. Without that, this
   // client never learns the session exists and autoRefreshToken has
@@ -91,11 +159,17 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     const {
       data: { subscription },
-    } = supabase.auth.onAuthStateChange((event) => {
+    } = supabase.auth.onAuthStateChange((event, session) => {
       if (event === 'SIGNED_OUT') {
         clearStoredAuth();
         setUser(null);
         setUserId(null);
+        return;
+      }
+      // Keep the fallback token copy in step with background refreshes, so
+      // nothing ever sends a token that expired an hour ago.
+      if ((event === 'TOKEN_REFRESHED' || event === 'SIGNED_IN') && session?.access_token) {
+        setStoredSession(session.access_token, session.refresh_token);
       }
     });
     return () => subscription.unsubscribe();

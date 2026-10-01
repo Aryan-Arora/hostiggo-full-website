@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import * as discountService from '@/lib/services/discounts';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
@@ -31,12 +32,11 @@ export async function POST(request: NextRequest, props: { params: Promise<{ list
     }
 
     const body = await request.json();
-    const { discount_type, percent, userId } = body;
+    const { discount_type, percent } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     if (!discount_type || percent === undefined) {
       return NextResponse.json(

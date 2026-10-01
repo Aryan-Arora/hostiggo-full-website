@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createImportJob, runImportWorker } from "@/lib/services/aiLister";
 
+import { requireUserId } from "@/lib/auth-server";
+
 export const dynamic = "force-dynamic";
 
 // Creates an import job for one source URL and kicks off processing. Real
@@ -8,6 +10,9 @@ export const dynamic = "force-dynamic";
 // deployed on Railway) -- see src/lib/services/aiLister.ts.
 export async function POST(req: NextRequest) {
   try {
+    // Calls a paid upstream service / writes to storage -- hosts only.
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
     const body = await req.json();
     const url = String(body?.url ?? "").trim();
     if (!url) {

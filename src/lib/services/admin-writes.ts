@@ -1,4 +1,5 @@
 import { supabaseAdmin } from "../supabase-admin";
+import { todayInIndia } from "@/lib/booking-config";
 import { SCHEMA } from "../schema.constants";
 import { canonicalPlaceName } from "../destinationAliases";
 import { calculateBookingInvoice } from "../billing/invoice";
@@ -779,6 +780,8 @@ async function notifyBookingConfirmed(
   grandTotalPaise: number,
   paymentReceived: boolean,
 ) {
+  console.log(`[notifyBookingConfirmed] Starting notifications for booking ${booking.booking_id}`);
+  
   const { notify, notifyWhatsApp, hostUserId, resolveUserPhone } = await import("./notifications");
   const { data: listing } = await supabaseAdmin
     .from("listings")
@@ -786,7 +789,14 @@ async function notifyBookingConfirmed(
     .eq("listing_id", booking.listing_id)
     .maybeSingle();
   const title = listing?.title ?? "your stay";
-  const metadata = { bookingId: booking.booking_id, listingId: booking.listing_id };
+  // Same keys the DB booking trigger writes, so notify() can merge into its row.
+  const metadata = {
+    booking_id: booking.booking_id,
+    listing_id: booking.listing_id,
+    property_id: booking.listing_id,
+    start_date: booking.start_date,
+    end_date: booking.end_date,
+  };
   const paymentText = paymentReceived
     ? ` Paid ₹${(grandTotalPaise / 100).toLocaleString("en-IN")}.`
     : " Payment is currently disabled.";
@@ -804,19 +814,30 @@ async function notifyBookingConfirmed(
     .select("name, phone")
     .eq("user_id", booking.user_id)
     .maybeSingle();
+  
+  console.log(`[notifyBookingConfirmed] Guest data:`, { name: guest?.name, phone: guest?.phone });
+  
   const guestPhone = await resolveUserPhone(booking.user_id, guest?.phone);
+  
+  console.log(`[notifyBookingConfirmed] Resolved guest phone: ${guestPhone}`);
+  
   await notify({
     userId: booking.user_id,
-    type: "bookings",
+    type: "booking_guest",
+    category: "bookings",
+    templateId: "booking_confirmed_guest",
     title: "Booking confirmed",
     message: `Your booking at ${title} (${checkIn} to ${checkOut}) is confirmed.${paymentText}`,
-    metadata,
+    metadata: { ...metadata, role: "guest" },
   });
+  
+  console.log(`[notifyBookingConfirmed] Sending guest WhatsApp notification`);
+  
   await notifyWhatsApp({
     userId: booking.user_id,
     to: guestPhone,
     template: "booking_confirmation_guest",
-    type: "bookings",
+    category: "bookings",
     variables: {
       "1": guest?.name ?? "Guest",
       "2": title,
@@ -826,26 +847,40 @@ async function notifyBookingConfirmed(
       "6": String(booking.booking_id),
     },
   });
+  
   const hostUser = await hostUserId(booking.host_uuid);
+  console.log(`[notifyBookingConfirmed] Resolved host user_id: ${hostUser}`);
+  
   if (hostUser) {
     const { data: host } = await supabaseAdmin
       .from("users")
       .select("name, phone")
       .eq("user_id", hostUser)
       .maybeSingle();
+    
+    console.log(`[notifyBookingConfirmed] Host data:`, { name: host?.name, phone: host?.phone });
+    
     const hostPhone = await resolveUserPhone(hostUser, host?.phone);
+    
+    console.log(`[notifyBookingConfirmed] Resolved host phone: ${hostPhone}`);
+    
     await notify({
       userId: hostUser,
-      type: "bookings",
+      type: "booking_host",
+      category: "bookings",
+      templateId: "booking_received_host",
       title: "New booking",
       message: `${title} was booked for ${checkIn} to ${checkOut} by ${guest?.name ?? "a guest"}.`,
-      metadata,
+      metadata: { ...metadata, role: "host" },
     });
+    
+    console.log(`[notifyBookingConfirmed] Sending host WhatsApp notification`);
+    
     await notifyWhatsApp({
       userId: hostUser,
       to: hostPhone,
       template: "booking_received_host",
-      type: "bookings",
+      category: "bookings",
       variables: {
         "1": host?.name ?? "Host",
         "2": title,
@@ -857,6 +892,8 @@ async function notifyBookingConfirmed(
       },
     });
   }
+  
+  console.log(`[notifyBookingConfirmed] Completed notifications for booking ${booking.booking_id}`);
 }
 
 async function createHostTransferForBooking(
@@ -986,30 +1023,77 @@ export async function cancelBooking(
     }
   }
 
+  // Tell both sides, wherever they are signed in (app + website).
+  try {
+    const { notify, hostUserId } = await import("./notifications");
+    const { data: row } = await supabaseAdmin
+      .from("bookings")
+      .select("host_uuid")
+      .eq("booking_id", bookingId)
+      .maybeSingle();
+    const hostUser = row?.host_uuid ? await hostUserId(row.host_uuid) : null;
+    const cancelledByHost = hostUser != null && hostUser === requestingUserId && requestingUserId !== booking.user_id;
+    const metadata = { booking_id: bookingId, listing_id: booking.listing_id };
+    await notify({
+      userId: booking.user_id,
+      type: "booking_guest",
+      category: "bookings",
+      templateId: "booking_cancelled_guest",
+      title: cancelledByHost ? "Booking cancelled by host" : "Booking cancelled",
+      message: `Booking #${bookingId} was cancelled.`,
+      metadata: { ...metadata, role: "guest" },
+    });
+    if (hostUser && hostUser !== booking.user_id) {
+      await notify({
+        userId: hostUser,
+        type: "booking_host",
+        category: "bookings",
+        templateId: "booking_cancelled_host",
+        title: "Booking cancelled",
+        message: `Booking #${bookingId} was cancelled${cancelledByHost ? " by you" : " by the guest"}.`,
+        metadata: { ...metadata, role: "host" },
+      });
+    }
+  } catch (notifyErr) {
+    console.error("[cancelBooking] notification failed:", notifyErr);
+  }
+
   return data;
 }
 
 // ── Reviews ──────────────────────────────────────────────────────────────────
+export class ReviewNotAllowedError extends Error {}
+
 export async function createReview(input: {
   listingId: number;
   userId: string;
   rating: number;
   comment?: string | null;
 }) {
-  // Only allow reviews after a confirmed stay has ended.
-  const today = new Date().toISOString().slice(0, 10);
-  const { data: eligible, error: eligErr } = await supabaseAdmin
+  // Only verified guests review: a confirmed stay at this listing that has
+  // ended, and at most one review per completed stay -- so ratings can't be
+  // stuffed by the host's friends or by one guest reviewing repeatedly.
+  const today = todayInIndia();
+  const { count: completedStays, error: eligErr } = await supabaseAdmin
     .from("bookings")
-    .select("booking_id")
+    .select("booking_id", { count: "exact", head: true })
     .eq("listing_id", input.listingId)
     .eq("user_id", input.userId)
     .eq("status_id", 2) // CONFIRMED
-    .lt("end_date", today) // stay has ended
-    .limit(1)
-    .maybeSingle();
+    .lte("end_date", today); // checked out
   if (eligErr) throw eligErr;
-  if (!eligible)
-    throw new Error("You can only review a listing after completing your stay.");
+  if (!completedStays) {
+    throw new ReviewNotAllowedError("You can review a stay once you've checked out.");
+  }
+  const { count: existingReviews, error: countErr } = await supabaseAdmin
+    .from("review")
+    .select("review_id", { count: "exact", head: true })
+    .eq("listing_id", input.listingId)
+    .eq("user_id", input.userId);
+  if (countErr) throw countErr;
+  if ((existingReviews ?? 0) >= completedStays) {
+    throw new ReviewNotAllowedError("You've already reviewed this stay.");
+  }
 
   const { data, error } = await supabaseAdmin
     .from("review")

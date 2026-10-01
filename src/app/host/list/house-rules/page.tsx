@@ -1,6 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
+import { formatTime12h } from '@/lib/format';
+
+// Half-hourly slots, stored as HH:MM (what the listings/house-rules columns expect).
+const TIME_SLOTS = Array.from({ length: 48 }, (_, i) => {
+  const h = String(Math.floor(i / 2)).padStart(2, '0');
+  return `${h}:${i % 2 ? '30' : '00'}`;
+});
+const normalizeTime = (v: string | undefined, fallback: string) => {
+  const m = /^(\d{1,2}):(\d{2})/.exec(v ?? '');
+  if (!m) return fallback;
+  const slot = `${m[1].padStart(2, '0')}:${m[2]}`;
+  return TIME_SLOTS.includes(slot) ? slot : fallback;
+};
 import { Cigarette, PawPrint, PartyPopper, Clock } from 'lucide-react';
 import WizardShell from '../_components/WizardShell';
 import { cn } from '@/lib/utils';
@@ -28,8 +41,8 @@ function Checkbox({ on, onClick }: { on: boolean; onClick: () => void }) {
 export default function HouseRulesPage() {
   const { draft, update } = useListingDraft();
 
-  const [checkInTime, setCheckInTime] = useState(draft.houseRules?.check_in_time || '');
-  const [checkOutTime, setCheckOutTime] = useState(draft.houseRules?.check_out_time || '');
+  const [checkInTime, setCheckInTime] = useState(() => normalizeTime(draft.houseRules?.check_in_time, '14:00'));
+  const [checkOutTime, setCheckOutTime] = useState(() => normalizeTime(draft.houseRules?.check_out_time, '11:00'));
 
   const [rules, setRules] = useState({
     smoking: draft.houseRules?.smoking_allowed ?? false,
@@ -52,6 +65,12 @@ export default function HouseRulesPage() {
       },
     });
   };
+
+  // Persist the defaults too, so a host who keeps 2 PM / 11 AM still saves them.
+  useEffect(() => {
+    handleTimeChange('check_in', checkInTime);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleTimeChange = (type: 'check_in' | 'check_out', val: string) => {
     if (type === 'check_in') setCheckInTime(val);
@@ -79,22 +98,32 @@ export default function HouseRulesPage() {
         
         {/* Check-in / Check-out time */}
         <div className="space-y-4">
-          <h3 className="text-[13px] font-semibold text-gray-800">Check-in , Check-out time</h3>
-          <div className="flex gap-4">
-            <input
-              type="text"
-              placeholder="check-in time"
-              value={checkInTime}
-              onChange={(e) => handleTimeChange('check_in', e.target.value)}
-              className="w-full max-w-[200px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-figma-navy"
-            />
-            <input
-              type="text"
-              placeholder="check-out time"
-              value={checkOutTime}
-              onChange={(e) => handleTimeChange('check_out', e.target.value)}
-              className="w-full max-w-[200px] border border-gray-200 rounded-lg px-4 py-2.5 text-sm text-gray-900 placeholder:text-gray-400 focus:outline-none focus:ring-1 focus:ring-figma-navy"
-            />
+          <h3 className="text-[13px] font-semibold text-gray-800">Check-in and check-out time</h3>
+          <div className="flex flex-wrap gap-4">
+            <label className="flex flex-col gap-1.5 text-[12px] font-medium text-gray-500">
+              Check-in from
+              <select
+                value={checkInTime}
+                onChange={(e) => handleTimeChange('check_in', e.target.value)}
+                className="w-[180px] border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-figma-navy"
+              >
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>{formatTime12h(t)}</option>
+                ))}
+              </select>
+            </label>
+            <label className="flex flex-col gap-1.5 text-[12px] font-medium text-gray-500">
+              Check-out by
+              <select
+                value={checkOutTime}
+                onChange={(e) => handleTimeChange('check_out', e.target.value)}
+                className="w-[180px] border border-gray-200 rounded-lg px-3 py-2.5 text-sm text-gray-900 bg-white focus:outline-none focus:ring-1 focus:ring-figma-navy"
+              >
+                {TIME_SLOTS.map((t) => (
+                  <option key={t} value={t}>{formatTime12h(t)}</option>
+                ))}
+              </select>
+            </label>
           </div>
         </div>
 
