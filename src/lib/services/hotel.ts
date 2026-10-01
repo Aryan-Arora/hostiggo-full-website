@@ -269,8 +269,17 @@ export const HotelServiceApi = {
     if (district) {
       const alias = resolveDestinationAlias(district);
       if (alias) {
+        const typedName = district;
         state = alias.state ?? state;
         district = alias.district ?? null;
+        // A renamed city ("Gurgaon" -> "Gurugram"): search both spellings, so
+        // a listing still filed under the old name isn't lost.
+        if (district && district.toLowerCase() !== typedName.toLowerCase()) {
+          return [
+            { state, district },
+            { state, district: typedName },
+          ];
+        }
       }
     }
 
