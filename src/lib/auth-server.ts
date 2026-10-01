@@ -1,8 +1,13 @@
 import "server-only";
-import { NextRequest } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { supabase } from "@/lib/supabase";
 
 export class UnauthorizedError extends Error {}
+
+const bearerToken = (req: NextRequest): string | null => {
+  const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
+  return header?.startsWith("Bearer ") ? header.slice(7).trim() || null : null;
+};
 
 /**
  * Verifies the caller's identity from the `Authorization: Bearer <token>`
@@ -16,8 +21,7 @@ export class UnauthorizedError extends Error {}
  * by editing localStorage or crafting a raw request.
  */
 export async function getAuthenticatedUserId(req: NextRequest): Promise<string> {
-  const header = req.headers.get("authorization") ?? req.headers.get("Authorization");
-  const token = header?.startsWith("Bearer ") ? header.slice(7).trim() : null;
+  const token = bearerToken(req);
   if (!token) {
     throw new UnauthorizedError("Missing or malformed Authorization header.");
   }
@@ -27,4 +31,60 @@ export async function getAuthenticatedUserId(req: NextRequest): Promise<string> 
     throw new UnauthorizedError("Invalid or expired session.");
   }
   return data.user.id;
+}
+
+export const unauthorizedResponse = () =>
+  NextResponse.json({ error: "Please sign in again." }, { status: 401 });
+
+export const forbiddenResponse = (message = "You don't have access to this.") =>
+  NextResponse.json({ error: message }, { status: 403 });
+
+/**
+ * The default for every non-public route: returns the verified user id, or a
+ * ready-to-return 401 response.
+ *
+ *   const userId = await requireUserId(req);
+ *   if (userId instanceof NextResponse) return userId;
+ */
+export async function requireUserId(req: NextRequest): Promise<string | NextResponse> {
+  try {
+    return await getAuthenticatedUserId(req);
+  } catch (err) {
+    if (err instanceof UnauthorizedError) return unauthorizedResponse();
+    throw err;
+  }
+}
+
+/**
+ * For public routes that personalise when signed in (e.g. "is this listing
+ * wishlisted"). A missing or invalid token is simply "anonymous", never an
+ * error.
+ */
+export async function optionalUserId(req: NextRequest): Promise<string | null> {
+  if (!bearerToken(req)) return null;
+  try {
+    return await getAuthenticatedUserId(req);
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Parses a JSON request body. Malformed JSON (or a non-object body) is a
+ * client error -- it returns a 400 instead of letting the parser's own
+ * message escape as a 500.
+ *
+ *   const body = await readJsonBody(req);
+ *   if (body instanceof NextResponse) return body;
+ */
+export async function readJsonBody(
+  req: NextRequest,
+): Promise<Record<string, any> | NextResponse> {
+  try {
+    const body = await req.json();
+    if (body && typeof body === "object" && !Array.isArray(body)) return body;
+  } catch {
+    // fall through
+  }
+  return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
 }

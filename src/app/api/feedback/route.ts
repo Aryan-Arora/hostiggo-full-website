@@ -1,12 +1,38 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createFeedback } from "@/lib/services/admin-writes";
+import { optionalUserId, readJsonBody } from "@/lib/auth-server";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { userId, type, description, category, rating, comment } = body ?? {};
+    const limited = rateLimit(`feedback:${clientIp(req)}`, 5, 10 * 60_000);
+    if (limited) return limited;
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
+    // Feedback may be anonymous; when signed in it's attributed to the
+    // verified user, never to a client-supplied id.
+    const userId = await optionalUserId(req);
+    const { type, description, category, rating, comment } = body;
+    // Postgres enums (feedback_type / issue_category) -- reject anything else
+    // up front instead of surfacing a database error.
+    const TYPES = new Set(["report_issue", "suggest_improvement", "share_experience"]);
+    const CATEGORIES = new Set([
+      "bookings",
+      "payments_payouts",
+      "referral_program",
+      "listing_management",
+      "account_security",
+      "app_performance",
+      "others",
+    ]);
+    if (!TYPES.has(String(type))) {
+      return NextResponse.json({ error: "Unknown feedback type." }, { status: 400 });
+    }
+    if (category != null && !CATEGORIES.has(String(category))) {
+      return NextResponse.json({ error: "Unknown category." }, { status: 400 });
+    }
     if (!type || !description?.trim()) {
       return NextResponse.json(
         { error: "type and description are required" },
@@ -28,16 +54,16 @@ export async function POST(req: NextRequest) {
       );
     }
     const data = await createFeedback({
-      userId: userId ?? null,
+      userId,
       type: String(type),
       description: String(description),
       category: category ?? null,
       rating: numericRating,
-      comment: comment ?? null,
+      comment: comment ? String(comment).slice(0, 2000) : null,
     });
     return NextResponse.json({ data });
   } catch (err: any) {
     console.error("[/api/feedback] error:", err?.message, err?.code);
-    return NextResponse.json({ error: err?.message || "Request failed" }, { status: 500 });
+    return NextResponse.json({ error: "We couldn't send that. Please try again." }, { status: 500 });
   }
 }

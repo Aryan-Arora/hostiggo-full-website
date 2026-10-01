@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { passwordProblem } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
@@ -17,13 +18,11 @@ export const dynamic = "force-dynamic";
 export async function POST(req: NextRequest) {
   try {
     const userId = await getAuthenticatedUserId(req);
-    const { newPassword } = await req.json();
-
-    if (typeof newPassword !== "string" || newPassword.length < 8) {
-      return NextResponse.json(
-        { error: "Password must be at least 8 characters" },
-        { status: 400 },
-      );
+    const body = await req.json().catch(() => null);
+    const newPassword = body?.newPassword;
+    const problem = typeof newPassword === "string" ? passwordProblem(newPassword) : "Enter a password.";
+    if (problem) {
+      return NextResponse.json({ error: problem }, { status: 400 });
     }
 
     const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {

@@ -1,6 +1,13 @@
 import type { AmenityItem, Host, Property, Review, SearchFilters } from "@/types";
 import { supabase } from "@/lib/supabase";
 import { toISODate } from "@/lib/utils";
+import type { NotificationRow } from "@/lib/notificationRules";
+
+/** notification_preferences row -- shared with the mobile app. */
+export type NotificationPreferences = {
+  channels: { in_app: boolean; push: boolean; email: boolean; whatsapp: boolean; sms: boolean };
+  categories: { bookings: boolean; account: boolean; marketing: boolean };
+};
 
 const FALLBACK_IMAGE = "/placeholder.svg";
 
@@ -45,13 +52,13 @@ export async function getBearerToken(): Promise<string | null> {
 }
 
 async function request<T>(path: string, init?: RequestInit): Promise<T> {
-  const token = await getBearerToken();
+  // The Bearer token (and a one-shot refresh + retry on 401) is attached by
+  // the /api fetch wrapper installed in src/context/AuthContext.tsx.
   const res = await fetch(path, {
     ...init,
     headers: {
       // FormData (file uploads) needs the browser to set its own multipart boundary.
       ...(init?.body instanceof FormData ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...(init?.headers ?? {}),
     },
   });
@@ -111,7 +118,8 @@ const buildReviews = (row: any): Review[] => {
   return reviews.map((review: any) => ({
     id: String(review.review_id ?? review.id ?? crypto.randomUUID()),
     userName: review.users?.name ?? review.user_name ?? "Guest",
-    userAvatar: review.user_avatar ?? "https://i.pravatar.cc/150",
+    // No stock-photo fallback: a random face next to a real review reads as fake.
+    userAvatar: review.user_avatar ?? "",
     rating: Number(review.rating ?? 0),
     reviewText: review.comment ?? review.reviewText ?? "",
     reviewDate: review.reviewed_at ?? review.created_at ?? "",
@@ -125,7 +133,7 @@ const buildReviews = (row: any): Review[] => {
 const buildHost = (row: any): Host => ({
   id: String(row?.host_uuid ?? row?.host?.id ?? ""),
   name: row?.host?.name ?? "Host",
-  avatar: row?.host?.photo ?? "https://i.pravatar.cc/150",
+  avatar: row?.host?.photo ?? "",
   rating: Number(row?.host?.rating ?? 0),
   tripsHosted: Number(row?.host?.tripsHosted ?? 0),
   joinDate: row?.host?.joinDate ?? "",
@@ -348,7 +356,20 @@ const isUuid = (value?: string) =>
   Boolean(value && /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value));
 
 export const api = {
-  notifications: () => request<any[]>("/api/notifications"),
+  notifications: () => request<NotificationRow[]>("/api/notifications"),
+  markNotificationsRead: (ids: number[]) =>
+    request<{ ok: true }>("/api/notifications", { method: "PATCH", body: JSON.stringify({ ids }) }),
+  markAllNotificationsRead: () =>
+    request<{ ok: true }>("/api/notifications", { method: "PATCH", body: JSON.stringify({ all: true }) }),
+  notificationPreferences: () => request<NotificationPreferences>("/api/notification-preferences"),
+  updateNotificationPreferences: (patch: {
+    channels?: Partial<NotificationPreferences["channels"]>;
+    categories?: Partial<NotificationPreferences["categories"]>;
+  }) =>
+    request<NotificationPreferences>("/api/notification-preferences", {
+      method: "POST",
+      body: JSON.stringify(patch),
+    }),
   getUser: (userId: string) =>
     request<CurrentUser | null>(`/api/users?userId=${encodeURIComponent(userId)}`),
   hotels: () => request<any[]>("/api/hotels"),
@@ -643,11 +664,14 @@ export const api = {
       endDate?: string | null;
       totalGuests?: number;
       amenities?: number[];
+      sort?: string;
     },
   ) => {
     const payload = {
       cursor,
       pageSize,
+      // Sorting happens server-side over every match (not just the loaded page).
+      sort: extra?.sort ?? "recommended",
       filters: {
         startDate: extra?.startDate ?? null,
         endDate: extra?.endDate ?? null,
@@ -663,6 +687,12 @@ export const api = {
         ratings: filters.guestRating != null ? [filters.guestRating] : [],
         amenities: extra?.amenities ?? ([] as number[]),
         roomTypes: filters.propertyTypes,
+        stayTypes: filters.stayTypes,
+        freeCancellation: filters.freeCancellation || undefined,
+        breakfast: filters.breakfast || undefined,
+        wifi: filters.wifi || undefined,
+        parking: filters.parking || undefined,
+        ac: filters.ac || undefined,
       },
     };
     // Not routed through request<T>() -- that helper unwraps a `{ data: T }`

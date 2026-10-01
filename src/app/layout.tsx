@@ -4,7 +4,7 @@ import './globals.css';
 import { AuthProvider } from '@/context/AuthContext';
 import { ListingFilterProvider } from '@/context/ListingFilterContext';
 import { Toaster } from 'sonner';
-import NotificationListener from '@/components/features/NotificationListener';
+import { NotificationProvider } from '@/context/NotificationContext';
 // import { Analytics } from '@vercel/analytics/next';
 
 // Figma "Website Guest UI/UX" uses Poppins (Regular/Medium/SemiBold/Bold)
@@ -34,8 +34,7 @@ export default function RootLayout({
         <AuthProvider>
           <ListingFilterProvider>
             <Toaster position="top-center" richColors closeButton />
-            <NotificationListener />
-            {children}
+            <NotificationProvider>{children}</NotificationProvider>
           </ListingFilterProvider>
         </AuthProvider>
         {/* <Analytics /> */}

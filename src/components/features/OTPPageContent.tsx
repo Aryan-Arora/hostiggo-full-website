@@ -5,7 +5,7 @@ import Image from 'next/image';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { ArrowLeft } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
-import { cn } from '@/lib/utils';
+import { cn, safeRedirect } from '@/lib/utils';
 import {
   api,
   AUTH_PHONE_KEY,
@@ -29,7 +29,7 @@ export default function OTPPageContent() {
 
   const mode = (searchParams?.get('mode') as 'phone' | 'email') ?? 'phone';
   const value = searchParams?.get('value') ?? '83183 XXXXX';
-  const redirect = searchParams?.get('redirect') || '/';
+  const redirect = safeRedirect(searchParams?.get('redirect'), '/');
   // Set by the sign-in page's password flow: a new email has no account
   // yet (create-password) or an existing user forgot their password
   // (reset-password) -- either way, once the OTP proves they own this

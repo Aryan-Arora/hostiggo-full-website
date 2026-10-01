@@ -56,6 +56,18 @@ export const wishlistAPI = {
 
     let categoryId = category_id;
 
+    if (categoryId) {
+      // A list id from the client must be one of this user's own lists.
+      const { data: owned, error: ownErr } = await supabase
+        .from("categories")
+        .select("id")
+        .eq("id", categoryId)
+        .eq("user_id", user_id)
+        .maybeSingle();
+      if (ownErr) throw ownErr;
+      if (!owned) throw new Error("That list doesn't exist.");
+    }
+
     if (!categoryId) {
       const { data: existing, error: findErr } = await supabase
         .from("categories")

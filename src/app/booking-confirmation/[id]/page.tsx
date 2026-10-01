@@ -1,54 +1,90 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Image from 'next/image';
+import Link from 'next/link';
 import { useParams, useRouter } from 'next/navigation';
 import {
-  CheckCircle2,
-  MapPin,
-  Calendar,
-  Users,
-  Receipt,
-  Loader2,
-  ChevronLeft,
-  Share2,
-  Heart,
-  Camera,
-  ArrowRight,
-  Moon,
-  Baby,
-  Wifi,
-  BookOpen,
-  Tv,
-  Waves,
-  Car,
-  Wind,
-  Shirt,
-  Ban,
-  PawPrint,
-  CreditCard,
   AlertTriangle,
-  XCircle,
-  FileText,
-  Briefcase,
-  Gamepad2,
+  ArrowRight,
+  BadgeCheck,
+  CalendarPlus,
   Check,
+  CheckCircle2,
+  Clock,
+  CreditCard,
+  Loader2,
+  MapPin,
+  MessageCircle,
+  Moon,
+  Navigation,
+  Phone,
+  Receipt,
+  Share2,
+  Users,
+  XCircle,
 } from 'lucide-react';
+import { toast } from 'sonner';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import BackButton from '@/components/ui/back-button';
 import { useAuth } from '@/context/AuthContext';
 import { api } from '@/lib/api';
-import { reconstructInvoice } from '@/lib/billing/reconstructInvoice';
-import { toast } from 'sonner';
+import { reconstructInvoice, splitBookingAddons } from '@/lib/billing/reconstructInvoice';
+import {
+  cancellationTimeline,
+  checkInMoment,
+  POLICY_LABELS,
+  REFUND_SCOPE_NOTE,
+  type PolicyName,
+} from '@/lib/billing/policyTimeline';
+import { downloadBookingReceipt, type ReceiptLine } from '@/lib/bookingReceipt';
+import { formatINR, formatStayDate, formatTime12h, plural } from '@/lib/format';
+import { todayInIndia } from '@/lib/booking-config';
 
-interface BookingDetail {
+const STATUS_PENDING = 1;
+const STATUS_CONFIRMED = 2;
+const STATUS_CANCELLED = 3;
+
+type InvoiceLineItem = { label: string; amountPaise: number; gstRate: number; gstAmountPaise: number };
+
+type BookingDetail = {
   booking_id: number;
+  status_id: number | null;
   start_date: string;
   end_date: string;
   nom_guests: number | null;
+  num_adults: number | null;
+  num_children: number | null;
   amount: number | null;
-  addons?: { name: string; price: number; type: string | null }[];
+  amount_paise: number | null;
+  invoice: { lineItems?: InvoiceLineItem[]; grandTotalPaise?: number } | null;
+  invoice_number: string | null;
+  razorpay_payment_id: string | null;
+  paid_at: string | null;
+  booked_at: string | null;
+  host_uuid: string | null;
+  user_id: string | null;
+  refund_status: string | null;
+  refund_amount: number | null;
+  cancelled_at: string | null;
+  addons: { name: string; price: number; type: string | null }[];
+  guest: { name: string | null } | null;
+  host: {
+    userId: string;
+    name: string;
+    photo: string | null;
+    about: string | null;
+    isVerified: boolean;
+    joinedAt: string | null;
+    phone: string | null;
+  } | null;
+  houseRules: {
+    smoking_allowed: boolean | null;
+    pets_allowed: boolean | null;
+    parties_allowed: boolean | null;
+    quiet_hours: boolean | null;
+  } | null;
   property: {
     listing_id: number;
     title: string;
@@ -56,650 +92,630 @@ interface BookingDetail {
     price_weekend: number | null;
     num_bedrooms: number | null;
     num_beds: number | null;
+    num_bathrooms: number | null;
+    num_guests: number | null;
     check_in_time: string | null;
     check_out_time: string | null;
+    address_line1: string | null;
+    address_line2: string | null;
+    landmark: string | null;
+    latitude: number | null;
+    longitude: number | null;
+    cancellation_policy: string | null;
+    strict_partial_refund_percent: number | null;
     locations: { state: string | null; district: string | null } | null;
     listing_media: { media_url: string; is_cover: boolean }[] | null;
+    listing_amenities: { amenities: { name: string } | null }[] | null;
   } | null;
-}
-
-const SAMPLE_CONFIRMATION_BOOKING: BookingDetail = {
-  booking_id: 10429,
-  start_date: '2026-12-25',
-  end_date: '2026-12-27',
-  nom_guests: 2,
-  amount: 8300,
-  addons: [
-    { name: 'Breakfast (2 x 3 days)', price: 400, type: 'breakfast' },
-    { name: 'Rent a car', price: 750, type: 'car' },
-  ],
-  property: {
-    listing_id: 88,
-    title: 'The Great Rooms Of Triply Homestay and services',
-    price_weekday: 2000,
-    price_weekend: 2000,
-    num_bedrooms: 1,
-    num_beds: 1,
-    check_in_time: '01:00 PM',
-    check_out_time: '11:00 AM',
-    locations: { state: 'himachal pradesh', district: 'Manali' },
-    listing_media: [
-      { media_url: '/images/empty-states/confirmation-room.jpg', is_cover: true },
-      { media_url: '/images/empty-states/sample-bedroom.jpg', is_cover: false },
-      { media_url: '/images/empty-states/confirmation-room.jpg', is_cover: false },
-    ],
-  },
 };
 
-function fmtDate(iso: string) {
-  return new Date(iso + 'T00:00:00').toLocaleDateString('en-IN', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
-}
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'signed-out' }
+  | { kind: 'not-found' }
+  | { kind: 'error'; message: string }
+  | { kind: 'ready'; booking: BookingDetail };
 
-function fmtWeekdayDate(iso: string) {
-  const d = new Date(iso + 'T00:00:00');
-  const weekday = d.toLocaleDateString('en-US', { weekday: 'short' });
-  const day = d.getDate();
-  const month = d.toLocaleDateString('en-US', { month: 'short' });
-  return `${weekday}, ${day} ${month}`;
-}
+const card =
+  'w-full max-w-[1076px] mx-auto rounded-[28px] sm:rounded-[36px] bg-white border border-[#E6E6E6] p-6 sm:p-9 mb-6';
+const cardTitle = 'text-[20px] sm:text-[22px] font-semibold text-[#1A1A1A] mb-5';
+
+const titleCase = (s: string) => s.replace(/\b\w/g, (c) => c.toUpperCase());
 
 export default function BookingConfirmationPage() {
   const params = useParams<{ id: string }>();
-  const router = useRouter();
-  const { userId, isAuthenticated } = useAuth();
-  const [booking, setBooking] = useState<BookingDetail | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [isSaved, setIsSaved] = useState(false);
+  const { userId, loading: authLoading } = useAuth();
+  const [state, setState] = useState<LoadState>({ kind: 'loading' });
+  const bookingId = params?.id ?? '';
 
-  const isPreview = params?.id === 'preview' || params?.id === 'sample';
+  const load = useCallback(async () => {
+    if (!/^\d+$/.test(bookingId)) {
+      setState({ kind: 'not-found' });
+      return;
+    }
+    if (!userId) {
+      setState({ kind: 'signed-out' });
+      return;
+    }
+    setState({ kind: 'loading' });
+    try {
+      const data = await api.bookingDetail(bookingId, userId);
+      setState(data ? { kind: 'ready', booking: data } : { kind: 'not-found' });
+    } catch (err) {
+      const message = err instanceof Error ? err.message : '';
+      if (/not found|permission/i.test(message)) setState({ kind: 'not-found' });
+      else setState({ kind: 'error', message: message || "We couldn't load this booking." });
+    }
+  }, [bookingId, userId]);
 
   useEffect(() => {
-    if (isPreview) {
-      setBooking(SAMPLE_CONFIRMATION_BOOKING);
-      setLoading(false);
-      return;
-    }
-
-    if (!params?.id || !isAuthenticated || !userId) {
-      // If user isn't logged in or no ID, fallback to sample in non-production preview
-      setBooking(SAMPLE_CONFIRMATION_BOOKING);
-      setLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    api
-      .bookingDetail(params.id, userId)
-      .then((data) => {
-        if (!cancelled) setBooking(data);
-      })
-      .catch((err) => {
-        if (!cancelled) {
-          console.warn('[booking-confirmation] using fallback sample due to:', err);
-          setBooking(SAMPLE_CONFIRMATION_BOOKING);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [params?.id, isAuthenticated, userId, isPreview]);
-
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-[#FFFEF9] flex items-center justify-center font-['Poppins']">
-        <Loader2 className="w-8 h-8 animate-spin text-[#004772]" />
-      </div>
-    );
-  }
-
-  const effectiveBooking = booking || SAMPLE_CONFIRMATION_BOOKING;
-  const property = effectiveBooking.property;
-  const coverImage =
-    property?.listing_media?.find((m) => m.is_cover)?.media_url ||
-    property?.listing_media?.[0]?.media_url ||
-    '/images/empty-states/confirmation-room.jpg';
-  const secondaryImage1 =
-    property?.listing_media?.[1]?.media_url ||
-    '/images/empty-states/sample-bedroom.jpg';
-  const secondaryImage2 =
-    property?.listing_media?.[2]?.media_url ||
-    coverImage;
-
-  const location = [property?.locations?.district, property?.locations?.state]
-    .filter(Boolean)
-    .join(', ') || 'Manali, himachal pradesh';
-
-  const priceWeekday = property?.price_weekday ?? 2000;
-  const priceWeekend = property?.price_weekend ?? priceWeekday;
-  const addons = effectiveBooking.addons ?? [];
-  const breakfastPrice = addons
-    .filter((a) => a.type?.toLowerCase().includes('breakfast'))
-    .reduce((sum, a) => sum + Number(a.price ?? 0), 400);
-  const otherServicesPrice = addons
-    .filter((a) => !a.type?.toLowerCase().includes('breakfast'))
-    .reduce((sum, a) => sum + Number(a.price ?? 0), 750);
-
-  const { nights: nightDates, invoice } = reconstructInvoice(
-    effectiveBooking.start_date,
-    effectiveBooking.end_date,
-    priceWeekday,
-    priceWeekend,
-    { breakfastPrice, otherServicesPrice },
-  );
-  const nights = Math.max(1, nightDates.length || 2);
-  const grandTotal = effectiveBooking.amount ?? 8300;
-
-  const handleDownloadReceipt = () => {
-    toast.success('Downloading payment receipt...');
-    if (typeof window !== 'undefined') {
-      window.print();
-    }
-  };
-
-  const handleShare = () => {
-    if (navigator.clipboard) {
-      navigator.clipboard.writeText(window.location.href);
-      toast.success('Link copied to clipboard!');
-    }
-  };
+    if (authLoading) return;
+    load();
+  }, [authLoading, load]);
 
   return (
     <div className="min-h-screen bg-[#FBF9F4] flex flex-col font-['Poppins']">
       <Navbar />
-
-      <main className="flex-1 max-w-[1240px] mx-auto w-full px-4 sm:px-8 pt-8 pb-16">
-        {/* Main Card Section with Back Button */}
-        <div className="relative w-full max-w-[1076px] mx-auto mb-8">
-          {/* Back button placed to the left on wide screens, or above on mobile */}
-          <div className="xl:absolute xl:-left-[76px] xl:top-0 mb-4 xl:mb-0">
-            <BackButton />
+      <main className="flex-1 max-w-[1240px] mx-auto w-full px-4 sm:px-8 pt-6 sm:pt-8 pb-16">
+        {state.kind === 'loading' || authLoading ? (
+          <div className="flex min-h-[50vh] items-center justify-center" role="status" aria-label="Loading booking">
+            <Loader2 className="w-8 h-8 animate-spin text-[#004772]" />
           </div>
-
-          {/* Main Card matching Figma Component 316 / Main container */}
-          <div className="w-full rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-6 sm:p-10 font-['Poppins']">
-            {/* Title & Action Row */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-1">
-              <h1 className="text-[24px] sm:text-[30px] font-semibold text-[#1A1A1A] leading-tight font-['Poppins']">
-                {property?.title || 'The Great Rooms Of Triply Homestay and services'}
-              </h1>
-              <div className="flex items-center gap-3 flex-shrink-0">
-                <button
-                  type="button"
-                  onClick={handleShare}
-                  aria-label="Share property"
-                  className="w-10 h-10 rounded-full border border-black/25 bg-white flex items-center justify-center text-black/70 hover:bg-gray-50 transition-colors cursor-pointer shadow-2xs"
-                >
-                  <Share2 className="w-4 h-4" />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setIsSaved(!isSaved)}
-                  aria-label="Save to wishlist"
-                  className="w-10 h-10 rounded-full border border-black/25 bg-white flex items-center justify-center text-black/70 hover:bg-gray-50 transition-colors cursor-pointer shadow-2xs"
-                >
-                  <Heart className={`w-4 h-4 ${isSaved ? 'fill-red-500 text-red-500' : ''}`} />
-                </button>
-              </div>
-            </div>
-
-            {/* Location subtitle */}
-            <p className="text-[16px] sm:text-[18px] text-[#1A1A1A]/70 font-medium font-['Poppins'] mb-6 sm:mb-8">
-              {location}
-            </p>
-
-            {/* Photo Collage Grid */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 mb-8 select-none">
-              {/* Main Hero Photo */}
-              <div className="lg:col-span-7 h-[300px] sm:h-[440px] rounded-[28px] sm:rounded-[32px] overflow-hidden relative shadow-sm">
-                <Image
-                  fill
-                  src={coverImage}
-                  alt="Main property photo"
-                  priority
-                  className="object-cover"
-                  sizes="(max-width: 1024px) 100vw, 620px"
-                />
-              </div>
-
-              {/* Right Two Stacked Photos */}
-              <div className="lg:col-span-5 flex flex-col gap-4 sm:gap-6 h-[300px] sm:h-[440px]">
-                <div className="flex-1 rounded-[22px] sm:rounded-[28px] overflow-hidden relative shadow-sm">
-                  <Image
-                    fill
-                    src={secondaryImage1}
-                    alt="Room detail 1"
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 420px"
-                  />
-                </div>
-                <div className="flex-1 rounded-[22px] sm:rounded-[28px] overflow-hidden relative shadow-sm">
-                  <Image
-                    fill
-                    src={secondaryImage2}
-                    alt="Room detail 2"
-                    className="object-cover"
-                    sizes="(max-width: 1024px) 100vw, 420px"
-                  />
-                  {/* View all photos bottom bar matching Figma */}
-                  <button
-                    type="button"
-                    className="absolute inset-x-0 bottom-0 bg-black/60 backdrop-blur-xs text-white py-3 flex items-center justify-center gap-2 font-medium hover:bg-black/75 transition-colors cursor-pointer text-[14px] sm:text-[15px]"
-                  >
-                    <Camera className="w-4 h-4" />
-                    <span>View all photos</span>
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Confirmation Banner */}
-            <div className="w-full h-[36px] rounded-md border border-[#13B766] flex items-center justify-center text-[#13B766] text-[15px] sm:text-[16px] font-medium italic font-['Poppins'] select-none mb-6">
-              “Your Booking is Confirmed”
-            </div>
-
-            {/* Download Payment Receipt Pill Button */}
-            <button
-              type="button"
-              onClick={handleDownloadReceipt}
-              className="h-[46px] px-8 rounded-full border border-[#C0C0C0] bg-white flex items-center justify-center gap-2.5 text-[#004772] text-[14px] font-semibold hover:bg-gray-50 transition-colors mx-auto cursor-pointer shadow-xs font-['Poppins']"
-            >
-              <span className="text-red-500 font-bold text-[11px] border border-red-500 px-1 py-0.2 rounded-xs">PDF</span>
-              <span>Download Payment Receipt</span>
-            </button>
-          </div>
-        </div>
-
-        {/* 1. Stay Dates Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8">
-          <div className="flex items-center justify-between mb-6">
-            <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] font-['Poppins']">
-              Stay Dates
-            </h2>
-            <button
-              type="button"
-              onClick={() => router.push('/my-memories')}
-              className="h-[34px] px-6 rounded-full border border-[#004772] text-[#004772] text-[14px] font-medium bg-white hover:bg-[#004772]/5 transition-colors cursor-pointer"
-            >
-              Edit
-            </button>
-          </div>
-
-          <div className="flex items-center gap-8 sm:gap-14 flex-wrap">
-            <div>
-              <p className="text-[17px] font-medium text-[#1A1A1A] font-['Poppins']">Check-In</p>
-              <p className="text-[15px] text-[#1A1A1A]/80 font-normal font-['Poppins'] mt-0.5">
-                {fmtWeekdayDate(effectiveBooking.start_date)}
-              </p>
-              <p className="text-[13px] text-[#1A1A1A]/60 font-normal font-['Poppins']">
-                {property?.check_in_time || '01:00 PM'}
-              </p>
-            </div>
-
-            <ArrowRight className="w-5 h-5 text-[#1A1A1A] flex-shrink-0" />
-
-            <div>
-              <p className="text-[17px] font-medium text-[#1A1A1A] font-['Poppins']">Check-Out</p>
-              <p className="text-[15px] text-[#1A1A1A]/80 font-normal font-['Poppins'] mt-0.5">
-                {fmtWeekdayDate(effectiveBooking.end_date)}
-              </p>
-              <p className="text-[13px] text-[#1A1A1A]/60 font-normal font-['Poppins']">
-                {property?.check_out_time || '11:00 AM'}
-              </p>
-            </div>
-          </div>
-
-          <div className="flex items-center gap-2 text-[14px] text-[#1A1A1A]/80 font-medium font-['Poppins'] mt-6">
-            <Moon className="w-4 h-4 text-[#1A1A1A]/70" />
-            <span>{nights} Nights</span>
-          </div>
-        </div>
-
-        {/* 2. Guest Details Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] font-['Poppins']">
-              Guest Details
-            </h2>
-            <button
-              type="button"
-              onClick={() => router.push('/my-memories')}
-              className="h-[34px] px-6 rounded-full border border-[#004772] text-[#004772] text-[14px] font-medium bg-white hover:bg-[#004772]/5 transition-colors cursor-pointer"
-            >
-              Edit
-            </button>
-          </div>
-
-          <p className="text-[16px] font-medium text-[#1A1A1A] mb-3 font-['Poppins']">
-            Main guest - Sanjay kumar
-          </p>
-
-          <div className="flex flex-col gap-2 text-[15px] text-[#1A1A1A]/80 font-normal font-['Poppins']">
-            <div className="flex items-center gap-2.5">
-              <Users className="w-4 h-4 text-black/60" />
-              <span>{effectiveBooking.nom_guests ?? 2} adults</span>
-            </div>
-            <div className="flex items-center gap-2.5">
-              <Baby className="w-4 h-4 text-black/60" />
-              <span>0 children</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 3. Room Details Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8">
-          <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] mb-4 font-['Poppins']">
-            Room Details
-          </h2>
-          <ul className="space-y-2 text-[15px] text-[#1A1A1A]/90 font-normal font-['Poppins']">
-            <li className="flex items-center gap-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1A1A1A]/80" />
-              <span>Private Room in Homestay</span>
-            </li>
-            <li className="flex items-center gap-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1A1A1A]/80" />
-              <span>1 Bedroom, 1 Bathroom</span>
-            </li>
-            <li className="flex items-center gap-2.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#1A1A1A]/80" />
-              <span>Queen size bed</span>
-            </li>
-          </ul>
-        </div>
-
-        {/* 4. Facilities Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8">
-          <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] mb-6 font-['Poppins']">
-            Facilities
-          </h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-y-6 gap-x-4 text-[15px] text-[#1A1A1A]/80 font-medium font-['Poppins']">
-            <div className="flex items-center gap-3">
-              <Wifi className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Free wifi</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <BookOpen className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Personal library</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Tv className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>TV</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Waves className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Swimming Pool</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Car className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Parking</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Wind className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Air conditioner(AC)</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <Shirt className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Washing machine</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 5. Important Rules Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8 font-['Poppins']">
-          <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] mb-6">
-            Important Rules
-          </h2>
-          <div className="space-y-4 text-[15px] text-[#1A1A1A]/80 font-normal">
-            <div className="flex flex-wrap items-center gap-x-12 sm:gap-x-16 gap-y-3">
-              <div className="flex items-center gap-3">
-                <Ban className="w-5 h-5 text-black/70 flex-shrink-0" />
-                <span>No smoking inside room</span>
-              </div>
-              <div className="flex items-center gap-3">
-                <PawPrint className="w-5 h-5 text-black/70 flex-shrink-0" />
-                <span>Pets not allowed</span>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <CreditCard className="w-5 h-5 text-black/70 flex-shrink-0" />
-              <span>Valid government id required during check in</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 6. Payment Information Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8 font-['Poppins']">
-          <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] mb-6">
-            Payment information
-          </h2>
-
-          <div className="space-y-5 text-[15px] text-[#1A1A1A]/80 font-normal">
-            <div className="flex justify-between items-center max-w-[532px]">
-              <span>Room (₹2000 x 3 nights)</span>
-              <span className="font-semibold text-[#1A1A1A]">₹6,000</span>
-            </div>
-
-            <div>
-              <p className="font-semibold text-[#1A1A1A] mb-2.5">Addons</p>
-              <div className="space-y-2.5 max-w-[532px]">
-                <div className="flex justify-between items-center pl-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base leading-none">•</span>
-                    <span>Breakfast( 2 x 3 days )</span>
-                  </div>
-                  <span className="font-semibold text-[#1A1A1A]">₹400</span>
-                </div>
-                <div className="flex justify-between items-center pl-4">
-                  <div className="flex items-center gap-2">
-                    <span className="text-base leading-none">•</span>
-                    <span>Rent a car</span>
-                  </div>
-                  <span className="font-semibold text-[#1A1A1A]">₹750</span>
-                </div>
-              </div>
-            </div>
-
-            <div>
-              <p className="font-semibold text-[#1A1A1A] mb-2.5">Discount</p>
-              <div className="flex justify-between items-center pl-4 max-w-[532px]">
-                <div className="flex items-center gap-2">
-                  <span className="text-base leading-none">•</span>
-                  <span>AXIS 500</span>
-                </div>
-                <span className="font-semibold text-[#1A1A1A]">-₹400</span>
-              </div>
-            </div>
-
-            <div>
-              <p className="font-semibold text-[#1A1A1A] mb-2.5">Taxes</p>
-              <div className="flex justify-between items-center pl-4 max-w-[532px]">
-                <div className="flex items-center gap-2">
-                  <span className="text-base leading-none">•</span>
-                  <span>GST (12%)</span>
-                </div>
-                <span className="font-semibold text-[#1A1A1A]">₹850</span>
-              </div>
-            </div>
-
-            {/* Total Paid Box matching Figma: 532px width, 71px height, rounded-14px */}
-            <div className="w-full max-w-[532px] h-[64px] sm:h-[71px] bg-white rounded-[14px] border border-black/30 px-6 sm:px-7 flex items-center justify-between mt-6 shadow-xs">
-              <span className="text-[17px] font-bold text-[#1A1A1A]">Total Paid</span>
-              <span className="text-[18px] sm:text-[20px] font-bold text-[#1A1A1A]">₹8,300</span>
-            </div>
-          </div>
-        </div>
-
-        {/* 7. Cancellation Rules Card */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8 font-['Poppins']">
-          <h2 className="text-[22px] sm:text-[24px] font-semibold text-[#1A1A1A] mb-6">
-            Cancellation Rules
-          </h2>
-
-          <div className="space-y-3.5 text-[15px] text-[#1A1A1A]/80 font-normal">
-            <div className="flex items-center gap-3">
-              <Check className="w-5 h-5 text-emerald-600 stroke-[2.5] flex-shrink-0" />
-              <span>Free cancellation before 23rd Dec</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <AlertTriangle className="w-5 h-5 text-amber-500 flex-shrink-0" />
-              <span>50% refundable before 24 hours</span>
-            </div>
-            <div className="flex items-center gap-3">
-              <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />
-              <span>Non - refundable after 25th Dec</span>
-            </div>
-          </div>
-
-          {/* Failure to arrive policy box matching Figma: max-w-[858px], white bg, rounded-[14px], border border-black/20 */}
-          <div className="w-full max-w-[858px] bg-white rounded-[14px] border border-black/20 p-5 sm:p-6 mt-6 flex items-center gap-4 sm:gap-5 relative overflow-hidden shadow-xs">
-            <div className="w-[5px] h-[72px] sm:h-[80px] bg-[#BC0024] rounded-r-[14px] flex-shrink-0" />
-            <div className="flex-1">
-              <p className="text-[16px] font-semibold text-[#1A1A1A] mb-1">
-                Failure to arrive policy
-              </p>
-              <p className="text-[13px] sm:text-[14px] text-[#1A1A1A]/70 italic font-light leading-relaxed">
-                In case of a no-show without prior notice, the full booking amount will be charged and the reservation will be cancelled.
-              </p>
-            </div>
-          </div>
-
-          {/* Cancel Booking Link */}
-          <button
-            type="button"
-            onClick={() => router.push(`/host/bookings/cancel?id=${effectiveBooking.booking_id}`)}
-            className="block mx-auto text-[#BC0024] underline font-medium text-[15px] sm:text-[16px] mt-6 hover:opacity-80 transition-opacity cursor-pointer"
-          >
-            Cancel Booking
-          </button>
-        </div>
-
-        {/* 8. Contact Host Card matching Figma Node 221:14171 Component 358 */}
-        <div className="w-full max-w-[1076px] mx-auto rounded-[32px] sm:rounded-[42px] bg-[#F1F1F1] border border-[#E1E1E1] p-8 sm:p-10 mb-8 font-['Poppins']">
-          <h2 className="text-[22px] sm:text-[26px] font-semibold text-[#1A1A1A] mb-8">
-            Contact host
-          </h2>
-
-          <div className="flex flex-col md:flex-row items-center md:items-start gap-8 lg:gap-14">
-            {/* Host Card matching Figma: 336px width, white bg, rounded-[20px] */}
-            <div className="w-full sm:w-[336px] bg-white rounded-[20px] p-6 shadow-sm border border-black/10 flex flex-col flex-shrink-0">
-              {/* Profile info row: avatar on left, details on right */}
-              <div className="flex items-center gap-4">
-                <div className="relative w-[70px] h-[70px] rounded-full overflow-visible flex-shrink-0">
-                  <div className="relative w-full h-full rounded-full overflow-hidden">
-                    <Image
-                      fill
-                      src="/images/empty-states/host-portrait.jpg"
-                      alt="Daksh Basin"
-                      className="object-cover"
-                    />
-                  </div>
-                  {/* Blue verified checkmark badge matching Component 326 */}
-                  <div className="absolute top-0 right-0 w-5 h-5 bg-[#0396EF] rounded-full border-2 border-white flex items-center justify-center shadow-xs">
-                    <Check className="w-3 h-3 text-white stroke-[3]" />
-                  </div>
-                </div>
-
-                <div className="flex-1 min-w-0">
-                  <h3 className="text-[17px] sm:text-[18px] font-semibold text-[#1A1A1A] truncate">
-                    Daksh Basin
-                  </h3>
-                  <p className="text-[12px] sm:text-[13px] text-gray-500 font-normal">
-                    Joined 1 Year ago
-                  </p>
-                  <div className="flex items-center gap-1.5 text-[12px] sm:text-[13px] text-[#1A1A1A] font-medium mt-0.5">
-                    <span>4.8</span>
-                    <span className="text-black text-xs">★</span>
-                    <span className="text-gray-400">•</span>
-                    <span className="text-gray-600">417 reviews</span>
-                  </div>
-                </div>
-              </div>
-
-              {/* Verified Host divider line */}
-              <div className="relative flex items-center justify-center my-4">
-                <div className="border-t border-[#E5E7EB] w-full" />
-                <span className="bg-white px-2.5 text-[10px] text-gray-400 font-medium whitespace-nowrap absolute">
-                  Verified Host
-                </span>
-              </div>
-
-              {/* Response Stats with Green Vertical Indicator */}
-              <div className="flex items-center gap-3 py-1">
-                <div className="w-[4px] h-[36px] bg-[#13B766] rounded-full flex-shrink-0" />
-                <div className="flex justify-between items-center flex-1 text-[12px] sm:text-[13px]">
-                  <div className="space-y-1 text-gray-600">
-                    <p>Response Rate</p>
-                    <p>Avg Response Time</p>
-                  </div>
-                  <div className="space-y-1 text-right font-medium text-[#1A1A1A]">
-                    <p>95%</p>
-                    <p>within 1 hour</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Contact Me Button */}
-              <button
-                type="button"
-                onClick={() => router.push('/chat')}
-                className="w-full h-[48px] rounded-[14px] border border-[#CFD4DC] bg-white text-[16px] font-semibold text-[#1A1A1A] hover:bg-gray-50 transition-colors mt-4 cursor-pointer flex items-center justify-center shadow-2xs"
-              >
-                Contact Me
-              </button>
-            </div>
-
-            {/* Host Bio and Info */}
-            <div className="flex-1 flex flex-col justify-center text-[#1A1A1A] max-w-[620px]">
-              <p className="text-[15px] sm:text-[16px] text-[#1A1A1A]/85 leading-relaxed font-normal">
-                Hey there! As the host of our property, I’m here to make your stay amazing! Whether it’s providing helpful tips, suggesting local spots, or making sure you have everything you need, I’ve got you covered. By the way, I’m currently studying at the University of Delhi, and I absolutely love reading books and exploring adventurous places. Can’t wait to share my knowledge with you!
-              </p>
-
-              {/* Horizontal divider line matching Figma Line 239 */}
-              <div className="w-full border-t border-[#D0D5DD] my-6" />
-
-              <div className="space-y-3.5 text-[15px] sm:text-[16px] text-[#1A1A1A]">
-                <div className="flex items-center gap-3.5">
-                  <Briefcase className="w-5 h-5 text-black/70 flex-shrink-0" />
-                  <span>
-                    <strong className="font-semibold text-[#1A1A1A]">Occupation -</strong>{' '}
-                    <span className="font-normal text-[#1A1A1A]/90">Branding and advertizing agent</span>
-                  </span>
-                </div>
-                <div className="flex items-center gap-3.5">
-                  <Gamepad2 className="w-5 h-5 text-black/70 flex-shrink-0" />
-                  <span>
-                    <strong className="font-semibold text-[#1A1A1A]">Hobbies -</strong>{' '}
-                    <span className="font-normal text-[#1A1A1A]/90">playing video games</span>
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Report an Issue */}
-        <div className="text-center my-12 font-['Poppins']">
-          <button
-            type="button"
-            onClick={() => toast.info('Opening issue report form...')}
-            className="text-[16px] font-semibold text-[#1A1A1A] underline hover:opacity-80 transition-opacity cursor-pointer"
-          >
-            Report an Issue
-          </button>
-          <p className="text-[13px] text-gray-500 mt-1">
-            Let us know if you faced any issue during your stay or with the host.
-          </p>
-        </div>
+        ) : state.kind === 'signed-out' ? (
+          <StatePanel
+            icon={<Receipt className="w-7 h-7 text-[#004772]" />}
+            title="Sign in to see your booking"
+            body="Booking details are only visible to the guest who made the booking and their host."
+            action={{
+              label: 'Sign in',
+              href: `/signin?redirect=${encodeURIComponent(`/booking-confirmation/${bookingId}`)}`,
+            }}
+          />
+        ) : state.kind === 'not-found' ? (
+          <StatePanel
+            icon={<XCircle className="w-7 h-7 text-[#BC0024]" />}
+            title="Booking not found"
+            body="This booking doesn't exist, or it belongs to a different account. Your bookings are always listed under My Trips."
+            action={{ label: 'Go to My Trips', href: '/my-memories' }}
+          />
+        ) : state.kind === 'error' ? (
+          <StatePanel
+            icon={<AlertTriangle className="w-7 h-7 text-amber-500" />}
+            title="We couldn't load this booking"
+            body="Please check your connection and try again. If you just paid, your booking is safe -- it can take a minute to appear."
+            action={{ label: 'Try again', onClick: load }}
+          />
+        ) : (
+          <BookingView booking={state.booking} viewerId={userId} />
+        )}
       </main>
-
       <Footer />
     </div>
+  );
+}
+
+function StatePanel({
+  icon,
+  title,
+  body,
+  action,
+}: {
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+  action: { label: string; href?: string; onClick?: () => void };
+}) {
+  const cls =
+    'inline-flex h-11 items-center justify-center rounded-full bg-[#004772] px-7 text-[14px] font-semibold text-white hover:bg-[#003a5c] transition-colors';
+  return (
+    <div className="mx-auto mt-10 max-w-[520px] rounded-[28px] border border-[#E6E6E6] bg-white p-8 sm:p-10 text-center">
+      <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[#F3F6F8]">{icon}</div>
+      <h1 className="text-[22px] font-semibold text-[#1A1A1A]">{title}</h1>
+      <p className="mt-2 text-[14px] leading-relaxed text-[#1A1A1A]/65">{body}</p>
+      <div className="mt-6">
+        {action.href ? (
+          <Link href={action.href} className={cls}>
+            {action.label}
+          </Link>
+        ) : (
+          <button type="button" onClick={action.onClick} className={cls}>
+            {action.label}
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function BookingView({ booking, viewerId }: { booking: BookingDetail; viewerId: string | null }) {
+  const router = useRouter();
+  const property = booking.property;
+  const status = booking.status_id ?? STATUS_PENDING;
+  const isGuest = booking.user_id === viewerId;
+  const isUpcoming = booking.start_date >= todayInIndia();
+  const reference = booking.invoice_number || `HG-${booking.booking_id}`;
+
+  const photos = useMemo(() => {
+    const media = property?.listing_media ?? [];
+    const cover = media.find((m) => m.is_cover)?.media_url;
+    return [...new Set([cover, ...media.map((m) => m.media_url)].filter(Boolean) as string[])].slice(0, 3);
+  }, [property?.listing_media]);
+
+  const location = [property?.locations?.district, property?.locations?.state]
+    .filter(Boolean)
+    .map((s) => titleCase(String(s)))
+    .join(', ');
+
+  // The exact street address is only for confirmed guests.
+  const fullAddress =
+    status === STATUS_CONFIRMED
+      ? [property?.address_line1, property?.address_line2, property?.landmark, location].filter(Boolean).join(', ')
+      : null;
+  const mapsUrl =
+    status === STATUS_CONFIRMED && property?.latitude != null && property?.longitude != null
+      ? `https://www.google.com/maps/dir/?api=1&destination=${property.latitude},${property.longitude}`
+      : null;
+
+  const adults = booking.num_adults ?? booking.nom_guests ?? 1;
+  const children = booking.num_children ?? 0;
+  const guestsLabel = [plural(adults, 'adult'), children > 0 ? plural(children, 'child', 'children') : null]
+    .filter(Boolean)
+    .join(', ');
+
+  // Payment breakdown: the invoice frozen at payment time when present,
+  // otherwise rebuilt with the same pricing rules the booking was charged by.
+  const { lines, nights, total } = useMemo(() => {
+    const nightDates = reconstructInvoice(
+      booking.start_date,
+      booking.end_date,
+      Number(property?.price_weekday ?? 0),
+      Number(property?.price_weekend ?? property?.price_weekday ?? 0),
+      splitBookingAddons(booking.addons),
+    );
+    const n = Math.max(1, nightDates.nights.length);
+    const stored = booking.invoice?.lineItems;
+    const items: InvoiceLineItem[] = stored?.length ? stored : nightDates.invoice.lineItems;
+    const out: ReceiptLine[] = [];
+    let gst = 0;
+    for (const item of items) {
+      const label =
+        item.label === 'Property Price'
+          ? `Stay (${plural(n, 'night')})`
+          : item.label === 'Hostiggo Service Fee'
+            ? 'Hostiggo service fee'
+            : item.label;
+      out.push({ label, amount: item.amountPaise / 100 });
+      gst += item.gstAmountPaise;
+    }
+    if (gst > 0) out.push({ label: 'GST', amount: gst / 100 });
+    const paid =
+      booking.amount_paise != null
+        ? Number(booking.amount_paise) / 100
+        : booking.amount != null
+          ? Number(booking.amount)
+          : (booking.invoice?.grandTotalPaise ?? nightDates.invoice.grandTotalPaise) / 100;
+    return { lines: out, nights: n, total: paid };
+  }, [booking, property?.price_weekday, property?.price_weekend]);
+
+  const policy = (property?.cancellation_policy ?? 'moderate') as PolicyName;
+  const timeline = useMemo(
+    () =>
+      cancellationTimeline(
+        policy,
+        checkInMoment(booking.start_date, property?.check_in_time),
+        property?.strict_partial_refund_percent,
+      ),
+    [policy, booking.start_date, property?.check_in_time, property?.strict_partial_refund_percent],
+  );
+  const now = Date.now();
+
+  const amenities = (property?.listing_amenities ?? [])
+    .map((a) => a.amenities?.name)
+    .filter(Boolean) as string[];
+
+  const handleShare = async () => {
+    const url = window.location.href;
+    try {
+      if (navigator.share) await navigator.share({ title: property?.title ?? 'My Hostiggo stay', url });
+      else {
+        await navigator.clipboard.writeText(url);
+        toast.success('Link copied');
+      }
+    } catch {
+      /* share sheet dismissed */
+    }
+  };
+
+  const handleReceipt = async () => {
+    try {
+      await downloadBookingReceipt({
+        reference,
+        bookingId: booking.booking_id,
+        status: status === STATUS_CONFIRMED ? 'Confirmed' : status === STATUS_CANCELLED ? 'Cancelled' : 'Pending payment',
+        paidAt: booking.paid_at,
+        paymentId: booking.razorpay_payment_id,
+        guestName: booking.guest?.name,
+        propertyTitle: property?.title ?? 'Hostiggo stay',
+        propertyLocation: location,
+        checkIn: booking.start_date,
+        checkOut: booking.end_date,
+        nights,
+        guests: guestsLabel,
+        lines,
+        total,
+        refund: booking.refund_amount ? { amount: Number(booking.refund_amount), status: booking.refund_status } : null,
+      });
+    } catch {
+      toast.error("Couldn't generate the receipt. Please try again.");
+    }
+  };
+
+  const handleAddToCalendar = () => {
+    const toICS = (iso: string, time: string | null | undefined, fallback: string) => {
+      const t = /^\d{1,2}:\d{2}/.test(time ?? '') ? time!.slice(0, 5).padStart(5, '0') : fallback;
+      const d = new Date(`${iso}T${t}:00+05:30`);
+      return d.toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '');
+    };
+    const esc = (s: string) => s.replace(/[\\,;]/g, (c) => `\\${c}`).replace(/\n/g, '\\n');
+    const ics = [
+      'BEGIN:VCALENDAR',
+      'VERSION:2.0',
+      'PRODID:-//Hostiggo//Booking//EN',
+      'BEGIN:VEVENT',
+      `UID:booking-${booking.booking_id}@hostiggo.com`,
+      `DTSTAMP:${new Date().toISOString().replace(/[-:]/g, '').replace(/\.\d{3}/, '')}`,
+      `DTSTART:${toICS(booking.start_date, property?.check_in_time, '14:00')}`,
+      `DTEND:${toICS(booking.end_date, property?.check_out_time, '11:00')}`,
+      `SUMMARY:${esc(`Stay at ${property?.title ?? 'Hostiggo'}`)}`,
+      `LOCATION:${esc(fullAddress || location)}`,
+      `DESCRIPTION:${esc(`Booking ${reference}\n${window.location.href}`)}`,
+      'END:VEVENT',
+      'END:VCALENDAR',
+    ].join('\r\n');
+    const url = URL.createObjectURL(new Blob([ics], { type: 'text/calendar' }));
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `hostiggo-${reference}.ics`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
+  const statusBanner =
+    status === STATUS_CONFIRMED ? (
+      <div className="flex items-start gap-3 rounded-2xl border border-[#13B766]/40 bg-[#13B766]/[0.07] px-4 py-3.5">
+        <CheckCircle2 className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#13B766]" />
+        <div>
+          <p className="text-[15px] font-semibold text-[#0E7A45]">Your booking is confirmed</p>
+          <p className="text-[13px] text-[#1A1A1A]/65">
+            Reference <span className="font-semibold text-[#1A1A1A]">{reference}</span>
+            {booking.paid_at &&
+              ` · Paid ${new Date(booking.paid_at).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })}`}
+          </p>
+        </div>
+      </div>
+    ) : status === STATUS_CANCELLED ? (
+      <div className="flex items-start gap-3 rounded-2xl border border-[#BC0024]/30 bg-[#BC0024]/[0.05] px-4 py-3.5">
+        <XCircle className="mt-0.5 h-5 w-5 flex-shrink-0 text-[#BC0024]" />
+        <div>
+          <p className="text-[15px] font-semibold text-[#BC0024]">This booking was cancelled</p>
+          <p className="text-[13px] text-[#1A1A1A]/65">
+            {booking.refund_amount && Number(booking.refund_amount) > 0
+              ? `Refund of ${formatINR(booking.refund_amount)} ${
+                  booking.refund_status === 'processed' ? 'has been processed' : 'is on its way'
+                } to your original payment method (usually 5-7 working days).`
+              : 'No refund was due under the cancellation policy.'}
+          </p>
+        </div>
+      </div>
+    ) : (
+      <div className="flex items-start gap-3 rounded-2xl border border-amber-400/50 bg-amber-50 px-4 py-3.5">
+        <Clock className="mt-0.5 h-5 w-5 flex-shrink-0 text-amber-600" />
+        <div>
+          <p className="text-[15px] font-semibold text-amber-800">Waiting for payment confirmation</p>
+          <p className="text-[13px] text-[#1A1A1A]/65">
+            If you&apos;ve already paid, please don&apos;t pay again -- this updates automatically within a few minutes.
+          </p>
+        </div>
+      </div>
+    );
+
+  return (
+    <>
+      <div className="w-full max-w-[1076px] mx-auto mb-5 flex items-center justify-between gap-4">
+        <BackButton className="w-11 h-11" onClick={() => router.push('/my-memories')} />
+        <button
+          type="button"
+          onClick={handleShare}
+          aria-label="Share booking"
+          className="flex h-10 w-10 items-center justify-center rounded-full border border-black/15 bg-white text-black/70 hover:bg-gray-50"
+        >
+          <Share2 className="h-4 w-4" />
+        </button>
+      </div>
+
+      {/* Summary */}
+      <section className={card}>
+        <div className="mb-5">{statusBanner}</div>
+        <h1 className="text-[22px] sm:text-[28px] font-semibold leading-tight text-[#1A1A1A]">
+          {property?.title ?? 'Your stay'}
+        </h1>
+        {location && (
+          <p className="mt-1 flex items-center gap-1.5 text-[15px] text-[#1A1A1A]/65">
+            <MapPin className="h-4 w-4" />
+            {location}
+          </p>
+        )}
+
+        {photos.length > 0 && (
+          <div className="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-12">
+            <div className="relative h-[220px] overflow-hidden rounded-[22px] sm:col-span-7 sm:h-[340px]">
+              <Image fill src={photos[0]} alt={property?.title ?? 'Property photo'} className="object-cover" sizes="(max-width: 640px) 100vw, 620px" priority />
+            </div>
+            {photos.length > 1 && (
+              <div className="hidden gap-3 sm:col-span-5 sm:flex sm:h-[340px] sm:flex-col">
+                {photos.slice(1).map((src, i) => (
+                  <div key={src} className="relative flex-1 overflow-hidden rounded-[22px]">
+                    <Image fill src={src} alt={`Property photo ${i + 2}`} className="object-cover" sizes="420px" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        <div className="mt-6 flex flex-wrap gap-3">
+          <button
+            type="button"
+            onClick={handleReceipt}
+            className="inline-flex h-11 items-center gap-2 rounded-full border border-[#C0C0C0] bg-white px-5 text-[14px] font-semibold text-[#004772] hover:bg-gray-50"
+          >
+            <Receipt className="h-4 w-4" /> Download receipt
+          </button>
+          {status === STATUS_CONFIRMED && isUpcoming && (
+            <button
+              type="button"
+              onClick={handleAddToCalendar}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-[#C0C0C0] bg-white px-5 text-[14px] font-semibold text-[#004772] hover:bg-gray-50"
+            >
+              <CalendarPlus className="h-4 w-4" /> Add to calendar
+            </button>
+          )}
+          {property?.listing_id && (
+            <Link
+              href={`/property/${property.listing_id}`}
+              className="inline-flex h-11 items-center gap-2 rounded-full border border-[#C0C0C0] bg-white px-5 text-[14px] font-semibold text-[#004772] hover:bg-gray-50"
+            >
+              View listing <ArrowRight className="h-4 w-4" />
+            </Link>
+          )}
+        </div>
+      </section>
+
+      {/* Stay */}
+      <section className={card}>
+        <h2 className={cardTitle}>Your stay</h2>
+        <div className="flex flex-wrap items-center gap-6 sm:gap-12">
+          <div>
+            <p className="text-[13px] font-medium uppercase tracking-wide text-[#1A1A1A]/50">Check-in</p>
+            <p className="mt-1 text-[16px] font-semibold text-[#1A1A1A]">{formatStayDate(booking.start_date)}</p>
+            <p className="text-[14px] text-[#1A1A1A]/65">
+              {formatTime12h(property?.check_in_time) ? `From ${formatTime12h(property?.check_in_time)}` : 'Time shared by host'}
+            </p>
+          </div>
+          <ArrowRight className="hidden h-5 w-5 text-[#1A1A1A]/40 sm:block" />
+          <div>
+            <p className="text-[13px] font-medium uppercase tracking-wide text-[#1A1A1A]/50">Check-out</p>
+            <p className="mt-1 text-[16px] font-semibold text-[#1A1A1A]">{formatStayDate(booking.end_date)}</p>
+            <p className="text-[14px] text-[#1A1A1A]/65">
+              {formatTime12h(property?.check_out_time) ? `By ${formatTime12h(property?.check_out_time)}` : 'Time shared by host'}
+            </p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-wrap gap-x-8 gap-y-2 text-[14px] text-[#1A1A1A]/75">
+          <span className="flex items-center gap-2"><Moon className="h-4 w-4" />{plural(nights, 'night')}</span>
+          <span className="flex items-center gap-2"><Users className="h-4 w-4" />{guestsLabel}</span>
+          {booking.guest?.name && <span>Booked by {booking.guest.name}</span>}
+        </div>
+
+        {fullAddress && (
+          <div className="mt-6 rounded-2xl bg-[#F6F7F8] p-4">
+            <p className="text-[13px] font-medium uppercase tracking-wide text-[#1A1A1A]/50">Address</p>
+            <p className="mt-1 text-[15px] text-[#1A1A1A]">{fullAddress}</p>
+            {mapsUrl && (
+              <a
+                href={mapsUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 inline-flex items-center gap-1.5 text-[14px] font-semibold text-[#004772] hover:underline"
+              >
+                <Navigation className="h-4 w-4" /> Get directions
+              </a>
+            )}
+          </div>
+        )}
+
+        {isGuest && status === STATUS_CONFIRMED && isUpcoming && (
+          <Link
+            href={`/my-memories?manage=${booking.booking_id}`}
+            className="mt-6 inline-flex h-10 items-center rounded-full border border-[#004772] px-5 text-[14px] font-medium text-[#004772] hover:bg-[#004772]/5"
+          >
+            Change dates, guests or cancel
+          </Link>
+        )}
+      </section>
+
+      {/* The place */}
+      <section className={card}>
+        <h2 className={cardTitle}>The place</h2>
+        <ul className="flex flex-wrap gap-x-8 gap-y-2 text-[15px] text-[#1A1A1A]/85">
+          {property?.num_bedrooms != null && <li>{plural(property.num_bedrooms, 'bedroom')}</li>}
+          {property?.num_beds != null && <li>{plural(property.num_beds, 'bed')}</li>}
+          {property?.num_bathrooms != null && <li>{plural(property.num_bathrooms, 'bathroom')}</li>}
+          {property?.num_guests != null && <li>Up to {plural(property.num_guests, 'guest')}</li>}
+        </ul>
+        {amenities.length > 0 && (
+          <>
+            <h3 className="mt-6 mb-3 text-[15px] font-semibold text-[#1A1A1A]">Amenities</h3>
+            <ul className="grid grid-cols-1 gap-2 text-[14px] text-[#1A1A1A]/80 min-[420px]:grid-cols-2 sm:grid-cols-3">
+              {amenities.slice(0, 15).map((name) => (
+                <li key={name} className="flex items-center gap-2">
+                  <Check className="h-4 w-4 flex-shrink-0 text-[#13B766]" />
+                  {name}
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
+        <h3 className="mt-6 mb-3 text-[15px] font-semibold text-[#1A1A1A]">House rules</h3>
+        <ul className="grid grid-cols-1 gap-2 text-[14px] text-[#1A1A1A]/80 sm:grid-cols-2">
+          <RuleItem ok={!!booking.houseRules?.smoking_allowed} yes="Smoking allowed" no="No smoking" />
+          <RuleItem ok={!!booking.houseRules?.pets_allowed} yes="Pets allowed" no="No pets" />
+          <RuleItem ok={!!booking.houseRules?.parties_allowed} yes="Events allowed" no="No parties or events" />
+          {booking.houseRules?.quiet_hours && <RuleItem ok={false} yes="" no="Quiet hours apply" />}
+          <li className="flex items-center gap-2">
+            <CreditCard className="h-4 w-4 flex-shrink-0 text-[#1A1A1A]/60" />
+            Carry a valid government photo ID for check-in
+          </li>
+        </ul>
+      </section>
+
+      {/* Payment */}
+      <section className={card}>
+        <h2 className={cardTitle}>Payment</h2>
+        <dl className="max-w-[560px] space-y-3 text-[15px] text-[#1A1A1A]/80">
+          {lines.map((line) => (
+            <div key={line.label} className="flex items-center justify-between gap-4">
+              <dt>{line.label}</dt>
+              <dd className="font-medium text-[#1A1A1A]">{formatINR(line.amount)}</dd>
+            </div>
+          ))}
+          {booking.addons.length > 0 && (
+            <div className="pt-1 text-[13px] text-[#1A1A1A]/60">
+              Add-ons: {booking.addons.map((a) => `${a.name} (${formatINR(a.price)})`).join(', ')}
+            </div>
+          )}
+          <div className="mt-2 flex items-center justify-between rounded-2xl border border-black/15 px-5 py-4">
+            <dt className="text-[16px] font-bold text-[#1A1A1A]">
+              {status === STATUS_PENDING ? 'Total' : 'Total paid'}
+            </dt>
+            <dd className="text-[18px] font-bold text-[#1A1A1A]">{formatINR(total)}</dd>
+          </div>
+          {status === STATUS_CANCELLED && booking.refund_amount != null && Number(booking.refund_amount) > 0 && (
+            <div className="flex items-center justify-between gap-4 text-[#0E7A45]">
+              <dt>Refund{booking.refund_status ? ` (${booking.refund_status})` : ''}</dt>
+              <dd className="font-semibold">-{formatINR(booking.refund_amount)}</dd>
+            </div>
+          )}
+        </dl>
+      </section>
+
+      {/* Cancellation */}
+      {status !== STATUS_CANCELLED && (
+        <section className={card}>
+          <h2 className={cardTitle}>Cancellation policy · {POLICY_LABELS[policy] ?? 'Moderate'}</h2>
+          <ul className="space-y-3 text-[15px] text-[#1A1A1A]/85">
+            {timeline.map((step) => {
+              const passed = step.until != null && step.until.getTime() < now;
+              const Icon = step.tone === 'good' ? Check : step.tone === 'partial' ? AlertTriangle : XCircle;
+              const color =
+                step.tone === 'good' ? 'text-[#13B766]' : step.tone === 'partial' ? 'text-amber-500' : 'text-[#BC0024]';
+              return (
+                <li key={step.label} className={`flex items-start gap-3 ${passed ? 'opacity-45 line-through' : ''}`}>
+                  <Icon className={`mt-0.5 h-5 w-5 flex-shrink-0 ${color}`} />
+                  <span>{step.label}</span>
+                </li>
+              );
+            })}
+          </ul>
+          <p className="mt-4 text-[13px] text-[#1A1A1A]/55">
+            {REFUND_SCOPE_NOTE} Times are in IST. If the host cancels, you get a full refund.
+          </p>
+        </section>
+      )}
+
+      {/* Host */}
+      {booking.host && (
+        <section className={card}>
+          <h2 className={cardTitle}>Your host</h2>
+          <div className="flex flex-col gap-6 md:flex-row md:items-start">
+            <div className="flex items-center gap-4 md:w-[300px] md:flex-shrink-0">
+              <div className="relative h-16 w-16 flex-shrink-0 overflow-hidden rounded-full bg-[#E8EEF2]">
+                {booking.host.photo ? (
+                  // Host photos can live on any provider (Google, storage) -- plain img.
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={booking.host.photo} alt={booking.host.name} className="h-full w-full object-cover" />
+                ) : (
+                  <span className="flex h-full w-full items-center justify-center text-[22px] font-semibold text-[#004772]">
+                    {booking.host.name.charAt(0).toUpperCase()}
+                  </span>
+                )}
+              </div>
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 truncate text-[17px] font-semibold text-[#1A1A1A]">
+                  {booking.host.name}
+                  {booking.host.isVerified && <BadgeCheck className="h-4 w-4 flex-shrink-0 text-[#0396EF]" aria-label="Verified host" />}
+                </p>
+                {booking.host.joinedAt && (
+                  <p className="text-[13px] text-[#1A1A1A]/55">
+                    Hosting since {new Date(booking.host.joinedAt).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })}
+                  </p>
+                )}
+              </div>
+            </div>
+            <div className="flex-1">
+              {booking.host.about && (
+                <p className="whitespace-pre-line text-[15px] leading-relaxed text-[#1A1A1A]/80">{booking.host.about}</p>
+              )}
+              <div className="mt-4 flex flex-wrap gap-3">
+                {isGuest && booking.host_uuid && (
+                  <Link
+                    href={`/chat?hostId=${encodeURIComponent(booking.host_uuid)}`}
+                    className="inline-flex h-11 items-center gap-2 rounded-full bg-[#004772] px-5 text-[14px] font-semibold text-white hover:bg-[#003a5c]"
+                  >
+                    <MessageCircle className="h-4 w-4" /> Message host
+                  </Link>
+                )}
+                {booking.host.phone && (
+                  <a
+                    href={`tel:${booking.host.phone}`}
+                    className="inline-flex h-11 items-center gap-2 rounded-full border border-[#C0C0C0] bg-white px-5 text-[14px] font-semibold text-[#004772] hover:bg-gray-50"
+                  >
+                    <Phone className="h-4 w-4" /> {booking.host.phone}
+                  </a>
+                )}
+              </div>
+              {isGuest && status !== STATUS_CONFIRMED && (
+                <p className="mt-3 text-[13px] text-[#1A1A1A]/55">
+                  The host&apos;s phone number is shared here once your booking is confirmed.
+                </p>
+              )}
+            </div>
+          </div>
+        </section>
+      )}
+
+      <div className="mt-10 text-center">
+        <Link
+          href={`/report-issue?booking=${booking.booking_id}`}
+          className="text-[15px] font-semibold text-[#1A1A1A] underline hover:opacity-80"
+        >
+          Report an issue with this booking
+        </Link>
+        <p className="mt-1 text-[13px] text-[#1A1A1A]/55">Our support team usually replies within a few hours.</p>
+      </div>
+    </>
+  );
+}
+
+function RuleItem({ ok, yes, no }: { ok: boolean; yes: string; no: string }) {
+  return (
+    <li className="flex items-center gap-2">
+      {ok ? (
+        <Check className="h-4 w-4 flex-shrink-0 text-[#13B766]" />
+      ) : (
+        <XCircle className="h-4 w-4 flex-shrink-0 text-[#1A1A1A]/45" />
+      )}
+      {ok ? yes : no}
+    </li>
   );
 }

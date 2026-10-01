@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { readJsonBody } from "@/lib/auth-server";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -11,8 +13,15 @@ export const dynamic = "force-dynamic";
 // by-email lookup.
 export async function POST(req: NextRequest) {
   try {
-    const { email } = await req.json();
-    if (!email || typeof email !== "string") {
+    // The sign-in flow needs to branch on "existing account or not", which
+    // is inherently an existence check -- rate-limit it so it can't be used
+    // to bulk-enumerate which emails have accounts.
+    const limited = rateLimit(`check-email:${clientIp(req)}`, 10, 60_000);
+    if (limited) return limited;
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
+    const { email } = body;
+    if (!email || typeof email !== "string" || email.length > 254) {
       return NextResponse.json({ error: "email is required" }, { status: 400 });
     }
 

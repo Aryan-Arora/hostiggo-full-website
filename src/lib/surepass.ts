@@ -77,6 +77,13 @@ export async function logKycRequest(params: {
 
   if (error) {
     console.error("[surepass] failed to log kyc_request:", error);
+    // A successful verification that isn't recorded would tell the host
+    // "verified" while the server (the source of truth for KYC status and
+    // payouts) says otherwise -- fail loudly so they can retry. Logging a
+    // failed attempt stays best-effort.
+    if (params.status === "verified" || params.status === "success") {
+      throw new Error("We verified your details but couldn't save the result. Please try again.");
+    }
     return null;
   }
   return data.id as number;

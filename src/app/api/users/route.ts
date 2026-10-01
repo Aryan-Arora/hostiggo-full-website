@@ -2,7 +2,13 @@ import { NextRequest, NextResponse } from "next/server";
 import { usersAPI } from "@/lib/services/user";
 import { updateUserProfile, deactivateUserAccount } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
-import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
+import {
+  forbiddenResponse,
+  getAuthenticatedUserId,
+  readJsonBody,
+  requireUserId,
+  UnauthorizedError,
+} from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
@@ -13,8 +19,13 @@ const jsonError = (err: unknown, status = 500) => {
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-    if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    // A profile row carries email, phone and emergency contact -- only the
+    // signed-in user may read their own. The query param is accepted for
+    // backwards compatibility but must match the verified identity.
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const requested = req.nextUrl.searchParams.get("userId");
+    if (requested && requested !== userId) return forbiddenResponse();
 
     const data = await usersAPI.getUserById(userId);
     return NextResponse.json({ data });
@@ -25,7 +36,8 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const body = (await req.json()) ?? {};
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
     if (!body.user_id || !body.name) {
       return NextResponse.json({ error: "user_id and name are required" }, { status: 400 });
     }
@@ -87,28 +99,25 @@ export async function POST(req: NextRequest) {
 
 export async function PATCH(req: NextRequest) {
   try {
-    const body = await req.json();
-    const { action, phone, token } = body;
+    // Both actions write with the service-role client (bypassing RLS), so the
+    // target is always the caller's own verified account -- never a userId
+    // from the body. Deactivation also bans the auth user, so a spoofable id
+    // here meant anyone could lock anyone out.
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const body = await readJsonBody(req);
+    if (body instanceof NextResponse) return body;
+    if (body.userId && body.userId !== userId) return forbiddenResponse();
 
-    if (action === "update-profile") {
-      if (!body.userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
-      const data = await updateUserProfile(body.userId, body.patch ?? {});
+    if (body.action === "update-profile") {
+      const patch = validateProfilePatch(body.patch);
+      if ("error" in patch) return NextResponse.json({ error: patch.error }, { status: 400 });
+      const data = await updateUserProfile(userId, patch.value);
       return NextResponse.json({ data });
     }
 
-    if (action === "request-phone-change") {
-      await usersAPI.requestPhoneChangeOtp(phone);
-      return NextResponse.json({ data: true });
-    }
-
-    if (action === "verify-phone-change") {
-      await usersAPI.verifyPhoneChangeOtp(phone, token);
-      return NextResponse.json({ data: true });
-    }
-
-    if (action === "deactivate-account") {
-      if (!body.userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
-      const data = await deactivateUserAccount(body.userId);
+    if (body.action === "deactivate-account") {
+      const data = await deactivateUserAccount(userId);
       return NextResponse.json({ data });
     }
 
@@ -116,4 +125,92 @@ export async function PATCH(req: NextRequest) {
   } catch (err) {
     return jsonError(err);
   }
+}
+
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
+const BOOLEAN_FIELDS = [
+  "email_notifications",
+  "sms_alerts",
+  "promo_notifications",
+  "host_message_notifications",
+  "show_profile_to_hosts",
+  "include_in_search",
+  "activity_status",
+] as const;
+
+/**
+ * Server-side value validation for profile edits -- the client form checks
+ * the same rules, but this is the one that can't be skipped. Only keys that
+ * are present get validated/written, so partial saves (e.g. a single
+ * notification toggle) work.
+ */
+function validateProfilePatch(
+  raw: unknown,
+): { value: Record<string, any> } | { error: string } {
+  if (!raw || typeof raw !== "object") return { error: "Nothing to update." };
+  const patch = raw as Record<string, unknown>;
+  const out: Record<string, any> = {};
+
+  if ("name" in patch) {
+    const name = String(patch.name ?? "").trim().replace(/\s+/g, " ");
+    if (name.length < 2 || name.length > 80) return { error: "Name must be 2-80 characters." };
+    out.name = name;
+  }
+  if ("email" in patch) {
+    const email = String(patch.email ?? "").trim().toLowerCase();
+    if (email && (email.length > 254 || !EMAIL_RE.test(email))) {
+      return { error: "Enter a valid email address." };
+    }
+    out.email = email || null;
+  }
+  if ("phone" in patch) {
+    const phone = normalizeIndianPhone(patch.phone);
+    if (phone === undefined) return { error: "Enter a valid 10-digit Indian mobile number." };
+    out.phone = phone;
+  }
+  if ("emergency_contact" in patch) {
+    // Free text like "Mom - 98765 43210", but it must contain a reachable
+    // Indian mobile number.
+    const contact = String(patch.emergency_contact ?? "").trim().replace(/\s+/g, " ");
+    if (contact) {
+      const digits = contact.replace(/[^\d]/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+      const hasMobile = /[6-9]\d{9}/.test(digits);
+      if (!hasMobile || contact.length > 100) {
+        return { error: "Emergency contact needs a valid 10-digit mobile number (up to 100 characters)." };
+      }
+    }
+    out.emergency_contact = contact || null;
+  }
+  if ("age" in patch) {
+    if (patch.age === null || patch.age === "") {
+      out.age = null;
+    } else {
+      const age = Number(patch.age);
+      if (!Number.isInteger(age) || age < 18 || age > 120) {
+        return { error: "Age must be a whole number between 18 and 120." };
+      }
+      out.age = age;
+    }
+  }
+  if ("profile_pic_url" in patch) {
+    const url = patch.profile_pic_url ? String(patch.profile_pic_url) : null;
+    if (url && !/^https:\/\//.test(url)) return { error: "Invalid photo URL." };
+    out.profile_pic_url = url;
+  }
+  for (const key of BOOLEAN_FIELDS) {
+    if (key in patch) {
+      if (typeof patch[key] !== "boolean") return { error: `${key} must be true or false.` };
+      out[key] = patch[key];
+    }
+  }
+  if (Object.keys(out).length === 0) return { error: "Nothing to update." };
+  return { value: out };
+}
+
+/** "+91 98765 43210" / "9876543210" -> "+919876543210"; "" -> null; invalid -> undefined. */
+function normalizeIndianPhone(raw: unknown): string | null | undefined {
+  const value = String(raw ?? "").trim();
+  if (!value) return null;
+  const digits = value.replace(/[^\d]/g, "").replace(/^(91|0)(?=\d{10}$)/, "");
+  return /^[6-9]\d{9}$/.test(digits) ? `+91${digits}` : undefined;
 }

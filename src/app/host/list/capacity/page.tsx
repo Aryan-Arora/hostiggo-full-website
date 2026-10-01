@@ -6,10 +6,10 @@ import WizardShell from '../_components/WizardShell';
 import { useListingDraft } from '@/context/ListingDraftContext';
 
 const ROWS = [
-  { key: 'guests', label: 'Guests', desc: 'Max number of people', initial: 4, min: 1 },
-  { key: 'bedrooms', label: 'Bedrooms', desc: 'Private spaces for guests', initial: 2, min: 0 },
-  { key: 'beds', label: 'Beds', desc: 'Total sleeping spots', initial: 3, min: 1 },
-  { key: 'bathrooms', label: 'Bathrooms', desc: 'Full or half bathrooms', initial: 1, min: 0 },
+  { key: 'guests', label: 'Guests', desc: 'Max number of people', initial: 4, min: 1, max: 50 },
+  { key: 'bedrooms', label: 'Bedrooms', desc: 'Private spaces for guests', initial: 2, min: 0, max: 50 },
+  { key: 'beds', label: 'Beds', desc: 'Total sleeping spots', initial: 3, min: 1, max: 50 },
+  { key: 'bathrooms', label: 'Bathrooms', desc: 'Full or half bathrooms', initial: 1, min: 0, max: 50 },
 ] as const;
 
 export default function CapacityPage() {
@@ -31,8 +31,8 @@ export default function CapacityPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [counts]);
 
-  const set = (key: string, delta: number, min: number) =>
-    setCounts((c) => ({ ...c, [key]: Math.max(min, c[key] + delta) }));
+  const set = (key: string, delta: number, min: number, max: number) =>
+    setCounts((c) => ({ ...c, [key]: Math.min(max, Math.max(min, c[key] + delta)) }));
 
   return (
     <WizardShell
@@ -81,7 +81,7 @@ export default function CapacityPage() {
                   </div>
                   <div className="flex items-center gap-4">
                     <button
-                      onClick={() => set(row.key, -1, row.min)}
+                      onClick={() => set(row.key, -1, row.min, row.max)}
                       className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-figma-navy disabled:opacity-40"
                       disabled={counts[row.key] <= row.min}
                       aria-label={`Decrease ${row.label}`}
@@ -92,8 +92,9 @@ export default function CapacityPage() {
                       {counts[row.key]}
                     </span>
                     <button
-                      onClick={() => set(row.key, 1, row.min)}
-                      className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-figma-navy"
+                      onClick={() => set(row.key, 1, row.min, row.max)}
+                      disabled={counts[row.key] >= row.max}
+                      className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:bg-gray-50 active:scale-95 transition-all text-figma-navy disabled:opacity-40"
                       aria-label={`Increase ${row.label}`}
                     >
                       <Plus className="w-5 h-5" />

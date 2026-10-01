@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
+import { forbiddenResponse, requireUserId } from "@/lib/auth-server";
 
 export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest) {
   try {
-    const userId = req.nextUrl.searchParams.get("userId");
-    if (!userId) return NextResponse.json({ error: "userId is required" }, { status: 400 });
+    // IPs and devices of past sign-ins: only ever the caller's own.
+    const userId = await requireUserId(req);
+    if (userId instanceof NextResponse) return userId;
+    const requested = req.nextUrl.searchParams.get("userId");
+    if (requested && requested !== userId) return forbiddenResponse();
 
     const { data, error } = await supabaseAdmin
       .from("login_events")

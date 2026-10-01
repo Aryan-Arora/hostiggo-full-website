@@ -9,6 +9,7 @@ import Navbar from "@/components/layout/Navbar";
 import Footer from "@/components/layout/Footer";
 import { useAuth } from "@/context/AuthContext";
 import { api, getStoredAccessToken } from "@/lib/api";
+import { passwordProblem, safeRedirect } from "@/lib/utils";
 
 function PasswordSecurityContent() {
   const router = useRouter();
@@ -25,7 +26,7 @@ function PasswordSecurityContent() {
   // page's password flow.
   const isFirstTime = searchParams?.get("first") === "1";
   const reason = searchParams?.get("reason"); // 'create-password' | 'reset-password'
-  const next = searchParams?.get("next");
+  const next = safeRedirect(searchParams?.get("next"), "");
 
   // OTP and password sign-in now both hydrate a real Supabase client
   // session via supabase.auth.setSession() right after verifying (see
@@ -36,12 +37,13 @@ function PasswordSecurityContent() {
   const hasSession = !!getStoredAccessToken();
 
   const handleSubmit = async () => {
-    if (password.length < 8) {
-      toast.error("Password must be at least 8 characters.");
+    const problem = passwordProblem(password);
+    if (problem) {
+      toast.error(problem, { id: "password-form" });
       return;
     }
     if (password !== confirm) {
-      toast.error("Passwords don't match.");
+      toast.error("Passwords don't match.", { id: "password-form" });
       return;
     }
     setSaving(true);
@@ -118,8 +120,8 @@ function PasswordSecurityContent() {
                   <Key className="w-5 h-5" />
                 </div>
                 <p className="text-sm text-gray-600">
-                  This also lets you sign in with a password from now on, even if you
-                  originally signed up with an OTP or Google.
+                  Once set, choose &ldquo;Use a password instead&rdquo; on the email sign-in screen to sign
+                  in without waiting for a code. OTP and Google sign-in keep working too.
                 </p>
               </div>
             )}
@@ -132,7 +134,7 @@ function PasswordSecurityContent() {
                 <div className="flex items-center gap-2 border border-gray-200 rounded-xl overflow-hidden focus-within:border-figma-navy focus-within:ring-2 focus-within:ring-figma-navy/10 transition-all">
                   <input
                     type={showPassword ? "text" : "password"}
-                    placeholder="Min. 8 characters"
+                    placeholder="8+ characters, with a letter and a number"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     className="flex-1 pl-4 pr-2 py-3 text-[14px] text-gray-800 outline-none bg-white placeholder:text-gray-400"

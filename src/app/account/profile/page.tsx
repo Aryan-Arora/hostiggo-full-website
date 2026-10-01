@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useRef, useState } from 'react';
-import Image from 'next/image';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import Link from 'next/link';
 import { toast } from 'sonner';
 import { ChevronRight, Camera, ShieldCheck, ShieldAlert, Mail, Phone, Loader2 } from 'lucide-react';
@@ -32,28 +32,58 @@ export default function GuestProfilePage() {
     }
   }, [user]);
 
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Mirrors the server rules in PATCH /api/users (which remain authoritative).
+  const validate = () => {
+    const e: Record<string, string> = {};
+    const n = name.trim();
+    if (n.length < 2 || n.length > 80) e.name = 'Enter your name (2-80 characters).';
+    const em = email.trim();
+    if (em && !/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(em)) e.email = 'Enter a valid email address.';
+    const ph = phone.replace(/[^\d]/g, '').replace(/^(91|0)(?=\d{10}$)/, '');
+    if (phone.trim() && !/^[6-9]\d{9}$/.test(ph)) e.phone = 'Enter a valid 10-digit Indian mobile number.';
+    if (age.trim()) {
+      const a = Number(age);
+      if (!Number.isInteger(a) || a < 18 || a > 120) e.age = 'Age must be between 18 and 120.';
+    }
+    const ec = emergencyContact.trim();
+    if (ec && !/[6-9]\d{9}/.test(ec.replace(/[^\d]/g, '').replace(/^(91|0)(?=\d{10}$)/, ''))) {
+      e.emergencyContact = 'Include a valid 10-digit mobile number.';
+    }
+    setErrors(e);
+    return Object.keys(e).length === 0;
+  };
+
   const handleSave = async () => {
     if (!userId) return;
+    if (!validate()) return;
+    // Only send what changed, so an untouched legacy value never blocks a save.
+    const patch: Record<string, unknown> = {};
+    if (name.trim() !== (user?.name ?? '')) patch.name = name.trim();
+    if (email.trim() !== (user?.email ?? '')) patch.email = email.trim();
+    if (phone.trim() !== (user?.phone ?? '')) patch.phone = phone.trim();
+    if (age.trim() !== (user?.age ? String(user.age) : '')) patch.age = age.trim() ? Number(age) : null;
+    if (emergencyContact.trim() !== (user?.emergency_contact ?? '')) {
+      patch.emergency_contact = emergencyContact.trim() || null;
+    }
+    if (Object.keys(patch).length === 0) {
+      toast.info('No changes to save.', { id: 'profile-save' });
+      return;
+    }
     setSaving(true);
     try {
-      await api.updateProfile(userId, { 
-        name, 
-        email, 
-        phone,
-        age: age ? parseInt(age, 10) : null,
-        emergency_contact: emergencyContact || null,
-      });
+      await api.updateProfile(userId, patch as any);
       await refresh();
-      toast.success('Profile updated.');
+      toast.success('Profile updated.', { id: 'profile-save' });
     } catch (err) {
       console.error('[account/profile] save failed:', err);
-      toast.error(err instanceof Error ? err.message : 'Could not save your profile.');
+      toast.error(err instanceof Error ? err.message : 'Could not save your profile.', { id: 'profile-save' });
     } finally {
       setSaving(false);
     }
   };
 
-  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/200?img=45';
 
   const handlePhotoChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -106,12 +136,11 @@ export default function GuestProfilePage() {
               <div className="bg-white rounded-3xl p-8 shadow-card border border-gray-200">
                 <div className="flex flex-col items-center text-center">
                   <div className="relative w-32 h-32 mb-6">
-                    <Image
-                      fill
-                      src={avatar}
-                      alt={name || 'Profile'}
-                      sizes="128px"
-                      className="rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
+                    <UserAvatar
+                      src={user?.profile_pic_url}
+                      name={name || 'Profile'}
+                      size={128}
+                      className="border-4 border-figma-navy/10 shadow-lg"
                     />
                     <input
                       ref={fileInputRef}
@@ -121,8 +150,10 @@ export default function GuestProfilePage() {
                       className="hidden"
                     />
                     <button
+                      type="button"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={uploadingPhoto}
+                      aria-label="Change profile photo"
                       title="Change photo"
                       className="absolute bottom-1 right-1 bg-figma-navy hover:bg-figma-navy/90 text-white p-2 rounded-full shadow-lg disabled:opacity-60 disabled:cursor-not-allowed transition-colors"
                     >
@@ -181,49 +212,70 @@ export default function GuestProfilePage() {
                     <input
                       type="text"
                       value={name}
+                      maxLength={80}
+                      autoComplete="name"
+                      aria-invalid={!!errors.name}
                       onChange={(e) => setName(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
+                    {errors.name && <p className="ml-1 text-xs font-medium text-red-600">{errors.name}</p>}
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-500 ml-1">Email</label>
                     <input
                       type="email"
                       value={email}
+                      maxLength={254}
+                      autoComplete="email"
+                      aria-invalid={!!errors.email}
                       onChange={(e) => setEmail(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
+                    {errors.email && <p className="ml-1 text-xs font-medium text-red-600">{errors.email}</p>}
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-500 ml-1">Phone</label>
                     <input
                       type="tel"
                       value={phone}
+                      maxLength={16}
+                      autoComplete="tel"
+                      inputMode="tel"
+                      placeholder="10-digit mobile number"
+                      aria-invalid={!!errors.phone}
                       onChange={(e) => setPhone(e.target.value)}
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
+                    {errors.phone && <p className="ml-1 text-xs font-medium text-red-600">{errors.phone}</p>}
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-bold text-gray-500 ml-1">Age</label>
                     <input
                       type="number"
-                      min="1"
-                      max="150"
+                      min="18"
+                      max="120"
                       value={age}
+                      aria-invalid={!!errors.age}
                       onChange={(e) => setAge(e.target.value)}
                       placeholder="Optional"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
+                    {errors.age && <p className="ml-1 text-xs font-medium text-red-600">{errors.age}</p>}
                   </div>
                   <div className="md:col-span-2 space-y-2">
                     <label className="text-sm font-bold text-gray-500 ml-1">Emergency Contact</label>
                     <input
                       type="text"
                       value={emergencyContact}
+                      maxLength={100}
+                      aria-invalid={!!errors.emergencyContact}
                       onChange={(e) => setEmergencyContact(e.target.value)}
-                      placeholder="Name and phone number (optional)"
+                      placeholder="e.g. Priya (sister) 98765 43210 -- optional"
                       className="w-full px-4 py-3 rounded-xl border border-gray-200 focus:ring-2 focus:ring-figma-navy focus:border-transparent outline-none text-sm"
                     />
+                    {errors.emergencyContact && (
+                      <p className="ml-1 text-xs font-medium text-red-600">{errors.emergencyContact}</p>
+                    )}
                   </div>
                 </div>
                 <div className="mt-6 flex justify-end">

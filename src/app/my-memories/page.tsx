@@ -1834,6 +1834,10 @@ export default function MyMemoriesPage() {
       const hasAddons = params.get('addons') === 'true' || params.get('preview') === 'addons';
       setIsPreview(hasCardsPreview || hasAddons);
       setIsAddonsMode(hasAddons);
+      // Deep link from the booking confirmation page: open that booking's
+      // manage sheet (dates, guests, cancel with refund preview).
+      const manage = params.get('manage');
+      if (manage && /^\d+$/.test(manage)) setManagingId(manage);
     }
   }, []);
 
@@ -1877,6 +1881,15 @@ export default function MyMemoriesPage() {
   const effectiveBookings = isPreview && bookings.length === 0 ? SAMPLE_BOOKINGS : bookings;
   const filtered = effectiveBookings.filter((b) => b.status === activeTab);
   const managingBooking = effectiveBookings.find((b) => b.id === managingId) ?? null;
+
+  // A deep-linked booking may live under another tab -- show that tab.
+  useEffect(() => {
+    if (managingBooking && managingBooking.status !== activeTab) {
+      setActiveTab(managingBooking.status as TabKey);
+    }
+    // Only when the target booking first resolves.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [managingBooking?.id]);
 
   const handleUpdate = useCallback((id: string, updates: Partial<Booking>) => {
     setBookings((prev) =>

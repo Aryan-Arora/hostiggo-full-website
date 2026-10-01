@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserId } from "@/lib/auth-server";
 import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 import { getListingAmenityIds, setListingAmenities } from "@/lib/services/amenities-write";
 import { errorMessage } from "@/lib/api-error";
@@ -28,14 +29,13 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ listing
       return NextResponse.json({ error: "Invalid listing ID" }, { status: 400 });
     }
     const body = await req.json();
-    const { userId, amenityIds } = body;
-    if (!userId) {
-      return NextResponse.json({ error: "userId is required" }, { status: 400 });
-    }
+    const { amenityIds } = body;
     if (!Array.isArray(amenityIds)) {
       return NextResponse.json({ error: "amenityIds[] is required" }, { status: 400 });
     }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
     const saved = await setListingAmenities(listingId, amenityIds.map(Number));
     return NextResponse.json({ data: { amenityIds: saved } });
   } catch (error) {

@@ -114,6 +114,9 @@ export default function BecomeAHostPage() {
                   <div>
                     <p className="text-amber-900 text-[13px] font-bold leading-tight">Rahul Kumar</p>
                     <p className="text-amber-700 text-[11px]">New Delhi · Host</p>
+                    <p className="mt-0.5 inline-block rounded-full bg-amber-900/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                      Illustrative example
+                    </p>
                   </div>
                 </div>
 

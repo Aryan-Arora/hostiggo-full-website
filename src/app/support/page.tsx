@@ -15,7 +15,9 @@ const TYPE_MAP: Record<string, string> = {
   issue: 'report_issue',
   suggest: 'suggest_improvement',
   experience: 'share_experience',
-  referral: 'referral',
+  // Not a feedback_type enum value: referrals are shared experiences filed
+  // under the referral_program category (see handleSubmit).
+  referral: 'share_experience',
 };
 
 const ACTIONS: { id: string; title: string; desc: string; icon: LucideIcon; tint: string }[] = [
@@ -47,7 +49,8 @@ export default function SupportPage() {
     try {
       await api.submitFeedback({
         userId: userId ?? null,
-        type: TYPE_MAP[active] ?? active,
+        type: TYPE_MAP[active] ?? 'share_experience',
+        category: active === 'referral' ? 'referral_program' : null,
         description: text.trim(),
       });
       toast.success('Thanks! Your feedback has been received.');

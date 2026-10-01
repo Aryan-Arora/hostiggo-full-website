@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { authApi } from "@/lib/services/auth";
 import { ensureProfile } from "@/lib/services/ensureProfile";
 import { recordLoginEvent } from "@/lib/services/loginEvents";
+import { clientIp, rateLimit } from "@/lib/rateLimit";
 
 export const dynamic = "force-dynamic";
 
@@ -10,7 +11,16 @@ export const dynamic = "force-dynamic";
 // client can reuse the same post-login handling (setStoredSession + signIn).
 export async function POST(req: NextRequest) {
   try {
-    const { action, email, password } = await req.json();
+    const body = await req.json().catch(() => null);
+    if (!body || typeof body !== "object") {
+      return NextResponse.json({ error: "Invalid request body." }, { status: 400 });
+    }
+    const { action, email, password } = body;
+    // Brute-force guard: per IP, and per target account.
+    const limited =
+      rateLimit(`pw-ip:${clientIp(req)}`, 20, 10 * 60_000) ??
+      rateLimit(`pw-acct:${String(email ?? "").toLowerCase()}`, 8, 10 * 60_000);
+    if (limited) return limited;
 
     if (!email || !password) {
       return NextResponse.json({ error: "Email and password are required" }, { status: 400 });

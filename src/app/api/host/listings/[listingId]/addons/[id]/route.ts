@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUserId } from '@/lib/auth-server';
 import * as addonService from '@/lib/services/addons';
 import { assertListingOwnedBy } from '@/lib/services/admin-writes';
 import { errorMessage } from "@/lib/api-error";
@@ -23,13 +24,11 @@ export async function PATCH(
       timing_to,
       another_details,
       additional_notes,
-      userId,
     } = body;
 
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, String(userId));
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     const addon = await addonService.updateListingAddon(
       addonListingId,
@@ -64,11 +63,9 @@ export async function DELETE(
       return NextResponse.json({ error: 'Invalid addon listing ID' }, { status: 400 });
     }
 
-    const userId = request.nextUrl.searchParams.get('userId');
-    if (!userId) {
-      return NextResponse.json({ error: 'userId is required' }, { status: 400 });
-    }
-    await assertListingOwnedBy(listingId, userId);
+    const authedUserId = await requireUserId(request);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(listingId, authedUserId);
 
     await addonService.removeAddonFromListing(addonListingId, listingId);
     return NextResponse.json({ success: true });

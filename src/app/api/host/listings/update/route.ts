@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { requireUserId } from "@/lib/auth-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { assertListingOwnedBy } from "@/lib/services/admin-writes";
 
@@ -14,7 +15,6 @@ export async function PATCH(req: NextRequest) {
 
     const {
       listingId,
-      userId,
       title,
       description,
       price_weekday,
@@ -31,17 +31,39 @@ export async function PATCH(req: NextRequest) {
       longitude,
     } = body;
 
-    if (!listingId || !userId) {
-      return NextResponse.json({ error: "listingId and userId are required" }, { status: 400 });
+    if (!listingId) {
+      return NextResponse.json({ error: "listingId is required" }, { status: 400 });
     }
-    await assertListingOwnedBy(Number(listingId), String(userId));
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    await assertListingOwnedBy(Number(listingId), authedUserId);
 
     for (const [label, value] of [
       ["price_weekday", price_weekday],
       ["price_weekend", price_weekend],
     ] as const) {
-      if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 0 || Number(value) > 10000000)) {
-        return NextResponse.json({ error: `${label} out of range` }, { status: 400 });
+      // Same nightly-price bounds as publishing (/api/host/listings).
+      if (value !== undefined && (!Number.isFinite(Number(value)) || Number(value) < 100 || Number(value) > 500000)) {
+        return NextResponse.json(
+          { error: `${label === "price_weekday" ? "Weekday" : "Weekend"} price must be between ₹100 and ₹5,00,000 per night.` },
+          { status: 400 },
+        );
+      }
+    }
+    if (title !== undefined && (!String(title).trim() || String(title).length > 120)) {
+      return NextResponse.json({ error: "Title must be 1-120 characters." }, { status: 400 });
+    }
+    if (description !== undefined && (!String(description).trim() || String(description).length > 5000)) {
+      return NextResponse.json({ error: "Description must be 1-5000 characters." }, { status: 400 });
+    }
+    for (const [label, value, min] of [
+      ["Guests", num_guests, 1],
+      ["Bedrooms", num_bedrooms, 0],
+      ["Beds", num_beds, 1],
+      ["Bathrooms", num_bathrooms, 0],
+    ] as const) {
+      if (value !== undefined && (!Number.isInteger(Number(value)) || Number(value) < min || Number(value) > 50)) {
+        return NextResponse.json({ error: `${label} must be a whole number from ${min} to 50.` }, { status: 400 });
       }
     }
     if (latitude !== undefined && (!Number.isFinite(Number(latitude)) || Math.abs(Number(latitude)) > 90)) {
@@ -53,8 +75,8 @@ export async function PATCH(req: NextRequest) {
 
     // Build update object with only provided fields
     const updateData: Record<string, any> = {};
-    if (title !== undefined) updateData.title = title;
-    if (description !== undefined) updateData.description = description;
+    if (title !== undefined) updateData.title = String(title).trim();
+    if (description !== undefined) updateData.description = String(description).trim();
     if (price_weekday !== undefined) updateData.price_weekday = parseFloat(String(price_weekday));
     if (price_weekend !== undefined) updateData.price_weekend = parseFloat(String(price_weekend));
     if (num_guests !== undefined) updateData.num_guests = num_guests;
@@ -83,10 +105,7 @@ export async function PATCH(req: NextRequest) {
 
     if (error) {
       console.error("[PATCH /api/host/listings/update] Supabase error:", error);
-      return NextResponse.json(
-        { error: error.message, code: error.code, details: error.details },
-        { status: 500 },
-      );
+      return NextResponse.json({ error: "Couldn't save your changes. Please try again." }, { status: 500 });
     }
 
     if (!data || data.length === 0) {

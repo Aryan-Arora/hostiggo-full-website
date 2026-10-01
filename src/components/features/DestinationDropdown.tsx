@@ -6,12 +6,15 @@ import { cn } from '@/lib/utils';
 import { api } from '@/lib/api';
 import { buildDestinationOptions } from '@/lib/destinationOptions';
 import { reverseGeocode } from '@/lib/services/geocoding';
+import { toast } from 'sonner';
 
 interface DestinationDropdownProps {
   value: string;
   onQueryChange: (value: string) => void;
   onSelect: (value: string) => void;
   onClose: () => void;
+  /** Fill the parent's width (homepage hero) instead of a fixed 560px panel. */
+  fullWidth?: boolean;
 }
 
 const RECENT_STORAGE_KEY = 'hostiggo:recent-searches';
@@ -43,7 +46,14 @@ export default function DestinationDropdown({
   onQueryChange,
   onSelect,
   onClose,
+  fullWidth = false,
 }: DestinationDropdownProps) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  // On short screens the panel opens below the fold -- bring it into view.
+  useEffect(() => {
+    panelRef.current?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, []);
   const [query, setQuery] = useState(value);
   const [results, setResults] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
@@ -163,7 +173,11 @@ export default function DestinationDropdown({
   };
 
   const handleUseCurrentLocation = () => {
-    if (!navigator.geolocation) return;
+    if (locating) return;
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      toast.error("Your browser can't share its location. Type a destination instead.", { id: 'geo' });
+      return;
+    }
     setLocating(true);
     navigator.geolocation.getCurrentPosition(
       async (position) => {
@@ -171,11 +185,22 @@ export default function DestinationDropdown({
           const result = await reverseGeocode(position.coords.latitude, position.coords.longitude);
           const label = result?.address.city || result?.address.county || result?.displayName;
           if (label) handleSelect(label);
+          else toast.error("We couldn't work out where you are. Type a destination instead.", { id: 'geo' });
+        } catch {
+          toast.error("We couldn't look up your location. Check your connection and try again.", { id: 'geo' });
         } finally {
           setLocating(false);
         }
       },
-      () => setLocating(false),
+      (err) => {
+        setLocating(false);
+        toast.error(
+          err.code === err.PERMISSION_DENIED
+            ? 'Location access is blocked. Allow it in your browser settings, or type a destination.'
+            : "We couldn't get your location. Please try again or type a destination.",
+          { id: 'geo' },
+        );
+      },
       { timeout: 10000 },
     );
   };
@@ -208,8 +233,11 @@ export default function DestinationDropdown({
 
   return (
     <div
+      ref={panelRef}
+      role="dialog"
+      aria-label="Choose destination"
       className="dropdown-panel !relative shrink-0 animate-fade-in-down"
-      style={{ width: 'min(560px, 92vw)' }}
+      style={{ width: fullWidth ? '100%' : 'min(560px, 92vw)' }}
     >
       {/* Input */}
       <div className="p-3 border-b border-gray-50">
@@ -222,10 +250,13 @@ export default function DestinationDropdown({
             onChange={(e) => handleQueryChange(e.target.value)}
             onKeyDown={handleKeyDown}
             placeholder="Search destinations..."
+            aria-label="Search destinations"
             className="flex-1 bg-transparent text-sm text-gray-800 placeholder-gray-400 outline-none font-medium"
           />
           {query && (
             <button
+              type="button"
+              aria-label="Clear destination"
               onClick={() => {
                 handleQueryChange('');
               }}
@@ -237,7 +268,7 @@ export default function DestinationDropdown({
         </div>
       </div>
 
-      <div className="max-h-[480px] overflow-y-auto scrollbar-hide">
+      <div className="max-h-[min(480px,calc(100dvh-12rem))] overflow-y-auto overscroll-contain scrollbar-hide">
         {query.trim() && cityGuide ? (
           /* Matched city guide: city header + popular areas */
           <div className="py-2">

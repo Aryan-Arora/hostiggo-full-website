@@ -5,6 +5,7 @@ import Image from 'next/image';
 import { Send, Search, ArrowLeft, Loader2, MessageSquare, MessagesSquare } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 interface ConversationUser {
   id: string;
@@ -166,7 +167,8 @@ export default function HostChatUI() {
       });
 
       if (!response.ok) {
-        throw new Error('Failed to send message');
+        const payload = await response.json().catch(() => ({}));
+        throw new Error(payload.error || 'Failed to send message');
       }
 
       // Pull the new message (and updated preview) back from the source of
@@ -174,8 +176,9 @@ export default function HostChatUI() {
       await fetchConversations();
     } catch (error) {
       console.error('Failed to send message:', error);
-      // Restore text so the guest doesn't lose what they typed.
+      // Restore text so the host doesn't lose what they typed.
       setMessageText(textToSend);
+      toast.error(error instanceof Error ? error.message : 'Message not sent. Please try again.');
     } finally {
       setSending(false);
     }

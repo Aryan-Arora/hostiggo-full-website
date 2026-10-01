@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { calendarServiceAPI } from "@/lib/services/calendar";
 import { upsertCalendarDay } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
-import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
+import { getAuthenticatedUserId, requireUserId, UnauthorizedError } from "@/lib/auth-server";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 
 export const dynamic = "force-dynamic";
@@ -56,10 +56,12 @@ export async function GET(req: NextRequest) {
 export async function PATCH(req: NextRequest) {
   try {
     const body = await req.json();
-    const { listingId, date, price, isAvailable, userId } = body ?? {};
-    if (!listingId || !date || !userId) {
+    const authedUserId = await requireUserId(req);
+    if (authedUserId instanceof NextResponse) return authedUserId;
+    const { listingId, date, price, isAvailable } = body ?? {};
+    if (!listingId || !date || !/^\d{4}-\d{2}-\d{2}$/.test(String(date))) {
       return NextResponse.json(
-        { error: "listingId, date and userId are required" },
+        { error: "listingId and a yyyy-mm-dd date are required" },
         { status: 400 },
       );
     }
@@ -71,7 +73,7 @@ export async function PATCH(req: NextRequest) {
       date: String(date),
       price: price === undefined || price === null ? undefined : Number(price),
       isAvailable: typeof isAvailable === "boolean" ? isAvailable : undefined,
-      requestingUserId: String(userId),
+      requestingUserId: authedUserId,
     });
     return NextResponse.json({ data });
   } catch (err) {

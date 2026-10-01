@@ -14,6 +14,7 @@ import { ArrowLeft, ChevronDown, Mail } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { FormEvent, Suspense, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { safeRedirect } from "@/lib/utils";
 
 export type AuthMode = "email" | "mobile" | "otp-sent" | "otp-verify";
 
@@ -88,7 +89,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
   const router = useRouter();
   const searchParams = useSearchParams();
   const queryMode = searchParams?.get("mode");
-  const redirect = searchParams?.get("redirect") || "";
+  const redirect = safeRedirect(searchParams?.get("redirect"), "");
   const errorParam = searchParams?.get("error");
   const paramValue = searchParams?.get("value") || "";
 
@@ -122,9 +123,29 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
   // Form input state
   const [mobileValue, setMobileValue] = useState("");
   const [emailValue, setEmailValue] = useState("");
+  // Email accounts that set a password (Account -> Password & Security) can
+  // use it instead of waiting for a code.
+  const [usePassword, setUsePassword] = useState(false);
+  const [passwordValue, setPasswordValue] = useState("");
   const [countryOpen, setCountryOpen] = useState(false);
   const [sending, setSending] = useState(false);
   const sendingRef = useRef(false);
+
+  // Every sign-in path installs the session in the Supabase client (not just
+  // our token copy) -- that session is what keeps the user signed in across
+  // reloads and gets refreshed in the background.
+  const establishSession = async (
+    session: { access_token: string; refresh_token: string },
+    userId: string,
+  ) => {
+    const { error } = await supabase.auth.setSession({
+      access_token: session.access_token,
+      refresh_token: session.refresh_token,
+    });
+    if (error) throw new Error("Couldn't start your session. Please try again.");
+    setStoredSession(session.access_token, session.refresh_token);
+    await signIn(userId);
+  };
 
   // OTP State
   const [otp, setOtp] = useState<string[]>(Array(6).fill(""));
@@ -305,8 +326,10 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
 
     if (activeMode === "mobile") {
       const trimmed = mobileValue.trim();
-      if (trimmed.length < 10) {
-        toast.error("Please enter a valid 10-digit mobile number");
+      // Indian mobile numbers are 10 digits starting 6-9; anything else
+      // can't receive an OTP and just burns an SMS request.
+      if (!/^[6-9]\d{9}$/.test(trimmed)) {
+        toast.error("Please enter a valid 10-digit Indian mobile number", { id: "signin-phone" });
         return;
       }
       sendingRef.current = true;
@@ -336,8 +359,32 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
       }
     } else if (activeMode === "email") {
       const trimmed = emailValue.trim();
-      if (!trimmed.includes("@")) {
-        toast.error("Please enter a valid email address");
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(trimmed)) {
+        toast.error("Please enter a valid email address", { id: "signin-email" });
+        return;
+      }
+      if (usePassword) {
+        if (!passwordValue) {
+          toast.error("Enter your password", { id: "signin-password" });
+          return;
+        }
+        sendingRef.current = true;
+        setSending(true);
+        try {
+          const data = await api.signInWithPassword(trimmed, passwordValue);
+          if (!data?.session || !data?.user?.id) throw new Error("Incorrect email or password.");
+          await establishSession(data.session, data.user.id);
+          toast.success("Signed in successfully!");
+          const hasProfile = Boolean(data.profile?.name);
+          router.push(redirect || (hasProfile ? "/" : "/onboarding?mode=email"));
+        } catch (error) {
+          toast.error(error instanceof Error ? error.message : "Incorrect email or password.", {
+            id: "signin-password",
+          });
+        } finally {
+          sendingRef.current = false;
+          setSending(false);
+        }
         return;
       }
       sendingRef.current = true;
@@ -406,8 +453,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
       const session = data?.session;
 
       if (userId && session) {
-        setStoredSession(session.access_token, session.refresh_token);
-        await signIn(userId);
+        await establishSession(session, userId);
         toast.success("Signed in successfully!");
         const next = searchParams?.get("next");
         if (next === "create-password" || next === "reset-password") {
@@ -465,7 +511,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
     if (typeof window !== "undefined" && window.location.pathname.startsWith("/signin/")) {
       router.push(`/signin/${nextMode}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`);
     } else {
-      router.push(`/signin?mode=${nextMode}${redirect ? `?redirect=${encodeURIComponent(redirect)}` : ""}`);
+      router.push(`/signin?mode=${nextMode}${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`);
     }
   };
 
@@ -508,8 +554,8 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
             </svg>
           </button>
 
-          <section className="relative grid w-full overflow-hidden rounded-[28px] sm:rounded-[35px] bg-white shadow-[0_12px_60px_rgba(0,0,0,0.38)] lg:min-h-[630px] lg:grid-cols-[1fr_495px]">
-            <div className="h-full p-2.5 sm:p-3 lg:p-3.5 lg:pr-0 lg:-mr-12">
+          <section className="relative grid w-full grid-cols-1 overflow-hidden rounded-[28px] sm:rounded-[35px] bg-white shadow-[0_12px_60px_rgba(0,0,0,0.38)] lg:min-h-[630px] lg:grid-cols-[minmax(0,1fr)_495px]">
+            <div className="h-full min-w-0 p-2.5 sm:p-3 lg:p-3.5 lg:pr-0 lg:-mr-12">
               <BrandPanel asset={asset} />
             </div>
             <div
@@ -517,7 +563,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                 background:
                   "radial-gradient(ellipse 115% 90% at 16% 12%, #D8F4FF 0%, #E9FEFF 42%, #FFFFFF 80%)",
               }}
-              className="relative z-10 flex min-h-[470px] flex-col rounded-b-[28px] shadow-[-16px_0_35px_rgba(0,0,0,0.10),-4px_0_12px_rgba(0,0,0,0.05)] px-7 pb-6 pt-9 sm:px-10 sm:pt-11 lg:min-h-[630px] lg:rounded-b-none lg:rounded-l-[32px] lg:px-9 lg:pt-[54px]"
+              className="relative z-10 flex min-h-[470px] min-w-0 flex-col rounded-b-[28px] shadow-[-16px_0_35px_rgba(0,0,0,0.10),-4px_0_12px_rgba(0,0,0,0.05)] px-5 pb-6 pt-9 min-[400px]:px-7 sm:px-10 sm:pt-11 lg:min-h-[630px] lg:rounded-b-none lg:rounded-l-[32px] lg:px-9 lg:pt-[54px]"
             >
               {/* Back button on OTP */}
               {isOtp && (
@@ -559,7 +605,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
               {isOtp ? (
                 <form onSubmit={submitOtp} className="mt-5">
                   <div
-                    className="flex gap-2 sm:gap-2.5 justify-center my-3"
+                    className="flex gap-1.5 min-[400px]:gap-2 sm:gap-2.5 justify-center my-3"
                     onPaste={handlePaste}
                   >
                     {otp.map((digit, index) => (
@@ -577,7 +623,7 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                         inputMode="numeric"
                         autoComplete={index === 0 ? "one-time-code" : "off"}
                         aria-label={`OTP digit ${index + 1}`}
-                        className={`h-[48px] w-[48px] sm:h-[56px] sm:w-[56px] rounded-full border text-center text-[22px] font-bold outline-none transition-all caret-transparent ${
+                        className={`aspect-square min-w-0 flex-1 max-w-[48px] sm:max-w-[56px] rounded-full border text-center text-[22px] font-bold outline-none transition-all caret-transparent ${
                           digit
                             ? "border-[#0396ef] bg-white text-[#004772] shadow-sm"
                             : "border-transparent bg-[#ededed] text-gray-900 focus:border-[#0396ef] focus:bg-white"
@@ -662,12 +708,71 @@ function FigmaAuthScreenContent({ mode: propMode = "mobile" }: { mode?: AuthMode
                     </div>
                   </div>
 
+                  {activeMode === "email" && usePassword && (
+                    <div className="mt-3 flex h-[53px] items-center overflow-hidden rounded-[11px] bg-[#ebebeb] px-3">
+                      <input
+                        type="password"
+                        value={passwordValue}
+                        onChange={(event) => setPasswordValue(event.target.value)}
+                        autoComplete="current-password"
+                        aria-label="Password"
+                        placeholder="Password"
+                        className="min-w-0 flex-1 bg-transparent text-[16px] text-[#3a3a3a] outline-none placeholder:text-[#999] sm:text-[18px]"
+                      />
+                    </div>
+                  )}
+                  {activeMode === "email" && (
+                    <div className="mt-2 flex items-center justify-between gap-3 text-[13px]">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUsePassword((v) => !v);
+                          setPasswordValue("");
+                        }}
+                        className="font-medium text-[#004772] hover:underline cursor-pointer"
+                      >
+                        {usePassword ? "Email me a code instead" : "Use a password instead"}
+                      </button>
+                      {usePassword && (
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            const email = emailValue.trim();
+                            if (!email.includes("@")) {
+                              toast.error("Enter your email first", { id: "signin-email" });
+                              return;
+                            }
+                            try {
+                              const normalized = normalizeEmail(email);
+                              await api.sendEmailOtp(normalized);
+                              window.localStorage.setItem(AUTH_EMAIL_KEY, normalized);
+                              router.push(
+                                `/otp?mode=email&next=reset-password${redirect ? `&redirect=${encodeURIComponent(redirect)}` : ""}`,
+                              );
+                            } catch {
+                              toast.error("We couldn't send a reset code right now. Please try again shortly.");
+                            }
+                          }}
+                          className="font-medium text-[#0396ef] hover:underline cursor-pointer"
+                        >
+                          Forgot password?
+                        </button>
+                      )}
+                    </div>
+                  )}
+
                   <button
                     type="submit"
                     disabled={sending}
                     className="mt-7 h-[57px] w-full rounded-[11px] bg-gradient-to-r from-[#004772] to-[#0086d8] text-[16px] font-semibold text-white transition hover:brightness-105 active:scale-[0.99] disabled:opacity-50 disabled:cursor-not-allowed sm:text-[18px] shadow-sm flex items-center justify-center cursor-pointer"
                   >
-                    {sending ? "Sending..." : "Send OTP"}
+                    {sending
+                      ? activeMode === "email" && usePassword
+                        ? "Signing in..."
+                        : "Sending..."
+                      : activeMode === "email" && usePassword
+                        ? "Sign in"
+                        : "Send OTP"}
                   </button>
                 </form>
               )}

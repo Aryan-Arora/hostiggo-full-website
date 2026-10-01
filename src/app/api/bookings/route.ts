@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { bookingsAPI } from "@/lib/services/bookings";
+import { createReview, ReviewNotAllowedError } from "@/lib/services/admin-writes";
 import { errorMessage } from "@/lib/api-error";
 import { getAuthenticatedUserId, UnauthorizedError } from "@/lib/auth-server";
 
@@ -81,13 +82,20 @@ export async function PATCH(req: NextRequest) {
     }
 
     if (action === "review") {
-      const data = await bookingsAPI.createReview({
-        listing_id: Number(body.listingId),
-        user_id: userId,
-        rating: Number(body.rating),
-        comment: body.comment ?? null,
-      });
-      return NextResponse.json({ data });
+      const rating = Number(body.rating);
+      if (!Number.isInteger(rating) || rating < 1 || rating > 5) {
+        return NextResponse.json({ error: "rating must be a whole number between 1 and 5" }, { status: 400 });
+      }
+      const comment = body.comment ? String(body.comment).trim().slice(0, 2000) || null : null;
+      try {
+        const data = await createReview({ listingId: Number(body.listingId), userId, rating, comment });
+        return NextResponse.json({ data });
+      } catch (e) {
+        if (e instanceof ReviewNotAllowedError) {
+          return NextResponse.json({ error: e.message }, { status: 403 });
+        }
+        throw e;
+      }
     }
 
     return NextResponse.json({ error: "Invalid action" }, { status: 400 });
@@ -99,16 +107,5 @@ export async function PATCH(req: NextRequest) {
   }
 }
 
-export async function POST(req: NextRequest) {
-  try {
-    const { bookingId, addon } = await req.json();
-    if (!bookingId || !addon) {
-      return NextResponse.json({ error: "bookingId and addon are required" }, { status: 400 });
-    }
-
-    const data = await bookingsAPI.addBookingAddon(bookingId, addon);
-    return NextResponse.json({ data });
-  } catch (err) {
-    return jsonError(err);
-  }
-}
+// Add-ons are priced and attached server-side at reserve time
+// (/api/bookings/reserve), never posted in afterwards by the client.

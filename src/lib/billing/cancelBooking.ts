@@ -1,4 +1,5 @@
 import "server-only";
+import { checkInMoment } from "./policyTimeline";
 import { supabaseAdmin } from "@/lib/supabase-admin";
 import { calculateRefund } from "./refund";
 import { createRazorpayRefund } from "./razorpay";
@@ -94,7 +95,7 @@ export async function previewCancellationRefund(params: {
 
   const { data: listing, error: listingErr } = await supabaseAdmin
     .from("listings")
-    .select("price_weekday, price_weekend, cancellation_policy, strict_partial_refund_percent")
+    .select("price_weekday, price_weekend, cancellation_policy, strict_partial_refund_percent, check_in_time")
     .eq("listing_id", booking.listing_id)
     .maybeSingle();
   if (listingErr) throw listingErr;
@@ -113,7 +114,7 @@ export async function previewCancellationRefund(params: {
   );
   const refundCalc = calculateRefund({
     invoice,
-    checkIn: new Date(booking.start_date + "T00:00:00Z"),
+    checkIn: checkInMoment(booking.start_date, listing.check_in_time),
     cancellationTime: new Date(),
     policyConfig: {
       policy,
@@ -207,7 +208,7 @@ export async function cancelBookingWithRefund(params: {
     // Fetch the listing's assigned cancellation policy + real rates.
     const { data: listing, error: listingErr } = await supabaseAdmin
       .from("listings")
-      .select("price_weekday, price_weekend, cancellation_policy, strict_partial_refund_percent")
+      .select("price_weekday, price_weekend, cancellation_policy, strict_partial_refund_percent, check_in_time")
       .eq("listing_id", booking.listing_id)
       .maybeSingle();
     if (listingErr) throw listingErr;
@@ -248,7 +249,7 @@ export async function cancelBookingWithRefund(params: {
         : Math.round(Number(booking.amount ?? 0) * 100);
     const policyRefund = calculateRefund({
       invoice: booking.invoice ?? invoice,
-      checkIn: new Date(booking.start_date + "T00:00:00Z"),
+      checkIn: checkInMoment(booking.start_date, listing.check_in_time),
       cancellationTime: new Date(),
       policyConfig,
     });
@@ -375,7 +376,7 @@ export async function cancelBookingWithRefund(params: {
           : refundStatus === "failed"
             ? " Your refund could not be processed automatically; our team will follow up."
             : "";
-      const metadata = { bookingId, listingId: booking.listing_id };
+      const metadata = { booking_id: bookingId, listing_id: booking.listing_id };
       
       const { data: guest } = await supabaseAdmin
         .from("users")
@@ -386,10 +387,12 @@ export async function cancelBookingWithRefund(params: {
       
       await notify({
         userId: booking.user_id,
-        type: "bookings",
+        type: "booking_guest",
+        category: "bookings",
+        templateId: "booking_cancelled_guest",
         title: cancelledByHost ? "Booking cancelled by host" : "Booking cancelled",
         message: `Booking #${bookingId} was cancelled.${refundText}`,
-        metadata,
+        metadata: { ...metadata, role: "guest" },
       });
       
       const hostUser = await hostUserId(booking.host_uuid);
@@ -403,10 +406,12 @@ export async function cancelBookingWithRefund(params: {
         
         await notify({
           userId: hostUser,
-          type: "bookings",
+          type: "booking_host",
+          category: "bookings",
+          templateId: "booking_cancelled_host",
           title: "Booking cancelled",
           message: `Booking #${bookingId} was cancelled${cancelledByHost ? " by you" : " by the guest"}.`,
-          metadata,
+          metadata: { ...metadata, role: "host" },
         });
       }
     } catch (notifyErr) {

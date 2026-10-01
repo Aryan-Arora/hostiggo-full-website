@@ -29,6 +29,10 @@ declare global {
 
 let loadPromise: Promise<void> | null = null;
 
+/** The checkout script couldn't be loaded (blocked or offline) -- distinct
+ * from the guest simply closing the payment window. */
+export class RazorpayUnavailableError extends Error {}
+
 export function loadRazorpayCheckout(): Promise<void> {
   if (typeof window === 'undefined') {
     return Promise.reject(new Error('loadRazorpayCheckout can only run in the browser'));
@@ -45,7 +49,7 @@ export function loadRazorpayCheckout(): Promise<void> {
     script.onload = () => resolve();
     script.onerror = () => {
       loadPromise = null;
-      reject(new Error('Failed to load Razorpay Checkout'));
+      reject(new RazorpayUnavailableError('Failed to load Razorpay Checkout'));
     };
     document.head.appendChild(script);
   });
@@ -60,6 +64,7 @@ export async function openRazorpayCheckout(
   options: Omit<RazorpayCheckoutOptions, 'handler' | 'modal'>,
 ): Promise<{ razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }> {
   await loadRazorpayCheckout();
+  if (!window.Razorpay) throw new RazorpayUnavailableError('Razorpay Checkout unavailable');
   return new Promise((resolve, reject) => {
     const razorpay = new window.Razorpay!({
       ...options,

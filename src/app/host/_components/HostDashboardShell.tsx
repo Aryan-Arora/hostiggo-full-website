@@ -2,6 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import Image from 'next/image';
 import {
   CalendarCheck,
@@ -22,6 +23,7 @@ import {
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
+import { useNotifications } from '@/context/NotificationContext';
 import KycStatusBanner from '@/components/features/KycStatusBanner';
 
 import { MessageCircle } from 'lucide-react';
@@ -131,10 +133,10 @@ export default function HostDashboardShell({
 }) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const { user, signOut } = useAuth();
+  const { unreadCount } = useNotifications();
   const handleLogout = () => signOut();
   // Must match the placeholder used across host/settings and the
   // host profile API so an unset photo looks the same everywhere.
-  const avatar = user?.profile_pic_url || 'https://i.pravatar.cc/100?img=45';
 
   return (
     <div className="min-h-screen bg-[#f0f2f5] text-gray-800 lg:pl-64">
@@ -200,10 +202,15 @@ export default function HostDashboardShell({
           </Link>
           <Link
             href="/notifications"
-            aria-label="Notifications"
-            className="p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all"
+            aria-label={unreadCount ? `Notifications, ${unreadCount} unread` : "Notifications"}
+            className="relative p-2 text-gray-500 hover:bg-gray-100 rounded-full transition-all"
           >
             <Bell className="w-5 h-5" />
+            {unreadCount > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 min-w-[18px] h-[18px] px-1 rounded-full bg-red-500 text-white text-[10px] font-semibold leading-[18px] text-center">
+                {unreadCount > 9 ? "9+" : unreadCount}
+              </span>
+            )}
           </Link>
           <button
             aria-label="Help"
@@ -216,13 +223,7 @@ export default function HostDashboardShell({
             aria-label="Host account"
             className="w-8 h-8 rounded-full overflow-hidden ml-1 border border-gray-200"
           >
-            <Image
-              width={32}
-              height={32}
-              src={avatar}
-              alt={user?.name || 'Host profile'}
-              className="w-full h-full object-cover"
-            />
+            <UserAvatar src={user?.profile_pic_url} name={user?.name || 'Host'} size={32} className="h-full w-full" />
           </Link>
         </div>
       </header>

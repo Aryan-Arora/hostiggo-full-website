@@ -24,6 +24,7 @@ import {
 import { cn } from '@/lib/utils';
 import { useAuth } from '@/context/AuthContext';
 import { supabase } from '@/lib/supabase';
+import { toast } from 'sonner';
 
 type ChatRole = 'guest' | 'host' | 'support';
 type FilterKey = 'all' | 'primary' | 'support' | 'archived';
@@ -513,6 +514,10 @@ function ConversationPanel({
     } catch (error) {
       console.error('Failed to send message:', error);
       setMessages((prev) => prev.filter((msg) => msg.id !== optimisticMessage.id));
+      // Give the text back so nothing typed is lost, and say why it failed
+      // (e.g. contact details blocked by chat moderation).
+      setDraft(messageText);
+      toast.error(error instanceof Error ? error.message : 'Message not sent. Please try again.');
     } finally {
       setSending(false);
     }

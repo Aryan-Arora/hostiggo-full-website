@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef, Suspense } from 'react';
 import Image from 'next/image';
+import { UserAvatar } from '@/components/ui/user-avatar';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { api, getStoredAccessToken } from '@/lib/api';
@@ -10,7 +11,6 @@ import { toast } from 'sonner';
 import { Camera, Loader2 } from 'lucide-react';
 const authBg = '/auth-bg.jpg';
 
-const DEFAULT_AVATAR = 'https://i.pravatar.cc/200?img=45';
 
 function OnboardingContent() {
   const router = useRouter();
@@ -64,14 +64,18 @@ function OnboardingContent() {
     );
   }
 
-  const needsEmail = mode === 'phone';
-  const needsPhone = mode === 'email';
+  const needsEmail = mode === 'phone' || mode === 'mobile';
+  const needsPhone = mode === 'email' || mode === 'google';
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const trimmed = name.trim();
       if (!trimmed) return;
     if (needsEmail && !email.includes('@')) return;
+    if (needsPhone && !phone.trim()) {
+      toast.error('Phone number is required');
+      return;
+    }
     if (!age.trim()) return;
 
     setSaving(true);
@@ -142,13 +146,11 @@ function OnboardingContent() {
         <form onSubmit={handleSubmit}>
           <div className="flex flex-col items-center mb-6">
             <div className="relative w-24 h-24">
-              <Image
-                fill
-                src={photoUrl || DEFAULT_AVATAR}
-                alt="Profile"
-                sizes="96px"
-                loading="eager"
-                className="rounded-full object-cover border-4 border-figma-navy/10 shadow-lg"
+              <UserAvatar
+                src={photoUrl}
+                name={name || 'You'}
+                size={96}
+                className="border-4 border-figma-navy/10 shadow-lg"
               />
               <input
                 ref={fileInputRef}
@@ -205,13 +207,15 @@ function OnboardingContent() {
           {needsPhone && (
             <div className="mb-4">
               <label className="text-sm font-medium text-gray-700 mb-1.5 block">
-                Phone number <span className="text-gray-400 font-normal">(optional)</span>
+                Phone number <span className="text-red-500">*</span>
               </label>
+              <p className="text-xs text-gray-500 mb-2">Required for booking confirmations via WhatsApp</p>
               <input
                 type="tel"
                 placeholder="Enter your phone number"
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
+                required
                 className="w-full px-4 py-3 text-[14px] text-gray-800 rounded-xl border border-gray-200 outline-none focus:border-figma-navy focus:ring-2 focus:ring-figma-navy/10 placeholder:text-gray-400"
               />
             </div>
@@ -245,7 +249,7 @@ function OnboardingContent() {
 
           <button
             type="submit"
-            disabled={saving || !name.trim() || (needsEmail && !email.includes('@'))}
+            disabled={saving || !name.trim() || (needsEmail && !email.includes('@')) || (needsPhone && !phone.trim()) || !age.trim()}
             className="w-full py-3.5 bg-[#004772] hover:bg-[#003a5c] active:scale-[0.98] text-white font-semibold rounded-xl transition-all text-[15px] shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {saving ? 'Saving...' : 'Get Started'}
