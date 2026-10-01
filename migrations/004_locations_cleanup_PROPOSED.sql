@@ -8,35 +8,30 @@
 
 SET search_path TO hostiggo_testing_schema;
 
--- 1. Unused junk rows. Preview first. These are import/host-flow leftovers:
---    'Assam | New Delhi', 'Goa | Delhi' (wrong state), a Faridabad row whose
---    locality is a Saket street address, duplicate Saket / Park Royal /
---    Dwarka rows, and the unused 'Gurgaon' row (search already maps Gurgaon ->
---    Gurugram, see src/lib/destinationAliases.ts).
+-- 1. Delete the three wrong locations rows. No listing uses any of them
+--    (checked 2026-10-01), and each is wrong or redundant:
+--      12  Haryana | Gurgaon   old name of Gurugram; the 31 stays are on row 69.
+--                              Search already maps Gurgaon -> Gurugram.
+--      36  Assam    | New Delhi  wrong state.
+--      56  Goa      | Delhi      wrong state.
+--    Other unused Delhi/Dwarka/Saket rows were looked at and deliberately left
+--    alone: they are harmless (the dropdown merges duplicates) and may be real
+--    saved addresses.
+--
+--    Preview first -- expect exactly these 3 rows:
 SELECT location_id, state, district, lower_division_name
 FROM locations l
-WHERE NOT EXISTS (SELECT 1 FROM listings x WHERE x.location_id = l.location_id)
-  AND (
-        (state = 'Assam'  AND district = 'New Delhi')
-     OR (state = 'Goa'    AND district = 'Delhi')
-     OR (state = 'Haryana' AND district = 'Gurgaon')
-     OR (state = 'Delhi'  AND district ILIKE 'new delhi')
-     OR (state = 'Delhi'  AND district = 'Delhi' AND location_id <> 6)
-     OR (district = 'Faridabad' AND lower_division_name ILIKE '%New Delhi%')
-  )
+WHERE location_id IN (12, 36, 56)
+  AND NOT EXISTS (SELECT 1 FROM listings x WHERE x.location_id = l.location_id)
 ORDER BY location_id;
 
--- Then, if the preview is what you expect (other tables with a foreign key to
--- locations.location_id will make this fail rather than orphan anything):
+-- Then delete inside a transaction. A foreign key from another table makes it
+-- error out (nothing is removed) rather than orphan anything:
 -- BEGIN;
 -- DELETE FROM locations l
--- WHERE NOT EXISTS (SELECT 1 FROM listings x WHERE x.location_id = l.location_id)
---   AND ( (state = 'Assam' AND district = 'New Delhi')
---      OR (state = 'Goa' AND district = 'Delhi')
---      OR (state = 'Haryana' AND district = 'Gurgaon')
---      OR (state = 'Delhi' AND district ILIKE 'new delhi')
---      OR (state = 'Delhi' AND district = 'Delhi' AND location_id <> 6)
---      OR (district = 'Faridabad' AND lower_division_name ILIKE '%New Delhi%') );
+-- WHERE location_id IN (12, 36, 56)
+--   AND NOT EXISTS (SELECT 1 FROM listings x WHERE x.location_id = l.location_id)
+-- RETURNING location_id, state, district;   -- expect 3 rows
 -- COMMIT;   -- or ROLLBACK;
 
 -- 2. Listing 322 ("Peaceful retreat in a quiet neighbourhood") is active but has
