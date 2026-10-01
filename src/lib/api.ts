@@ -129,7 +129,9 @@ const guessAmenityIcon = (name: string): string =>
 
 // Capacity is the sum over the listing's listing_bedrooms rows (guests, beds,
 // bathrooms; bedrooms = row count). Listings without those rows (older ones,
-// and search RPC rows that don't embed them) fall back to listings.num_*.
+// and search RPC rows that don't embed them) fall back to listings.num_* for
+// guests/beds/bathrooms, but bedrooms is left undefined (and so not shown)
+// because listing_bedrooms is the only source for the bedroom count.
 const buildCapacity = (row: any) => {
   const rooms = Array.isArray(row?.listing_bedrooms) ? row.listing_bedrooms : [];
   if (rooms.length > 0) {
@@ -145,7 +147,7 @@ const buildCapacity = (row: any) => {
   return {
     guests: num(row?.num_guests ?? row?.max_guests ?? row?.nom_guests ?? row?.total_guests),
     beds: num(row?.num_beds),
-    bedrooms: num(row?.num_bedrooms),
+    bedrooms: undefined,
     bathrooms: num(row?.num_bathrooms),
   };
 };
