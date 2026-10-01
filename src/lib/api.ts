@@ -81,35 +81,51 @@ const mediaUrls = (row: any): string[] => {
   return [...new Set([cover, ...urls].filter(Boolean))];
 };
 
-const amenityNames = (row: any): string[] => {
-  const direct = row?.amenity_names;
-  if (Array.isArray(direct)) return direct.filter(Boolean);
-
+// The listing's own amenities as joined from listing_amenities -> amenities
+// (name + the DB's icon key). Empty when the row wasn't fetched with that join.
+const joinedAmenities = (row: any): { name: string; icon?: string }[] => {
   const joined = row?.listing_amenities;
   if (!Array.isArray(joined)) return [];
 
   return joined
-    .map((item: any) => item?.amenities?.name || item?.amenity?.name || item?.name)
-    .filter(Boolean);
+    .map((item: any) => {
+      const amenity = item?.amenities ?? item?.amenity ?? item;
+      return { name: amenity?.name, icon: amenity?.icon || undefined };
+    })
+    .filter((item: { name?: string }) => Boolean(item.name));
+};
+
+const amenityNames = (row: any): string[] => {
+  const direct = row?.amenity_names;
+  if (Array.isArray(direct)) return direct.filter(Boolean);
+
+  return joinedAmenities(row).map((item) => item.name);
 };
 
 const boolFromAmenity = (amenities: string[], needle: string) =>
   amenities.some((item) => item.toLowerCase().includes(needle));
 
-const buildAmenityDetails = (amenities: string[]): AmenityItem[] =>
-  amenities.map((name) => ({
+// Prefers the icon stored on the amenities row; only falls back to guessing
+// from the name for rows that carry just names (e.g. search RPC results).
+const buildAmenityDetails = (row: any, amenities: string[]): AmenityItem[] => {
+  const dbIcons = new Map(joinedAmenities(row).map((item) => [item.name, item.icon]));
+  return amenities.map((name) => ({
     name,
-    icon: boolFromAmenity([name], "wifi")
-      ? "wifi"
-      : boolFromAmenity([name], "parking")
-        ? "car"
-        : boolFromAmenity([name], "kitchen")
-          ? "utensils"
-          : boolFromAmenity([name], "air")
-            ? "zap"
-            : "mountain",
+    icon: dbIcons.get(name) ?? guessAmenityIcon(name),
     available: true,
   }));
+};
+
+const guessAmenityIcon = (name: string): string =>
+  boolFromAmenity([name], "wifi")
+    ? "wifi"
+    : boolFromAmenity([name], "parking")
+      ? "car"
+      : boolFromAmenity([name], "kitchen")
+        ? "utensils"
+        : boolFromAmenity([name], "air")
+          ? "zap"
+          : "check";
 
 const buildReviews = (row: any): Review[] => {
   const reviews = row?.review ?? row?.reviews ?? [];
@@ -166,7 +182,7 @@ export function mapListingToProperty(input: any): Property {
     rating,
     reviewCount: reviews.length > 0 ? reviews.length : Number(row.review_count ?? 0),
     amenities,
-    amenityDetails: buildAmenityDetails(amenities),
+    amenityDetails: buildAmenityDetails(row, amenities),
     propertyType: row.property_type ?? row.propertyType ?? "Homestay",
     images: images.length > 0 ? images : [FALLBACK_IMAGE],
     maxGuests: Number(row.max_guests ?? row.nom_guests ?? row.total_guests ?? 2),
