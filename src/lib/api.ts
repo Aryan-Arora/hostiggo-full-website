@@ -664,6 +664,9 @@ export const api = {
       endDate?: string | null;
       totalGuests?: number;
       amenities?: number[];
+      // The state of a place picked from the dropdown, so e.g. "Delhi" in Goa
+      // and "Delhi" in Delhi aren't confused. Left out for typed text.
+      state?: string;
       sort?: string;
     },
   ) => {
@@ -675,11 +678,12 @@ export const api = {
       filters: {
         startDate: extra?.startDate ?? null,
         endDate: extra?.endDate ?? null,
-        // `destination` is always city/district-level free text (the search
-        // box and map search both only ever collect a place name like
-        // "Bhopal", never an Indian state) -- sending it as `state` makes
-        // the RPC's exact state-column match fail and search silently
-        // returns zero results. `district` is what actually matches.
+        // `destination` is city/district-level free text (the search box and
+        // map search collect a place name like "Bhopal"). It is sent as
+        // `district`; the server maps it onto the state/district names the
+        // locations table really uses (see resolveSearchScopes). `state` is
+        // only sent when the user picked a specific place from the dropdown.
+        state: extra?.state?.trim() || undefined,
         district: destination?.trim() || undefined,
         minPrice: filters.priceMin > 0 ? filters.priceMin : undefined,
         maxPrice: filters.priceMax < 100000 ? filters.priceMax : undefined,
