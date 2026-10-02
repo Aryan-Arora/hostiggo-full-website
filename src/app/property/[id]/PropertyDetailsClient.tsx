@@ -19,8 +19,11 @@ import { openRazorpayCheckout } from '@/lib/services/razorpayCheckout';
 import WishlistPicker from '@/components/features/WishlistPicker';
 import {
   AlertTriangle,
+  ArrowUpDown,
   Award,
+  Bath,
   BedDouble,
+  BriefcaseMedical,
   CalendarDays,
   Car,
   CheckCircle,
@@ -30,17 +33,30 @@ import {
   Clock,
   Coffee,
   Droplets,
+  DoorOpen,
+  Dumbbell,
   ExternalLink,
+  Flame,
+  Gamepad2,
   Grid3x3,
   Heart,
   MapPin,
   MessageSquare,
+  Microwave,
   Mountain,
+  ParkingCircle,
+  PawPrint,
   Share2,
   Shield,
+  ShieldAlert,
+  Snowflake,
   Star,
+  Trees,
+  Tv,
   Users,
   UtensilsCrossed,
+  Waves,
+  WashingMachine,
   Wifi,
   Wind,
   X,
@@ -94,8 +110,30 @@ async function shareProperty(url: string, title?: string) {
 const BOOKING_DISABLED = !BOOKINGS_OPEN;
 
 // ── Amenity Icon Map ─────────────────────────────────────────────────
+// Keys are the `icon` values stored on the `amenities` table (plus a few
+// legacy keys used by the name-based fallback in mapListingToProperty).
 const AMENITY_ICON_MAP: Record<string, React.ReactNode> = {
   wifi: <Wifi className="w-5 h-5" />,
+  "ac-unit": <Snowflake className="w-5 h-5" />,
+  "local-fire-department": <Flame className="w-5 h-5" />,
+  kitchen: <UtensilsCrossed className="w-5 h-5" />,
+  "local-laundry-service": <WashingMachine className="w-5 h-5" />,
+  "local-parking": <ParkingCircle className="w-5 h-5" />,
+  tv: <Tv className="w-5 h-5" />,
+  microwave: <Microwave className="w-5 h-5" />,
+  pool: <Waves className="w-5 h-5" />,
+  "fitness-center": <Dumbbell className="w-5 h-5" />,
+  hot_tub: <Bath className="w-5 h-5" />,
+  balcony: <DoorOpen className="w-5 h-5" />,
+  elevator: <ArrowUpDown className="w-5 h-5" />,
+  "smoke-detector": <ShieldAlert className="w-5 h-5" />,
+  "medical-services": <BriefcaseMedical className="w-5 h-5" />,
+  pets: <PawPrint className="w-5 h-5" />,
+  shield: <Shield className="w-5 h-5" />,
+  outdoor_grill: <Flame className="w-5 h-5" />,
+  yard: <Trees className="w-5 h-5" />,
+  "sports-esports": <Gamepad2 className="w-5 h-5" />,
+  // legacy keys
   car: <Car className="w-5 h-5" />,
   coffee: <Coffee className="w-5 h-5" />,
   zap: <Zap className="w-5 h-5" />,
@@ -1916,7 +1954,7 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
   const images = property.images.length > 0 ? property.images : [FALLBACK];
   const amenities =
     property.amenityDetails ??
-    property.amenities.map((a) => ({ name: a, icon: "wifi", available: true }));
+    property.amenities.map((a) => ({ name: a, icon: "check", available: true }));
   const visibleAmenities = showAllAmenities ? amenities : amenities.slice(0, 8);
   const reviews = property.reviews ?? [];
   const previewReviews = reviews.slice(0, 3);
@@ -2110,12 +2148,14 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
               <div className="flex flex-col text-type-poppins-regular-15-128-03 text-gray-600 gap-1">
                 <span className="flex items-center gap-1.5">
                   <Users className="w-4 h-4 text-gray-400" />{" "}
-                  {property.maxGuests} Guests
+                  {property.maxGuests} {property.maxGuests === 1 ? "Guest" : "Guests"}
                 </span>
-                <span className="flex items-center gap-1.5">
-                  <BedDouble className="w-4 h-4 text-gray-400" />{" "}
-                  {property.bedType || "1 Bedroom"}
-                </span>
+                {property.bedrooms != null && property.bedrooms > 0 && (
+                  <span className="flex items-center gap-1.5">
+                    <BedDouble className="w-4 h-4 text-gray-400" />{" "}
+                    {property.bedrooms} {property.bedrooms === 1 ? "Bedroom" : "Bedrooms"}
+                  </span>
+                )}
               </div>
             </div>
           </div>
