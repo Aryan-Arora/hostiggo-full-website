@@ -586,11 +586,12 @@ export const api = {
     }),
   // Alternatives to PAN for identity (KYC) only -- payouts still need a
   // verified PAN. See src/app/api/verify/aadhaar and /passport.
-  verifyAadhaar: (payload: { file: File; yob: string; fullName: string }) => {
+  verifyAadhaar: (payload: { file: File; yob: string; fullName: string; password: string }) => {
     const form = new FormData();
     form.append("file", payload.file);
     form.append("yob", payload.yob);
     form.append("fullName", payload.fullName);
+    form.append("password", payload.password);
     return request<{ status: "verified" | "rejected" | "pending"; reason: string | null }>(
       `/api/verify/aadhaar`,
       { method: "POST", body: form },
