@@ -5,7 +5,6 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Download,
   LayoutGrid,
-  List,
   ChevronLeft,
   ChevronRight,
   ChevronDown,
@@ -473,9 +472,6 @@ export default function CalendarPage() {
               <div className="flex bg-gray-100 rounded-lg p-1">
                 <button className="p-2 bg-white shadow-sm rounded-md text-figma-navy" aria-label="Grid view">
                   <LayoutGrid className="w-5 h-5" />
-                </button>
-                <button disabled title="Coming soon" className={cn('p-2 text-gray-400', disabledBtn)} aria-label="List view">
-                  <List className="w-5 h-5" />
                 </button>
               </div>
               <div className="flex items-center border border-gray-200 rounded-lg">

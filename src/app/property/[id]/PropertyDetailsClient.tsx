@@ -6,6 +6,7 @@ import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
 import { api, ApiError, mapListingToProperty } from "@/lib/api";
+import { track } from "@/lib/analytics";
 import { calculateBookingInvoice } from "@/lib/billing/invoice";
 import { CANCELLATION_POLICY_DEFAULTS } from "@/lib/billing/refund";
 import { loadGoogleMaps } from "@/lib/services/googleMaps";
@@ -753,14 +754,6 @@ function HostCard({ host }: { host: Host }) {
           <MessageSquare className="w-4 h-4" />
           Message Host
         </button>
-        <button
-          disabled
-          title="Coming soon"
-          className="flex-1 flex items-center justify-center gap-1.5 bg-gray-200 text-gray-400 py-2.5 rounded-xl text-[13px] font-bold cursor-not-allowed"
-        >
-          <ExternalLink className="w-4 h-4" />
-          View Profile
-        </button>
       </div>
     </div>
   );
@@ -1123,6 +1116,12 @@ function BookingWidget({
         return;
       }
 
+      track("begin_checkout", {
+        item_id: property.id,
+        value: order.amountRupees,
+        currency: "INR",
+      });
+
       // Step 2: guest actually pays via the Razorpay Checkout widget.
       let payment;
       try {
@@ -1191,6 +1190,12 @@ function BookingWidget({
         return;
       }
       setStatus('confirmed');
+      track("purchase", {
+        transaction_id: created.booking_id,
+        item_id: property.id,
+        value: order.amountRupees,
+        currency: "INR",
+      });
       toast.success('Booking confirmed!');
       router.push(`/booking-confirmation/${created.booking_id}`);
     } catch (err) {
@@ -1823,6 +1828,10 @@ export default function PropertyDetailsPage({ initialRow }: { initialRow?: any }
   );
   const [loading, setLoading] = useState(!initialRow);
   const [loadFailed, setLoadFailed] = useState(false);
+  const viewedId = property?.id;
+  useEffect(() => {
+    if (viewedId) track("view_item", { item_id: viewedId });
+  }, [viewedId]);
   const [reloadKey, setReloadKey] = useState(0);
   const { isAuthenticated, userId, user } = useAuth();
   const { isSaved } = useWishlist(userId);

@@ -271,13 +271,12 @@ function DetailsInner() {
                   )}
                 </div>
                 <div className="flex flex-wrap gap-3 mt-6">
-                  <button
-                    disabled
-                    title="Messaging coming soon"
-                    className="flex items-center gap-2 px-5 py-2.5 bg-figma-navy/60 text-white rounded-xl font-bold cursor-not-allowed"
+                  <Link
+                    href="/host/chat"
+                    className="flex items-center gap-2 px-5 py-2.5 bg-figma-navy text-white rounded-xl font-bold hover:bg-figma-navy/90"
                   >
                     <MessageSquare className="w-5 h-5" /> Contact Guest
-                  </button>
+                  </Link>
                 </div>
               </div>
             </div>
