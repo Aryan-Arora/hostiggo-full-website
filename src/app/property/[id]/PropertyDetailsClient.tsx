@@ -5,7 +5,7 @@ import Footer from "@/components/layout/Footer";
 import Navbar from "@/components/layout/Navbar";
 import { useAuth } from "@/context/AuthContext";
 import { useWishlist } from "@/hooks/useWishlist";
-import { api, mapListingToProperty } from "@/lib/api";
+import { api, ApiError, mapListingToProperty } from "@/lib/api";
 import { calculateBookingInvoice } from "@/lib/billing/invoice";
 import { CANCELLATION_POLICY_DEFAULTS } from "@/lib/billing/refund";
 import { loadGoogleMaps } from "@/lib/services/googleMaps";
@@ -1132,6 +1132,13 @@ function BookingWidget({
         try {
           created = await api.confirmBookingPayment(confirmPayload);
         } catch (confirmErr) {
+          // The dates went to someone else while this guest was paying and the
+          // payment has been refunded: final, not worth retrying or "don't pay again".
+          if (confirmErr instanceof ApiError && confirmErr.code === 'PAYMENT_REFUNDED') {
+            toast.error(confirmErr.message, { duration: 15000 });
+            setStatus('idle');
+            return;
+          }
           console.error('[property] confirm-payment attempt failed:', confirmErr);
           if (attempt < 2) await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
         }
@@ -1150,6 +1157,12 @@ function BookingWidget({
       router.push(`/booking-confirmation/${created.booking_id}`);
     } catch (err) {
       console.error("[property] booking failed:", err);
+      if (err instanceof ApiError && err.code === "GUEST_ID_REQUIRED") {
+        toast.error(err.message);
+        router.push("/account/verification");
+        setStatus("available");
+        return;
+      }
       toast.error(
         err instanceof Error ? err.message : "Could not complete the booking.",
       );

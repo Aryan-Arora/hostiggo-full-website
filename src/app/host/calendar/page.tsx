@@ -1,5 +1,6 @@
 'use client';
 
+import { formatINR } from '@/lib/format';
 import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import {
   Download,
@@ -46,7 +47,7 @@ type DayInfo = {
 const pad = (n: number) => String(n).padStart(2, '0');
 const toDateStr = (y: number, m: number, d: number) => `${y}-${pad(m + 1)}-${pad(d)}`;
 const inr = (n: number, currency: string) =>
-  currency === 'INR' || !currency ? `₹${Math.round(n).toLocaleString('en-IN')}` : `${currency} ${n}`;
+  currency === 'INR' || !currency ? formatINR(n) : `${currency} ${n}`;
 
 const STATUS_META: Record<DayStatus, { label: string; dot: string; cell: string; text: string }> = {
   available: { label: 'Available', dot: 'bg-green-500', cell: 'hover:bg-gray-50', text: 'text-green-600' },
