@@ -2,6 +2,7 @@ import { formatINR, REFUND_ARRIVAL_NOTE } from '@/lib/format';
 import { supabaseAdmin } from "../supabase-admin";
 import { todayInIndia } from "@/lib/booking-config";
 import { SCHEMA } from "../schema.constants";
+import { canonicalPlaceName } from "../destinationAliases";
 import { calculateBookingInvoice } from "../billing/invoice";
 import { getHostPayoutReadiness } from "./hostPayoutReadiness";
 
@@ -1223,6 +1224,8 @@ export async function resolveLocationId(
   postalCode?: string | null,
 ): Promise<number | null> {
   if (!state?.trim() || !city?.trim()) return null;
+  // File old city names under their current one ("Gurgaon" -> "Gurugram").
+  city = canonicalPlaceName(city);
   const wanted = locationKey(state, city);
 
   const { data: rows, error } = await supabaseAdmin
@@ -1242,8 +1245,8 @@ export async function resolveLocationId(
     .from("locations")
     .insert({
       state: state.trim(),
-      district: city.trim(),
-      lower_division_name: city.trim(),
+      district: city,
+      lower_division_name: city,
       lower_division_type: "city",
       pincode,
     })
